@@ -2,7 +2,7 @@
 // The Library's list: a cursor listbox of rich rows. A row has its tick box, the poster, the title and year, a line
 // saying why the Title is in its state (toned by it), a chip per Slot and the size on disk.
 import { Entity } from '@hyprsh/design'
-import type { ReactNode, RefObject } from 'react'
+import { useEffect, useState, type ReactNode, type RefObject } from 'react'
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import { SkeletonRow } from '../loading'
@@ -14,6 +14,24 @@ import { rowChips } from './rowChips'
 import { SlotChips } from './SlotChip'
 import { MonitorMark } from './MonitorToggle'
 import { TickBox } from './TickBox'
+
+/** How many rows the first render draws, and how many more each idle slot adds. */
+const FIRST_ROWS = 40
+const MORE_ROWS = 60
+
+/**
+ * How many of `total` rows to draw: the first screens at once, the rest in slices while the browser is idle, so a Library of
+ * hundreds of Titles shows its first rows (and answers a tap) before the last is built. `need` keeps the cursor's row drawn.
+ */
+function useRowsDrawn(total: number, need: number): number {
+  const [drawn, setDrawn] = useState(FIRST_ROWS)
+  useEffect(() => {
+    if (drawn >= total) return
+    const slot = typeof requestIdleCallback === 'function' ? requestIdleCallback(() => setDrawn((n) => n + MORE_ROWS), { timeout: 300 }) : window.setTimeout(() => setDrawn((n) => n + MORE_ROWS), 50)
+    return () => (typeof requestIdleCallback === 'function' ? cancelIdleCallback(slot) : clearTimeout(slot))
+  }, [drawn, total])
+  return Math.min(total, Math.max(drawn, need + 1))
+}
 
 export function TitleRows({
   rows,
@@ -58,6 +76,7 @@ export function TitleRows({
   /** Opens the Title at one of its Slots (a chip's popover and the "+N" list go there). */
   onOpenSlot?: (row: TitleRow, slot: string) => void
 }) {
+  const drawn = useRowsDrawn(rows.length, index)
   return (
     // The floating bar of ticked Titles covers the foot of the list: room for it at the end.
     <div ref={listRef} className={`min-h-0 flex-1 overflow-auto p-1.5 ${selection.count > 0 ? 'pb-20' : ''}`}>
@@ -78,7 +97,7 @@ export function TitleRows({
       >
         {loading && Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} index={i} poster={phone ? 'md' : 'sm'} />)}
         {lead}
-        {rows.map((r, i) => {
+        {rows.slice(0, drawn).map((r, i) => {
           const g = grabs.get(r.id) ?? []
           const line = stateLine(r, g, now)
           const monitored = isMonitoredRow(r)
