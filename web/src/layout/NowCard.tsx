@@ -18,7 +18,7 @@ export function NowCard({ label, count, aside, footer, children }: { label: stri
       </div>
       {children}
       {footer && (
-        <div className="border-t border-gray-alpha-200 px-4 py-2">
+        <div className="mt-auto border-t border-gray-alpha-200 px-4 py-2">
           <Pill onClick={footer.onOpen}>{footer.label}</Pill>
         </div>
       )}

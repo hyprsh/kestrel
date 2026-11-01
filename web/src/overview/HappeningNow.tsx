@@ -160,7 +160,7 @@ export function HappeningNow({
         </Section>
       )}
       {/* Two equal cards side by side; below 720px of width they stack. */}
-      <div className="grid grid-cols-1 items-start gap-4 @[720px]:grid-cols-2">
+      <div className="grid grid-cols-1 items-stretch gap-4 @[720px]:grid-cols-2">
         <DownloadingCard
           items={items}
           all={downloads}
