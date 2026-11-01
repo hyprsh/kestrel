@@ -6,7 +6,8 @@ import type { EntryStatus } from './state'
 
 export type StatusKind = EntryStatus['kind']
 
-const state = (kind: StatusKind, long: boolean): SlotDotState => ({ searching: 'unreleased', downloading: 'downloading', imported: 'filled', missing: long ? 'long_missing' : 'wanted', unmonitored: 'unmonitored' })[kind] as SlotDotState
+const state = (kind: StatusKind, long: boolean): SlotDotState =>
+  ({ searching: 'unreleased', downloading: 'downloading', imported: 'filled', missing: long ? 'long_missing' : 'wanted', unmonitored: 'unmonitored' })[kind] as SlotDotState
 
 const text = (kind: StatusKind, long: boolean) =>
   ({ searching: 'text-gray-900', downloading: 'text-blue-900', imported: 'text-green-900', missing: long ? 'text-red-900' : 'text-amber-900', unmonitored: 'text-gray-900' })[kind]

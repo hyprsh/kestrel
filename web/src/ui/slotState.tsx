@@ -17,7 +17,8 @@ const dots: Record<SlotDotState | 'none', string> = {
 }
 
 /** The state a Version is drawn in: Long Missing is a Wanted one that has been so for long. */
-export const dotState = (state: string | null, longMissing = false): SlotDotState | null => (state === null ? null : state === 'wanted' && longMissing ? 'long_missing' : state in dots ? (state as SlotDotState) : 'unmonitored')
+export const dotState = (state: string | null, longMissing = false): SlotDotState | null =>
+  state === null ? null : state === 'wanted' && longMissing ? 'long_missing' : state in dots ? (state as SlotDotState) : 'unmonitored'
 
 /** The words of each state, as the legend and a tooltip say them. */
 export const stateName: Record<SlotDotState, string> = {
@@ -32,7 +33,13 @@ export const stateName: Record<SlotDotState, string> = {
 
 /** The dot of a state (null: no Version). `className` replaces the size, `size-2`. */
 export function StateDot({ state, className = 'size-2' }: { state: string | null; className?: string }) {
-  return <span aria-hidden data-state={state ?? 'none'} className={`inline-block shrink-0 rounded-full ${dots[state && state in dots ? (state as SlotDotState) : state ? 'unmonitored' : 'none']} ${className}`} />
+  return (
+    <span
+      aria-hidden
+      data-state={state ?? 'none'}
+      className={`inline-block shrink-0 rounded-full ${dots[state && state in dots ? (state as SlotDotState) : state ? 'unmonitored' : 'none']} ${className}`}
+    />
+  )
 }
 
 const legendOrder: SlotDotState[] = ['filled', 'downloading', 'wanted', 'long_missing', 'unreleased', 'upgrade', 'unmonitored']

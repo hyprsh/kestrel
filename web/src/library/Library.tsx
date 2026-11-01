@@ -83,7 +83,14 @@ export function Library({
 
   const all = useMemo(() => titles.data ?? [], [titles.data])
   const slots = useMemo(() => slotsPresent(all), [all])
-  const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` })), slots.length > 0 ? slots : undefined), [profiles, slots])
+  const qualifiers = useMemo(
+    () =>
+      libraryQualifiers(
+        (profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` })),
+        slots.length > 0 ? slots : undefined,
+      ),
+    [profiles, slots],
+  )
   const grabs = useMemo(() => grabsByTitle(queue), [queue])
   const grabbing = useMemo(() => new Set(grabs.keys()), [grabs])
   const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])

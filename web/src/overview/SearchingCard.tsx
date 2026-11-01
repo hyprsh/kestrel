@@ -129,17 +129,17 @@ function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; n
       lead={<TitlePoster id={item.titleId} hasPoster={item.hasPoster} size="xs" />}
       right={
         <span className="flex items-center gap-2">
-        <SlotTag slot={item.slot} state="wanted" longMissing={item.longMissing} />
-        <Button
-          svgOnly
-          variant="tertiary"
-          size="small"
-          aria-label={`Search ${label}`}
-          disabled={search.isPending}
-          onClick={() => void report(search.mutateAsync({ versionId: item.versionId }), { started: `Search started for ${item.title}`, failed: `Could not search ${item.title}` })}
-        >
-          <Icon name="search" />
-        </Button>
+          <SlotTag slot={item.slot} state="wanted" longMissing={item.longMissing} />
+          <Button
+            svgOnly
+            variant="tertiary"
+            size="small"
+            aria-label={`Search ${label}`}
+            disabled={search.isPending}
+            onClick={() => void report(search.mutateAsync({ versionId: item.versionId }), { started: `Search started for ${item.title}`, failed: `Could not search ${item.title}` })}
+          >
+            <Icon name="search" />
+          </Button>
         </span>
       }
     >

@@ -7,7 +7,8 @@ import { useState } from 'react'
 import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { useDeleteFiles, type DeletedFiles } from '../api/versions'
-import { size, slotLabel } from './bits'
+import { size } from './bits'
+import { slotName } from './slots'
 import { useReport, type Report } from '../toasts'
 import { episodeCode, type EpisodeVersion } from './episodes'
 
@@ -200,7 +201,7 @@ export function DeleteMenuItems({
     const has = deletes.has(v, episodes)
     return (
       <Menu.Item key={`delete-${v.slot}`} disabled={!has} description={has ? undefined : 'No file to delete'} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
-        {versions.length > 1 ? `Delete ${slotLabel[v.slot]} ${text}…` : `Delete ${text}…`}
+        {versions.length > 1 ? `Delete ${slotName(v.slot)} ${text}…` : `Delete ${text}…`}
       </Menu.Item>
     )
   })

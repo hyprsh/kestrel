@@ -65,7 +65,15 @@ function SlotChip({ chip, tabIndex }: { chip: ChipData; tabIndex?: number }) {
 /** "+N": a button whose popover lists the folded Slots, a line each (dot, name, Profile, count or state). */
 function More({ rest }: { rest: ChipData[] }) {
   const trigger = (
-    <Button variant="tertiary" size="tiny" shape="rounded" title={rest.map((c) => c.tip).join('\n')} aria-label={`${rest.length} more Slots`} data-more="" className="label-12 shrink-0 bg-gray-100 whitespace-nowrap">
+    <Button
+      variant="tertiary"
+      size="tiny"
+      shape="rounded"
+      title={rest.map((c) => c.tip).join('\n')}
+      aria-label={`${rest.length} more Slots`}
+      data-more=""
+      className="label-12 shrink-0 bg-gray-100 whitespace-nowrap"
+    >
       +{rest.length}
     </Button>
   )

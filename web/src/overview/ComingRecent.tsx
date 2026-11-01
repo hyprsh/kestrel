@@ -56,7 +56,14 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
   const coming = useUpcoming(6)
   const queue = useQueue().data ?? []
   const all = coming.data ?? []
-  const items = firstThree(all).map((item) => ({ key: upcomingKey(item), titleId: item.title_id, hasPoster: item.has_poster, name: item.title, line: comingLine(item), right: <SlotChips chips={entryChips(item, queue)} max={3} label={`${item.title} Slots`} /> }))
+  const items = firstThree(all).map((item) => ({
+    key: upcomingKey(item),
+    titleId: item.title_id,
+    hasPoster: item.has_poster,
+    name: item.title,
+    line: comingLine(item),
+    right: <SlotChips chips={entryChips(item, queue)} max={3} label={`${item.title} Slots`} />,
+  }))
   return (
     <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined} action={all.length > 0 ? <HeadingLink path="/upcoming" label="Upcoming" /> : undefined}>
       {coming.isPending ? (
