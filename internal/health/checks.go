@@ -162,15 +162,17 @@ func (s *Service) ObserveDownloadClient(ctx context.Context, ref Ref, f *Failure
 	s.mu.Lock()
 	w := &s.watches.downloadClient
 	if f == nil {
+		rec := Recovery{Attempts: w.attempts}
 		*w = watch{}
 		s.mu.Unlock()
 		// The row is stored and the watch is not: after a restart there is a row and no watch.
-		s.logErr(s.Clear(ctx, keyDownloadClient))
+		s.logErr(s.ClearRecovered(ctx, keyDownloadClient, rec))
 		return
 	}
 	if w.since.IsZero() {
 		w.since = s.clock()
 	}
+	w.attempts = noted(w.attempts, s.clock())
 	w.auth, w.message = f.Auth, f.Message
 	msg := failureMessage(ref.Name, f, "rejected Kestrel's credentials", "is unreachable")
 	raise := s.clock().Sub(w.since) >= downloadClientGrace && w.raised != msg
@@ -238,10 +240,14 @@ func (s *Service) ObserveIndexer(ctx context.Context, ref Ref, f *Failure) {
 	ws := s.watches.indexers
 	w, had := ws[ref.ID]
 	if f == nil {
+		var rec Recovery
+		if had {
+			rec.Attempts = w.attempts
+		}
 		delete(ws, ref.ID)
 		s.mu.Unlock()
 		// The row is stored and the watch is not: after a restart there is a row and no watch.
-		s.logErr(s.Clear(ctx, indexerKey(ref.ID)))
+		s.logErr(s.ClearRecovered(ctx, indexerKey(ref.ID), rec))
 		s.logErr(s.evaluateNoIndexer(ctx))
 		return
 	}
@@ -249,6 +255,7 @@ func (s *Service) ObserveIndexer(ctx context.Context, ref Ref, f *Failure) {
 		w = &indexerWatch{since: s.clock()}
 		ws[ref.ID] = w
 	}
+	w.attempts = noted(w.attempts, s.clock())
 	w.auth, w.message = f.Auth, f.Message
 	msg := failureMessage(ref.Name, f, "rejected its credentials", "keeps failing")
 	raise := (f.Auth || s.clock().Sub(w.since) >= indexerGrace) && w.raised != msg
@@ -677,13 +684,16 @@ type watch struct {
 	auth    bool
 	message string
 	raised  string // the message of the row raised for this streak, "" if none
+	// attempts are the failed calls of this streak.
+	attempts []time.Time
 }
 
 type indexerWatch struct {
-	since   time.Time
-	auth    bool
-	message string
-	raised  string
+	since    time.Time
+	auth     bool
+	message  string
+	raised   string
+	attempts []time.Time
 }
 
 type mediaServerWatch struct {

@@ -136,9 +136,10 @@ type Service struct {
 	log   *slog.Logger
 	deps  ChecksDeps
 
-	mu      sync.Mutex // guards the watches, the checks and the clock sample
+	mu      sync.Mutex // guards the watches, the checks, heldUp and the clock sample
 	watches watches
 	checks  []namedCheck
+	heldUp  HeldUp
 	// clockSample is the last clock comparison; nil before the first (see ObserveClock).
 	clockSample *ClockSample
 }
@@ -201,8 +202,44 @@ func eventData(is Issue) json.RawMessage {
 	return b
 }
 
+// HeldUp counts what an outage held up, for the "cleared" event of a connection row: the Grabs that were waiting
+// (waited) and the ones lost (lost) since the outage began. instanceID is the failing plugin instance.
+type HeldUp func(ctx context.Context, kind Kind, instanceID int64, since time.Time) (waited, lost int, err error)
+
+// WithHeldUp sets how a recovered connection's Grabs are counted; without it the event says nothing of them.
+func (s *Service) WithHeldUp(f HeldUp) *Service {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.heldUp = f
+	return s
+}
+
+// Recovery is what a failing connection did before it came back: when Kestrel tried it and failed.
+type Recovery struct {
+	// Attempts are the failed tries, oldest first.
+	Attempts []time.Time
+}
+
+// attemptsKept caps the failed tries a watch remembers.
+const attemptsKept = 20
+
+// noted appends the time of a failed try, keeping the newest attemptsKept.
+func noted(attempts []time.Time, at time.Time) []time.Time {
+	attempts = append(attempts, at)
+	if len(attempts) > attemptsKept {
+		attempts = attempts[len(attempts)-attemptsKept:]
+	}
+	return attempts
+}
+
 // Clear removes the row of this Key. Clearing a row that is not there is fine.
 func (s *Service) Clear(ctx context.Context, key string) error {
+	return s.ClearRecovered(ctx, key, Recovery{})
+}
+
+// ClearRecovered is Clear for a connection that came back: its "cleared" event also carries the failed tries, when
+// the connection came back and, for a download client or an indexer, which Grabs the outage held up.
+func (s *Service) ClearRecovered(ctx context.Context, key string, rec Recovery) error {
 	row, err := db.New(s.st.Read()).GetIssueByKey(ctx, key)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
@@ -216,9 +253,35 @@ func (s *Service) Clear(ctx context.Context, key string) error {
 	}
 	s.hist.Record(ctx, history.Event{
 		Kind: history.HealthCleared, Message: "Cleared: " + row.Message,
-		Data: eventData(Issue{Key: row.Key, Kind: Kind(row.Kind), Severity: Severity(row.Severity)}),
+		Data: s.clearedData(ctx, row, rec),
 	})
 	return nil
+}
+
+// clearedData is the "cleared" event's payload: the row's identity, and for a recovered connection the failed tries
+// (`attempts`), the time it came back (`recovered_at`) and the Grabs it held up (`waited`, `lost`).
+func (s *Service) clearedData(ctx context.Context, row db.HealthIssue, rec Recovery) json.RawMessage {
+	data := map[string]any{"key": row.Key, "kind": row.Kind, "severity": row.Severity}
+	if len(rec.Attempts) > 0 {
+		times := make([]string, len(rec.Attempts))
+		for i, t := range rec.Attempts {
+			times[i] = stamp(t)
+		}
+		data["attempts"], data["recovered_at"] = times, stamp(s.clock())
+		s.mu.Lock()
+		held := s.heldUp
+		s.mu.Unlock()
+		kind := Kind(row.Kind)
+		if held != nil && (kind == KindDownloadClient || kind == KindIndexer) {
+			var sub Subject
+			_ = json.Unmarshal([]byte(row.Subject), &sub)
+			if waited, lost, err := held(ctx, kind, sub.PluginInstanceID, rec.Attempts[0]); err == nil {
+				data["waited"], data["lost"] = waited, lost
+			}
+		}
+	}
+	b, _ := json.Marshal(data)
+	return b
 }
 
 // ClearExcept clears every row of a kind whose key is not in keep: the way a
