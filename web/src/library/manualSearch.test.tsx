@@ -9,6 +9,7 @@ import { fakeLibrary, row } from '../test/library'
 import { serveDisplay } from '../test/serveDisplay'
 import { server } from '../test/server'
 import { chooseSearchItem } from '../test/titleHeader'
+import { releaseList } from '../test/grabs'
 
 type Release = components['schemas']['Release']
 
@@ -54,7 +55,7 @@ function fakeSearch(items: Release[], opts: { grabStatus?: number; hold?: Promis
   server.use(
     http.post('/versions/{id}/releases', ({ response }) => {
       state.searches++
-      return response(200).json({ items: state.items, indexer_errors: [] })
+      return response(200).json(releaseList({ items: state.items }))
     }),
     http.post('/grabs', async ({ request, response }) => {
       const body = await request.clone().json()
@@ -256,7 +257,7 @@ describe('manual search', () => {
     server.use(
       http.post('/versions/{id}/releases', async ({ response }) => {
         await gate
-        return response(200).json({ items: releases(), indexer_errors: [] })
+        return response(200).json(releaseList({ items: releases() }))
       }),
     )
     renderApp()
@@ -277,7 +278,7 @@ describe('manual search', () => {
     fakeSearch([])
     server.use(
       http.post('/versions/{id}/releases', ({ response }) =>
-        response(200).json({ items: [], indexer_errors: [{ indexer_id: 1, indexer: 'Alpha', code: 'rate_limited', message: 'Request limit reached', retry_after: 90 }] }),
+        response(200).json(releaseList({ indexer_errors: [{ indexer_id: 1, indexer: 'Alpha', code: 'rate_limited', message: 'Request limit reached', retry_after: 90 }] })),
       ),
     )
     await openManualSearch()
