@@ -301,3 +301,30 @@ func TestTheListCountsASeriesWantedEpisodesOnceWithTheirSeasons(t *testing.T) {
 		t.Errorf("WantedEpisodes 100 days on = %+v, want 3 Long Missing", w)
 	}
 }
+
+func TestAnEpisodeAGrabInFlightCoversIsDownloadingInItsCell(t *testing.T) {
+	ctx := context.Background()
+	lib, st := newLibrary(t)
+	id := addShow(t, lib, library.MonitorAll)
+	d, _ := lib.Get(ctx, id, library.View{Country: "US", Now: now})
+	ver := d.Versions[0].ID
+	eps, _ := lib.Episodes(ctx, id, library.View{Country: "US", Now: now})
+
+	res, err := st.Write().ExecContext(ctx, `INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,parsed,verdict,
+		client_instance_id,client_id,state,created_at,updated_at) VALUES (?,?,'g','r',1,'i',1,'t',1,'{}','{}',1,'nzo','downloading','t','t')`, id, ver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grab, _ := res.LastInsertId()
+	if _, err := st.Write().ExecContext(ctx, `INSERT INTO grab_episodes(grab_id,episode_id) VALUES (?,?)`, grab, eps[1].ID); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := lib.Episodes(ctx, id, library.View{Country: "US", Now: now})
+	if s := got[1].Cells[slot.Standard].State; s != library.Downloading {
+		t.Errorf("the covered episode is %v, want downloading", s)
+	}
+	if s := got[2].Cells[slot.Standard].State; s != library.Wanted {
+		t.Errorf("an episode no Grab covers is %v, want wanted", s)
+	}
+}

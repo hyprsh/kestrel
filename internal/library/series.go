@@ -348,6 +348,14 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		return nil, err
 	}
 	released := releasedOf(eps, filed, airClockOf(t))
+	gs, err := q.ListGrabbingEpisodesOfTitle(ctx, sql.NullInt64{Int64: titleID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	grabbing := map[[2]int64]bool{} // Version, then episode
+	for _, g := range gs {
+		grabbing[[2]int64{g.VersionID.Int64, g.EpisodeID}] = true
+	}
 	all, err := q.ListAllFileEpisodesOfTitle(ctx, titleID)
 	if err != nil {
 		return nil, err
@@ -386,6 +394,9 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		for _, v := range versions {
 			score, has := heldBy[v.ID][e.ID]
 			st, _ := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.Released, AddedAt: parseTime(v.AddedAt)}, view.Now)
+			if st == Wanted && grabbing[[2]int64{v.ID, e.ID}] {
+				st = Downloading // a Grab in flight is filling it
+			}
 			f := fileOf[[2]int64{v.ID, e.ID}]
 			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: f != nil, File: f}
 		}
