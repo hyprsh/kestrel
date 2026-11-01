@@ -315,8 +315,16 @@ func (a *auth) slide(ctx context.Context, id string) (db.LiveSessionRow, bool) {
 	if err != nil {
 		return row, false
 	}
+	// Sliding the expiry is a write, and a write per request would also tell every cache of the database that something
+	// changed: it moves only once the stored expiry has fallen an hour behind.
+	if row.ExpiresAt >= now.Add(sessionLife-slideEvery).Unix() {
+		return row, true
+	}
 	return row, a.write.SlideSession(ctx, db.SlideSessionParams{ID: id, ExpiresAt: now.Add(sessionLife).Unix()}) == nil
 }
+
+// slideEvery is the least a session's expiry is moved by.
+const slideEvery = time.Hour
 
 // plexPublic are the routes of Plex sign-in, which need no session.
 var plexPublic = map[string]bool{"GET /auth/plex": true, "POST /auth/plex/pin": true, "POST /auth/plex/login": true}
