@@ -91,16 +91,18 @@ describe('the live stream', () => {
     expect(b.getQueryData(['queue'])).toEqual([{ grab_id: 9 }])
   })
 
-  it('does not refetch what a tab just loaded when it opens the stream at start-up', async () => {
+  it('at start-up refetches what resolved before the stream opened and spares what resolved after', async () => {
     const deps = fakeBrowser()
     const a = tab()
-    a.setQueryData(['titles'], [1])
+    a.setQueryData(['titles'], [1], { updatedAt: Date.now() - 1000 }) // resolved before the connection: a change may have been missed
+    a.setQueryData(['queue'], [], { updatedAt: Date.now() + 60_000 }) // resolved after it
     startLiveStream(a, deps)
     await flush()
     open()[0].onopen?.()
 
     expect(open()).toHaveLength(1)
-    expect(a.getQueryState(['titles'])?.isInvalidated).toBe(false)
+    expect(a.getQueryState(['titles'])?.isInvalidated).toBe(true)
+    expect(a.getQueryState(['queue'])?.isInvalidated).toBe(false)
   })
 
   it('hands the stream to the other tab when the leader closes, and has everyone refetch', async () => {
