@@ -65,6 +65,13 @@ func TestASearchThatFindsNothingFitCountsTheRejectionReasons(t *testing.T) {
 	if counted[acquire.RejectOtherSlot] != 1 || len(ls.Reasons) < 2 {
 		t.Errorf("reasons = %+v, want the 2160p counted as other_slot and the German one with its own reason", ls.Reasons)
 	}
+	german := false
+	for _, rc := range ls.Reasons {
+		german = german || (rc.Code == scoring.RejectLanguage && rc.Detail == "German" && rc.Count == 1)
+	}
+	if !german {
+		t.Errorf("reasons = %+v, want the German release counted as a language rejection of German", ls.Reasons)
+	}
 	if ls.Reasons[0].Count < ls.Reasons[len(ls.Reasons)-1].Count {
 		t.Errorf("reasons = %+v, want the most common first", ls.Reasons)
 	}

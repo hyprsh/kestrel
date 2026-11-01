@@ -25,7 +25,7 @@ func (s *server) withSearches(ctx context.Context, d *oapi.TitleDetail) error {
 		if ls, ok := last[v.Id]; ok {
 			out := oapi.LastSearch{At: ls.At, Releases: ls.Releases, Outcome: oapi.LastSearchOutcome(ls.Outcome), Upgrade: ls.Upgrade, Reasons: make([]oapi.RejectionCount, len(ls.Reasons))}
 			for j, r := range ls.Reasons {
-				out.Reasons[j] = oapi.RejectionCount{Code: oapi.RejectionCode(r.Code), Count: r.Count}
+				out.Reasons[j] = oapi.RejectionCount{Code: oapi.RejectionCode(r.Code), Count: r.Count, Detail: strPtr(r.Detail)}
 			}
 			v.LastSearch = &out
 		}

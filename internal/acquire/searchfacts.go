@@ -28,8 +28,10 @@ const (
 
 // ReasonCount is how many of the Releases a search returned one rejection code applied to.
 type ReasonCount struct {
-	Code  scoring.Rejection `json:"code"`
-	Count int               `json:"count"`
+	Code scoring.Rejection `json:"code"`
+	// Detail narrows a language rejection to the one language those Releases are in ("German"); empty otherwise.
+	Detail string `json:"detail,omitempty"`
+	Count  int    `json:"count"`
 }
 
 // LastSearch is what the last search of a Version found. Only searches that asked the indexers leave one: a
@@ -119,23 +121,32 @@ func (s *Service) endOf(ctx context.Context, out Outcome, versionID int64, err e
 	return SearchNothingFit
 }
 
-// reasonCounts counts, per rejection code, the Releases the Version in slot rejects; the most common come first.
+// reasonCounts counts, per rejection code, the Releases the Version in slot rejects; the most common come first. A
+// language rejection is counted per language when a Release has exactly one ("23 German only").
 func reasonCounts(entries []*entry, slot Slot) []ReasonCount {
-	counts := map[scoring.Rejection]int{}
+	type key struct {
+		code   scoring.Rejection
+		detail string
+	}
+	counts := map[key]int{}
 	for _, e := range entries {
 		for _, code := range reasonsFor(e, slot) {
-			counts[code]++
+			k := key{code: code}
+			if langs := e.cand.Verdicts[slot].Languages; code == scoring.RejectLanguage && len(langs) == 1 {
+				k.detail = langs[0].Name
+			}
+			counts[k]++
 		}
 	}
 	out := make([]ReasonCount, 0, len(counts))
-	for code, n := range counts {
-		out = append(out, ReasonCount{Code: code, Count: n})
+	for k, n := range counts {
+		out = append(out, ReasonCount{Code: k.code, Detail: k.detail, Count: n})
 	}
 	slices.SortFunc(out, func(a, b ReasonCount) int {
 		if a.Count != b.Count {
 			return b.Count - a.Count
 		}
-		return cmpString(string(a.Code), string(b.Code))
+		return cmpString(string(a.Code)+"\x00"+a.Detail, string(b.Code)+"\x00"+b.Detail)
 	})
 	return out
 }
