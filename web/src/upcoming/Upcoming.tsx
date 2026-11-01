@@ -2,25 +2,28 @@
 // the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
 // or Imported. j/k and Enter move and open (a group opens or closes), and
 // `t` goes back to today.
-import { Button, EmptyState, Entity, LoadMoreButton, Note } from '@hyprsh/design'
+import { Button, DotsMenu, EmptyState, Entity, LoadMoreButton, MenuItem, MenuSection, Note } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useReport } from '../toasts'
 import { useQueue, type QueueItem } from '../api/queue'
-import { dayString, useTimeline, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
+import { dayString, localDay, useTimeline, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
 import { FilterBar } from '../filter/FilterBar'
+import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
-import { ScreenBar } from '../layout/ScreenBar'
+import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import { usePhone } from '../responsive'
 import { stackedRow, stackedRight } from '../layout/RowList'
 import { useNow } from '../time'
 import { cx } from '../ui'
 import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
 import { upcomingFilter, upcomingQualifiers } from './filter'
 import { useSeededQuery } from './filters'
-import { airTime, buildDays, dayLabel, episodeRange, navRows, relativeDay, tally, undatedKey, upcomingKey, weekOf, type Block, type Day } from './state'
+import { airTime, buildDays, daysAway, episodeRange, headingDate, inView, navRows, tally, undatedKey, upcomingKey, views, weekOf, type Block, type Day, type ViewKey } from './state'
+import { gridDays, MonthCalendar, monthOf } from './MonthCalendar'
 import { AgendaTimeline, DayHeading, RowDot, TimelineSkeleton, WeekLabel } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
@@ -49,8 +52,30 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const report = useReport()
   const today = dayString()
 
-  const items = useMemo(() => (timeline.data?.items ?? []).filter(passes), [timeline.data, passes])
-  const undated = useMemo(() => (timeline.data?.undated ?? []).filter(passes), [timeline.data, passes])
+  const phone = usePhone()
+  // A view narrows the agenda to a range or a state; none chosen shows the whole window.
+  const [view, setView] = useState<ViewKey | null>(null)
+  const matching = useMemo(() => (timeline.data?.items ?? []).filter(passes), [timeline.data, passes])
+  const counts = useMemo(() => Object.fromEntries(views.map((v) => [v.key, matching.filter((i) => inView(v.key, today, i)).length])) as Record<ViewKey, number>, [matching, today])
+  const items = useMemo(() => (view ? matching.filter((i) => inView(view, today, i)) : matching), [matching, view, today])
+  const undated = useMemo(() => (view ? [] : (timeline.data?.undated ?? []).filter(passes)), [timeline.data, passes, view])
+  const chooseView = (v: ViewKey) => setView((now) => (now === v ? null : v))
+
+  // The calendar shows a month; the window grows to cover it. A day is underlined when an entry falls on it.
+  const [month, setMonth] = useState(() => monthOf(today))
+  const releases = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of matching) m.set(localDay(i), (m.get(localDay(i)) ?? 0) + 1)
+    return m
+  }, [matching])
+  // Moving to another month widens the window to the weeks it shows, so its days can be underlined.
+  const showMonth = (next: string) => {
+    const grid = gridDays(next)
+    const apart = (day: string) => Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86_400_000)
+    setBack((b) => Math.max(b, apart(grid[0])))
+    setAhead((a) => Math.max(a, -apart(grid[grid.length - 1])))
+    setMonth(next)
+  }
   const days = useMemo(() => withToday(buildDays(items), today), [items, today])
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const rows = useMemo(() => navRows(days, undated, open), [days, undated, open])
@@ -102,6 +127,17 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     scrollToToday('smooth')
   }
   useKey('t', jumpToday)
+  // A day of the calendar scrolls the agenda to that day, or to the next day with entries when nothing is due on it.
+  const goToDay = (day: string) => {
+    const target = days.find((d) => d.day >= day)
+    const box = scrollRef.current
+    const heading = target && box?.querySelector(`[data-day="${target.day}"]`)
+    if (!target || !box || !heading) return
+    const top = box.scrollTop + heading.getBoundingClientRect().top - box.getBoundingClientRect().top
+    box.scrollTo?.({ top: Math.max(0, top), behavior: 'smooth' })
+    const row = rows.find((r) => r.day === target.day)
+    if (row) setSelKey(row.key)
+  }
   useKey('/', (e) => {
     e.preventDefault()
     document.getElementById('upcoming-filter')?.focus()
@@ -115,116 +151,152 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const empty = timeline.data && items.length === 0 && undated.length === 0
   let lastWeek = ''
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ScreenBar
+    <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
+      <SidePanel
+        title="Upcoming"
+        actions={
+          <DotsMenu aria-label="Upcoming actions" width={240}>
+            <MenuItem onSelect={jumpToday} description="Scroll the agenda to today (t)">
+              Jump to today
+            </MenuItem>
+          </DotsMenu>
+        }
         filter={
           <FilterBar id="upcoming-filter" label="Filter Upcoming" placeholder="Filter titles, e.g. kind:series  /" value={query} onChange={onQuery} qualifiers={upcomingQualifiers} menus={false} />
         }
-        controls={<FacetFilterButton query={query} onQuery={onQuery} qualifiers={upcomingQualifiers} />}
-        aside={
-          <Button variant="tertiary" size="small" onClick={jumpToday} title="Jump to today (t)">
-            Today
-          </Button>
+        controls={
+          <FacetFilterButton
+            query={query}
+            onQuery={onQuery}
+            qualifiers={upcomingQualifiers}
+            // A phone's panel shows no Views, so they are the first section of its Filter menu.
+            lead={
+              phone ? (
+                <MenuSection title="Views">
+                  {views.map((v) => (
+                    <MenuItem key={v.key} role="radio" checked={view === v.key} onSelect={() => chooseView(v.key)} suffix={<span className="tabular-nums text-gray-900">{counts[v.key]}</span>}>
+                      {v.label}
+                    </MenuItem>
+                  ))}
+                </MenuSection>
+              ) : undefined
+            }
+            leadActive={phone && view ? 1 : 0}
+          />
+        }
+        chips={<FilterChips chips={filterChips(query, onQuery, upcomingQualifiers)} />}
+        views={
+          <>
+            <SidePanelViews>
+              {views.map((v) => (
+                <SidePanelView key={v.key} current={view === v.key} count={counts[v.key]} onSelect={() => chooseView(v.key)}>
+                  {v.label}
+                </SidePanelView>
+              ))}
+            </SidePanelViews>
+            <MonthCalendar month={month} today={today} releases={releases} onMonth={showMonth} onPick={goToDay} />
+          </>
         }
       />
-
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto max-w-3xl px-3 pb-8 sm:px-4">
-          {timeline.isError && <Note variant="error">Upcoming could not be loaded.</Note>}
-          {timeline.data && (
-            <LoadMoreButton noGap variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setBack((b) => b + MORE_BACK)} className="mt-2">
-              Show earlier
-            </LoadMoreButton>
-          )}
-          {empty && (
-            <div className="my-4">
-              {query.trim() === '' ? (
-                <EmptyState description="Nothing is due in this window." />
-              ) : (
-                <EmptyState description="Nothing matches the filter.">
-                  <Button variant="secondary" size="small" onClick={() => onQuery('')}>
-                    Show everything
-                  </Button>
-                </EmptyState>
-              )}
-            </div>
-          )}
-          {timeline.isPending && <TimelineSkeleton />}
-          {!timeline.isPending && (
-            <AgendaTimeline>
-              {days.map((d) => {
-                const week = weekOf(today, d.day)
-                const header = week !== lastWeek
-                lastWeek = week
-                return (
-                  <DayBlock
-                    key={d.day}
-                    day={d}
-                    today={today}
-                    week={header ? week : null}
-                    headingRef={d.day === anchorDay ? anchorRef : undefined}
-                    rowFor={(b) => (
-                      <BlockRows
-                        key={b.key}
-                        block={b}
-                        queue={queue}
-                        now={now}
-                        today={today}
-                        sel={sel}
-                        indexOf={indexOf}
-                        open={open}
-                        onSelect={(i) => {
-                          select(i)
-                          openRow(i)
-                        }}
-                        onToggleOpen={(k) => setOpen((o) => toggle(o, k))}
-                        onSearch={onSearch}
-                      />
-                    )}
-                  />
-                )
-              })}
-            </AgendaTimeline>
-          )}
-          {timeline.data && (
-            <LoadMoreButton variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setAhead((a) => a + MORE_AHEAD)}>
-              Show later
-            </LoadMoreButton>
-          )}
-
-          {undated.length > 0 && (
-            <section aria-labelledby="no-date-yet" className="mt-8">
-              <h2 id="no-date-yet" className="heading-14 mb-2">
-                {`No date yet · ${undated.length}`}
-              </h2>
-              <UndatedList>
-                {undated.map((u) => {
-                  const i = indexOf.get(undatedKey(u)) ?? 0
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+          <div className="px-3 pb-8 sm:px-8">
+            {timeline.isError && <Note variant="error">Upcoming could not be loaded.</Note>}
+            {timeline.data && (
+              <LoadMoreButton noGap variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setBack((b) => b + MORE_BACK)} className="mt-2">
+                Show earlier
+              </LoadMoreButton>
+            )}
+            {empty && (
+              <div className="my-4">
+                {query.trim() === '' ? (
+                  <EmptyState description="Nothing is due in this window." />
+                ) : (
+                  <EmptyState description="Nothing matches the filter.">
+                    <Button variant="secondary" size="small" onClick={() => onQuery('')}>
+                      Show everything
+                    </Button>
+                  </EmptyState>
+                )}
+              </div>
+            )}
+            {timeline.isPending && <TimelineSkeleton />}
+            {!timeline.isPending && (
+              <AgendaTimeline>
+                {days.map((d) => {
+                  const week = weekOf(today, d.day)
+                  const header = week !== lastWeek
+                  lastWeek = week
                   return (
-                    <UndatedRow
-                      key={undatedKey(u)}
-                      index={i}
-                      sel={sel}
-                      onSelect={() => (select(i), openRow(i))}
-                      left={<TitlePoster id={u.title_id} hasPoster={u.has_poster} size="sm" />}
-                      right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
-                    >
-                      <Entity.Content
-                        fill
-                        title={
-                          <>
-                            {u.title}
-                            {u.year ? <span className="font-normal text-gray-900"> {u.year}</span> : null}
-                          </>
-                        }
-                        description={`${u.network ? `${u.network} · ` : ''}${reasonText[u.reason](u)}`}
-                      />
-                    </UndatedRow>
+                    <DayBlock
+                      key={d.day}
+                      day={d}
+                      today={today}
+                      week={header ? week : null}
+                      headingRef={d.day === anchorDay ? anchorRef : undefined}
+                      rowFor={(b) => (
+                        <BlockRows
+                          key={b.key}
+                          block={b}
+                          queue={queue}
+                          now={now}
+                          today={today}
+                          sel={sel}
+                          indexOf={indexOf}
+                          open={open}
+                          onSelect={(i) => {
+                            select(i)
+                            openRow(i)
+                          }}
+                          onToggleOpen={(k) => setOpen((o) => toggle(o, k))}
+                          onSearch={onSearch}
+                        />
+                      )}
+                    />
                   )
                 })}
-              </UndatedList>
-            </section>
-          )}
+              </AgendaTimeline>
+            )}
+            {timeline.data && (
+              <LoadMoreButton variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setAhead((a) => a + MORE_AHEAD)}>
+                Show later
+              </LoadMoreButton>
+            )}
+
+            {undated.length > 0 && (
+              <section aria-labelledby="no-date-yet" className="mt-8">
+                <h2 id="no-date-yet" className="heading-14 mb-2">
+                  {`No date yet · ${undated.length}`}
+                </h2>
+                <UndatedList>
+                  {undated.map((u) => {
+                    const i = indexOf.get(undatedKey(u)) ?? 0
+                    return (
+                      <UndatedRow
+                        key={undatedKey(u)}
+                        index={i}
+                        sel={sel}
+                        onSelect={() => (select(i), openRow(i))}
+                        left={<TitlePoster id={u.title_id} hasPoster={u.has_poster} size="sm" />}
+                        right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
+                      >
+                        <Entity.Content
+                          fill
+                          title={
+                            <>
+                              {u.title}
+                              {u.year ? <span className="font-normal text-gray-900"> {u.year}</span> : null}
+                            </>
+                          }
+                          description={`${u.network ? `${u.network} · ` : ''}${reasonText[u.reason](u)}`}
+                        />
+                      </UndatedRow>
+                    )
+                  })}
+                </UndatedList>
+              </section>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -253,18 +325,17 @@ function DayBlock({
   rowFor: (b: Block) => React.ReactNode
 }) {
   const isToday = day.day === today
-  const label = relativeDay(today, day.day)
-  const date = dayLabel(day.day)
+  const date = headingDate(day.day)
   return (
     <>
       {week && <WeekLabel week={week} />}
-      <li className="relative">
-        <DayHeading headingRef={headingRef} label={label} date={date} isToday={isToday} />
+      <li className="relative" data-day={day.day}>
+        <DayHeading headingRef={headingRef} date={date} away={daysAway(today, day.day)} isToday={isToday} />
         {day.blocks.length === 0 ? (
           <p className="label-12 pb-2 pl-9 text-gray-900">Nothing else is due today.</p>
         ) : (
           <div className="pr-3 pb-2 pl-9">
-            <Entity.List aria-label={label} className="@container overflow-visible">
+            <Entity.List aria-label={date} className="@container overflow-visible">
               {day.blocks.map((b) => rowFor(b))}
             </Entity.List>
           </div>

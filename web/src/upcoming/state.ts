@@ -51,20 +51,10 @@ const dayNumber = (day: string) => Math.round(Date.parse(`${day}T00:00:00Z`) / 8
 /** Days from `today` to `day`: negative for the past. */
 const daysFrom = (today: string, day: string) => dayNumber(day) - dayNumber(today)
 
-const weekday = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { weekday: 'long', timeZone: 'UTC' })
 const dated = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 
 /** "Sat 18 Oct" for a YYYY-MM-DD day. */
 export const dayLabel = dated
-
-/** Yesterday, Today, Tomorrow, the weekday within the week either side, then the date. */
-export function relativeDay(today: string, day: string): string {
-  const d = daysFrom(today, day)
-  if (d === 0) return 'Today'
-  if (d === 1) return 'Tomorrow'
-  if (d === -1) return 'Yesterday'
-  return Math.abs(d) <= 6 ? weekday(day) : dated(day)
-}
 
 /** The week a day falls in, against today's: what the separators between days are called. */
 export function weekOf(today: string, day: string): 'Earlier' | 'Last week' | 'This week' | 'Next week' | 'Later' {
@@ -152,4 +142,46 @@ export function tally(items: UpcomingItem[], queue: readonly QueueItem[]): Tally
     }
   }
   return [...out.values()]
+}
+
+/** "Mon, Nov 2": the heading of a day on the agenda. */
+export const headingDate = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+
+/** How far a day is from today, in words under its heading: today, tomorrow, in 3 days, yesterday, 3 days ago. */
+export function daysAway(today: string, day: string): string {
+  const d = daysFrom(today, day)
+  if (d === 0) return 'today'
+  if (d === 1) return 'tomorrow'
+  if (d === -1) return 'yesterday'
+  return d > 0 ? `in ${d} days` : `${-d} days ago`
+}
+
+/** The day `n` days after (or before, when negative) a YYYY-MM-DD day. */
+const addDays = (day: string, n: number) => new Date((dayNumber(day) + n) * 86_400_000).toISOString().slice(0, 10)
+
+/** The days of Upcoming's Views: ranges and one state of the entries around today. */
+export const views = [
+  { key: 'next30', label: 'Next 30 days' },
+  { key: 'week', label: 'This week' },
+  { key: 'wanted', label: 'Wanted when out' },
+  { key: 'recent', label: 'Recently out' },
+] as const
+export type ViewKey = (typeof views)[number]['key']
+
+/**
+ * Whether an entry on `day` belongs to a view. Next 30 days and This week (through Sunday) run from today; Wanted when
+ * out is an entry still to come with a Version that waits for its release; Recently out is what came out in the last 14 days.
+ */
+export function inView(view: ViewKey, today: string, item: UpcomingItem): boolean {
+  const day = localDay(item)
+  switch (view) {
+    case 'next30':
+      return day >= today && day <= addDays(today, 30)
+    case 'week':
+      return day >= today && day <= addDays(today, 6 - ((dayNumber(today) + 3) % 7))
+    case 'wanted':
+      return day >= today && item.slots.some((s) => s.state === 'not_out')
+    case 'recent':
+      return day < today ? day >= addDays(today, -14) : day === today
+  }
 }

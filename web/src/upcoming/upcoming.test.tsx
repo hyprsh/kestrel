@@ -145,7 +145,7 @@ describe('Upcoming timeline', () => {
 
     expect(asked.at(-1)).toBe(`${day(-14)}..${day(60)}`)
     expect(daysBetween(asked.at(-1)!)).toBe(74)
-    const today = screen.getByRole('heading', { name: /^Today/ })
+    const today = screen.getByRole('heading', { name: /today$/ })
     expect(today).toHaveAttribute('aria-current', 'date') // nothing is due today and the marker is still there
     const before = within(timeline()).getByText('Past Show')
     const after = within(timeline()).getByText('Paddington')
@@ -160,9 +160,9 @@ describe('Upcoming timeline', () => {
     const headings = within(timeline())
       .getAllByRole('heading', { level: 3 })
       .map((h) => h.textContent)
-    expect(headings[0]).toMatch(/^Yesterday/)
-    expect(headings[1]).toMatch(/^Today/)
-    expect(headings[2]).toMatch(/^Tomorrow/)
+    expect(headings[0]).toMatch(/yesterday$/)
+    expect(headings[1]).toMatch(/today$/)
+    expect(headings[2]).toMatch(/tomorrow$/)
     const weeks = within(timeline())
       .getAllByRole('presentation')
       .map((w) => w.textContent)
@@ -297,7 +297,7 @@ describe('Upcoming: context and grouping', () => {
     const air = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 2, 12, 0).toISOString()
     fakeAgenda([episode({ date: day(1), air_at: air })])
     await openUpcoming()
-    const weekday = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 2).toLocaleDateString(undefined, { weekday: 'long' })
+    const weekday = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 2).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     expect(within(screen.getByRole('list', { name: weekday })).getByText(/The Handover/)).toBeInTheDocument()
   })
 
@@ -479,6 +479,43 @@ describe('Upcoming: filters', () => {
     await screen.findByRole('list', { name: 'Agenda' })
     expect(await field()).toHaveValue('is:wanted')
     expect(within(timeline()).queryByText('A Movie')).not.toBeInTheDocument()
+  })
+})
+
+describe('Upcoming: the side panel', () => {
+  beforeEach(() => sessionStorage.clear())
+  afterEach(() => sessionStorage.clear())
+
+  it('counts the views and narrows the agenda to the one chosen', async () => {
+    fakeAgenda([
+      movie({ date: day(1), title: 'Soon Movie' }),
+      movie({ date: day(40), title_id: 3, title: 'Far Movie' }),
+      movie({ date: day(-3), title_id: 4, title: 'Out Movie', slots: [slot('wanted')] }),
+    ])
+    await openUpcoming()
+    const views = within(await screen.findByRole('navigation', { name: 'Views' }))
+    expect(views.getByRole('button', { name: /Next 30 days/ })).toHaveTextContent('1')
+    expect(views.getByRole('button', { name: /Wanted when out/ })).toHaveTextContent('2')
+    expect(views.getByRole('button', { name: /Recently out/ })).toHaveTextContent('1')
+    await userEvent.click(views.getByRole('button', { name: /Recently out/ }))
+    expect(views.getByRole('button', { name: /Recently out/ })).toHaveAttribute('aria-current', 'true')
+    expect(within(timeline()).getByText('Out Movie')).toBeInTheDocument()
+    expect(within(timeline()).queryByText('Soon Movie')).not.toBeInTheDocument()
+    await userEvent.click(views.getByRole('button', { name: /Recently out/ }))
+    expect(within(timeline()).getByText('Soon Movie')).toBeInTheDocument()
+  })
+
+  it('has a calendar whose days are buttons, underlined by name when something is due, and that moves by month', async () => {
+    const asked = fakeAgenda([movie({ date: day(1) })])
+    await openUpcoming()
+    const calendar = within(await screen.findByRole('region', { name: 'Calendar' }))
+    const tomorrow = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 1)
+    const label = tomorrow.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    expect(calendar.getByRole('button', { name: `${label}, 1 release` })).toBeInTheDocument()
+    expect(calendar.getByRole('button', { name: /, today$/ })).toHaveAttribute('aria-current', 'date')
+    await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
+    await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
+    await waitFor(() => expect(asked.at(-1)!.split('..')[1] > day(60)).toBe(true))
   })
 })
 

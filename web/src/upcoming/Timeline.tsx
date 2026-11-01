@@ -27,7 +27,7 @@ export function WeekLabel({ week }: { week: string }) {
 }
 
 /** A day's sticky heading with its dot on the rail; today is drawn in the accent colour with a rule after it. */
-export function DayHeading({ label, date, isToday, headingRef }: { label: string; date: string; isToday: boolean; headingRef?: Ref<HTMLHeadingElement> }) {
+export function DayHeading({ date, away, isToday, headingRef }: { date: string; away: string; isToday: boolean; headingRef?: Ref<HTMLHeadingElement> }) {
   return (
     <h3
       ref={headingRef}
@@ -35,8 +35,8 @@ export function DayHeading({ label, date, isToday, headingRef }: { label: string
       className={cx('sticky top-0 z-10 flex items-center gap-2 bg-background-100 py-1.5 pl-9 label-14 font-medium', isToday && 'text-accent-900')}
     >
       <span aria-hidden className={cx('absolute top-1/2 left-[7px] -translate-y-1/2 rounded-full', isToday ? 'size-3 bg-accent-700 ring-4 ring-accent-700/20' : 'size-2 bg-gray-600')} />
-      {label}
-      {label !== date && <span className="label-12 font-normal text-gray-900">{date}</span>}
+      {date}
+      <span className="label-14 font-normal text-gray-900">{away}</span>
       {isToday && <span aria-hidden className="h-px flex-1 bg-accent-700/50" />}
     </h3>
   )
