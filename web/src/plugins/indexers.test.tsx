@@ -154,6 +154,43 @@ describe('Settings indexers', () => {
   const check = (over: Partial<NonNullable<Instance['last_check']>> = {}) => ({ at: new Date().toISOString(), ok: true, code: null, message: null, ...over })
   const rowNames = (section: ReturnType<typeof within>) => section.getAllByRole('group').map((g: HTMLElement) => g.getAttribute('aria-label'))
 
+  it('shows the median time an indexer\'s searches take, not only how long the last Test took', async () => {
+    fakeIndexers({ indexers: [stored(2, 'Geek', { priority: 1, last_check: check({ latency_ms: 600 }) })] })
+    server.use(
+      http.get('/system/status', ({ response }) =>
+        response(200).json({
+          version: 'dev',
+          started_at: '2026-10-01T08:00:00Z',
+          services: [],
+          download_client: { state: 'none', name: null, instance_id: null, message: null },
+          indexers: [
+            {
+              instance_id: 2,
+              name: 'Geek',
+              state: 'ok',
+              message: null,
+              since: null,
+              search_used: 0,
+              search_max: null,
+              grab_used: null,
+              grab_max: null,
+              search_paused_until: null,
+              grabs_paused: false,
+              grabs_paused_until: null,
+              median_ms: 900,
+            },
+          ],
+          disks: [],
+          trash: { commit: 'abc1234', committed_at: null, checked_at: null, auto_update: true },
+          grabs_paused: false,
+        }),
+      ),
+    )
+    const section = await open()
+
+    expect(await section.findByText('OK · 0.9 s')).toBeInTheDocument()
+  })
+
   it('lists the indexers in the order they are asked, with status, latency and Grabs of the last 30 days', async () => {
     fakeIndexers({
       indexers: [
