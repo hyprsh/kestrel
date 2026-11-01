@@ -9,11 +9,15 @@ import type { SeriesMonitor, TitleDetail } from '../api/queries'
 import { useEpisodes } from '../api/queries'
 import { plural } from '../format'
 import { slotName } from './slots'
+import { useTitleDownloads } from './TitleDownloads'
 import { useSetMovieMonitored, useSetSeriesMonitor, useSetSeriesMonitorOptions } from '../api/titleActions'
 import { useReport } from '../toasts'
 
 const on = { background: 'var(--green-100)', color: 'var(--green-900)', boxShadow: 'inset 0 0 0 1px var(--green-400)' }
 const off = { background: 'var(--background-100)', color: 'var(--gray-900)', boxShadow: 'inset 0 0 0 1px var(--gray-alpha-400)' }
+
+/** A switch item says its state with its Toggle: the menu's own check mark (still the item's `checked` for a screen reader) is hidden. */
+const noCheck = '[&_.hy-menu__check]:hidden'
 
 /** The choices of a Series' mode: the words of the menu, the button's tail and the line under the title. */
 const seriesModes: { value: SeriesMonitor; label: string; description: string; tail: string }[] = [
@@ -94,7 +98,10 @@ export function MonitorButton({ title, size = 'medium', short = false }: { title
         <MenuItem
           role="checkbox"
           checked={newSeasons}
-          suffix={<Toggle size="small" checked={newSeasons} aria-hidden tabIndex={-1} onChange={() => undefined} />}
+          className={noCheck}
+          disabled={!monitored}
+          description={monitored ? 'Seasons added later start monitored' : 'Applies when monitored'}
+          suffix={<Toggle size="small" checked={newSeasons} disabled={!monitored} aria-hidden tabIndex={-1} onChange={() => undefined} />}
           onSelect={() => flag({ monitor_new_seasons: !newSeasons })}
         >
           Monitor new seasons
@@ -102,7 +109,10 @@ export function MonitorButton({ title, size = 'medium', short = false }: { title
         <MenuItem
           role="checkbox"
           checked={specials}
-          suffix={<Toggle size="small" checked={specials} aria-hidden tabIndex={-1} onChange={() => undefined} />}
+          className={noCheck}
+          disabled={!monitored}
+          description={monitored ? 'Season 0 follows the mode above' : 'Applies when monitored'}
+          suffix={<Toggle size="small" checked={specials} disabled={!monitored} aria-hidden tabIndex={-1} onChange={() => undefined} />}
           onSelect={() => flag({ monitor_specials: !specials })}
         >
           Monitor Specials
@@ -112,19 +122,26 @@ export function MonitorButton({ title, size = 'medium', short = false }: { title
   )
 }
 
-/** The Movie header of a Title that is not monitored: a quiet panel, so the whole header says so. */
-export function MutedFrame({ children }: { children: ReactNode }) {
-  return <div className="rounded-md bg-background-200 p-4 shadow-border">{children}</div>
-}
-
 /** The line under the title that says what monitoring does: "Kestrel searches every Wanted episode and grabs new ones as they air. 4 Specials are not monitored." */
 export function MonitoringLine({ title }: { title: TitleDetail }) {
   const episodes = useEpisodes(title.id, title.kind === 'series').data
+  const downloads = useTitleDownloads(title.id)
   let text: string
   if (title.kind === 'movie') {
     if (!title.monitored) {
-      const lacking = title.versions.filter((v) => !v.file).map((v) => slotName(v.slot))
-      text = `Kestrel keeps its file and searches nothing.${lacking.length > 0 ? ` Its ${lacking.join(' and ')} ${plural(lacking.length, 'Version').replace(/^\d+ /, '')} would be Wanted.` : ''}`
+      const files = title.versions.filter((v) => v.file)
+      const running = title.versions.flatMap((v) => (downloads.slot(v.slot) ? [{ slot: v.slot, pct: downloads.slot(v.slot)?.pct ?? null }] : []))
+      const idle = title.versions.filter((v) => !v.file && !downloads.slot(v.slot)).map((v) => slotName(v.slot))
+      const parts: string[] = []
+      if (running.length > 0) {
+        const what = running.map((d) => `${slotName(d.slot)} download${d.pct !== null ? ` (${d.pct}%)` : ''}`).join(' and ')
+        parts.push(`The ${what} still ${running.length > 1 ? 'finish' : 'finishes'}; Kestrel searches nothing else.`)
+      } else {
+        parts.push(files.length > 0 ? 'Kestrel keeps its file and searches nothing.' : 'Kestrel searches nothing.')
+      }
+      if (running.length > 0 && files.length > 0) parts.push('It keeps its file.')
+      if (idle.length > 0) parts.push(`Its ${idle.join(' and ')} ${plural(idle.length, 'Version').replace(/^\d+ /, '')} would be Wanted once monitored.`)
+      text = parts.join(' ')
     } else {
       const wanted = title.versions.filter((v) => v.state === 'wanted').map((v) => slotName(v.slot))
       text =

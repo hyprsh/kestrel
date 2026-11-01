@@ -3,10 +3,10 @@
 // items open (the Root folder picker, the removal confirmation, Add Version) shows in a Modal.
 import { useState } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
-import { useRefreshTitle, useSetFrozen, useSetMovieMonitored } from '../api/titleActions'
+import { useRefreshTitle, useSetFrozen } from '../api/titleActions'
 import { useOpenCleanup } from '../cleanup/launch'
-import { BrushCleaning, FolderInput, Plus, RefreshCw, ScrollText, Search, Snowflake, Trash2 } from 'lucide-react'
-import { Button, DotsMenu, MenuDivider, MenuItem, MenuSection, SplitButton, termText } from '@hyprsh/design'
+import { BrushCleaning, FolderInput, Plus, RefreshCw, ScrollText, Snowflake, Trash2 } from 'lucide-react'
+import { DotsMenu, MenuDivider, MenuItem, MenuSection, SplitButton, termText } from '@hyprsh/design'
 import { usePhone } from '../responsive'
 import { placePath, useOpenPlace } from '../place'
 import { useReport } from '../toasts'
@@ -37,7 +37,6 @@ export function TitleActions({
 }) {
   const [panel, setPanel] = useState<'add' | 'move' | 'remove' | null>(null)
   const phone = usePhone()
-  const setMovie = useSetMovieMonitored(title.id)
   const openCleanup = useOpenCleanup()
   const openPlace = useOpenPlace()
   const report = useReport()
@@ -46,7 +45,6 @@ export function TitleActions({
   const freeze = useSetFrozen(title.id)
   const frozen = title.metadata_frozen
   const unmonitored = !isMonitored(title)
-  const monitorMovie = title.kind === 'movie' && unmonitored
   const wanted = title.versions.filter((v) => v.state === 'wanted')
   const label = title.kind === 'movie' && wanted.length === 1 ? `Search ${slotName(wanted[0].slot)}` : 'Search Wanted'
   const why = unmonitored ? NOT_MONITORED_SEARCH : wanted.length === 0 ? 'Nothing in this Title is Wanted' : undefined
@@ -73,35 +71,16 @@ export function TitleActions({
           <MonitorButton title={title} size={size} short={phone} />
         </div>
         <div className="max-sm:min-w-36 max-sm:flex-1 max-sm:[&>*]:w-full">
-          {monitorMovie ? (
-            <Button variant="default" size={size} disabled={setMovie.isPending} onClick={() => void report(setMovie.mutateAsync(true), { failed: 'Could not change monitoring' })}>
-              Monitor
-            </Button>
-          ) : (
-            <SplitButton
-              buttonProps={{ size, variant: 'default', disabled: !!why || search.mutation.isPending, title: why, onClick: () => search.run() }}
-              menuButtonLabel="More search options"
-              menuAlignment="bottom-end"
-              menuItems={searchItems}
-            >
-              {label}
-            </SplitButton>
-          )}
+          <SplitButton
+            buttonProps={{ size, variant: 'default', disabled: !!why || search.mutation.isPending, title: why, onClick: () => search.run() }}
+            menuButtonLabel="More search options"
+            menuAlignment="bottom-end"
+            menuItems={searchItems}
+          >
+            {label}
+          </SplitButton>
         </div>
         <DotsMenu size="medium" aria-label="Title actions">
-          {monitorMovie && (
-            <>
-              <MenuItem prefix={<Search aria-hidden className="size-4" />} disabled description={NOT_MONITORED_SEARCH}>
-                Search Wanted
-              </MenuItem>
-              {title.versions.map((v) => (
-                <MenuItem key={v.slot} prefix={<Search aria-hidden className="size-4" />} onSelect={() => manual(v)}>
-                  {title.versions.length === 1 ? 'Manual search…' : `Manual search: ${slotName(v.slot)}…`}
-                </MenuItem>
-              ))}
-              <MenuDivider />
-            </>
-          )}
           <MenuItem prefix={<Plus aria-hidden className="size-4" />} disabled={!free} description={free ? undefined : 'Every Slot has a Version'} onSelect={() => setPanel('add')}>
             Add Version…
           </MenuItem>
