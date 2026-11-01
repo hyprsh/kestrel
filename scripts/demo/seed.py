@@ -10,7 +10,9 @@ setup completed, then Paddington (Standard) and Breaking Bad (Standard and 4K), 
 files Paddington 2, Paddington in Peru, El Camino and Better Call Saul.
 
 Straight into SQLite, since Imports would need real downloads: the files of both,
-as empty files on disk. Paddington has its 1080p BluRay. Breaking Bad has Seasons 1-4
+as empty files on disk, each with its parse and an ffprobe snapshot (English audio, Paddington's German too), so the
+file popover shows its audio, group, Score and Custom Formats; the Versions are then switched to their own Profile,
+which re-scores the files. Paddington has its 1080p BluRay. Breaking Bad has Seasons 1-4
 in Standard (S02E12-E13 is one double-episode file) and in 4K, Season 5 half in
 Standard and a quarter in 4K, and one Special. BIN is scripts/demo/parse, which
 writes each release name's parsed form as Imports stores it. Then the dates around
@@ -99,8 +101,8 @@ files = []  # (version id, path, size, release name, score, [episode ids], parse
 movie_folder = "Paddington (2014) {tmdb-116149}"
 db.execute("UPDATE titles SET folder=? WHERE id=?", (movie_folder, tid[116149]))
 files.append((ver[(tid[116149], "standard")],
-              f"{ROOT}/movies/{movie_folder}/{movie_folder} - [Standard][Bluray-1080p][x264]-SPARKS.mkv", 8_589_934_592,
-              "Paddington.2014.1080p.BluRay.x264-SPARKS", 1850, [], "movie"))
+              f"{ROOT}/movies/{movie_folder}/{movie_folder} - [Standard][Bluray-1080p][x264]-DON.mkv", 8_589_934_592,
+              "Paddington.2014.1080p.BluRay.DTS.x264-DON", 1850, [], "movie"))
 series_folder = "Breaking Bad (2008) {tvdb-81189}"
 db.execute("UPDATE titles SET folder=? WHERE id=?", (series_folder, tid[1396]))
 
@@ -130,12 +132,23 @@ for n in range(1, 5):
     ep_file("4k", 5, [n], "Breaking.Bad.{code}.2160p.WEB-DL.DDP5.1.HDR.H.265-NTb", "WEBDL-2160p", 6_800_000_000, 2400)
 ep_file("standard", 0, [1], "Breaking.Bad.{code}.Minisode.1080p.WEB-DL.AAC2.0.H.264-BTN", "WEBDL-1080p", 180_000_000, 900)
 
+
+def probe_of(f):
+    """The ffprobe snapshot Imports store in files.probe (Go field names): frame size by Slot, English audio, Paddington with a German track too."""
+    uhd = "2160p" in f[3]
+    audio = [{"Index": 1, "Codec": "eac3" if "DDP" in f[3] else "ac3", "Channels": 6, "Language": "eng", "Default": True}]
+    if f[6] == "movie":
+        audio.append({"Index": 2, "Codec": "ac3", "Channels": 6, "Language": "deu", "Default": False})
+    return json.dumps({"Size": f[2], "Duration": 3_000_000_000_000, "HasVideo": True, "Width": 3840 if uhd else 1920, "Height": 2160 if uhd else 1080,
+                       "VideoCodec": "hevc" if uhd else "h264", "HDR": "HDR10" if uhd else "", "Audio": audio}, separators=(",", ":"))
+
+
 parsed = subprocess.run([args.parse], input="".join(f"{f[6]}\t{f[3]}\n" for f in files),
                         capture_output=True, text=True, check=True).stdout.splitlines()
 fe_cols = [r["name"] for r in db.execute("PRAGMA table_info(file_episodes)")]
-for (v, path, size, rel, score, epids, _), pr in zip(files, parsed, strict=True):
-    cur = db.execute("INSERT INTO files(version_id,path,size,release_name,parsed_release,score,imported_at) VALUES (?,?,?,?,?,?,?)",
-                     (v, path, size, rel, None if pr == "null" else pr, score, "2026-09-14T18:30:00Z"))
+for (v, path, size, rel, score, epids, kind), pr in zip(files, parsed, strict=True):
+    cur = db.execute("INSERT INTO files(version_id,path,size,release_name,parsed_release,probe,score,imported_at) VALUES (?,?,?,?,?,?,?,?)",
+                     (v, path, size, rel, None if pr == "null" else pr, probe_of((v, path, size, rel, score, epids, kind)), score, "2026-09-14T18:30:00Z"))
     for e in epids:
         if "version_id" in fe_cols:
             db.execute("INSERT INTO file_episodes(file_id,version_id,episode_id) VALUES (?,?,?)", (cur.lastrowid, v, e))
@@ -224,7 +237,12 @@ def imported(patterns, when, guid):
 imported([f"{ROOT}/movies/%"], stamp(-2, hours=-3), "seed-paddington")
 imported(["%S05E07 - [Standard]%", "%S05E08 - [Standard]%"], stamp(-1, hours=-7), "seed-breaking-bad")
 db.commit()
+versions = [(r["id"], r["profile_key"]) for r in db.execute("SELECT DISTINCT v.id, v.profile_key FROM versions v JOIN files f ON f.version_id = v.id")]
 db.close()
+# The scores above are round numbers. Switching a Version to the Profile it has re-scores its files from the
+# parse and probe just stored, as Imports would have scored them, so each popover's Custom Formats add up to its Score.
+for vid, profile in versions:
+    call("PATCH", f"/versions/{vid}", {"profile": profile})
 
 
 def ctl(query):
