@@ -60,8 +60,8 @@ function HealthChecks() {
 
 type HealthView = 'checks' | 'running' | 'jobs'
 
-/** The section a place opens: "/health/jobs" is the jobs, "/health/running" what runs now, else the checks. */
-const viewOf = (section: string): HealthView => (section === 'jobs' || section === 'running' ? section : 'checks')
+/** The section a place opens: "/health/jobs" is the jobs, "/health/checks" the checks, else what runs now (the top). */
+const viewOf = (section: string): HealthView => (section === 'jobs' || section === 'checks' ? section : 'running')
 
 function HealthMenu() {
   const searchAll = useSearchAll()
@@ -85,20 +85,21 @@ function HealthMenu() {
   )
 }
 
-/** The panel's Views: Checks (with how many fail or warn), Running now and Background jobs. Choosing one scrolls to its section. */
+/** The panel's Views: Running now, Checks (with how many fail or warn) and Background jobs. Choosing one scrolls to its section. */
 function HealthViews({ running, current, onSelect }: { running: number; current: HealthView; onSelect: (view: HealthView) => void }) {
   const status = useStatus().data
   const jobs = useJobs().data?.items.length
   const { failing, warnings } = status ? healthOf(status) : { failing: 0, warnings: 0 }
   const problems = failing + warnings
-  const checks = status === undefined ? undefined : <span className={failing > 0 ? 'text-red-900' : warnings > 0 ? 'text-amber-900' : undefined}>{problems}</span>
+  // Nothing is counted while nothing is wrong: an OK count is noise beside Running now and Background jobs.
+  const checks = status === undefined || problems === 0 ? undefined : <span className={failing > 0 ? 'text-red-900' : warnings > 0 ? 'text-amber-900' : undefined}>{problems}</span>
   return (
     <SidePanelViews>
-      <SidePanelView icon={<HeartPulse />} count={checks} current={current === 'checks'} onSelect={() => onSelect('checks')}>
-        Checks
-      </SidePanelView>
       <SidePanelView icon={<Loader />} count={running} current={current === 'running'} onSelect={() => onSelect('running')}>
         Running now
+      </SidePanelView>
+      <SidePanelView icon={<HeartPulse />} count={checks} current={current === 'checks'} onSelect={() => onSelect('checks')}>
+        Checks
       </SidePanelView>
       <SidePanelView icon={<Clock />} count={jobs} current={current === 'jobs'} onSelect={() => onSelect('jobs')}>
         Background jobs
@@ -120,7 +121,7 @@ export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Runn
   }
   // A place that names a section (the Running indicator's "/health/jobs") opens scrolled to it.
   useEffect(() => {
-    if (view !== 'checks') document.getElementById(`health-${view}`)?.scrollIntoView?.()
+    if (currentPlace().section) document.getElementById(`health-${view}`)?.scrollIntoView?.()
     // Only on arrival: later changes are the Views' own scrolls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -129,13 +130,13 @@ export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Runn
       <SidePanel title="Health" actions={<HealthMenu />} views={<HealthViews running={running.length} current={view} onSelect={show} />} />
       <div className="min-h-0 min-w-0 flex-1 overflow-auto">
         <div role="region" aria-label="Health" className="mx-auto max-w-3xl pb-6 max-sm:px-4">
+          <div id="health-running">
+            <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
+          </div>
           <div id="health-checks">
             <SectionBlock title="Checks">
               <HealthChecks />
             </SectionBlock>
-          </div>
-          <div id="health-running">
-            <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
           </div>
           <div id="health-jobs">
             <BackgroundJobs onOpenTitle={onOpenTitle} />

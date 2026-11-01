@@ -124,6 +124,22 @@ describe('Health screen', () => {
     expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument()
   })
 
+  it('puts Running now first, then Checks, then Background jobs, in the sections and in the Views', async () => {
+    fakeStatus(status())
+    const panel = await openHealth()
+    await within(panel).findByRole('heading', { name: 'Disks' })
+
+    const order = ['Running now', 'Checks', 'Background jobs']
+    const headings = within(panel)
+      .getAllByRole('heading', { level: 3 })
+      .map((h) => h.textContent ?? '')
+      .filter((t) => order.some((o) => t.startsWith(o)))
+    expect(headings.map((t) => order.find((o) => t.startsWith(o)))).toEqual(order)
+    const views = within(screen.getByRole('navigation', { name: 'Views' })).getAllByRole('button')
+    order.forEach((name, i) => expect(views[i]).toHaveAccessibleName(new RegExp(`^${name}`)))
+    expect(views[0]).toHaveAttribute('aria-current', 'true')
+  })
+
   // The rail is the navigation without a name; a side panel's Views are named.
   const rail = async () => (await screen.findAllByRole('navigation')).find((n) => !n.hasAttribute('aria-label'))!
 
