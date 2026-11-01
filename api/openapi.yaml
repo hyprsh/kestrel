@@ -4790,6 +4790,24 @@ components:
           $ref: "#/components/schemas/SlotState"
         long_missing:
           type: boolean
+        episodes_have:
+          type: integer
+          nullable: true
+          description: A Series Version's episodes that hold a file; null for a Movie.
+        episodes_aired:
+          type: integer
+          nullable: true
+          description: A Series Version's episodes that have aired; null for a Movie.
+        last_search:
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+          description: What the last search of a Wanted Version found. Only a Wanted Version has it here; null when it was never searched.
+        next_search_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a Wanted Version is next searched. Only a Wanted Version has it here.
     TitleRow:
       type: object
       required: [id, kind, title, primary_title, year, has_poster, monitored, slots, slot_states, wanted_since, added_at, size, searched_at, wanted_episodes]

@@ -250,7 +250,7 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 	out.SlotStates = []oapi.SlotStateEntry{}
 	for _, sl := range slot.All {
 		if s := r.Slots[sl]; s != nil {
-			out.SlotStates = append(out.SlotStates, oapi.SlotStateEntry{Slot: slotToAPI(sl), Label: sl.Name(), VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing})
+			out.SlotStates = append(out.SlotStates, oapi.SlotStateEntry{Slot: slotToAPI(sl), Label: sl.Name(), VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing, EpisodesHave: s.EpisodesHave, EpisodesAired: s.EpisodesAired})
 		}
 	}
 	return out

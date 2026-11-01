@@ -3435,6 +3435,17 @@ export interface components {
             profile: string;
             state: components["schemas"]["SlotState"];
             long_missing: boolean;
+            /** @description A Series Version's episodes that hold a file; null for a Movie. */
+            episodes_have?: number | null;
+            /** @description A Series Version's episodes that have aired; null for a Movie. */
+            episodes_aired?: number | null;
+            /** @description What the last search of a Wanted Version found. Only a Wanted Version has it here; null when it was never searched. */
+            last_search?: components["schemas"]["LastSearch"] | null;
+            /**
+             * Format: date-time
+             * @description When a Wanted Version is next searched. Only a Wanted Version has it here.
+             */
+            next_search_at?: string | null;
         };
         TitleRow: {
             /** Format: int64 */

@@ -251,6 +251,30 @@ func TestSeriesSlotsShowInTheListWithTheirState(t *testing.T) {
 	}
 }
 
+func TestASeriesSlotCountsItsEpisodesHaveAndAired(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	addShow(t, lib, library.MonitorAll, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"})
+	addPaddington(t, lib, library.VersionSpec{Slot: slot.Standard, Profile: "hd-primary"})
+	rows, err := lib.List(ctx, library.View{Country: "US", Now: now}, library.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		sl := r.Slots[slot.Standard]
+		switch r.Kind {
+		case library.Movie:
+			if sl.EpisodesHave != nil || sl.EpisodesAired != nil {
+				t.Errorf("a Movie counts no episodes, got %v %v", sl.EpisodesHave, sl.EpisodesAired)
+			}
+		case library.Series:
+			if sl.EpisodesHave == nil || sl.EpisodesAired == nil || *sl.EpisodesHave != 0 || *sl.EpisodesAired < 1 {
+				t.Errorf("a Series with no files has 0 of its aired episodes, got %v %v", sl.EpisodesHave, sl.EpisodesAired)
+			}
+		}
+	}
+}
+
 func TestSeriesVersionsHaveSearchStateOncePerSeasonButNotForSpecials(t *testing.T) {
 	lib, st := newLibrary(t)
 	addShow(t, lib, library.MonitorAll)

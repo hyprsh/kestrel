@@ -114,6 +114,8 @@ type SlotState struct {
 	LongMissing bool
 	// WantedSince is set while the Version is Wanted.
 	WantedSince *time.Time
+	// EpisodesHave and EpisodesAired count a Series Version's episodes that hold a file and that have aired; nil for a Movie.
+	EpisodesHave, EpisodesAired *int
 }
 
 // Row is a compact Library row.
@@ -551,14 +553,24 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			}
 			var st State
 			var since *time.Time
+			var have, aired *int
 			if row.Kind == Series {
 				units := unitsOf(epsOf[t.ID], released, heldBy[v.ID], parseTime(v.AddedAt))
 				st, since = SeriesState(units, view.Now)
+				have, aired = new(int), new(int)
+				for _, u := range units {
+					if u.HasFile {
+						*have++
+					}
+					if u.HasFile || (u.Released != nil && !u.Released.After(view.Now)) {
+						*aired++
+					}
+				}
 				countWanted(wantedEps, epsOf[t.ID], units, view.Now)
 			} else {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
-			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since}
+			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since, EpisodesHave: have, EpisodesAired: aired}
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
 			}

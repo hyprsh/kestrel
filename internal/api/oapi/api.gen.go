@@ -4762,11 +4762,23 @@ type SlotState string
 
 // SlotStateEntry One Slot of a Title with its Version's state.
 type SlotStateEntry struct {
+	// EpisodesAired A Series Version's episodes that have aired; null for a Movie.
+	EpisodesAired *int `json:"episodes_aired,omitempty"`
+
+	// EpisodesHave A Series Version's episodes that hold a file; null for a Movie.
+	EpisodesHave *int `json:"episodes_have,omitempty"`
+
 	// Label The Slot's display name ("Standard", "4K").
-	Label       string `json:"label"`
-	LongMissing bool   `json:"long_missing"`
-	Profile     string `json:"profile"`
-	Slot        Slot   `json:"slot"`
+	Label string `json:"label"`
+
+	// LastSearch What the last search of a Wanted Version found. Only a Wanted Version has it here; null when it was never searched.
+	LastSearch  *LastSearch `json:"last_search,omitempty"`
+	LongMissing bool        `json:"long_missing"`
+
+	// NextSearchAt When a Wanted Version is next searched. Only a Wanted Version has it here.
+	NextSearchAt *time.Time `json:"next_search_at,omitempty"`
+	Profile      string     `json:"profile"`
+	Slot         Slot       `json:"slot"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
