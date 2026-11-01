@@ -1,6 +1,6 @@
 # Troubleshooting and FAQ
 
-Start with the Overview. Its **Happening now** list (which holds Needs attention) and the **Health** pill, which opens the Health screen, name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
+Start with the Overview. Its **Happening now** list (which holds Needs attention) and the **Health** button, which opens the Health screen, name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
 
 ## A download is stuck
 
@@ -59,20 +59,20 @@ Kestrel never changes ownership of `/data`. That is yours to set.
 
 Kestrel looks up Titles at TMDB (Movies) and TheTVDB (Series). Adding a Title answers `502 upstream_unavailable` when a lookup can't be made. Health shows a warning once a provider has failed for a day, and a blocking one when it rejects the key.
 
-- **If you built Kestrel yourself,** a build has no key embedded. Set `KESTREL_TMDB_API_KEY` and `KESTREL_TVDB_API_KEY`, or enter them in Settings > Provider keys. [Provider keys](configuration.md#provider-keys) lists the order of precedence.
+- **If you built Kestrel yourself,** a build has no key embedded. Set `KESTREL_TMDB_API_KEY` and `KESTREL_TVDB_API_KEY`, or enter them in Settings > Library > Provider keys. [Provider keys](configuration.md#provider-keys) lists the order of precedence.
 - **If a key is rejected,** check it at the provider and enter it again. A key saved in the UI outranks the variable, so remove a stale one there.
 - **If the provider is down,** wait. Nothing is lost, and Kestrel retries.
 
 ## An indexer's daily limit
 
-Many indexers allow only so many API requests, and so many downloads, a day. In Settings > Indexers, each indexer has two optional limits:
+Many indexers allow only so many API requests, and so many downloads, a day. In Settings > Downloads, each indexer has two optional limits:
 
 - **API requests per day:** Kestrel stays under it by pausing searches. Set it a little under your indexer's limit.
 - **Grabs per day:** once it is reached, Kestrel stops grabbing from that indexer until the UTC day ends.
 
 If the indexer reports its limits, Kestrel shows them on the Health screen next to the indexer ("18 searches today"). An indexer that says it is rate limiting Kestrel is left alone for as long as it asks.
 
-To stop downloads altogether for a while, such as when you reach a monthly cap, switch on **Pause Grabs** in Settings > Grabs. Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client on its own. A Release you grab by hand still goes through. Switch it off and the next search sweep grabs as usual.
+To stop downloads altogether for a while, such as when you reach a monthly cap, switch on **Pause Grabs** in Settings > Downloads > Automatic Grabs. Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client on its own. A Release you grab by hand still goes through. Switch it off and the next search sweep grabs as usual.
 
 ## Nothing is downloading
 
@@ -82,7 +82,7 @@ Check these in order:
 2. **Is Pause Grabs on?** See above.
 3. **Is Needs attention asking for something?** A Release in your language may have been held back, because the Profile offers Releases that have only the Original Language ([Concepts](concepts.md#profile)). Accept or dismiss it.
 4. **Did the search find a Release that scores well enough?** Open the Title and choose Manual search. It lists every Release with its Score, and says why one was rejected. "Grab anyway" overrides most rejections.
-5. **Are the download client and indexer healthy?** Health shows each with a status. Settings > Download client and Settings > Indexers have a Test connection button.
+5. **Are the download client and indexer healthy?** Health shows each with a status. Settings > Downloads has a Test connection button.
 6. **Has the indexer run out of API requests or grabs for today?** See above.
 
 ## I forgot my password
@@ -99,7 +99,7 @@ If a [Config File](configuration.md#the-config-file) declares the account, Kestr
 
 ## Where are the logs and backups?
 
-- **What Kestrel did:** the Log screen lists every search, Grab, Import and rename with its Title, and you can filter it (try `kind:` and `title:`). Done and Failed Grabs in Activity reach back 7 days. The Log keeps routine events for 30 days.
+- **What Kestrel did:** the Log screen lists every search, Grab, Import and rename as a sentence with its Title, under a strip of the last days, and you can filter it with the side panel's Views (Everything, Errors, Warnings, Grabs, Imports, Adoption, Searches) or the filter field (try `kind:` and `title:`). Its **...** menu opens the Blocklist. Done and Failed Grabs in Activity reach back 7 days. The Log keeps routine events for 30 days.
 - **The server's own output:** `docker logs kestrel`. Set `KESTREL_LOG_LEVEL=debug` for more.
 - **Database backups:** `/config/backups/` (the host folder you mount as `/config`, then `backups/`). Kestrel copies the database there before each schema migration and keeps the newest five. To go back to one, stop Kestrel and copy the backup over `/config/kestrel.db`. Kestrel never downgrades: a database newer than the binary stops startup and names the backup to restore.
 - **Where it keeps everything else:** the database and poster cache are in `/config`. Your media is never in it.
@@ -108,12 +108,12 @@ If a [Config File](configuration.md#the-config-file) declares the account, Kestr
 
 **Does Kestrel do torrents?** No. Kestrel is usenet only, and SABnzbd is the one download client it supports today.
 
-**Does it work with Prowlarr?** Kestrel has no Prowlarr integration. It talks to Newznab indexers directly: add each indexer's Newznab URL and API key in Settings > Indexers.
+**Does it work with Prowlarr?** Kestrel has no Prowlarr integration. It talks to Newznab indexers directly: add each indexer's Newznab URL and API key in Settings > Downloads.
 
 **Can I change how files are named?** No. Kestrel uses one fixed naming scheme, so that Plex and Jellyfin group a Title's Standard and 4K Versions as one item ([ADR 0003](../adr/0003-fixed-naming-scheme-with-slot-labels.md)).
 
 **Why does a Title have only Standard and 4K?** A Title has at most one Version per Slot, and there are two Slots ([ADR 0012](../adr/0012-two-slots-standard-and-4k.md)). Which one plays, and who may watch 4K, is your media server's choice.
 
-**Can I edit the Scores?** No. Custom Formats and Scores come from [TRaSH Guides](https://trash-guides.info), and Kestrel updates them daily unless you switch that off in Settings > TRaSH. [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md#what-has-no-equivalent) lists what else is different.
+**Can I edit the Scores?** No. Custom Formats and Scores come from [TRaSH Guides](https://trash-guides.info), and Kestrel updates them daily unless you switch that off in Settings > Profiles > TRaSH. [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md#what-has-no-equivalent) lists what else is different.
 
 **Something else is wrong.** [Open an issue](https://github.com/hyprsh/kestrel/issues) with your Kestrel version (Settings > About) and the Log lines around the problem. Remove API keys first. Report a security problem privately, as [SECURITY.md](../../SECURITY.md) says.

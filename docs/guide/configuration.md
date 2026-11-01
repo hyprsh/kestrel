@@ -36,11 +36,11 @@ The prefix goes in front of every route, including `/ping` and the API. With `KE
 
 ### Provider keys
 
-Kestrel looks up Titles at [TMDB](https://www.themoviedb.org/settings/api) (Movies) and TheTVDB (Series). Release builds carry the project's own keys, so you don't need to do anything. To use your own, set the variables above or enter them in Settings > Provider keys. The order, highest first, is a key saved in the UI, then the variable, then the embedded key.
+Kestrel looks up Titles at [TMDB](https://www.themoviedb.org/settings/api) (Movies) and TheTVDB (Series). Release builds carry the project's own keys, so you don't need to do anything. To use your own, set the variables above or enter them in Settings > Library > Provider keys. The order, highest first, is a key saved in the UI, then the variable, then the embedded key.
 
 ### KESTREL_API_KEY
 
-By default you generate the API key in Settings > Security. Set `KESTREL_API_KEY` if a script wires Kestrel up and needs a key it knows in advance.
+By default you generate the API key in Settings > Account > API key. Set `KESTREL_API_KEY` if a script wires Kestrel up and needs a key it knows in advance.
 
 - It must look like a generated key: `kst_` followed by at least 32 characters from `A-Z` and `2-7`. Anything else stops startup. This makes one:
 
@@ -48,7 +48,7 @@ By default you generate the API key in Settings > Security. Set `KESTREL_API_KEY
   echo kst_$(LC_ALL=C tr -dc A-Z2-7 </dev/urandom | head -c 52)
   ```
 
-- While it is set, it replaces the key from Settings > Security, which is deleted, and you can't rotate the key in the UI.
+- While it is set, it replaces the key from Settings > Account > API key, which is deleted, and you can't rotate the key in the UI.
 - Remove the variable and there is no key until you generate one in the UI.
 
 ### Your files in /config
@@ -59,7 +59,7 @@ Before each schema migration of an existing database, Kestrel copies it to `back
 
 ### Updates
 
-Once a day, unless you switch off Settings > Updates > "Check GitHub for updates" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. A newer release shows in Health and in About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
+Once a day, unless you switch off Settings > General > Updates > "Check GitHub daily" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. A newer release shows in Health and in Settings > About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
 
 ## The Config File
 
@@ -162,7 +162,7 @@ plugin_instances: # known by name
       url: http://silo:8090
       api_key_env: SILO_API_KEY
 
-reverse_proxy: # all three fields, as in Settings > Reverse proxy
+reverse_proxy: # all three fields, as in Settings > Security & Access > Reverse proxy
   enabled: false
   trusted_proxies: [172.16.0.0/12]
   header: Remote-User
@@ -184,7 +184,7 @@ silo: # Watch-ahead for Silo; see "Watch-ahead for Silo"
   watch_ahead: true # optional, off until set: the default for a Silo Series Request that names no seasons
   instance: Silo # the name of a silo plugin instance, whose playback history Watch-ahead reads; needed once watch_ahead is true
 
-display: # optional; each key you name is read-only in Settings > Display
+display: # optional; each key you name is read-only in Settings > General > Display
   season_order: newest_first # oldest_first (default) or newest_first; Specials come last either way
   seasons_open: latest_and_wanted # accepted and ignored: the Title page now has a season menu
   manual_search_sort: best_first # best_first (default), or <column>_asc / <column>_desc
@@ -298,7 +298,7 @@ After applying the file, Kestrel tests the connection of each enabled declared i
 
 #### reverse_proxy
 
-All three fields, checked as in Settings > Reverse proxy.
+All three fields, checked as in Settings > Security & Access > Reverse proxy.
 
 | Field             | Value                                                                                                                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -306,7 +306,7 @@ All three fields, checked as in Settings > Reverse proxy.
 | `enabled`         | Adds login from `header`. Needs at least one trusted proxy. Keep it `false` unless an SSO portal sets the header.                                          |
 | `header`          | The header that carries the username, such as `Remote-User`.                                                                                               |
 
-Kestrel no longer believes `X-Forwarded-Proto` from an address outside `trusted_proxies`. If you upgrade, and a proxy that ends TLS sits in front of Kestrel with `trusted_proxies` empty, the session cookie used to get its `Secure` flag from that header and now silently doesn't. List the proxy in `trusted_proxies` (here or in Settings > Reverse proxy), with `enabled: false` if you want no header login.
+Kestrel no longer believes `X-Forwarded-Proto` from an address outside `trusted_proxies`. If you upgrade, and a proxy that ends TLS sits in front of Kestrel with `trusted_proxies` empty, the session cookie used to get its `Secure` flag from that header and now silently doesn't. List the proxy in `trusted_proxies` (here or in Settings > Security & Access > Reverse proxy), with `enabled: false` if you want no header login.
 
 #### plex_sign_in
 
@@ -362,24 +362,24 @@ These rules matter once you move between the UI and the file, or rename an insta
 
 ## Requesters (Plex sign-in)
 
-People who share your Plex server can ask for Movies and Series in Kestrel, without an app like Seerr in front of it ([ADR 0018](../adr/0018-requesters-sign-in-with-plex.md)). Switch it on in Settings > Plex (or declare `plex_sign_in` in the Config File) and pick the Plex instance whose server and owner token decide who may sign in.
+People who share your Plex server can ask for Movies and Series in Kestrel, without an app like Seerr in front of it ([ADR 0018](../adr/0018-requesters-sign-in-with-plex.md)). Switch it on in Settings > Security & Access > Plex sign-in (or declare `plex_sign_in` in the Config File) and pick the Plex instance whose server and owner token decide who may sign in.
 
 The login page then offers "Sign in with Plex". Kestrel sends the browser to plex.tv, plex.tv sends it back to Kestrel's login page with `?plex=1`, and Kestrel finishes the sign-in there. Only the browser that started a sign-in can finish it.
 
 - **Who may sign in:** the server's owner, members of the owner's Plex Home, and friends whose share includes this server, read with the owner's token from the Plex instance. A list of `users` narrows that to those Plex usernames (or names, for a Home user without one), ignoring case. The Requester's own Plex token is used once, to learn who they are, and never stored.
 - **What a Requester can do:** search Titles, make a Request and see their own Requests, and nothing else. Every other route answers `403 forbidden`. A Request asks for the Standard Slot under Profile resolution and goes in the kind's first root folder, unless `user_root_folders` names another for that user. It shows up in Requests and in the Log like any other, with the source `plex`.
-- **Switches:** Settings > Plex (or `plex_sign_in` in the Config File) also holds four switches for what Kestrel does with the Plex server. Each is off until set and works only while Plex sign-in is on.
+- **Switches:** Settings > Security & Access > Plex sign-in (or `plex_sign_in` in the Config File) also holds four switches for what Kestrel does with the Plex server. Each is off until set and works only while Plex sign-in is on.
   - `watchlist` makes Requests from the Watchlists of the owner and of friends who may request.
   - `watch_ahead` makes a Requester's Series Request start with season 1, and adds the next season once anyone has watched 2 episodes of the newest. It counts plays on the Plex server, and on Silo too (see below).
   - `labels` marks requested Titles in Plex with labels and a collection.
   - `poster_badge` stamps a "Requested" badge on their posters for `poster_badge_days` days (30 unless set).
 - **Sessions:** a Requester's session lasts 30 days from the last use, like the admin's. At most once an hour it is checked again against the owner's list. It ends when the account lost access, left `users`, or Plex sign-in was switched off. A plex.tv outage does not end sessions. Changing the admin password ends the other admin sessions only. "Log out everywhere" ends every session.
 - **Network:** Kestrel calls plex.tv (`https://plex.tv`) to create and read PINs, learn an account and read the owner's shared users. It identifies itself with a client identifier it generates once per instance. Kestrel needs outbound access to plex.tv, and the browser needs to reach `https://app.plex.tv`.
-- **Behind a TLS proxy:** the redirect back to Kestrel is built from the request: `https` when the request is secure, the `Host` header and the base URL. List the proxy in `trusted_proxies` (Settings > Reverse proxy, or `reverse_proxy` in the Config File), so Kestrel believes its `X-Forwarded-Proto` and `X-Forwarded-For` and the session and PIN cookies get `Secure`. The proxy must pass the `Host` header on unchanged.
+- **Behind a TLS proxy:** the redirect back to Kestrel is built from the request: `https` when the request is secure, the `Host` header and the base URL. List the proxy in `trusted_proxies` (Settings > Security & Access > Reverse proxy, or `reverse_proxy` in the Config File), so Kestrel believes its `X-Forwarded-Proto` and `X-Forwarded-For` and the session and PIN cookies get `Secure`. The proxy must pass the `Host` header on unchanged.
 
 ## Watch-ahead for Silo
 
-A Series requested in Silo can come one season at a time too ([ADR 0020](../adr/0020-watch-ahead-for-silo.md)). Switch Watch-ahead on in Settings > Silo (or declare `silo` in the Config File), and pick the Silo instance whose playback history Kestrel reads, with that media server's admin API key.
+A Series requested in Silo can come one season at a time too ([ADR 0020](../adr/0020-watch-ahead-for-silo.md)). Switch Watch-ahead on in Settings > Media servers > Silo (or declare `silo` in the Config File), and pick the Silo instance whose playback history Kestrel reads, with that media server's admin API key.
 
 A Silo Series Request that names no seasons then starts with season 1. Kestrel adds the next season once anyone, on any Silo account or profile, has watched 2 episodes of the newest one it holds. Plays on the Plex server (when `plex_sign_in` has `watch_ahead` on) and on Silo count together.
 
