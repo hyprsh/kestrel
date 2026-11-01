@@ -34,7 +34,7 @@ export function PhoneTabBar({
   )
 }
 
-/** A bottom sheet with the screens the tab bar has no room for, the theme switch, Log out and the version. */
+/** A bottom sheet with the screens the tab bar has no room for, the theme switch, Log Out and the version. */
 export function MoreSheet({
   items,
   screen,

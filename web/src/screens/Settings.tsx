@@ -506,9 +506,9 @@ function LogOut() {
   const logout = useLogout()
   if (!(auth.data?.state === 'ok' && auth.data.me.method === 'session')) return null
   return (
-    <SettingRow label="Log out" help="Ends this session. Other sessions stay.">
+    <SettingRow label="Log Out" help="Ends this session. Other sessions stay.">
       <Button size="small" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
-        Log out
+        Log Out
       </Button>
     </SettingRow>
   )
@@ -519,7 +519,7 @@ function LogOutEverywhere() {
   return (
     <SettingRow label="Sessions" help="Ends every session, including this one.">
       <Button size="small" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
-        Log out everywhere
+        Log Out Everywhere
       </Button>
     </SettingRow>
   )

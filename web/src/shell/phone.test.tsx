@@ -68,7 +68,7 @@ describe('the shell on a phone', () => {
     expect(within(sheet).getByRole('radio', { name: /dark/i })).toBeInTheDocument()
     expect(await within(sheet).findByText(/Kestrel \d/)).toBeInTheDocument()
 
-    // Each row is a full-width button named by its screen, in order, ahead of Log out.
+    // Each row is a full-width button named by its screen, in order, ahead of Log Out.
     ;['Settings', 'Log', 'Requests'].forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Log' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Log')

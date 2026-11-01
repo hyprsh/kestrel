@@ -172,11 +172,11 @@ describe('Settings', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument()
   })
 
-  it('logs out from a Log out row on the Account page', async () => {
+  it('logs out from a Log Out row on the Account page', async () => {
     const calls = fakeServer('logged-in')
     await openSettings()
     const account = await screen.findByRole('region', { name: 'Account' })
-    await userEvent.click(within(account).getByRole('button', { name: 'Log out' }))
+    await userEvent.click(within(account).getByRole('button', { name: 'Log Out' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument())
     expect(calls).toEqual([{ path: 'logout' }])
   })
@@ -184,7 +184,7 @@ describe('Settings', () => {
   it('logs out everywhere', async () => {
     const calls = fakeServer('logged-in')
     await openSettings()
-    await userEvent.click(screen.getByRole('button', { name: 'Log out everywhere' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Log Out Everywhere' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument())
     expect(calls).toEqual([{ path: 'logout-everywhere' }])
   })

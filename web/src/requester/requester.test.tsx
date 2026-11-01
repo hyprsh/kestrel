@@ -69,7 +69,7 @@ describe('the Requester app', () => {
 
     expect(await screen.findByRole('heading', { name: 'Your Requests' })).toBeInTheDocument()
     expect(screen.getByText('anna')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log Out' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
 
@@ -83,7 +83,7 @@ describe('the Requester app', () => {
   it('logs out', async () => {
     const { stop } = fakeRequester()
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Log out' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Log Out' }))
     expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument()
     stop()
   })
