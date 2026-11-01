@@ -11,7 +11,7 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
 1. **Set up.** `npm ci --prefix scripts/demo`. The browser is an installed Google Chrome, `$DEMO_CHROME`, or Playwright's Chromium after `npx --prefix scripts/demo playwright-core install chromium`. Done when `scripts/demo/node_modules/playwright-core` exists.
 
-2. **Build the pair of binaries.** `scripts/demo/demo.sh build origin/main $S/kestrel-before`, then `scripts/demo/demo.sh build . $S/kestrel-after` for the working tree as it is (or name the PR's ref). A ref without the provider URLs (`git grep -q KESTREL_TMDB_API_URL <ref> -- internal/config` fails) reaches the real TMDB and shows an empty Library. Done when both binaries exist.
+2. **Build the pair of binaries.** `scripts/demo/demo.sh build origin/main $S/kestrel-before`, then `scripts/demo/demo.sh build . $S/kestrel-after` for the working tree as it is (or name the PR's ref). A ref without the provider URLs (`git grep -q KESTREL_TMDB_API_URL <ref> -- internal/config` fails) reaches the real TMDB and shows an empty Library. `build .` reuses `web/node_modules` and runs `npm ci` there only when it is missing or older than `package-lock.json` (so it does not break a dev server or tests that are using it); a ref is built from a temporary copy with its own `npm ci`. Done when both binaries exist.
 
 3. **Plan the shots.** List every user-visible change of the PR and the screen that shows it. Each change gets a before/after pair, named `NN-<what>-before.png` and `NN-<what>-after.png`; new UI with nothing to compare gets an after shot alone. Done when every change has a named shot and you know which seeded data shows it (see [Demo data](#demo-data)).
 

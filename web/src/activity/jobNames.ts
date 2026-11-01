@@ -56,6 +56,12 @@ const jobs: Record<string, JobWords> = {
     running: 'Reading Plex Watchlists',
     short: 'Reading Watchlists…',
   },
+  watch_ahead: {
+    label: 'Watch-ahead',
+    does: 'Adds the next seasons of series you are watching',
+    running: 'Adding next seasons to watch ahead',
+    short: 'Watching ahead…',
+  },
   updates: {
     label: 'Updates',
     does: 'Asks GitHub for a newer Kestrel release',
