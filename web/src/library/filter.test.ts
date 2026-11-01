@@ -77,6 +77,24 @@ describe('the Library filter', () => {
   })
 })
 
+describe('the Library filter on rows folded once', () => {
+  const rows = ['Breaking Bad', 'Better Call Saul', "Schindler's List", 'The Silent Garden', 'Zodiac'].map((t, i) => row(i + 1, t, t))
+  it.each([['silent'], ['silnt'], ['SILENT garden'], ['breaking'], ['breakin bad'], ['schindlers'], ['zod'], ['saul better'], ['nothing like it'], ['']])(
+    'keeps the same Titles for "%s" the second time as the first',
+    (text) => {
+      const q = parseQuery(text, libraryQualifiers([]))
+      const first = filterLibrary(rows, q, []).map((r) => r.id)
+      expect(filterLibrary(rows, q, []).map((r) => r.id)).toEqual(first)
+    },
+  )
+  it('still reads a word with a typo and words in any order', () => {
+    const q = (text: string) => filterLibrary(rows, parseQuery(text, libraryQualifiers([])), []).map((r) => r.title)
+    expect(q('silnt')).toEqual(['The Silent Garden'])
+    expect(q('saul better')).toEqual(['Better Call Saul'])
+    expect(q('zodiak')).toEqual(['Zodiac'])
+  })
+})
+
 describe('the state tabs', () => {
   const q = (text: string) => parseQuery(text, libraryQualifiers(profiles))
   const tab = (text: string, to: Parameters<typeof withTab>[1]) => withTab(text, to, libraryQualifiers(profiles))

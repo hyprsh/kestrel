@@ -1,6 +1,6 @@
 import { Button, EmptyState, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
 import { Plus } from 'lucide-react'
-import { lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useContext, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
@@ -14,6 +14,7 @@ import type { ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
 import { useSelection } from '../selection'
 import { useNow } from '../time'
+import { useDebounced } from '../loading'
 import { size } from './bits'
 import { BulkActions } from './BulkActions'
 import { EpisodeViewContext } from './episodeView'
@@ -31,6 +32,8 @@ import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
 
 // Manual search is reached from a Title's page only, so its page is fetched when one opens.
 const ManualSearchRoute = lazy(() => import('./ManualSearchRoute').then((m) => ({ default: m.ManualSearchRoute })))
+
+const noHits: EpisodeHit[] = []
 
 /**
  * The Library. Two panes: on the left the SidePanel (wide), which holds the name, the Library-wide "…" menu and Add Title, the
@@ -96,7 +99,10 @@ export function Library({
   )
   const grabs = useMemo(() => grabsByTitle(queue), [queue])
   const grabbing = useMemo(() => new Set(grabs.keys()), [grabs])
-  const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
+  // The field shows what is typed at once; the list follows from a deferred copy, so a keystroke is not held up by
+  // filtering and drawing thousands of Titles (React drops the stale pass when the next key comes).
+  const shownQuery = useDeferredValue(query)
+  const parsed = useMemo(() => parseQuery(shownQuery, qualifiers), [shownQuery, qualifiers])
   const rows = useMemo(() => filterLibrary(all, parsed, profiles ?? [], grabbing), [all, parsed, profiles, grabbing])
   const counts = useMemo(() => (titles.isSuccess ? tabCounts(all, parsed, profiles ?? [], grabbing) : null), [titles.isSuccess, all, parsed, profiles, grabbing])
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
@@ -108,7 +114,10 @@ export function Library({
   const current = rows[index] as TitleRow | undefined
   // The Episode and Season results above the Titles (a filter such as "harbour s2e5"): the cursor moves
   // through them and then the Titles. `hitKey` is the result it is on, null while it is on a Title.
-  const hits = useEpisodeResults(rows, parsed.text, true)
+  // Episode results fetch Series, so they wait for a pause in the typing.
+  const hitsText = useDebounced(parsed.text, 300)
+  const found = useEpisodeResults(rows, hitsText, true)
+  const hits = hitsText === parsed.text ? found : noHits // not the results of what was typed a moment ago
   const [hitKey, setHitKey] = useState<string | null>(null)
   const hitAt = hitKey === null ? -1 : hits.findIndex((h) => h.key === hitKey)
   const hit = hitAt >= 0 ? hits[hitAt] : null

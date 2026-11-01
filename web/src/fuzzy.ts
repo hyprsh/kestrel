@@ -175,8 +175,16 @@ function match(q: Folded, t: Folded): Match | null {
  * letters scattered across a line, which would match almost anything. Empty text matches.
  */
 export function matchText(text: string, haystacks: readonly string[]): boolean {
-  const hay = haystacks.map(fold)
-  return fold(text).words.every((w) => hay.some((h) => h.s.includes(w) || withTypos([w], h) !== null))
+  return matchFolded(fold(text), haystacks.map(fold))
+}
+
+/** `text` and the haystacks as `matchText` reads them, so a list that is filtered on every keystroke folds each row once. */
+export type FoldedText = Folded
+export const foldText = fold
+
+/** `matchText` on text and haystacks already folded by `foldText`. */
+export function matchFolded(text: FoldedText, hay: readonly FoldedText[]): boolean {
+  return text.words.every((w) => hay.some((h) => h.s.includes(w) || withTypos([w], h) !== null))
 }
 
 /**
