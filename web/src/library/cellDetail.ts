@@ -6,12 +6,22 @@ import type { QueueItem } from '../api/queue'
 import { size, type SlotKey } from './bits'
 import { episodeCode } from './episodes'
 
+/** The episode codes a Grab's `episodes` name: the API gives "S05E09" for one and "S05E05-E10" for a run, which this spells out one by one. */
+export function expandCodes(labels: readonly string[]): string[] {
+  return labels.flatMap((label) => {
+    const m = /^(S\d+)E(\d+)-E(\d+)$/.exec(label)
+    if (!m) return [label]
+    const width = m[2].length
+    return Array.from({ length: Number(m[3]) - Number(m[2]) + 1 }, (_, i) => `${m[1]}E${String(Number(m[2]) + i).padStart(width, '0')}`)
+  })
+}
+
 /** The queue's Grabs by Slot and episode code ("standard S01E02"), for one Title. */
 export function grabsByEpisode(queue: readonly QueueItem[] | undefined, titleId: number): Map<string, QueueItem> {
   const out = new Map<string, QueueItem>()
   for (const g of queue ?? []) {
     if (g.title_id !== titleId || !g.slot) continue
-    for (const code of g.episodes) out.set(`${g.slot} ${code}`, g)
+    for (const code of expandCodes(g.episodes)) out.set(`${g.slot} ${code}`, g)
   }
   return out
 }

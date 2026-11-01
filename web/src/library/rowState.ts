@@ -7,6 +7,7 @@ import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import { percent } from '../format'
 import { ago, clockTime, span } from '../time'
+import { expandCodes } from './cellDetail'
 import { size as bytes, slotKeys, slotLabel, type SlotKey } from './bits'
 
 export type Tone = 'error' | 'warning' | 'info' | 'quiet'
@@ -80,8 +81,9 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
   const vs = kept(r)
   const two = vs.length > 1
   const w = r.wanted_episodes
-  const downloading = new Set(grabs.filter(filling).flatMap((g) => g.episodes)).size
   if (r.kind === 'series' && w && w.wanted > 0) {
+    // A season pack that also holds filled episodes counts as an Upgrade, so any Grab counts here; the Wanted ones are all that can be downloading.
+    const downloading = Math.min(w.wanted, new Set(grabs.flatMap((g) => expandCodes(g.episodes))).size)
     const text = `${seasons(w.seasons)}: ${w.wanted} Wanted${downloading > 0 ? `, ${downloading} downloading` : ''}`
     return w.long_missing > 0 ? { text: `Long Missing · ${text}`, tone: 'error' } : { text, tone: 'warning' }
   }

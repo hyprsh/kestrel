@@ -64,6 +64,14 @@ describe('the state line of a Library row', () => {
     expect(stateLine(long, [], now)).toEqual({ text: 'Long Missing · 4 seasons: 6 Wanted', tone: 'error' })
   })
 
+  it("counts the episodes of a season pack's run as downloading, but never more than are Wanted", () => {
+    const r = row(1, 'Harbour', 'Harbour', { kind: 'series', wanted_episodes: { wanted: 6, long_missing: 0, seasons: [5] } })
+    const pack = [grab({ kind: 'series', episodes: ['S05E01-E16'], is_upgrade: true })]
+    expect(stateLine(r, pack, now)).toEqual({ text: 'S05: 6 Wanted, 6 downloading', tone: 'warning' })
+    const run = [grab({ kind: 'series', episodes: ['S05E09-E10'] })]
+    expect(stateLine(r, run, now)).toEqual({ text: 'S05: 6 Wanted, 2 downloading', tone: 'warning' })
+  })
+
   it('names the episodes a Series Grab brings when nothing else is Wanted', () => {
     const r = row(1, 'Copper', 'Copper', { kind: 'series', slots: { standard: slot('filled'), '4k': null }, wanted_episodes: { wanted: 0, long_missing: 0, seasons: [] } })
     expect(stateLine(r, [grab({ kind: 'series', episodes: ['S03E07'], bytes_left: 59, eta: null })], now)).toEqual({ text: 'S03E07 downloading · 41%', tone: 'info' })

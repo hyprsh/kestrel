@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { queueItem } from '../test/queue'
 import { cell, episode } from '../test/series'
-import { cellText, grabOf, grabsByEpisode } from './cellDetail'
+import { cellText, expandCodes, grabOf, grabsByEpisode } from './cellDetail'
 
 const now = Date.parse('2026-10-31T12:00:00Z')
 const ep = (over = {}) => episode(1, 5, 5, 'Dead Freight', { air_date: '2026-10-28', ...over })
@@ -42,5 +42,25 @@ describe('grabsByEpisode', () => {
     const grabs = grabsByEpisode([grab, queueItem({ title_id: 8, slot: 'standard', episodes: ['S05E05'], grab_id: 2 })], 7)
     expect(grabOf(grabs, 'standard', ep())).toBe(grab)
     expect(grabOf(grabs, '4k', ep())).toBeUndefined()
+  })
+
+  it('spells out the run of a season pack, so each covered cell gets the Grab’s percentage and time left', () => {
+    const grab = queueItem({ title_id: 7, slot: 'standard', episodes: ['S05E01-E16'], bytes_total: 100, bytes_left: 60, eta: 780 })
+    const grabs = grabsByEpisode([grab], 7)
+    expect(grabOf(grabs, 'standard', ep())).toBe(grab)
+    expect(grabOf(grabs, 'standard', ep({ number: 16 }))).toBe(grab)
+    expect(grabOf(grabs, 'standard', ep({ number: 17 }))).toBeUndefined()
+    expect(text(cell('downloading'), ep(), grabOf(grabs, 'standard', ep()))).toBe('40% · 13 min')
+  })
+
+  it('still reads single episodes by their code', () => {
+    const grab = queueItem({ title_id: 7, slot: 'standard', episodes: ['S05E05'], bytes_total: 100, bytes_left: 60, eta: 780 })
+    expect(text(cell('downloading'), ep(), grabOf(grabsByEpisode([grab], 7), 'standard', ep()))).toBe('40% · 13 min')
+  })
+})
+
+describe('expandCodes', () => {
+  it('spells out a run and keeps single codes', () => {
+    expect(expandCodes(['S05E09-E11', 'S02E03'])).toEqual(['S05E09', 'S05E10', 'S05E11', 'S02E03'])
   })
 })
