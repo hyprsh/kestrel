@@ -2,7 +2,7 @@
 // POST /grabs/{id}/retry-import and POST /grabs/{id}/discard, and the stream's `activity` frames.
 import { skipToken, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import { ApiError } from './queries'
+import { ApiError, usePluginInstances } from './queries'
 import type { components } from './schema.gen'
 
 export type GrabEntry = components['schemas']['GrabEntry']
@@ -94,4 +94,40 @@ export function useStalledImport() {
       void qc.invalidateQueries({ queryKey: ['attention'] })
     },
   })
+}
+
+export type GrabSteps = components['schemas']['GrabSteps']
+
+/** What happened to one Grab (GET /grabs/{id}/steps), read when its History row is opened. */
+export function useGrabSteps(id: number | null) {
+  return useQuery({
+    queryKey: ['grabs', 'steps', id],
+    enabled: id !== null,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/grabs/{id}/steps', { params: { path: { id: id! } } })
+      if (!data) throw error
+      return data
+    },
+  })
+}
+
+/** Takes a Grab's Release off the Blocklist (DELETE /blocklist/{id}); the opened row's steps and the Blocklist reload. */
+export function useRemoveFromBlocklist() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error, response } = await api.DELETE('/blocklist/{id}', { params: { path: { id } } })
+      if (!response.ok) throw problemOf(error, response.status, 'Could not remove the Release from the Blocklist')
+    },
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['grabs'] }), qc.invalidateQueries({ queryKey: ['blocklist'] })]),
+  })
+}
+
+/** The enabled download client with the highest priority: its name and, when it has a `url` setting, where to open it. */
+export function useDownloadClient() {
+  const { data } = usePluginInstances()
+  const client = data?.filter((i) => i.contract === 'download_client.v1' && i.enabled).sort((a, b) => a.priority - b.priority)[0]
+  if (!client) return null
+  const url = client.config?.url
+  return { name: client.name, url: typeof url === 'string' && /^https?:\/\//.test(url) ? url : null }
 }
