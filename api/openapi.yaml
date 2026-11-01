@@ -4773,7 +4773,7 @@ components:
           description: When a Wanted Version is next searched. Only a Wanted Version has it here.
     TitleRow:
       type: object
-      required: [id, kind, title, primary_title, year, has_poster, slots, wanted_since, added_at, size, searched_at, wanted_episodes]
+      required: [id, kind, title, primary_title, year, has_poster, monitored, slots, wanted_since, added_at, size, searched_at, wanted_episodes]
       properties:
         id:
           type: integer
@@ -4792,6 +4792,9 @@ components:
         has_poster:
           type: boolean
           description: Whether `GET /titles/{id}/poster` has an image.
+        monitored:
+          type: boolean
+          description: A Movie's flag; a Series is monitored unless its `series_monitor` is `none`.
         slots:
           type: object
           required: [standard, 4k]

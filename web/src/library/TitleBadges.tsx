@@ -1,10 +1,18 @@
 // The Title page's status badges: what is missing, downloading and coming, from data the page already has.
 import { Badge } from '@hyprsh/design'
+import { useSetMovieMonitored } from '../api/titleActions'
+import { placePath, useOpenPlace } from '../place'
+import { ago, span, useNow } from '../time'
 import { useEpisodes, type TitleDetail } from '../api/queries'
 import { plural } from '../format'
-import { useNow } from '../time'
 import { episodeCode, seasonStanding } from './episodes'
+import { dotOf } from './bits'
+import { FileDetailsPopover } from './EpisodeFilePopover'
 import { SlotChips, stateWord, type ChipData } from './SlotChip'
+import { SlotPopover, type SlotAction } from './SlotPopover'
+import type { ManualSearchTarget } from './TitleDetail'
+import { useSearchWanted } from './VersionSearch'
+import { foundText } from './WantedLine'
 import { slotsOf } from './slots'
 import { downloadsOf, useTitleDownloads } from './TitleDownloads'
 
@@ -19,8 +27,8 @@ const today = (now: number) => {
 }
 
 /** A Series' "Wanted" in amber, "downloading" in blue and the next episode to air in gray; a Movie's a chip per Slot (STD, "4K 40%", "DE Wanted") and its release ("Released: …", or the next one). */
-export function TitleBadges({ title }: { title: TitleDetail }) {
-  return title.kind === 'series' ? <SeriesBadges title={title} /> : <MovieBadges title={title} />
+export function TitleBadges({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (t: ManualSearchTarget) => void }) {
+  return title.kind === 'series' ? <SeriesBadges title={title} /> : <MovieBadges title={title} profileName={profileName} onManualSearch={onManualSearch} />
 }
 
 /** The pills of a header, in one style for a Series and a Movie: Wanted amber, downloading blue, the date gray. */
@@ -70,9 +78,12 @@ function SeriesBadges({ title }: { title: TitleDetail }) {
 
 const releaseName = { premiere: 'premiere', theatrical_limited: 'limited release', theatrical: 'theatrical release', digital: 'digital release', physical: 'physical release', tv: 'TV release' }
 
-function MovieBadges({ title }: { title: TitleDetail }) {
+function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (t: ManualSearchTarget) => void }) {
   const downloads = useTitleDownloads(title.id)
   const now = useNow()
+  const search = useSearchWanted(title)
+  const setMonitored = useSetMovieMonitored(title.id)
+  const openPlace = useOpenPlace()
   const dates = title.release_dates.map((r) => ({ ...r, day: r.date.slice(0, 10) })).sort((a, b) => a.day.localeCompare(b.day))
   const next = dates.find((r) => r.day >= today(now))
   const out = dates[0]
@@ -90,11 +101,46 @@ function MovieBadges({ title }: { title: TitleDetail }) {
         : state === 'wanted'
           ? `${s.name}: Wanted${since >= 1 ? ` ${plural(since, 'day')}` : ''}`
           : `${s.name}: ${stateWord[state ?? ''] ?? state ?? 'no Version'}`
-    return { key: s.key, short: s.short, state, text, tip }
+    if (!v) return { key: s.key, short: s.short, state, text, tip }
+    const label = `${s.name} Version`
+    const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
+    const actions: SlotAction[] = []
+    const lines: string[] = []
+    let words = stateWord[state ?? ''] ?? state ?? ''
+    if (v.file && !grab) {
+      const file = v.file
+      return {
+        key: s.key,
+        short: s.short,
+        state,
+        text,
+        tip,
+        wrap: (trigger) => <FileDetailsPopover label={`${s.name} file`} heading={s.name} dot={dotOf('filled', false)} file={file} trigger={trigger} onUpgrade={manual} />,
+      }
+    }
+    if (state === 'wanted') {
+      words = `Wanted${since >= 1 ? ` \u00b7 ${plural(since, 'day')}` : ''}`
+      lines.push(v.last_search ? `Last searched ${ago(v.last_search.at, now)} \u00b7 ${foundText(v.last_search)}` : 'Not searched yet')
+      actions.push({ label: 'Search', primary: true, run: () => search.run([v.id]) }, { label: 'Manual Search', run: manual })
+    } else if (state === 'downloading') {
+      words = grab?.pct != null ? `${grab.pct}%${grab.eta != null ? ` \u00b7 ${span(grab.eta * 1000)} left` : ''}` : 'Downloading'
+      if (grab?.items[0]?.release_name) lines.push(grab.items[0].release_name)
+      actions.push({ label: 'View in Activity', primary: true, run: () => openPlace(placePath('activity')) })
+    } else if (state === 'unmonitored') {
+      actions.push({ label: 'Monitor', primary: true, run: () => void setMonitored.mutateAsync(true) })
+    } else if (state === 'unreleased') words = 'Not out yet'
+    return {
+      key: s.key,
+      short: s.short,
+      state,
+      text,
+      tip,
+      wrap: (trigger) => <SlotPopover label={label} heading={`${title.title} \u00b7 ${s.name}`} state={state} text={words} lines={lines} actions={actions} trigger={trigger} />,
+    }
   })
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <SlotChips chips={chips} max={chips.length} label="Slots" align="start" />
+      <SlotChips chips={chips} max={chips.length} label="Slots" align="start" wrap />
       {date && (
         <Badge variant="gray" contrast="low" size="sm">
           {date}

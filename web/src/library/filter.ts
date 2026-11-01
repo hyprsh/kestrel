@@ -133,6 +133,7 @@ function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[],
       return r.kind === v
     case 'is':
       if (v === 'downloading' && grabbing.has(r.id)) return true
+      if (v === 'unmonitored') return !r.monitored // the Title's flag, whatever its files say
       return versions(r).some((s) => (v === 'long_missing' ? s.long_missing : s.state === v))
     case 'slot':
       return r.slots[v as keyof TitleRow['slots']] !== null

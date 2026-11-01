@@ -148,9 +148,6 @@ async function openSeriesWithFiles() {
   return { grid, sent }
 }
 
-/** Opens an episode's row (S01E01) with its chevron: its ⋯ menu is in the opened row. */
-const openEpisode = (grid: HTMLElement, code: string) => userEvent.click(within(grid).getByRole('button', { name: `Open ${code}` }))
-
 /** Picks `item` from the menu `menu`, an opened row's in the list or one outside it (a season's above the table, the ticked episodes' in their bar). */
 async function choose(grid: HTMLElement | null, menu: string, item: string) {
   await userEvent.click((grid ? within(grid) : screen).getByRole('button', { name: menu }))
@@ -163,7 +160,6 @@ describe('deleting files from the episode table', () => {
   it("deletes an episode's file, naming every episode the shared file holds", async () => {
     const { grid, sent } = await openSeriesWithFiles()
 
-    await openEpisode(grid, 'S01E01')
     await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
     const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Breaking Bad - S01E01-E02 - [Standard].mkv')
@@ -181,7 +177,6 @@ describe('deleting files from the episode table', () => {
     const { grid, sent } = await openSeriesWithFiles()
     const pilot = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })
 
-    await openEpisode(grid, 'S01E01')
     await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
 
     const confirm = within(grid).getByRole('dialog', { name: 'Delete files' })
@@ -208,7 +203,6 @@ describe('deleting files from the episode table', () => {
 
   it('cannot delete a file a Slot does not have', async () => {
     const { grid } = await openSeriesWithFiles()
-    await openEpisode(grid, 'S01E01')
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
     expect(screen.getByRole('menuitem', { name: 'Delete 4K Files…' })).toHaveAttribute('aria-disabled', 'true')
   })
@@ -244,13 +238,11 @@ describe('deleting files from the episode table', () => {
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
 
     expect(within(within(grid).getByRole('row', { name: /Pilot/ })).getByTitle('4K: 2160p · 1.0 GB')).toBeInTheDocument()
-    await openEpisode(grid, 'S01E01')
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
     expect(screen.getByRole('menuitem', { name: 'Delete Files…' })).not.toHaveAttribute('aria-disabled', 'true')
     await userEvent.keyboard('{Escape}')
 
     expect(within(within(grid).getByRole('row', { name: /Cat/ })).getByTitle(/^4K: Wanted/)).toBeInTheDocument()
-    await openEpisode(grid, 'S01E02')
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 2' }))
     expect(screen.getByRole('menuitem', { name: 'Delete Files…' })).toHaveAttribute('aria-disabled', 'true')
   })

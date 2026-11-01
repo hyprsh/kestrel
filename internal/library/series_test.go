@@ -369,3 +369,33 @@ func TestMonitoringSpecialsMakesSeasonZeroFollowTheMode(t *testing.T) {
 		t.Errorf("a Movie has no switches: %v", err)
 	}
 }
+
+func TestTheListSaysWhetherEachTitleIsMonitored(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	series := addShow(t, lib, library.MonitorAll)
+	movie := addPaddington(t, lib)
+	monitored := func() map[int64]bool {
+		rows, err := lib.List(ctx, library.View{Country: "US", Now: now}, library.Filter{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[int64]bool{}
+		for _, r := range rows {
+			out[r.ID] = r.Monitored
+		}
+		return out
+	}
+	if got := monitored(); !got[series] || !got[movie] {
+		t.Fatalf("both start monitored: %v", got)
+	}
+	if err := lib.SetSeriesMonitor(ctx, series, library.MonitorNone); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.SetMovieMonitored(ctx, movie, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := monitored(); got[series] || got[movie] {
+		t.Errorf("both are off now: %v", got)
+	}
+}

@@ -3436,6 +3436,8 @@ export interface components {
             year: number | null;
             /** @description Whether `GET /titles/{id}/poster` has an image. */
             has_poster: boolean;
+            /** @description A Movie's flag; a Series is monitored unless its `series_monitor` is `none`. */
+            monitored: boolean;
             slots: {
                 standard: components["schemas"]["SlotSummary"] | null;
                 "4k": components["schemas"]["SlotSummary"] | null;

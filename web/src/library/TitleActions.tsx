@@ -68,11 +68,11 @@ export function TitleActions({
   const size = phone ? 'large' : 'medium'
   return (
     <>
-      <div className="flex shrink-0 items-center gap-2 max-sm:w-full">
-        <div className="max-sm:flex-1 max-sm:[&>*]:w-full">
+      <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:flex-wrap">
+        <div className="max-sm:min-w-36 max-sm:flex-1 max-sm:[&>*]:w-full">
           <MonitorButton title={title} size={size} short={phone} />
         </div>
-        <div className="max-sm:flex-1 max-sm:[&>*]:w-full">
+        <div className="max-sm:min-w-36 max-sm:flex-1 max-sm:[&>*]:w-full">
           {monitorMovie ? (
             <Button variant="default" size={size} disabled={setMovie.isPending} onClick={() => void report(setMovie.mutateAsync(true), { failed: 'Could not change monitoring' })}>
               Monitor

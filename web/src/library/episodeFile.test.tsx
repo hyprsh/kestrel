@@ -102,44 +102,34 @@ describe('the episodes loading Skeleton', () => {
   })
 })
 
-/** Opens an episode's row (its chevron) and returns the list of its Slots. */
-async function openRow(user: ReturnType<typeof userEvent.setup>, grid: HTMLElement, code: string) {
-  await user.click(within(grid).getByRole('button', { name: `Open ${code}` }))
-  return within(grid).getByRole('list', { name: `Slots of ${code}` })
-}
+/** One Slot's chip of an episode (S01E01): a button whose popover is that Slot. */
+const chipOf = (grid: HTMLElement, code: string, slot: string) => within(within(grid).getByRole('group', { name: `${code} Slots` })).getByRole('button', { name: new RegExp(`^${slot}:`) })
 
 describe('the file of an episode Slot, in the opened row', () => {
-  it('says the state, the file and the size of every Slot in the opened row, and what a Wanted one still lacks', async () => {
-    const { user, grid } = await openSeries()
-    const slots = await openRow(user, grid, 'S01E01')
-    const [standard, fourK] = within(slots).getAllByRole('listitem')
-    expect(standard).toHaveTextContent('Standard1080p \u00b7 2.0 GB')
-    expect(within(standard).getByText(pilotPath).closest('[dir="rtl"]')).toHaveAttribute('title', pilotPath) // cut at its start
-    expect(standard).toHaveTextContent('2.0 GB')
-    expect(fourK).toHaveTextContent(/^4KWanted \u00b7 /)
-    expect(within(fourK).getByText('not searched yet')).toBeInTheDocument()
-    expect(within(fourK).getByRole('button', { name: 'Search 4K' })).toBeInTheDocument()
-  })
-
-  it('names the Slot and its state in the chip tooltips, and says when a Wanted Slot was last searched', async () => {
+  it('names the Slot and its state in the chip tooltips, and the chip of a filled Slot is a green dot in plain text', async () => {
     const { grid } = await openSeries()
     const row = within(grid).getByRole('row', { name: /Pilot/ })
-    expect(within(row).getByTitle('Standard: 1080p \u00b7 2.0 GB')).toBeInTheDocument()
-    expect(within(row).getByTitle(/^4K: Wanted \d+ d$/)).toBeInTheDocument()
+    const standard = within(row).getByTitle('Standard: 1080p \u00b7 2.0 GB')
+    expect(standard).toHaveAttribute('data-state', 'filled')
+    expect(standard.querySelector('[data-state="filled"]')).not.toBeNull()
+    expect(within(row).getByTitle(/^4K: Wanted \d+ d$/)).toHaveAttribute('data-state', 'wanted')
     const placeholder = within(grid).getByRole('row', { name: /TBA/ })
     expect(within(placeholder).getByTitle('Standard: Wanted')).toBeInTheDocument()
   })
 
-  it('says in the opened row when a Wanted Slot was last searched, how many releases named it and how it ended', async () => {
+  it('opens the popover of a Wanted Slot with when it was last searched, how many releases named it and how it ended, and Search and Manual Search', async () => {
     const { user, grid } = await openSeries()
-    const slots = await openRow(user, grid, 'S01E03')
-    expect(slots).toHaveTextContent('last searched 2 h ago \u00b7 14 releases \u00b7 none fit the Profile')
+    await user.click(chipOf(grid, 'S01E03', '4K'))
+    const pop = await screen.findByRole('dialog', { name: 'S01E03 4K' })
+    expect(within(pop).getByText('S01E03 \u00b7 4K')).toBeInTheDocument()
+    expect(pop).toHaveTextContent('Last searched 2 h ago \u00b7 14 releases \u00b7 none fit the Profile')
+    expect(within(pop).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    expect(within(pop).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
   })
 
   it('opens a popover on click laid out like the mockup, whose Copy Path button copies the path', async () => {
     const { user, grid } = await openSeries()
-    await openRow(user, grid, 'S01E01')
-    await user.click(within(grid).getByRole('button', { name: 'File details for Standard' }))
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('S01E01 · Standard')).toBeInTheDocument()
@@ -165,8 +155,7 @@ describe('the file of an episode Slot, in the opened row', () => {
 
   it('shows the Score with each matched Custom Format and its signed points', async () => {
     const { user, grid } = await openSeries()
-    await openRow(user, grid, 'S01E01')
-    await user.click(within(grid).getByRole('button', { name: 'File details for Standard' }))
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('120')).toBeInTheDocument()
@@ -183,8 +172,7 @@ describe('the file of an episode Slot, in the opened row', () => {
     await user.click(await screen.findByRole('button', { name: 'Library' }))
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
     await pickSeason('Season 1')
-    await openRow(user, grid, 'S01E01')
-    await user.click(within(grid).getByRole('button', { name: 'File details for Standard' }))
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('Size')).toBeInTheDocument()
@@ -202,8 +190,7 @@ describe('the file of an episode Slot, in the opened row', () => {
     await user.click(await screen.findByRole('button', { name: 'Library' }))
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
     await pickSeason('Season 1')
-    await openRow(user, grid, 'S01E01')
-    await user.click(within(grid).getByRole('button', { name: 'File details for Standard' }))
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('Score')).toBeInTheDocument()
@@ -217,8 +204,7 @@ describe('the file of an episode Slot, in the opened row', () => {
     const { user, grid } = await openSeries()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     document.execCommand = vi.fn(() => false)
-    await openRow(user, grid, 'S01E01')
-    within(grid).getByRole('button', { name: 'File details for Standard' }).focus()
+    chipOf(grid, 'S01E01', 'Standard').focus()
     await user.keyboard('{Enter}')
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
@@ -230,24 +216,20 @@ describe('the file of an episode Slot, in the opened row', () => {
     const { user, grid } = await openSeries()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     document.execCommand = vi.fn(() => true)
-    await openRow(user, grid, 'S01E01')
-    await user.click(within(grid).getByRole('button', { name: 'File details for Standard' }))
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     await user.click(within(pop).getByRole('button', { name: 'Copy Path' }))
     expect(await within(pop).findByRole('button', { name: 'Copied' })).toBeInTheDocument()
     expect(document.execCommand).toHaveBeenCalledWith('copy')
   })
 
-  it('closes the popover on a click elsewhere, and a Slot without a file has no File details', async () => {
+  it('closes the popover on a click elsewhere, and a Slot popover is only that Slot', async () => {
     const { user, grid } = await openSeries()
-    await openRow(user, grid, 'S01E02')
-    await user.click(within(grid).getByRole('button', { name: 'File details for Standard' }))
+    await user.click(chipOf(grid, 'S01E02', 'Standard'))
     expect(await screen.findByRole('dialog', { name: 'S01E02 Standard file' })).toBeInTheDocument()
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
 
     await user.click(within(grid).getByText('Name'))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await user.click(within(grid).getByRole('button', { name: 'Close S01E02' }))
-    const slots = await openRow(user, grid, 'S01E03')
-    expect(within(slots).queryByRole('button', { name: /File details/ })).not.toBeInTheDocument()
   })
 })

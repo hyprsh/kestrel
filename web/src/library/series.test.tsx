@@ -152,27 +152,27 @@ describe('the episode list', () => {
     expect(within(grid).queryByRole('list', { name: 'Slots of S01E01' })).not.toBeInTheDocument()
   })
 
-  it('opens a row in place on click, one at a time, listing every Slot, and closes it again', async () => {
+  it('opens a popover of just that Slot from its chip: a click, or Enter on the focused chip', async () => {
     const { grid } = await openSeries()
-    await userEvent.click(within(grid).getByText('Pilot'))
-    const slots = within(grid).getByRole('list', { name: 'Slots of S01E01' })
-    expect(within(slots).getAllByRole('listitem')).toHaveLength(2)
-    expect(within(slots).getByText('Standard')).toBeInTheDocument()
-    expect(within(slots).getByText('Have')).toBeInTheDocument()
-    expect(within(slots).getByText(/^Wanted \u00b7 \d+ d$/)).toBeInTheDocument()
-    expect(within(slots).getByText('not searched yet')).toBeInTheDocument()
-    expect(within(slots).getByRole('button', { name: 'Search 4K' })).toBeInTheDocument()
-    expect(within(grid).getByRole('row', { name: /Pilot/ })).toHaveAttribute('data-open')
+    const chip = (code: string, slot: string) => within(within(grid).getByRole('group', { name: `${code} Slots` })).getByRole('button', { name: new RegExp(`^${slot}:`) })
 
-    // Another row opens and the first closes.
-    await userEvent.click(within(grid).getByText("Cat's in the Bag..."))
-    expect(within(grid).queryByRole('list', { name: 'Slots of S01E01' })).not.toBeInTheDocument()
-    expect(within(grid).getByRole('list', { name: 'Slots of S01E02' })).toBeInTheDocument()
-    await userEvent.click(within(grid).getByRole('button', { name: 'Close S01E02' }))
-    expect(within(grid).queryByRole('list', { name: 'Slots of S01E02' })).not.toBeInTheDocument()
+    // A click on the row itself opens nothing.
+    await userEvent.click(within(grid).getByText('Pilot'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(within(grid).queryByRole('button', { name: /^(Open|Close) S01E01/ })).not.toBeInTheDocument() // no row chevron
+
+    await userEvent.click(chip('S01E01', '4K'))
+    const wanted = await screen.findByRole('dialog', { name: 'S01E01 4K' })
+    expect(within(wanted).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    chip('S01E02', 'Standard').focus()
+    await userEvent.keyboard('{Enter}')
+    expect(await screen.findByRole('dialog', { name: 'S01E02 Standard' })).toHaveTextContent('Not aired')
   })
 
-  it('is operated from the keyboard: arrows and j/k move rows, Enter opens, Space ticks, x ticks too', async () => {
+  it('is operated from the keyboard: j/k and the arrows move rows, left and right move between chips, Space ticks, Enter opens a chip', async () => {
     const { grid } = await openSeries()
     // The controls above the list have their own tab stops: start at the last one before it.
     await act(async () => screen.getByRole('button', { name: 'Find an episode' }).focus())
@@ -181,10 +181,20 @@ describe('the episode list', () => {
     const pilot = within(grid).getByRole('row', { name: /Pilot/ })
     expect(pilot).toHaveFocus()
 
+    await userEvent.keyboard('{ArrowRight}')
+    expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(within(pilot).getByRole('button', { name: /^4K:/ })).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(within(pilot).getByRole('button', { name: /^4K:/ })).toHaveFocus() // the last chip stays
     await userEvent.keyboard('{Enter}')
-    expect(within(grid).getByRole('list', { name: 'Slots of S01E01' })).toBeInTheDocument()
-    await userEvent.keyboard('{Enter}')
-    expect(within(grid).queryByRole('list', { name: 'Slots of S01E01' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'S01E01 4K' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(pilot).toHaveFocus()
 
     await userEvent.keyboard(' ')
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toBeChecked()
@@ -194,6 +204,9 @@ describe('the episode list', () => {
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' })).toBeChecked()
     await userEvent.keyboard('k')
     expect(pilot).toHaveFocus()
+    // From a chip, j and k still move rows.
+    await userEvent.keyboard('{ArrowRight}j')
+    expect(within(grid).getByRole('row', { name: /Cat's in the Bag/ })).toHaveFocus()
 
     // The keys stayed inside the list: the Library selection did not move.
     expect(screen.getByRole('option', { name: /breaking bad/i, selected: true })).toBeInTheDocument()

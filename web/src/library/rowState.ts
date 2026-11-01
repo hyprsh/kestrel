@@ -94,6 +94,7 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
     const lead = what ? `${what} ${verb}` : verb[0].toUpperCase() + verb.slice(1)
     return { text: `${lead} · ${progress(g)}`, tone: 'info' }
   }
+  if (!r.monitored) return { text: 'Not monitored', tone: 'quiet' }
   const long = vs.filter((x) => x.v.long_missing)
   const wanted = vs.filter((x) => x.v.state === 'wanted')
   // A Slot is named when only some of the Title's Versions are in the state.
@@ -121,11 +122,8 @@ function holding(r: TitleRow, vs: ReturnType<typeof kept>, now: number, withSize
   return text ? text[0].toUpperCase() + text.slice(1) : 'Filled'
 }
 
-/** Whether a Title is monitored: a Movie or a Series whose Versions are not all unmonitored (a Series with the mode Not monitored). */
-export const isMonitoredRow = (r: TitleRow) => {
-  const vs = kept(r)
-  return !(vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored'))
-}
+/** Whether a Title is monitored, as GET /titles says: a Movie's flag, a Series' mode not being Not monitored. */
+export const isMonitoredRow = (r: TitleRow) => r.monitored
 
 /** The Slots as the dots show them: a Wanted Version a Grab is filling is downloading. */
 export function shownSlots(r: TitleRow, grabs: readonly QueueItem[]): TitleRow['slots'] {

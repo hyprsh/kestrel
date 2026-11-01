@@ -241,7 +241,7 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 	}
 	out := oapi.TitleRow{
 		Id: r.ID, Kind: oapi.TitleKind(r.Kind), Title: r.Title, PrimaryTitle: r.PrimaryTitle, Year: intPtr(r.Year),
-		HasPoster: r.HasPoster, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size, SearchedAt: r.SearchedAt,
+		HasPoster: r.HasPoster, Monitored: r.Monitored, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size, SearchedAt: r.SearchedAt,
 	}
 	if w := r.WantedEpisodes; w != nil {
 		out.WantedEpisodes = &oapi.WantedEpisodes{Wanted: w.Wanted, LongMissing: w.LongMissing, Seasons: w.Seasons}

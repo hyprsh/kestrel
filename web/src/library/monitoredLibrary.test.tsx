@@ -14,8 +14,8 @@ const hd = (state: 'wanted' | 'filled' | 'unmonitored'): Slots => ({ standard: {
 async function openLibrary() {
   fakeLibrary([
     row(1, 'Paddington in Peru', 'Paddington in Peru', { slots: hd('filled'), wanted_since: null }),
-    row(2, 'Paddington 2', 'Paddington 2', { slots: hd('unmonitored'), wanted_since: null }),
-    row(3, 'Better Call Saul', 'Better Call Saul', { slots: hd('unmonitored'), wanted_since: null, kind: 'series' }),
+    row(2, 'Paddington 2', 'Paddington 2', { slots: hd('filled'), monitored: false, wanted_since: null }),
+    row(3, 'Better Call Saul', 'Better Call Saul', { slots: hd('unmonitored'), monitored: false, wanted_since: null, kind: 'series' }),
   ])
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))

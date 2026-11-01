@@ -1,7 +1,7 @@
 // Components take their Slots from the Title's Versions, not a fixed pair: a Series and a Movie with four and five Slots
 // (the third, fourth and fifth are fakes; #282 will supply real ones) render a chip, a card and a Files row for each.
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -80,7 +80,7 @@ describe('a Series with four Slots', () => {
     expect(more.getAttribute('title')).toMatch(/^Kids: Wanted \d+ d\nMobile: /)
   })
 
-  it('lists every Slot in the opened row with its state, file, size and action, and Search for a Wanted Slot searches only that one', async () => {
+  it('opens a popover of one Slot from its chip: a file for a filled Slot, Search for just that Slot for a Wanted one', async () => {
     const state = await openFourSlotSeries()
     const file = (n: string) => ({
       id: 70 + n.length,
@@ -104,18 +104,18 @@ describe('a Series with four Slots', () => {
       }),
     )
     const grid = await show()
-    await userEvent.click(within(grid).getByRole('button', { name: 'Open S01E01' }))
+    const group = within(grid).getByRole('group', { name: 'S01E01 Slots' })
 
-    const slots = within(grid).getByRole('list', { name: 'Slots of S01E01' })
-    const items = within(slots).getAllByRole('listitem')
-    expect(items.map((i) => i.getAttribute('data-slot-row'))).toEqual([...keys])
-    expect(items[0]).toHaveTextContent('Standard1080p · 1.0 GB')
-    expect(items[2]).toHaveTextContent('German1080p · 1.0 GB')
-    expect(within(items[2]).getByText(/\[German\]\.mkv$/)).toBeInTheDocument()
-    expect(within(items[0]).getByRole('button', { name: 'File details for Standard' })).toBeInTheDocument()
-    expect(within(items[3]).getByRole('button', { name: 'Search Remux' })).toBeInTheDocument()
+    await userEvent.click(within(group).getByRole('button', { name: /^German:/ }))
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 German file' })
+    expect(within(pop).getByText('S01E01 \u00b7 German')).toBeInTheDocument()
+    expect(within(pop).getByText(/\[German\]\.mkv$/)).toBeInTheDocument()
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
-    await userEvent.click(within(items[3]).getByRole('button', { name: 'Search Remux' }))
+    await userEvent.click(within(group).getByRole('button', { name: /^Remux:/ }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'S01E01 Remux' })).getByRole('button', { name: 'Search' }))
     expect(await screen.findByText('Search started for S01E01 in Remux')).toBeInTheDocument()
     expect(searched).toEqual([{ version: 53, body: { season: 1, episode_ids: [2] } }])
   })
@@ -134,6 +134,32 @@ describe('a Series with four Slots', () => {
     expect(row).toHaveTextContent('GERMAN 2/2')
     expect(row).toHaveTextContent('REMUX 1/2')
     expect(within(row).getByTitle('4K 1 of 2, 1 Wanted')).toHaveAttribute('data-wanted')
+  })
+})
+
+describe('the popovers of the Slots that hold no file', () => {
+  it('says what a downloading Slot is doing with a link to Activity, and offers Monitor on a Slot that is not monitored', async () => {
+    const state = await openFourSlotSeries()
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('downloading'), '4k': cell('unmonitored'), german: cell('unreleased'), remux: cell('wanted') }) })]
+    const grid = await show()
+    const group = within(grid).getByRole('group', { name: 'S01E01 Slots' })
+
+    await userEvent.click(within(group).getByRole('button', { name: /^Standard:/ }))
+    const dl = await screen.findByRole('dialog', { name: 'S01E01 Standard' })
+    expect(within(dl).getByRole('button', { name: 'View in Activity' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await userEvent.click(within(group).getByRole('button', { name: /^German:/ }))
+    expect(await screen.findByRole('dialog', { name: 'S01E01 German' })).toHaveTextContent('Airs')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await userEvent.click(within(group).getByRole('button', { name: /^4K:/ }))
+    const off = await screen.findByRole('dialog', { name: 'S01E01 4K' })
+    expect(off).toHaveTextContent('Not monitored')
+    await userEvent.click(within(off).getByRole('button', { name: 'Monitor' }))
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: true } }]))
   })
 })
 
@@ -163,6 +189,16 @@ describe('a Movie with four Slots', () => {
     const cards = within(pane).getByRole('region', { name: 'Versions' })
     expect(within(cards).getAllByRole('list')).toHaveLength(4)
     for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('list', { name: n })).toBeInTheDocument()
+    // Each chip opens a popover of its Slot alone: the file of a filled one, the search of a Wanted one.
+    await userEvent.click(within(chips).getByRole('button', { name: /^Standard:/ }))
+    expect(await screen.findByRole('dialog', { name: 'Standard file' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await userEvent.click(within(chips).getByRole('button', { name: /^German:/ }))
+    const wanted = await screen.findByRole('dialog', { name: 'German Version' })
+    expect(within(wanted).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    expect(within(wanted).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
     const files = within(pane).getByRole('region', { name: 'Files' })
     for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(files).getAllByText(n).length).toBeGreaterThan(0)
   })
@@ -189,8 +225,10 @@ describe('on a phone', () => {
     expect(within(pilot).getByText('E01')).toBeInTheDocument()
     expect(within(pilot).getByRole('button', { name: 'Stop monitoring S01E01' })).toBeInTheDocument()
 
-    // Tapping the row opens it.
+    // Tapping a chip opens its popover; tapping the row does nothing.
     await userEvent.click(within(pilot).getByText('Pilot'))
-    expect(within(grid).getByRole('list', { name: 'Slots of S01E01' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await userEvent.click(within(pilot).getByRole('button', { name: /^4K:/ }))
+    expect(await screen.findByRole('dialog', { name: 'S01E01 4K' })).toBeInTheDocument()
   })
 })

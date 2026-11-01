@@ -5209,6 +5209,9 @@ type TitleRow struct {
 	Id        int64     `json:"id"`
 	Kind      TitleKind `json:"kind"`
 
+	// Monitored A Movie's flag; a Series is monitored unless its `series_monitor` is `none`.
+	Monitored bool `json:"monitored"`
+
 	// PrimaryTitle The title in the Primary Language; the English title when TMDB has no translation.
 	PrimaryTitle string `json:"primary_title"`
 

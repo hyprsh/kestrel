@@ -124,7 +124,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
               ))}
             </div>
             <MonitoringLine title={title} />
-            <TitleBadges title={title} />
+            <TitleBadges title={title} profileName={profileName} onManualSearch={onManualSearch} />
             {title.requests.map((r) => (
               <div key={r.id} className="copy-13 text-gray-900">
                 Requested by {r.requester_name} via {sourceName(r.source)}

@@ -42,7 +42,7 @@ export type EpisodeActions = {
   deletes: EpisodeDeletes
   /**
    * The list's keys for actions: x ticks (X a range), s searches and m opens Manual search for the episode under the cursor
-   * (in its first Wanted Slot), Shift+F10 or the menu key opens the menu of an opened row, Escape clears the ticks.
+   * (in its first Wanted Slot), Shift+F10 or the menu key opens the menu of a row, Escape clears the ticks.
    * True when handled.
    */
   onKey: (e: KeyboardEvent, episode: Episode | null) => boolean
@@ -106,7 +106,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
     }
     if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') {
       const row = e.target instanceof Element ? e.target.closest('tr') : null
-      row?.nextElementSibling?.querySelector<HTMLElement>('[aria-haspopup="menu"][aria-label^="Actions for"]')?.click()
+      row?.querySelector<HTMLElement>('[aria-haspopup="menu"][aria-label^="Actions for"]')?.click()
       return stop()
     }
     if (e.key === 'x' || e.key === 'X') {
@@ -264,14 +264,13 @@ export function RowSearch({ actions, episode }: { actions: Pick<EpisodeActions, 
   )
 }
 
-/** The ⋯ menu of an opened episode row: Manual Search per Slot, Show in Log and Delete Files. Monitoring is the row's bookmark. */
+/** The ⋯ menu of an episode row: Show in Log and Delete Files. Monitoring is the row's bookmark, a Slot's search and files are its chip's popover. */
 export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: EpisodeActions; episode: Episode; onOpenChange?: (open: boolean) => void }) {
   const { versions } = actions
   const code = episodeCode(episode)
   const withFiles = filledIn([episode], versions).length > 0
   return (
     <DotsMenu aria-label={`Actions for ${episodeName(episode)}`} size="tiny" iconSize={12} tabIndex={-1} onFocus={toRowCell} onOpenChange={onOpenChange} width={240}>
-      <ManualItems versions={versions} onPick={(v) => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)} />
       <MenuItem prefix={<ScrollText aria-hidden className="size-4" />} onSelect={actions.showInLog}>
         Show in Log
       </MenuItem>

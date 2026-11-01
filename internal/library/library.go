@@ -137,6 +137,8 @@ type Row struct {
 	SearchedAt *time.Time
 	// WantedEpisodes counts a Series' Wanted episodes; nil for a Movie.
 	WantedEpisodes *WantedEpisodes
+	// Monitored is a Movie's flag, or for a Series whether its mode is not none.
+	Monitored bool
 }
 
 // WantedEpisodes is how many of a Series' episodes are Wanted in any of its
@@ -534,7 +536,8 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			continue
 		}
 		rel := releaseDatesOf(datesOf[t.ID])
-		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt)}
+		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt),
+			Monitored: titleMonitored(t)}
 		var released map[int64]*time.Time
 		var wantedEps map[int64]bool // Wanted episodes, true when Long Missing in any Version
 		if row.Kind == Series {
@@ -747,4 +750,12 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	}
 	sort.SliceStable(d.Versions, func(i, j int) bool { return d.Versions[i].Slot < d.Versions[j].Slot })
 	return d, nil
+}
+
+// titleMonitored is whether a Title is monitored: a Movie by its flag, a Series by its mode not being none.
+func titleMonitored(t db.Title) bool {
+	if Kind(t.Kind) == Series {
+		return Monitor(t.SeriesMonitor.String) != MonitorNone
+	}
+	return t.Monitored == 1
 }
