@@ -40,6 +40,23 @@ func (s *Service) Block(ctx context.Context, e BlockEntry) error {
 	return err
 }
 
+// BlockRelease puts a Release of a search on the Blocklist, for the Title of the Version it was found for. It
+// returns ErrReleaseExpired once the search result has left the cache, and library.ErrNotFound for an unknown Version.
+func (s *Service) BlockRelease(ctx context.Context, versionID int64, releaseID, reason string) error {
+	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
+	if err != nil {
+		return err
+	}
+	e, ok := s.cache.get(s.clock(), releaseID)
+	if !ok || e.titleID != titleID {
+		return ErrReleaseExpired
+	}
+	return s.Block(ctx, BlockEntry{
+		ReleaseName: e.raw.Title, IndexerID: e.raw.IndexerID, GUID: e.raw.GUID, PublishedAt: e.raw.PublishDate, Size: e.raw.Size,
+		Reason: reason, TitleID: titleID, VersionID: versionID,
+	})
+}
+
 // Blocked is one Blocklist entry.
 type Blocked struct {
 	ID          int64

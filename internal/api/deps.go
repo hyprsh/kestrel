@@ -152,6 +152,7 @@ type Acquire interface {
 	Cancel(ctx context.Context, id int64, blocklist bool) (acquire.Grab, error)
 	Active(ctx context.Context) ([]acquire.Active, error)
 	Unblock(ctx context.Context, id int64) error
+	BlockRelease(ctx context.Context, versionID int64, releaseID, reason string) error
 	Stalled(ctx context.Context) ([]acquire.StalledImport, error)
 	SearchScope(ctx context.Context, versionID int64, scope library.Scope) (acquire.SearchResult, error)
 	RetryStalled(ctx context.Context, reason string) (int, error)

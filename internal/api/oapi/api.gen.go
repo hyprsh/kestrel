@@ -2169,6 +2169,14 @@ type AttentionSubject struct {
 	VersionId        *int64 `json:"version_id"`
 }
 
+// BlocklistCreate defines model for BlocklistCreate.
+type BlocklistCreate struct {
+	// Reason Why; shown on the Blocklist. Defaults to "Blocklisted from a manual search".
+	Reason    *string `json:"reason,omitempty"`
+	ReleaseId string  `json:"release_id"`
+	VersionId int64   `json:"version_id"`
+}
+
 // BlocklistEntry defines model for BlocklistEntry.
 type BlocklistEntry struct {
 	CreatedAt   time.Time `json:"created_at"`
@@ -4867,6 +4875,9 @@ type ScanAdoptionJSONRequestBody ScanAdoptionJSONBody
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
 
+// CreateBlocklistEntryJSONRequestBody defines body for CreateBlocklistEntry for application/json ContentType.
+type CreateBlocklistEntryJSONRequestBody = BlocklistCreate
+
 // PreviewCleanupJSONRequestBody defines body for PreviewCleanup for application/json ContentType.
 type PreviewCleanupJSONRequestBody PreviewCleanupJSONBody
 
@@ -5348,6 +5359,9 @@ type ServerInterface interface {
 	// ListBlocklist The Blocklist
 	// (GET /blocklist)
 	ListBlocklist(w http.ResponseWriter, r *http.Request, params ListBlocklistParams)
+	// CreateBlocklistEntry Blocklist a Release from a search
+	// (POST /blocklist)
+	CreateBlocklistEntry(w http.ResponseWriter, r *http.Request)
 	// DeleteBlocklistEntry Remove a Blocklist entry
 	// (DELETE /blocklist/{id})
 	DeleteBlocklistEntry(w http.ResponseWriter, r *http.Request, id GrabId)
@@ -6043,6 +6057,20 @@ func (siw *ServerInterfaceWrapper) ListBlocklist(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListBlocklist(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBlocklistEntry operation middleware
+func (siw *ServerInterfaceWrapper) CreateBlocklistEntry(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBlocklistEntry(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8421,6 +8449,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.ListEvents)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events/summary", wrapper.GetEventsSummary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/blocklist", wrapper.ListBlocklist)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/blocklist", wrapper.CreateBlocklistEntry)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/blocklist/{id}", wrapper.DeleteBlocklistEntry)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/adoption", wrapper.DiscardAdoption)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/adoption", wrapper.GetAdoption)
@@ -9889,6 +9918,69 @@ type ListBlocklistdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListBlocklistdefaultApplicationProblemPlusJSONResponse) VisitListBlocklistResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBlocklistEntryRequestObject struct {
+	Body *CreateBlocklistEntryJSONRequestBody
+}
+
+type CreateBlocklistEntryResponseObject interface {
+	VisitCreateBlocklistEntryResponse(w http.ResponseWriter) error
+}
+
+type CreateBlocklistEntry204Response struct {
+}
+
+func (response CreateBlocklistEntry204Response) VisitCreateBlocklistEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CreateBlocklistEntry404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateBlocklistEntry404ApplicationProblemPlusJSONResponse) VisitCreateBlocklistEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBlocklistEntry409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateBlocklistEntry409ApplicationProblemPlusJSONResponse) VisitCreateBlocklistEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBlocklistEntrydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateBlocklistEntrydefaultApplicationProblemPlusJSONResponse) VisitCreateBlocklistEntryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -14435,6 +14527,9 @@ type StrictServerInterface interface {
 	// ListBlocklist The Blocklist
 	// (GET /blocklist)
 	ListBlocklist(ctx context.Context, request ListBlocklistRequestObject) (ListBlocklistResponseObject, error)
+	// CreateBlocklistEntry Blocklist a Release from a search
+	// (POST /blocklist)
+	CreateBlocklistEntry(ctx context.Context, request CreateBlocklistEntryRequestObject) (CreateBlocklistEntryResponseObject, error)
 	// DeleteBlocklistEntry Remove a Blocklist entry
 	// (DELETE /blocklist/{id})
 	DeleteBlocklistEntry(ctx context.Context, request DeleteBlocklistEntryRequestObject) (DeleteBlocklistEntryResponseObject, error)
@@ -15381,6 +15476,37 @@ func (sh *strictHandler) ListBlocklist(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListBlocklistResponseObject); ok {
 		if err := validResponse.VisitListBlocklistResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateBlocklistEntry operation middleware
+func (sh *strictHandler) CreateBlocklistEntry(w http.ResponseWriter, r *http.Request) {
+	var request CreateBlocklistEntryRequestObject
+
+	var body CreateBlocklistEntryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBlocklistEntry(ctx, request.(CreateBlocklistEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBlocklistEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateBlocklistEntryResponseObject); ok {
+		if err := validResponse.VisitCreateBlocklistEntryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

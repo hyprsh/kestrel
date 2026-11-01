@@ -1670,6 +1670,29 @@ paths:
                 $ref: "#/components/schemas/BlocklistList"
         default:
           $ref: "#/components/responses/Problem"
+    post:
+      operationId: createBlocklistEntry
+      summary: Blocklist a Release from a search
+      description: |
+        Puts a Release of a manual search on the Blocklist, so no search grabs it again. It names the Release as
+        `POST /grabs` does, so it is `409 release_expired` once the search result has gone from the cache.
+        The entry is for the Title of the Version; `reason` defaults to "Blocklisted from a manual search".
+      tags: [grabs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlocklistCreate"
+      responses:
+        "204":
+          description: The Release is on the Blocklist.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /blocklist/{id}:
     parameters:
       - $ref: "#/components/parameters/GrabId"
@@ -6088,6 +6111,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BlocklistEntry"
+    BlocklistCreate:
+      type: object
+      required: [version_id, release_id]
+      properties:
+        version_id: { type: integer, format: int64 }
+        release_id: { type: string }
+        reason:
+          type: string
+          description: Why; shown on the Blocklist. Defaults to "Blocklisted from a manual search".
     BlocklistEntry:
       type: object
       required: [id, release_name, indexer_id, reason, size, published_at, created_at, title_id, grab_id]

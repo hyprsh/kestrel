@@ -1327,7 +1327,13 @@ export interface paths {
          */
         get: operations["listBlocklist"];
         put?: never;
-        post?: never;
+        /**
+         * Blocklist a Release from a search
+         * @description Puts a Release of a manual search on the Blocklist, so no search grabs it again. It names the Release as
+         *     `POST /grabs` does, so it is `409 release_expired` once the search result has gone from the cache.
+         *     The entry is for the Title of the Version; `reason` defaults to "Blocklisted from a manual search".
+         */
+        post: operations["createBlocklistEntry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4265,6 +4271,13 @@ export interface components {
         BlocklistList: {
             items: components["schemas"]["BlocklistEntry"][];
         };
+        BlocklistCreate: {
+            /** Format: int64 */
+            version_id: number;
+            release_id: string;
+            /** @description Why; shown on the Blocklist. Defaults to "Blocklisted from a manual search". */
+            reason?: string;
+        };
         BlocklistEntry: {
             /** Format: int64 */
             id: number;
@@ -6298,6 +6311,31 @@ export interface operations {
                     "application/json": components["schemas"]["BlocklistList"];
                 };
             };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createBlocklistEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlocklistCreate"];
+            };
+        };
+        responses: {
+            /** @description The Release is on the Blocklist. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
         };
     };

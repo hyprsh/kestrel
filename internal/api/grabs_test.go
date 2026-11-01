@@ -281,6 +281,30 @@ func TestAReleaseOnTheBlocklistIsRejectedAndNeverGrabbable(t *testing.T) {
 	}
 }
 
+func TestBlocklistingAReleaseOfASearchMakesItRejectedAndNeverGrabbable(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	rel := s.releases(t, s.hd).find(t, goodRelease)
+
+	body := fmt.Sprintf(`{"version_id":%d,"release_id":%q}`, s.hd, rel.ReleaseID)
+	if r := s.valid("POST", "/blocklist", body); r.Status != 204 {
+		t.Fatalf("POST /blocklist = %d %s", r.Status, r.Body)
+	}
+
+	if got := s.releases(t, s.hd).find(t, goodRelease); len(got.Rejections) != 1 || got.Rejections[0].Code != "blocklisted" {
+		t.Errorf("rejections = %+v, want blocklisted", got.Rejections)
+	}
+	var reason string
+	if err := s.in.st.Read().QueryRow(`SELECT reason FROM blocklist WHERE release_name = ?`, goodRelease).Scan(&reason); err != nil || reason != "Blocklisted from a manual search" {
+		t.Errorf("reason = %q, %v", reason, err)
+	}
+	gone := fmt.Sprintf(`{"version_id":%d,"release_id":"nope"}`, s.hd)
+	if r := s.valid("POST", "/blocklist", gone); r.Status != 409 || decode[problemJSON](t, r).Code != "release_expired" {
+		t.Errorf("an expired Release: %d %s, want 409 release_expired", r.Status, r.Body)
+	}
+}
+
 func TestAGrabNeedsAFreshReleaseAndKnownVersion(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)

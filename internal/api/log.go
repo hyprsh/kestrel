@@ -129,6 +129,21 @@ func (s *server) ListBlocklist(ctx context.Context, r oapi.ListBlocklistRequestO
 	return oapi.ListBlocklist200JSONResponse(out), nil
 }
 
+// CreateBlocklistEntry blocklists a Release of a manual search.
+func (s *server) CreateBlocklistEntry(ctx context.Context, r oapi.CreateBlocklistEntryRequestObject) (oapi.CreateBlocklistEntryResponseObject, error) {
+	if r.Body == nil {
+		return nil, invalid("body", "required", "a body is required")
+	}
+	reason := "Blocklisted from a manual search"
+	if r.Body.Reason != nil && *r.Body.Reason != "" {
+		reason = *r.Body.Reason
+	}
+	if err := s.acquire.BlockRelease(ctx, r.Body.VersionId, r.Body.ReleaseId, reason); err != nil {
+		return nil, grabProblem(err)
+	}
+	return oapi.CreateBlocklistEntry204Response{}, nil
+}
+
 // DeleteBlocklistEntry lets a Release be grabbed again.
 func (s *server) DeleteBlocklistEntry(ctx context.Context, r oapi.DeleteBlocklistEntryRequestObject) (oapi.DeleteBlocklistEntryResponseObject, error) {
 	if err := s.acquire.Unblock(ctx, r.Id); errors.Is(err, acquire.ErrBlockNotFound) {
