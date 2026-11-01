@@ -55,7 +55,7 @@ export function problemsOf(rows: AttentionRow[], status: SystemStatus | undefine
       out.push({
         key: t.key,
         severity: 'blocking',
-        sentence: `${client ? 'The download client' : 'The indexer'} ${t.name}: ${t.detail}. ${affects[client ? 'download_client_unreachable' : 'indexer_failing']}`,
+        sentence: `${t.detail.includes(t.name) ? t.detail : `${client ? 'The download client' : 'The indexer'} ${t.name}: ${t.detail}`}. ${affects[client ? 'download_client_unreachable' : 'indexer_failing']}`,
         action: openSettings(client ? '/settings/download-client' : '/settings/indexers'),
       })
     }

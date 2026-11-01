@@ -77,6 +77,9 @@ describe('problemsOf', () => {
     const problems = problemsOf([row()], s, now)
     expect(problems).toHaveLength(2)
     expect(problems[1].sentence).toMatch(/^The download client SABnzbd: connection refused, since .*Nothing is downloaded/)
+    expect(problemsOf([], status({ download_client: { state: 'failing', name: 'SABnzbd', instance_id: 3, message: 'cannot reach SABnzbd: refused', since: null } }), now)[0].sentence).toMatch(
+      /^cannot reach SABnzbd: refused\. Nothing/,
+    )
     expect(problems[1].action).toMatchObject({ method: 'GET', path: '/settings/download-client' })
   })
 })
