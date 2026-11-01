@@ -13,13 +13,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
 )
 
-type slotJSON struct {
-	VersionID   int64  `json:"version_id"`
-	Profile     string `json:"profile"`
-	State       string `json:"state"`
-	LongMissing bool   `json:"long_missing"`
-}
-
 type rowJSON struct {
 	ID           int64  `json:"id"`
 	Kind         string `json:"kind"`
@@ -27,10 +20,11 @@ type rowJSON struct {
 	PrimaryTitle string `json:"primary_title"`
 	Year         *int   `json:"year"`
 	HasPoster    bool   `json:"has_poster"`
-	Slots        struct {
-		Standard *slotJSON `json:"standard"`
-		FourK    *slotJSON `json:"4k"`
-	} `json:"slots"`
+	SlotStates   []struct {
+		Slot    string `json:"slot"`
+		State   string `json:"state"`
+		Profile string `json:"profile"`
+	} `json:"slot_states"`
 	WantedSince    *time.Time            `json:"wanted_since"`
 	SearchedAt     *time.Time            `json:"searched_at"`
 	WantedEpisodes *struct{ Wanted int } `json:"wanted_episodes"`
@@ -171,8 +165,8 @@ func TestAMovieIsAddedThroughTheAPIAndReadBackWithItsVersions(t *testing.T) {
 		t.Fatalf("list = %+v", list.Items)
 	}
 	row := list.Items[0]
-	if row.ID != created.ID || row.Title != "Paddington" || row.Slots.Standard == nil || row.Slots.Standard.State != "wanted" ||
-		row.Slots.FourK == nil || row.Slots.FourK.Profile != "4k-primary" || row.WantedSince == nil {
+	if row.ID != created.ID || row.Title != "Paddington" || len(row.SlotStates) != 2 || row.SlotStates[0].State != "wanted" ||
+		row.SlotStates[1].Slot != "4k" || row.SlotStates[1].Profile != "4k-primary" || row.WantedSince == nil {
 		t.Errorf("row = %+v", row)
 	}
 	// Not searched yet, and a Movie has no episodes to count.

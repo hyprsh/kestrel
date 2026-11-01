@@ -192,18 +192,17 @@ func TestAWantedSlotInTheListTellsItsLastSearchAndNextSearch(t *testing.T) {
 
 	list := decode[struct {
 		Items []struct {
-			Slots struct {
-				Standard *struct {
-					State        string          `json:"state"`
-					LastSearch   *lastSearchJSON `json:"last_search"`
-					NextSearchAt *time.Time      `json:"next_search_at"`
-				} `json:"standard"`
-			} `json:"slots"`
+			SlotStates []struct {
+				Slot         string          `json:"slot"`
+				State        string          `json:"state"`
+				LastSearch   *lastSearchJSON `json:"last_search"`
+				NextSearchAt *time.Time      `json:"next_search_at"`
+			} `json:"slot_states"`
 		} `json:"items"`
 	}](t, s.valid("GET", "/titles", ""))
 
-	var sl = list.Items[0].Slots.Standard
-	if sl == nil || sl.State != "wanted" || sl.LastSearch == nil || sl.LastSearch.Releases != 1 || sl.NextSearchAt == nil {
+	sl := &list.Items[0].SlotStates[0]
+	if sl.Slot != "standard" || sl.State != "wanted" || sl.LastSearch == nil || sl.LastSearch.Releases != 1 || sl.NextSearchAt == nil {
 		t.Errorf("Standard slot = %+v, want a Wanted one with its last search and next search", sl)
 	}
 }

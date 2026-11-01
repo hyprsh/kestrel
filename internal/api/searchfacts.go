@@ -56,9 +56,9 @@ func lastSearchToAPI(ls acquire.LastSearch) oapi.LastSearch {
 func (s *server) withWantedSearches(ctx context.Context, rows []oapi.TitleRow) error {
 	var ids []int64
 	for _, r := range rows {
-		for _, sl := range []*oapi.SlotSummary{r.Slots.Standard, r.Slots.N4k} {
-			if sl != nil && sl.State == oapi.SlotStateWanted {
-				ids = append(ids, sl.VersionId)
+		for _, e := range r.SlotStates {
+			if e.State == oapi.SlotStateWanted {
+				ids = append(ids, e.VersionId)
 			}
 		}
 	}
@@ -74,26 +74,17 @@ func (s *server) withWantedSearches(ctx context.Context, rows []oapi.TitleRow) e
 		return err
 	}
 	for _, r := range rows {
-		entries := map[int64]*oapi.SlotStateEntry{}
 		for i := range r.SlotStates {
-			entries[r.SlotStates[i].VersionId] = &r.SlotStates[i]
-		}
-		for _, sl := range []*oapi.SlotSummary{r.Slots.Standard, r.Slots.N4k} {
-			if sl == nil || sl.State != oapi.SlotStateWanted {
+			e := &r.SlotStates[i]
+			if e.State != oapi.SlotStateWanted {
 				continue
 			}
-			if ls, ok := last[sl.VersionId]; ok {
+			if ls, ok := last[e.VersionId]; ok {
 				out := lastSearchToAPI(ls)
-				sl.LastSearch = &out
-				if e := entries[sl.VersionId]; e != nil {
-					e.LastSearch = &out
-				}
+				e.LastSearch = &out
 			}
-			if n, ok := next[sl.VersionId]; ok {
-				sl.NextSearchAt = n.Missing
-				if e := entries[sl.VersionId]; e != nil {
-					e.NextSearchAt = n.Missing
-				}
+			if n, ok := next[e.VersionId]; ok {
+				e.NextSearchAt = n.Missing
 			}
 		}
 	}

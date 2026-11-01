@@ -1079,7 +1079,7 @@ type ListFileSizesRow struct {
 	Size      int64
 }
 
-// The Library list needs every file's size, but a file's release and probe (a kilobyte of JSON each) only for a Movie's row.
+// The Library list and the agenda need each file's size and Version, not the kilobyte of release and probe JSON it holds.
 func (q *Queries) ListFileSizes(ctx context.Context) ([]ListFileSizesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFileSizes)
 	if err != nil {
@@ -1491,45 +1491,6 @@ func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
 			return nil, err
 		}
 		items = append(items, file_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listMovieFiles = `-- name: ListMovieFiles :many
-SELECT f.id, f.version_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.score, f.grab_id, f.imported_at
-FROM files f JOIN versions v ON v.id = f.version_id JOIN titles t ON t.id = v.title_id WHERE t.kind = 'movie'
-`
-
-func (q *Queries) ListMovieFiles(ctx context.Context) ([]File, error) {
-	rows, err := q.db.QueryContext(ctx, listMovieFiles)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []File
-	for rows.Next() {
-		var i File
-		if err := rows.Scan(
-			&i.ID,
-			&i.VersionID,
-			&i.Path,
-			&i.Size,
-			&i.ReleaseName,
-			&i.ParsedRelease,
-			&i.Probe,
-			&i.Score,
-			&i.GrabID,
-			&i.ImportedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

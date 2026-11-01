@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,12 +36,11 @@ type titleRowJSON struct {
 	ID          int64   `json:"id"`
 	Title       string  `json:"title"`
 	WantedSince *string `json:"wanted_since"`
-	Slots       struct {
-		Standard *struct {
-			State       string `json:"state"`
-			LongMissing bool   `json:"long_missing"`
-		} `json:"standard"`
-	} `json:"slots"`
+	SlotStates  []struct {
+		Slot        string `json:"slot"`
+		State       string `json:"state"`
+		LongMissing bool   `json:"long_missing"`
+	} `json:"slot_states"`
 }
 
 func (w wantedRig) titles(t *testing.T, query string) []titleRowJSON {
@@ -90,7 +90,7 @@ func TestTheWantedFilterListsWantedTitlesLongestWantedFirstAndTheLongMissingChip
 	if got := ids(wanted); len(got) != 2 || got[0] != first.ID || got[1] != second.ID {
 		t.Errorf("Wanted by wanted_since = %v, want %d (Wanted for 101 days) then %d", got, first.ID, second.ID)
 	}
-	if wanted[0].WantedSince == nil || wanted[0].Slots.Standard == nil || !wanted[0].Slots.Standard.LongMissing || wanted[1].Slots.Standard.LongMissing {
+	if wanted[0].WantedSince == nil || len(wanted[0].SlotStates) == 0 || !wanted[0].SlotStates[0].LongMissing || wanted[1].SlotStates[0].LongMissing {
 		t.Errorf("rows = %+v", wanted)
 	}
 	if got := ids(w.titles(t, "long_missing=true")); len(got) != 1 || got[0] != first.ID {
@@ -165,5 +165,20 @@ func TestPostWantedSearchMakesEveryWantedSearchStateDueNowAndWakesTheSweep(t *te
 	now := w.in.clock.Now().UTC().Format(time.RFC3339)
 	if err := w.in.st.Read().QueryRowContext(ctx, `SELECT COUNT(*) FROM search_state WHERE next_missing_at <= ?`, now).Scan(&due); err != nil || due != 2 {
 		t.Errorf("%d search_state rows due now (%v), want 2", due, err)
+	}
+}
+
+func TestTheListRowsCarryNeitherTheDeprecatedSlotsNorAMoviesFile(t *testing.T) {
+	t.Parallel()
+	w := newWantedRig(t)
+	decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
+	body := w.valid("GET", "/titles", "").Body
+	for _, gone := range []string{`"slots"`, `"file"`} {
+		if strings.Contains(body, gone) {
+			t.Errorf("GET /titles carries %s: %s", gone, body)
+		}
+	}
+	if !strings.Contains(body, `"slot_states"`) {
+		t.Errorf("GET /titles lost slot_states: %s", body)
 	}
 }

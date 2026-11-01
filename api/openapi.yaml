@@ -4748,29 +4748,6 @@ components:
             format: int64
         monitored:
           type: boolean
-    SlotSummary:
-      type: object
-      required: [version_id, profile, state, long_missing]
-      properties:
-        version_id:
-          type: integer
-          format: int64
-        profile:
-          type: string
-        state:
-          $ref: "#/components/schemas/SlotState"
-        long_missing:
-          type: boolean
-        last_search:
-          allOf:
-            - $ref: "#/components/schemas/LastSearch"
-          nullable: true
-          description: What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched.
-        next_search_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: When a Wanted Version is next searched. Only a Wanted Version has it here.
     SlotStateEntry:
       type: object
       description: One Slot of a Title with its Version's state.
@@ -4804,11 +4781,6 @@ components:
           type: integer
           nullable: true
           description: A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie.
-        file:
-          allOf:
-            - $ref: "#/components/schemas/FileSummary"
-          nullable: true
-          description: A Movie Version's file (without its Custom Formats); null for a Series Version and for a Version with none.
         episodes_have:
           type: integer
           nullable: true
@@ -4829,7 +4801,7 @@ components:
           description: When a Wanted Version is next searched. Only a Wanted Version has it here.
     TitleRow:
       type: object
-      required: [id, kind, title, primary_title, year, has_poster, monitored, slots, slot_states, wanted_since, added_at, size, searched_at, wanted_episodes]
+      required: [id, kind, title, primary_title, year, has_poster, monitored, slot_states, wanted_since, added_at, size, searched_at, wanted_episodes]
       properties:
         id:
           type: integer
@@ -4851,23 +4823,9 @@ components:
         monitored:
           type: boolean
           description: A Movie's flag; a Series is monitored unless its `series_monitor` is `none`.
-        slots:
-          type: object
-          deprecated: true
-          description: Deprecated, use `slot_states`. The fixed Standard and 4K shape, kept for v1 compatibility.
-          required: [standard, 4k]
-          properties:
-            standard:
-              allOf:
-                - $ref: "#/components/schemas/SlotSummary"
-              nullable: true
-            4k:
-              allOf:
-                - $ref: "#/components/schemas/SlotSummary"
-              nullable: true
         slot_states:
           type: array
-          description: The Slots the Title has a Version in, in Slot order, each with its Version's state. Prefer this to `slots`.
+          description: The Slots the Title has a Version in, in Slot order, each with its Version's state. A Movie's file is on its `GET /titles/{id}`, not here.
           items:
             $ref: "#/components/schemas/SlotStateEntry"
         wanted_since:

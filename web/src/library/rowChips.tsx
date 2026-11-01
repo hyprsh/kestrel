@@ -5,7 +5,6 @@
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import { percent, plural } from '../format'
-import { size } from './bits'
 import { span, until } from '../time'
 import { dotState, stateName, type SlotDotState } from '../ui/slotState'
 import type { ChipData } from './SlotChip'
@@ -29,7 +28,7 @@ const wantedFor = (since: string, now: number) => {
   return hours < 24 ? `${hours} h` : plural(Math.floor(hours / 24), 'day')
 }
 
-/** What a Slot's popover says: the state in a line and the quiet lines beneath (the file, the release, the episodes). */
+/** What a Slot's popover says: the state in a line and the quiet lines beneath (the release, the episodes); a Movie's file the popover loads itself. */
 function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, now: number): RowSlotInfo {
   const state = entryState(v)
   const pct = state === 'downloading' && grab ? percent(grab.bytes_total, grab.bytes_left) : null
@@ -45,11 +44,6 @@ function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, no
   }
   if (v.episodes_aired != null && v.episodes_have != null) {
     lines.push(`${v.episodes_have} of ${plural(v.episodes_aired, 'aired episode')}${v.episodes_upgrade ? ` · ${v.episodes_upgrade} below cutoff` : ''}`)
-  }
-  const f = v.file
-  if (f) {
-    const audio = [f.audio_codec, f.audio_channels].filter(Boolean).join(' ')
-    lines.push([f.quality, f.video_codec, f.hdr, audio, size(f.size)].filter(Boolean).join(' · '))
   }
   return { heading: profileName === v.label ? v.label : `${v.label} · ${profileName}`, state, text, lines }
 }
@@ -75,6 +69,18 @@ export function rowChips(r: TitleRow, grabs: readonly QueueItem[], opts: { singl
       more: { name: v.label, profile: opts.profileName?.(v.profile), text: counted ?? progress ?? word },
       onOpen: opts.onOpen ? () => opts.onOpen!(v.slot) : undefined,
     }
-    return opts.onOpen ? { ...chip, wrap: (trigger) => <RowSlotPopover info={info} trigger={trigger} onOpen={() => opts.onOpen!(v.slot)} /> } : chip
+    return opts.onOpen
+      ? {
+          ...chip,
+          wrap: (trigger) => (
+            <RowSlotPopover
+              info={info}
+              trigger={trigger}
+              onOpen={() => opts.onOpen!(v.slot)}
+              file={r.kind === 'movie' && v.state === 'filled' ? { titleId: r.id, versionId: v.version_id } : undefined}
+            />
+          ),
+        }
+      : chip
   })
 }

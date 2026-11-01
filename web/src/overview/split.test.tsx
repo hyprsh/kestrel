@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
-import { fakeLibrary, row, type TitleRow } from '../test/library'
+import { fakeLibrary, row, type FixtureRow } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
 import { passOf } from '../test/search'
 import { server } from '../test/server'
@@ -15,7 +15,7 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString()
 
 /** A Title with a Wanted Standard Version, Wanted for `days`; `long` makes it Long Missing. */
-const wanted = (id: number, title: string, days: number, over: Partial<TitleRow> = {}, long = false): TitleRow =>
+const wanted = (id: number, title: string, days: number, over: Partial<FixtureRow> = {}, long = false): FixtureRow =>
   row(id, title, title, {
     wanted_since: daysAgo(days),
     slots: { standard: { version_id: id * 10 + 1, profile: 'hd-primary', state: 'wanted', long_missing: long }, '4k': null },

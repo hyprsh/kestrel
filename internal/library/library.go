@@ -117,8 +117,6 @@ type SlotState struct {
 	WantedSince *time.Time
 	// EpisodesHave and EpisodesAired count a Series Version's episodes that hold a file and that have aired; nil for a Movie.
 	EpisodesHave, EpisodesAired *int
-	// File is a Movie Version's file (nil for a Series Version and for a Version with none); only what the list needs of it is read.
-	File *File
 }
 
 // Row is a compact Library row.
@@ -555,10 +553,6 @@ func (s *Service) buildList(ctx context.Context, view View) ([]Row, error) {
 	if err != nil {
 		return nil, err
 	}
-	movieFiles, err := q.ListMovieFiles(ctx)
-	if err != nil {
-		return nil, err
-	}
 	dates, err := q.ListAllReleaseDates(ctx)
 	if err != nil {
 		return nil, err
@@ -603,15 +597,9 @@ func (s *Service) buildList(ctx context.Context, view View) ([]Row, error) {
 	}
 	hasFile := map[int64]bool{}
 	versionSize := map[int64]int64{}
-	fileOfVersion := map[int64]File{}
 	for _, fl := range sizes {
 		hasFile[fl.VersionID] = hasFile[fl.VersionID] || !misfits[fl.ID]
 		versionSize[fl.VersionID] += fl.Size
-	}
-	for _, fl := range movieFiles {
-		if !misfits[fl.ID] {
-			fileOfVersion[fl.VersionID] = fileOf(db.File(fl))
-		}
 	}
 	byTitle := map[int64][]db.Version{}
 	for _, v := range versions {
@@ -657,9 +645,6 @@ func (s *Service) buildList(ctx context.Context, view View) ([]Row, error) {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
 			state := &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since, EpisodesHave: have, EpisodesAired: aired}
-			if f, ok := fileOfVersion[v.ID]; ok && row.Kind == Movie {
-				state.File = &f
-			}
 			row.Slots[slotOf(v.Slot)] = state
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since

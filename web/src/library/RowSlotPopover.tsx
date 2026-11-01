@@ -1,9 +1,11 @@
 // The popover of one Slot on a Library row: the Slot's name and Profile, where it stands in a line, what it holds (a Movie's
 // file, a download's release, a Series' episode count) and a link that opens the Title at that Slot. A pointer that can hover
 // opens it by hovering and a click goes straight to the Title; a touch screen opens it with a tap.
-import { Button, Popover } from '@hyprsh/design'
+import { Button, Popover, Skeleton } from '@hyprsh/design'
 import { useEffect, useRef, useState, type ReactElement, type RefObject } from 'react'
+import { useTitle } from '../api/queries'
 import { StateDot } from '../ui/slotState'
+import { size } from './bits'
 
 export type RowSlotInfo = {
   /** "4K · UHD-2160p". */
@@ -17,7 +19,20 @@ export type RowSlotInfo = {
 
 const canHover = () => typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover)').matches
 
-export function RowSlotPopover({ info, trigger, onOpen }: { info: RowSlotInfo; trigger: ReactElement; onOpen: () => void }) {
+/** Which Version's file the popover loads when it opens: the list rows carry none, a Movie's file is on its page. */
+export type RowSlotFileOf = { titleId: number; versionId: number }
+
+/** A Movie Version's file in one quiet line ("Bluray-1080p · H.265 · HDR10 · DDP 5.1 · 18.0 GB"), from the Title's page query, which is cached. */
+function RowSlotFile({ titleId, versionId }: RowSlotFileOf) {
+  const title = useTitle(titleId)
+  if (title.isPending) return <Skeleton width="70%" height={14} />
+  const f = title.data?.versions.find((v) => v.id === versionId)?.file
+  if (!f) return null
+  const audio = [f.audio_codec, f.audio_channels].filter(Boolean).join(' ')
+  return <p className="label-12 break-words text-gray-900">{[f.quality, f.video_codec, f.hdr, audio, size(f.size)].filter(Boolean).join(' · ')}</p>
+}
+
+export function RowSlotPopover({ info, trigger, onOpen, file }: { info: RowSlotInfo; trigger: ReactElement; onOpen: () => void; file?: RowSlotFileOf }) {
   const [open, setOpen] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Where focus stays while the popover opens on hover: the element that had it. Null when it opens from a tap or the keyboard, where it takes focus.
@@ -80,6 +95,7 @@ export function RowSlotPopover({ info, trigger, onOpen }: { info: RowSlotInfo; t
                 {l}
               </p>
             ))}
+            {file && <RowSlotFile {...file} />}
             <div>
               <Button
                 variant="tertiary"

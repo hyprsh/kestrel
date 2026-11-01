@@ -4771,9 +4771,6 @@ type SlotStateEntry struct {
 	// EpisodesUpgrade A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie.
 	EpisodesUpgrade *int `json:"episodes_upgrade,omitempty"`
 
-	// File A Movie Version's file (without its Custom Formats); null for a Series Version and for a Version with none.
-	File *FileSummary `json:"file,omitempty"`
-
 	// Label The Slot's display name ("Standard", "4K").
 	Label string `json:"label"`
 
@@ -4797,22 +4794,6 @@ type SlotStateEntry struct {
 
 	// WantedSince Since when the Version has been Wanted; null while it is not.
 	WantedSince *time.Time `json:"wanted_since,omitempty"`
-}
-
-// SlotSummary defines model for SlotSummary.
-type SlotSummary struct {
-	// LastSearch What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched.
-	LastSearch  *LastSearch `json:"last_search,omitempty"`
-	LongMissing bool        `json:"long_missing"`
-
-	// NextSearchAt When a Wanted Version is next searched. Only a Wanted Version has it here.
-	NextSearchAt *time.Time `json:"next_search_at,omitempty"`
-	Profile      string     `json:"profile"`
-
-	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
-	// Clients tolerate new values.
-	State     SlotState `json:"state"`
-	VersionId int64     `json:"version_id"`
 }
 
 // StalledImportsSelect defines model for StalledImportsSelect.
@@ -5260,15 +5241,8 @@ type TitleRow struct {
 	// Size Bytes the files of its Versions take on disk, 0 when it holds none.
 	Size int64 `json:"size"`
 
-	// SlotStates The Slots the Title has a Version in, in Slot order, each with its Version's state. Prefer this to `slots`.
+	// SlotStates The Slots the Title has a Version in, in Slot order, each with its Version's state. A Movie's file is on its `GET /titles/{id}`, not here.
 	SlotStates []SlotStateEntry `json:"slot_states"`
-
-	// Slots Deprecated, use `slot_states`. The fixed Standard and 4K shape, kept for v1 compatibility.
-	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
-	Slots struct {
-		N4k      *SlotSummary `json:"4k"`
-		Standard *SlotSummary `json:"standard"`
-	} `json:"slots"`
 
 	// Title The English title.
 	Title string `json:"title"`

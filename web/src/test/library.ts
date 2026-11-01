@@ -9,7 +9,12 @@ export type LookupResult = Schemas['LookupResult']
 export type Suggestion = Schemas['LookupDetail']
 export type Sent = { path: string; body: unknown }
 
-const slot = (profile: string, state: Schemas['SlotState'], id: number): Schemas['SlotSummary'] => ({
+/** A Slot of a fixture row: what the list says of a Version, as the tests write it. */
+export type FixtureSlot = { version_id: number; profile: string; state: Schemas['SlotState']; long_missing: boolean; last_search?: Schemas['LastSearch'] | null; next_search_at?: string | null }
+/** A fixture row also carries `slots`, the short form the tests write; `slot_states` is derived from it and `slots` never reaches the app. */
+export type FixtureRow = TitleRow & { slots: { standard: FixtureSlot | null; '4k': FixtureSlot | null } }
+
+const slot = (profile: string, state: Schemas['SlotState'], id: number): FixtureSlot => ({
   version_id: id,
   profile,
   state,
@@ -17,7 +22,7 @@ const slot = (profile: string, state: Schemas['SlotState'], id: number): Schemas
 })
 
 /** The list form of a row's fixed Slots, as the server derives it. */
-const slotStates = (slots: TitleRow['slots']): TitleRow['slot_states'] =>
+const slotStates = (slots: FixtureRow['slots']): TitleRow['slot_states'] =>
   (['standard', '4k'] as const).flatMap((k) => {
     const s = slots[k]
     return s
@@ -37,7 +42,7 @@ const slotStates = (slots: TitleRow['slots']): TitleRow['slot_states'] =>
       : []
   })
 
-export const row = (id: number, title: string, primary: string, over: Partial<TitleRow> = {}): TitleRow => {
+export const row = (id: number, title: string, primary: string, over: Partial<FixtureRow> = {}): FixtureRow => {
   const slots = over.slots ?? { standard: slot('hd-primary', 'wanted', id * 10 + 1), '4k': null }
   return {
     id,
@@ -48,7 +53,7 @@ export const row = (id: number, title: string, primary: string, over: Partial<Ti
     has_poster: false,
     monitored: true,
     slots,
-    slot_states: slotStates(slots),
+    slot_states: over.slot_states ?? slotStates(slots),
     wanted_since: '2026-10-17T12:00:00Z',
     added_at: '2026-10-17T12:00:00Z',
     size: 0,
@@ -58,7 +63,7 @@ export const row = (id: number, title: string, primary: string, over: Partial<Ti
   }
 }
 
-export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetail => ({
+export const detail = (r: TitleRow & Partial<Pick<FixtureRow, 'slots'>>, over: Partial<TitleDetail> = {}): TitleDetail => ({
   id: r.id,
   kind: 'movie',
   tmdb_id: 100 + r.id,
@@ -85,7 +90,7 @@ export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetai
   requests: [],
   ratings: [],
   versions: (['standard', '4k'] as const).flatMap((s) => {
-    const sl = r.slots[s]
+    const sl = r.slots ? r.slots[s] : r.slot_states.find((e) => e.slot === s)
     return sl ? [{ id: sl.version_id, slot: s, profile: sl.profile, state: sl.state, long_missing: false, wanted_since: r.wanted_since, file: null, added_at: r.added_at }] : []
   }),
   ...over,
@@ -98,10 +103,10 @@ const profileNames: Record<string, string> = {
 }
 
 /** A Library of titles served by GET /titles and GET /titles/{id}. */
-export function fakeLibrary(initial: TitleRow[]) {
+export function fakeLibrary(initial: (TitleRow & Partial<Pick<FixtureRow, 'slots'>>)[]) {
   const state = { rows: initial, sent: [] as Sent[] }
   server.use(
-    http.get('/titles', ({ response }) => response(200).json({ items: state.rows, next_cursor: null })),
+    http.get('/titles', ({ response }) => response(200).json({ items: state.rows.map(({ slots: _slots, ...listed }) => listed), next_cursor: null })),
     http.get('/titles/{id}', ({ params, response }) => {
       const r = state.rows.find((x) => x.id === Number(params.id))
       return r ? response(200).json(detail(r)) : response('default').json({ type: 'about:blank', title: 'not found', status: 404, code: 'not_found' }, { status: 404 })

@@ -3411,20 +3411,6 @@ export interface components {
             episode_ids: number[];
             monitored: boolean;
         };
-        SlotSummary: {
-            /** Format: int64 */
-            version_id: number;
-            profile: string;
-            state: components["schemas"]["SlotState"];
-            long_missing: boolean;
-            /** @description What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched. */
-            last_search?: components["schemas"]["LastSearch"] | null;
-            /**
-             * Format: date-time
-             * @description When a Wanted Version is next searched. Only a Wanted Version has it here.
-             */
-            next_search_at?: string | null;
-        };
         /** @description One Slot of a Title with its Version's state. */
         SlotStateEntry: {
             slot: components["schemas"]["Slot"];
@@ -3447,8 +3433,6 @@ export interface components {
             upgrade_wanted: boolean;
             /** @description A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie. */
             episodes_upgrade?: number | null;
-            /** @description A Movie Version's file (without its Custom Formats); null for a Series Version and for a Version with none. */
-            file?: components["schemas"]["FileSummary"] | null;
             /** @description A Series Version's episodes that hold a file; null for a Movie. */
             episodes_have?: number | null;
             /** @description A Series Version's episodes that have aired; null for a Movie. */
@@ -3474,15 +3458,7 @@ export interface components {
             has_poster: boolean;
             /** @description A Movie's flag; a Series is monitored unless its `series_monitor` is `none`. */
             monitored: boolean;
-            /**
-             * @deprecated
-             * @description Deprecated, use `slot_states`. The fixed Standard and 4K shape, kept for v1 compatibility.
-             */
-            slots: {
-                standard: components["schemas"]["SlotSummary"] | null;
-                "4k": components["schemas"]["SlotSummary"] | null;
-            };
-            /** @description The Slots the Title has a Version in, in Slot order, each with its Version's state. Prefer this to `slots`. */
+            /** @description The Slots the Title has a Version in, in Slot order, each with its Version's state. A Movie's file is on its `GET /titles/{id}`, not here. */
             slot_states: components["schemas"]["SlotStateEntry"][];
             /** Format: date-time */
             wanted_since: string | null;

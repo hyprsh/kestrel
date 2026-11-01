@@ -47,13 +47,9 @@ SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE title_id = 
 -- name: ListFiles :many
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files;
 
--- The Library list needs every file's size, but a file's release and probe (a kilobyte of JSON each) only for a Movie's row.
+-- The Library list and the agenda need each file's size and Version, not the kilobyte of release and probe JSON it holds.
 -- name: ListFileSizes :many
 SELECT id, version_id, size FROM files;
-
--- name: ListMovieFiles :many
-SELECT f.id, f.version_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.score, f.grab_id, f.imported_at
-FROM files f JOIN versions v ON v.id = f.version_id JOIN titles t ON t.id = v.title_id WHERE t.kind = 'movie';
 
 -- One Version's file for an episode and the parse of a Movie Version's file, misfits left out, for the agenda to ask only
 -- about the entries it shows.

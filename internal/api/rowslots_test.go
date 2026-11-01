@@ -21,16 +21,13 @@ func TestRowToAPIListsSlotStatesInSlotOrder(t *testing.T) {
 		got[1].Slot != "4k" || got[1].Label != "4K" || got[1].State != "wanted" || !got[1].LongMissing || got[1].Profile != "4k-primary" {
 		t.Errorf("slot_states = %+v", got)
 	}
-	if rowToAPI(r).Slots.Standard == nil || rowToAPI(r).Slots.N4k == nil {
-		t.Error("the fixed slots are kept")
-	}
 }
 
 func TestRowToAPISlotStatesOmitsSlotsWithoutAVersion(t *testing.T) {
 	var r library.Row
 	r.Slots[slot.FourK] = &library.SlotState{VersionID: 2, State: library.Filled}
 	got := rowToAPI(r)
-	if len(got.SlotStates) != 1 || got.SlotStates[0].Slot != "4k" || got.Slots.Standard != nil {
+	if len(got.SlotStates) != 1 || got.SlotStates[0].Slot != "4k" {
 		t.Errorf("slot_states = %+v", got.SlotStates)
 	}
 	if empty := rowToAPI(library.Row{}).SlotStates; empty == nil || len(empty) != 0 {

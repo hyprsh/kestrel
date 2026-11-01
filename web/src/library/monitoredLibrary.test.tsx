@@ -3,12 +3,11 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
-import type { components } from '../api/schema.gen'
-import { fakeLibrary, row } from '../test/library'
+import { fakeLibrary, row, type FixtureRow } from '../test/library'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-type Slots = components['schemas']['TitleRow']['slots']
+type Slots = FixtureRow['slots']
 const hd = (state: 'wanted' | 'filled' | 'unmonitored'): Slots => ({ standard: { version_id: 1, profile: 'hd-primary', state, long_missing: false }, '4k': null })
 
 async function openLibrary() {
