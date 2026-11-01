@@ -11,7 +11,9 @@ const Login = lazy(() => import('./screens/Login').then((m) => ({ default: m.Log
 const Wizard = lazy(() => import('./screens/Wizard').then((m) => ({ default: m.Wizard })))
 
 export function App({ client }: { client?: QueryClient }) {
-  const [fallback] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1 } } }))
+  // The live stream keeps what a screen shows current, so a query another component asks for again within a few seconds
+  // (the session, the attention strip, the status) is answered from the cache instead of fetched once per component that mounts.
+  const [fallback] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 10_000 } } }))
   return (
     <QueryClientProvider client={client ?? fallback}>
       <Suspense fallback={<PageSkeleton />}>

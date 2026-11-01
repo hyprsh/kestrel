@@ -16,6 +16,23 @@ beforeEach(() => {
   document.documentElement.classList.remove('dark')
 })
 
+describe('the app with its own client', () => {
+  it('asks for the session once, however many components use it', async () => {
+    let asked = 0
+    server.use(
+      http.get('/auth/me', ({ response }) => {
+        asked++
+        return response(200).json({ username: 'admin', role: 'admin', method: 'session', proxy_user: null, from_config_file: false })
+      }),
+    )
+    render(<App />)
+    await screen.findByRole('navigation')
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    expect(asked).toBe(1)
+  })
+})
+
 describe('the empty shell', () => {
   it('shows the icon rail with every top-level screen', async () => {
     renderApp()
