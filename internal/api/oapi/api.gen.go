@@ -2584,7 +2584,7 @@ type Display struct {
 	// `score_desc` is not a value.
 	ManualSearchSort ManualSearchSort `json:"manual_search_sort"`
 
-	// SeasonOrder Newest first reverses the seasons and the episodes in each. Specials come last in both orders.
+	// SeasonOrder Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.
 	SeasonOrder SeasonOrder `json:"season_order"`
 
 	// SeasonsOpen Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials.

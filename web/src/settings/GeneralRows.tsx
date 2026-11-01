@@ -171,7 +171,7 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
         <SettingRow
           label="Season order"
           dirty={dirty('season_order')}
-          help="How a Series lists its seasons for everyone in the household. Newest first also reverses the episodes in each; Specials come last either way."
+          help="How a Series lists its seasons for everyone in the household. Newest first also reverses the episodes in each; Specials come before Season 1 oldest first, and last newest first."
         >
           <Select
             size="small"

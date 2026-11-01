@@ -2635,7 +2635,7 @@ export interface components {
          *     changed in a session keep winning. Never saved, they report today's behavior.
          */
         Display: {
-            /** @description Newest first reverses the seasons and the episodes in each. Specials come last in both orders. */
+            /** @description Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first. */
             season_order: components["schemas"]["SeasonOrder"];
             /** @description Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials. */
             seasons_open: components["schemas"]["SeasonsOpen"];

@@ -100,7 +100,7 @@ export function ProfileFacts({ children }: { children: ReactNode }) {
 export function DefaultsLine({ label, action, children }: { label: string; action: ReactNode; children: ReactNode }) {
   return (
     <section aria-label={label} className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md px-4 py-3.5 shadow-border">
-      <h3 className="label-14 min-w-0 flex-1 font-medium">{label}</h3>
+      <h3 className="label-14 min-w-fit flex-1 whitespace-nowrap font-medium">{label}</h3>
       <div className="label-13 flex flex-wrap gap-x-6 gap-y-1">{children}</div>
       {action}
     </section>

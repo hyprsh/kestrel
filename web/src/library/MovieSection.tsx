@@ -7,7 +7,7 @@ import type { TitleDetail } from '../api/queries'
 import { usePhone } from '../responsive'
 import { useNow } from '../time'
 import { dotOf, slotKeys, slotLabel, versionStatus } from './bits'
-import { cellText } from './cellDetail'
+import { airedText, cellText } from './cellDetail'
 import { DeleteFile } from './DeleteFiles'
 import { FileDetailsPopover, cellTitle } from './EpisodeFilePopover'
 import { IconAction, rowActionsShown } from './IconAction'
@@ -18,10 +18,10 @@ import { useSearchWanted } from './VersionSearch'
 
 type Version = TitleDetail['versions'][number]
 
-/** The day the Movie first came out anywhere TMDB dates it ("2014-11-24"), else its year, else null. */
+/** The day the Movie first came out anywhere TMDB dates it ("Nov 24, 2014"), else its year, else null. */
 function releasedOf(title: TitleDetail): string | null {
   const dates = title.release_dates.map((r) => r.date).sort()
-  return dates.length > 0 ? dates[0].slice(0, 10) : title.year ? String(title.year) : null
+  return dates.length > 0 ? airedText(dates[0].slice(0, 10)) : title.year ? String(title.year) : null
 }
 
 export function MovieSection({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (t: ManualSearchTarget) => void }) {

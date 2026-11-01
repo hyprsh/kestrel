@@ -3504,7 +3504,7 @@ components:
         season_order:
           allOf:
             - $ref: "#/components/schemas/SeasonOrder"
-          description: Newest first reverses the seasons and the episodes in each. Specials come last in both orders.
+          description: Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.
         seasons_open:
           allOf:
             - $ref: "#/components/schemas/SeasonsOpen"
