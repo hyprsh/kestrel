@@ -88,7 +88,8 @@ describe('Log', () => {
     await user.type(filter(), 'kind:failures -kind:health_raised title:"breaking bad"')
 
     await expect.poll(() => sent.at(-1)?.getAll('title_id')).toEqual(['1', '2'])
-    expect(sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import_rejected', 'import_stalled', 'blocklist', 'health_raised'])
+    // The old group `failures` is Errors plus Warnings.
+    expect(sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import_rejected', 'blocklist', 'import_stalled', 'health_raised', 'original_offered'])
     expect(sent.at(-1)?.getAll('exclude_kind')).toEqual(['health_raised'])
   })
 
@@ -336,6 +337,7 @@ describe('Log', () => {
             { kind: 'grab_completed', count: 9, routine: true },
             { kind: 'grab_failed', count: 2, routine: false },
             { kind: 'import', count: 3, routine: false },
+            { kind: 'adoption', count: 5, routine: false },
             { kind: 'search', count: 7, routine: true },
           ],
           oldest: '2026-10-10T12:00:00Z',
@@ -345,10 +347,16 @@ describe('Log', () => {
     )
     const user = await openLog()
     const views = await screen.findByRole('navigation', { name: 'Views' })
-    expect(await within(views).findByRole('button', { name: /^Everything\W*9$/ })).toHaveAttribute('aria-current', 'true')
+    expect(await within(views).findByRole('button', { name: /^Everything\W*14$/ })).toHaveAttribute('aria-current', 'true')
     expect(within(views).getByRole('button', { name: /^Errors\W*2$/ })).toBeInTheDocument()
     expect(within(views).getByRole('button', { name: /^Grabs\W*6$/ })).toBeInTheDocument()
+    expect(within(views).getByRole('button', { name: /^Adoption\W*5$/ })).toBeInTheDocument()
     expect(within(views).getByRole('button', { name: /^Searches\W*7$/ })).toBeInTheDocument()
+    expect(
+      within(views)
+        .getAllByRole('button')
+        .map((b) => b.textContent?.replace(/\W*\d+$/, '')),
+    ).toEqual(['Everything', 'Errors', 'Warnings', 'Grabs', 'Imports', 'Adoption', 'Searches'])
     expect(screen.getByText(/Last \d+ days · routine kept 30 days/)).toBeInTheDocument()
 
     await user.click(within(views).getByRole('button', { name: /^Errors\W*2$/ }))
@@ -360,8 +368,51 @@ describe('Log', () => {
     expect(screen.getByRole('combobox', { name: 'Filter the Log' })).toHaveValue('kind:search routine:yes')
     await expect.poll(() => sent.at(-1)?.get('routine')).toBe('true')
 
-    await user.click(within(views).getByRole('button', { name: /^Everything\W*9$/ }))
+    await user.click(within(views).getByRole('button', { name: /^Everything\W*14$/ }))
     expect(screen.getByRole('combobox', { name: 'Filter the Log' })).toHaveValue('')
+  })
+
+  it('keeps the Filter menu to refinements: single kinds, Slots and routine events, never Views, Titles or Failures', async () => {
+    fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(3, 'Paddington', 'Paddington')])
+    events()
+    const user = await openLog()
+    await screen.findByRole('table', { name: 'Events' })
+    const views = await screen.findByRole('navigation', { name: 'Views' })
+
+    await user.click(screen.getByRole('button', { name: /^Filter( ·|$)/ }))
+    const menu = await screen.findByRole('menu')
+    const items = within(menu)
+      .getAllByRole('menuitemcheckbox')
+      .map((i) => i.textContent)
+    expect(items).toContain('Grabbed')
+    expect(items).toContain('Downloaded')
+    expect(items).toContain('Show routine events')
+    for (const gone of ['Grabs', 'Imports', 'Adoption', 'Errors', 'Warnings', 'Failures', 'Breaking Bad', 'Paddington']) expect(items).not.toContain(gone)
+    expect(within(menu).queryByText('Title')).not.toBeInTheDocument()
+    expect(within(menu).getByText('Slot')).toBeInTheDocument()
+
+    // A single kind is none of the Views, and Everything is no longer current; it is one refinement.
+    await user.click(within(menu).getByRole('menuitemcheckbox', { name: 'Grabbed' }))
+    expect(filter()).toHaveValue('kind:grab')
+    expect(within(views).getByRole('button', { name: /^Everything/ })).not.toHaveAttribute('aria-current')
+    expect(within(views).queryByRole('button', { current: true })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument()
+  })
+
+  it('keeps a View marked while it is refined, and counts only the refinements on Filter', async () => {
+    events()
+    const user = await openLog()
+    await screen.findByRole('table', { name: 'Events' })
+    const views = await screen.findByRole('navigation', { name: 'Views' })
+
+    await user.click(within(views).getByRole('button', { name: /^Errors/ }))
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
+    await user.type(filter(), ' slot:4k')
+    expect(within(views).getByRole('button', { name: /^Errors/ })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument()
+    await user.type(filter(), ' title:Heat')
+    expect(within(views).getByRole('button', { name: /^Errors/ })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument()
   })
 
   it('turns the Log round with the Sort button', async () => {

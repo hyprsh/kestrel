@@ -12,6 +12,8 @@ export type Facet = Qualifier & {
   label?: string
   /** A menu that picks one value, like a sort: the label of the row that means no `name:` at all. */
   single?: string
+  /** Values the field takes and suggests but the filter menu does not list, such as groups a View already stands for. */
+  unlisted?: readonly string[]
   /** Labels and descriptions of the values, by value. */
   options?: Readonly<Record<string, ValueText>>
 }

@@ -2,7 +2,7 @@
 // routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
 // where an entry can be removed.
 import { Badge, Button, DotsMenu, EmptyState, Entity, Link, MenuDivider, MenuItem, MenuSection, Note, Pager, Table, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
-import { ArrowDownToLine, CircleAlert, FileCheck, List, Search, TriangleAlert } from 'lucide-react'
+import { ArrowDownToLine, CircleAlert, FileCheck, FolderInput, List, Search, TriangleAlert } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useBlocklist, useEvents, useEventsSummary, useUnblock, type EventsSummary, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
@@ -20,7 +20,7 @@ import { usePageParam } from '../place'
 import { usePhone } from '../responsive'
 import { useNow } from '../time'
 import { useReport } from '../toasts'
-import { currentView, logFilter, logQualifiers, logViews, oldestFirst, viewCount, viewQuery } from './filter'
+import { currentView, logFilter, logQualifiers, logViews, oldestFirst, refinements, viewCount, viewQuery } from './filter'
 
 type Tone = NonNullable<BadgeProps['variant']>
 
@@ -61,6 +61,7 @@ const viewIcons: Record<string, ReactNode> = {
   warnings: <TriangleAlert />,
   grabs: <ArrowDownToLine />,
   imports: <FileCheck />,
+  adoption: <FolderInput />,
   searches: <Search />,
 }
 
@@ -172,7 +173,7 @@ function LogPanel({
       controls={
         filtered ? (
           <>
-            <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+            <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} active={refinements(query, qualifiers)} />
             <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
           </>
         ) : undefined
@@ -266,7 +267,7 @@ function Events({ query, onQuery, widths, onBlocklist }: { query: string; onQuer
       onView={filterTo}
       qualifiers={qualifiers}
       filtered
-      onFilter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
+      onFilter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:errors  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
       widths={widths}
       blocklist={{ showing: false }}
       onBlocklist={onBlocklist}

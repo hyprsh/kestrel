@@ -74,6 +74,7 @@ export function FacetFilterButton({
   suffix,
   lead,
   leadActive = 0,
+  active: activeCount,
 }: {
   query: string
   onQuery: (query: string) => void
@@ -82,13 +83,15 @@ export function FacetFilterButton({
   /** Sections above the facets, such as the Library's Status, and how many of them are active. */
   lead?: ReactNode
   leadActive?: number
+  /** How many to badge instead of the facets with a term, for a screen whose Views set some terms the menu would otherwise count. */
+  active?: number
 }) {
   const facets = qualifiers.filter(isMenu)
   // A Shift-click or Shift+Enter excludes in the item's onClick, which the menu calls before onSelect: this tells onSelect it has been done.
   const excludedByKey = useRef(false)
   const parsed = parseQuery(query, qualifiers)
   const names = new Set(facets.map((f) => f.name))
-  const active = new Set(parsed.terms.filter((t) => names.has(t.name)).map((t) => t.name)).size
+  const active = activeCount ?? new Set(parsed.terms.filter((t) => names.has(t.name)).map((t) => t.name)).size
   return (
     <FilterButton count={active + leadActive}>
       {active + leadActive > 0 && <MenuItem onSelect={() => onQuery('')}>Clear all</MenuItem>}
@@ -96,7 +99,7 @@ export function FacetFilterButton({
       {facets.map((f, i) => {
         const included = new Set(parsed.terms.filter((t) => t.name === f.name && !t.excluded).flatMap((t) => t.values))
         const excluded = new Set(parsed.terms.filter((t) => t.name === f.name && t.excluded).flatMap((t) => t.values))
-        const offered = [...(f.values ?? f.suggestions ?? [])]
+        const offered = [...(f.values ?? f.suggestions ?? [])].filter((v) => !f.unlisted?.includes(v))
         // A facet of suggestions lists the chosen ones first, then the start of the rest.
         const values = f.values ? offered : [...new Set([...included, ...excluded, ...offered])].slice(0, Math.max(SUGGESTED, included.size + excluded.size))
         return (
