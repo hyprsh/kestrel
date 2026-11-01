@@ -167,7 +167,8 @@ const daysBetween = (range: string) => {
 }
 
 const timeline = () => screen.getByRole('list', { name: 'Agenda' })
-const current = () => document.querySelector('[aria-current="true"]')
+// The agenda's selected row (the panel's Views also mark their current row).
+const current = () => [...document.querySelectorAll('[aria-current="true"]')].find((e) => !e.closest('aside')) ?? null
 const cover = (row: HTMLElement) => within(row).getAllByRole('button', { hidden: true })[0] // the row's whole-row button, which a click lands on
 const rowOf = (text: string | RegExp) => within(timeline()).getByText(text).closest('li')!
 
@@ -566,7 +567,8 @@ describe('Upcoming: the side panel', () => {
     expect(views.getByRole('button', { name: /Recently out/ })).toHaveAttribute('aria-current', 'true')
     expect(within(timeline()).getByText('Out Movie')).toBeInTheDocument()
     expect(within(timeline()).queryByText('Soon Movie')).not.toBeInTheDocument()
-    await userEvent.click(views.getByRole('button', { name: /Recently out/ }))
+    await userEvent.click(views.getByRole('button', { name: /Everything/ }))
+    expect(views.getByRole('button', { name: /Everything/ })).toHaveAttribute('aria-current', 'true')
     expect(within(timeline()).getByText('Soon Movie')).toBeInTheDocument()
   })
 

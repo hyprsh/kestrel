@@ -7,7 +7,7 @@ import { ArrowDownToLine, CircleAlert, FileCheck, List, Search } from 'lucide-re
 import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
-import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import { FilterChips, PanelContent, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
 import { useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
 import { activityQualifiers } from './filter'
@@ -112,12 +112,9 @@ export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <div className="flex min-h-0 flex-1 max-sm:flex-col">
       <SidePanel {...panel} />
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-        {/* A centred column like the Overview's, so rows and progress bars do not stretch across a wide window. */}
-        <div className="mx-auto max-w-3xl pb-6 max-sm:px-4">
-          <Pipeline data={pipeline} onOpenTitle={onOpenTitle} />
-        </div>
-      </div>
+      <PanelContent reading>
+        <Pipeline data={pipeline} onOpenTitle={onOpenTitle} />
+      </PanelContent>
     </div>
   )
 }

@@ -27,12 +27,6 @@
 //                         list whose rows stack their right content when the list is narrow (container query)
 //   Rail.tsx              Rail and RailSpacer: the desktop       <Rail>{icon buttons}<RailSpacer /></Rail>
 //                         navigation rail and its gap
-//   ScreenBar.tsx         ScreenBar and ViewSwitcher: the bar     <ScreenBar view filter controls aside menu actions />
-//                         of Upcoming, Activity and Log, a row at
-//                         the top of their content. Temporary:
-//                         a screen leaves it for a SidePanel
-//   ScreenHeading.tsx     the h1 over a desktop screen that has   <ScreenHeading>{screen name}</ScreenHeading>
-//                         no SidePanel yet. Temporary too
 //   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
 //   SelectionBar.tsx      count, select-all, Clear and actions  <SelectionBar selection={...} shown={n}>{actions}</SelectionBar>
 //                         for a ticked selection
@@ -50,7 +44,8 @@
 // Each screen has a SidePanel beside the rail, and the main content runs the full height of the window. The panel is
 // the old top bar: the screen renders it as the first child of its own row, content after it. Its rules:
 //   - The title is the screen name, in the panel's h1 (`heading-20`) and its accessible name. A screen has one panel, and
-//     no other heading above its content; a screen without a panel yet has a ScreenHeading from the Shell.
+//     no other heading above its content. A screen without a panel (Overview, Requests, Adoption, Clean up) has a plain h1 in `heading-20`
+//     at the top of its content, no bar and no border; a phone has the PhoneTopBar instead.
 //   - Width is a token: 380 for the Library (`width="wide"`), 280 for every other screen (the default); SIDE_PANEL_WIDTH.
 //     A screen does not choose another width.
 //   - `actions` are icon buttons only: a "…" menu (a DotsMenu named "<Screen> actions") and at most one primary "+" (a
@@ -60,6 +55,9 @@
 //   - `chips` are FilterChips built from the query by `filterChips`: one removable chip per active term value.
 //   - `views` are named pages or presets of the screen, as SidePanelView rows with a count; the current one has
 //     aria-current. Not a Filter: a view is a place, a filter narrows it.
+//   - The main content beside a panel is a PanelContent: 24px above and below and 32px at the sides (16 on a phone), a
+//     section heading is `heading-16` and a page title (Settings' page) `heading-24`; `reading` keeps a text column to 880px,
+//     left aligned. The Log's table is the one content that runs edge to edge.
 //   - The body (children) fills what is left and scrolls itself; the footer is one line of status (keys, counts).
 //   - On a phone the panel is the screen's top header: the name, Health and the `actions` (the Shell supplies Health
 //     and what runs through SidePanelPhoneContext), then the field with `controls` as icon buttons. Views, body and

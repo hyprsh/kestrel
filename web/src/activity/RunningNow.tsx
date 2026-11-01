@@ -37,9 +37,9 @@ export function RunningNow({ running, onOpenAdoption, onOpenTitle }: { running: 
     <div>
       <SectionBlock title="Running now" count={running.length}>
         {running.length === 0 ? (
-          <p className="label-12 px-4 py-3 text-gray-900">Nothing is running right now.</p>
+          <p className="label-13 text-gray-900">Nothing is running right now.</p>
         ) : (
-          <ul className="flex flex-col gap-1.5 px-4 py-3">
+          <ul className="flex flex-col gap-1.5">
             {running.map((r) => (
               <li key={r.key} className="flex items-center gap-2">
                 <Spinner size="sm" className="shrink-0 text-gray-900" />

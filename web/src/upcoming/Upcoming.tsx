@@ -3,7 +3,7 @@
 // or Imported. j/k and Enter move and open (a group opens or closes), and
 // `t` goes back to today.
 import { Button, DotsMenu, EmptyState, Entity, MenuItem, MenuSection, Note } from '@hyprsh/design'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronRight, Clapperboard, List } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useReport } from '../toasts'
@@ -39,6 +39,9 @@ const LOCK_MS = 600
 // A view with a range of its own shows only that range, so it loads nothing more.
 const ranged: readonly ViewKey[] = ['next30', 'week', 'recent']
 
+// A Views row's icon; Everything is no view at all (the whole window).
+const viewIcons: Record<ViewKey, React.ReactNode> = { next30: <CalendarRange />, week: <CalendarDays />, wanted: <Clapperboard />, recent: <CalendarClock /> }
+
 const reasonText = {
   no_air_date: (u: UndatedItem) => `${plural(u.episodes, 'episode')} without an air date`,
   no_release_date: () => 'No release date yet',
@@ -69,7 +72,6 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const counts = useMemo(() => Object.fromEntries(views.map((v) => [v.key, matching.filter((i) => inView(v.key, today, i)).length])) as Record<ViewKey, number>, [matching, today])
   const items = useMemo(() => (view ? matching.filter((i) => inView(view, today, i)) : matching), [matching, view, today])
   const undated = useMemo(() => (view ? [] : timeline.undated.filter(passes)), [timeline.undated, passes, view])
-  const chooseView = (v: ViewKey) => setView((now) => (now === v ? null : v))
 
   // The calendar shows a month; the window grows to cover it. A day is underlined when an entry falls on it.
   const [month, setMonth] = useState(() => monthOf(today))
@@ -313,8 +315,11 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
             lead={
               phone ? (
                 <MenuSection title="Views">
+                  <MenuItem role="radio" checked={view === null} onSelect={() => setView(null)} suffix={<span className="tabular-nums text-gray-900">{matching.length}</span>}>
+                    Everything
+                  </MenuItem>
                   {views.map((v) => (
-                    <MenuItem key={v.key} role="radio" checked={view === v.key} onSelect={() => chooseView(v.key)} suffix={<span className="tabular-nums text-gray-900">{counts[v.key]}</span>}>
+                    <MenuItem key={v.key} role="radio" checked={view === v.key} onSelect={() => setView(v.key)} suffix={<span className="tabular-nums text-gray-900">{counts[v.key]}</span>}>
                       {v.label}
                     </MenuItem>
                   ))}
@@ -328,8 +333,11 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
         views={
           <>
             <SidePanelViews>
+              <SidePanelView icon={<List />} current={view === null} count={matching.length} onSelect={() => setView(null)}>
+                Everything
+              </SidePanelView>
               {views.map((v) => (
-                <SidePanelView key={v.key} current={view === v.key} count={counts[v.key]} onSelect={() => chooseView(v.key)}>
+                <SidePanelView key={v.key} icon={viewIcons[v.key]} current={view === v.key} count={counts[v.key]} onSelect={() => setView(v.key)}>
                   {v.label}
                 </SidePanelView>
               ))}
@@ -340,7 +348,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-          <div className="flex flex-col gap-5 px-3 py-6 sm:px-8">
+          <div className="flex flex-col gap-5 p-4 sm:px-8 sm:py-6">
             {timeline.failed && <Note variant="error">Upcoming could not be loaded.</Note>}
             {settled && loadsUp && !nothing && <AgendaEdge edgeRef={topEdge} loading={timeline.pending[0]} end={topEnd} loadingText="Loading earlier days…" endText="Nothing earlier" />}
             {nothing && (

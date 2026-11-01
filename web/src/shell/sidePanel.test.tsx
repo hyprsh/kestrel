@@ -12,11 +12,10 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 beforeEach(() => history.replaceState(null, '', '/'))
 
 describe('the desktop shell without a top bar', () => {
-  it('has a heading line and no command box on the Overview, and Health in the rail only', async () => {
+  it('has a plain title and no top bar on the Overview, and Health in the rail only', async () => {
     renderApp()
-    const bar = await screen.findByRole('banner')
-    expect(bar).toHaveTextContent('Overview')
-    expect(within(bar).queryByRole('button')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(await within(screen.getByRole('navigation')).findByRole('button', { name: /^Health/ })).toBeInTheDocument()
   })
 

@@ -85,6 +85,19 @@ export function SidePanel({
   )
 }
 
+/**
+ * The main content beside a panel: it scrolls itself and pads its content 24px above and below and 32px at the sides (16 all
+ * round on a phone). `reading` keeps the column to 880px, left aligned, for text and cards (Settings, Activity, Health); a
+ * screen of a wide list or grid (Upcoming) leaves it off. The Log's table runs edge to edge and has no PanelContent.
+ */
+export function PanelContent({ reading = false, children }: { reading?: boolean; children: ReactNode }) {
+  return (
+    <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+      <div className={`p-4 sm:px-8 sm:py-6 ${reading ? 'max-w-[880px]' : ''}`}>{children}</div>
+    </div>
+  )
+}
+
 /** One removable chip of the active filter, for FilterChips: `label` ("Wanted") and what removing it does. */
 export type FilterChip = { key: string; label: string; onRemove: () => void }
 

@@ -36,7 +36,7 @@ describe('the empty shell', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(screen.getByRole('button', { name: 'Kestrel, go to Overview' }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Overview')
+    expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByRole('main')).toHaveTextContent(/happening now/i)
   })
 
@@ -54,7 +54,7 @@ describe('the empty shell', () => {
     renderApp()
     const pill = await within(await screen.findByRole('navigation')).findByRole('button', { name: /offline/i })
     expect(pill).not.toHaveAccessibleName(/health/i)
-    expect(within(screen.getByRole('banner')).queryByRole('button', { name: /offline/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument() // no top bar holds the pill
   })
 })
 

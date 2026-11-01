@@ -3,7 +3,7 @@ import { ChevronRight, Search } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
 import { JumpGroup, JumpLink, JumpNav } from '../layout/JumpNav'
-import { SidePanel } from '../layout/SidePanel'
+import { PanelContent, SidePanel } from '../layout/SidePanel'
 import { useStatus } from '../api/attention'
 import { healthOf } from '../health/tiles'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
@@ -380,11 +380,11 @@ function DesktopSettings({ content, initial }: { content: Record<string, ReactNo
           </JumpNav>
         }
       />
-      <div className="min-w-0 flex-1 overflow-auto px-10 py-7">
-        <div key={current.page.id} className="max-w-[880px]">
+      <PanelContent reading>
+        <div key={current.page.id}>
           <PageView page={current.page} content={content} target={current.part?.id} />
         </div>
-      </div>
+      </PanelContent>
     </div>
   )
 }

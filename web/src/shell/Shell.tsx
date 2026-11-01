@@ -1,4 +1,4 @@
-// The Geist shell: a thin icon rail, and beside it each screen's SidePanel (layout/SidePanel.tsx) or, for a screen without one yet, a heading line.
+// The Geist shell: a thin icon rail, and beside it each screen's SidePanel (layout/SidePanel.tsx) or, for a screen without one, a plain title at the top of its content.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
@@ -32,7 +32,6 @@ import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
-import { ScreenHeading } from '../layout/ScreenHeading'
 import { SidePanelPhoneContext } from '../layout/SidePanel'
 import { PhoneTopBar } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
@@ -259,17 +258,14 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                 <Rail screen={screen} onSelect={setScreen} running={running} onOpenRunning={() => goPath('/health/jobs')} theme={theme} onTheme={setTheme} onSearch={() => setMenu({ mode: 'root' })} />
               )}
               <div className="flex min-w-0 flex-1 flex-col">
-                {!panelScreens.includes(screen) &&
-                  (phone ? (
-                    <PhoneTopBar title={current.label}>
-                      {phoneExtras}
-                      <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={() => setMenu({ mode: 'add' })}>
-                        <Plus />
-                      </Button>
-                    </PhoneTopBar>
-                  ) : (
-                    <ScreenHeading>{current.label}</ScreenHeading>
-                  ))}
+                {phone && !panelScreens.includes(screen) && (
+                  <PhoneTopBar title={current.label}>
+                    {phoneExtras}
+                    <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={() => setMenu({ mode: 'add' })}>
+                      <Plus />
+                    </Button>
+                  </PhoneTopBar>
+                )}
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
                 <BlockingBanner onOpen={goPath} />
                 <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">

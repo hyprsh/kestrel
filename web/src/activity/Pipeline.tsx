@@ -137,11 +137,11 @@ export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitl
 
   let index = 0
   return (
-    <section id="activity-pipeline" aria-label="Pipeline" className="flex flex-col">
+    <section id="activity-pipeline" aria-label="Pipeline" className="flex flex-col gap-8">
       {failed && <Note variant="error">Activity could not be loaded in full.</Note>}
       {searching && search && (
         <SectionBlock title={stageLabel.searching} count={count('searching')}>
-          <div className="px-4 py-3">
+          <div>
             <SearchSummary status={search} onOpenTitle={onOpenTitle} />
           </div>
         </SectionBlock>
@@ -150,7 +150,7 @@ export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitl
         <>
           {[stageLabel.downloading, stageLabel.done].map((title) => (
             <SectionBlock key={title} title={title}>
-              <div className="px-4 pt-1 pb-4">
+              <div>
                 <SkeletonRows count={2} poster="md" />
               </div>
             </SectionBlock>
@@ -161,7 +161,7 @@ export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitl
         (g) =>
           g.entries.length > 0 && (
             <SectionBlock key={g.stage} title={stageLabel[g.stage]} count={count(g.stage)}>
-              <div className="px-4 pt-1 pb-4">
+              <div>
                 <RowList aria-label={stageLabel[g.stage]}>
                   {g.entries.map((e) => {
                     const i = index++

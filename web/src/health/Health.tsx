@@ -14,7 +14,7 @@ import type { Running } from '../activity/running'
 import { RunningNow } from '../activity/RunningNow'
 import { useSearchAll } from '../activity/useSearchAll'
 import { SectionBlock } from '../layout/SectionBlock'
-import { SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import { PanelContent, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
 import { HealthGroups } from './HealthGroups'
 import type { TileData } from './HealthTile'
 import { healthOf } from './tiles'
@@ -51,8 +51,8 @@ function HealthChecks() {
   const counts = [failing > 0 && `${failing} ${failing === 1 ? 'problem' : 'problems'}`, warnings > 0 && `${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`, `${ok} OK`].filter(Boolean)
   const summary = failing + warnings > 0 ? `${counts.join(' · ')} · checked ${checked}` : `All checks OK · checked ${checked}`
   return (
-    <div className="flex flex-col gap-4 px-4 pt-3 pb-4">
-      <p className="label-12 text-gray-900">{summary}</p>
+    <div className="flex flex-col gap-4">
+      <p className="label-13 text-gray-900">{summary}</p>
       <HealthGroups groups={groups} extra={actions} />
     </div>
   )
@@ -128,8 +128,8 @@ export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Runn
   return (
     <div className="flex min-h-0 flex-1 max-sm:flex-col">
       <SidePanel title="Health" actions={<HealthMenu />} views={<HealthViews running={running.length} current={view} onSelect={show} />} />
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
-        <div role="region" aria-label="Health" className="mx-auto max-w-3xl pb-6 max-sm:px-4">
+      <PanelContent reading>
+        <div role="region" aria-label="Health" className="flex flex-col gap-8">
           <div id="health-running">
             <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
           </div>
@@ -142,7 +142,7 @@ export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Runn
             <BackgroundJobs onOpenTitle={onOpenTitle} />
           </div>
         </div>
-      </div>
+      </PanelContent>
     </div>
   )
 }

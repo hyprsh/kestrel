@@ -401,7 +401,7 @@ describe('Adoption review', () => {
     await user.click(await screen.findByRole('button', { name: 'Library' }))
     await user.click(await screen.findByRole('button', { name: 'Library actions' }))
     await user.click(screen.getByRole('menuitem', { name: /^Adopt Existing Library/ }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Adopt existing library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Adopt existing library' })).toBeInTheDocument()
   })
 
   it('unticking a row leaves it out of the count', async () => {
