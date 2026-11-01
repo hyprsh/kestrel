@@ -20,7 +20,11 @@ function valueText(v: unknown): string {
 }
 
 /** When an event happened, in full: "Oct 30, 2026, 18:02". */
-export const fullTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const fullTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/** A time in a line of times: "Oct 30, 18:02". */
+export const shortTime = (iso: string) =>
+  `${new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`
 
 /**
  * The opened event's fields. `title` is its Title's name. The payload keys a kind's own lines did not use follow as they are,

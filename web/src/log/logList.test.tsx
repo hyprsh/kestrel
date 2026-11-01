@@ -257,10 +257,9 @@ describe('an opened event', () => {
     // The earlier times of the same error: the same reason only, the other reason's time is left out.
     const same = await within(error).findByText('Same error before')
     const box = same.parentElement!
-    expect(box).toHaveTextContent('Oct 15, 2026')
-    expect(box).toHaveTextContent('Oct 12, 2026')
-    expect(box).not.toHaveTextContent('Oct 14, 2026')
-    expect(box).toHaveTextContent('3 times since Oct 12, 2026')
+    expect(box).toHaveTextContent(/Oct 15, \d\d:\d\d · Oct 12, \d\d:\d\d/)
+    expect(box).not.toHaveTextContent('Oct 14')
+    expect(box).toHaveTextContent('3 times since Oct 12.')
 
     // Opening another closes this one.
     await user.click(within(rowsOf()[1]).getByRole('button', { name: /^Open event: Imported/ }))

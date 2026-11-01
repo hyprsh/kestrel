@@ -5,7 +5,7 @@ import { useGrabOfEvent, useSameKind, type LogEvent } from '../api/log'
 import { plural } from '../format'
 import { useOpenPlace } from '../place'
 import { useReport } from '../toasts'
-import { errorSignature, fields, fullTime, type Field } from './details'
+import { errorSignature, fields, shortTime, type Field } from './details'
 import { actionOf, chosenBy, kindNames, sentence, severityOf, sentenceText } from './sentence'
 
 const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()}`
@@ -40,7 +40,7 @@ function SameBefore({ e }: { e: LogEvent }) {
   const sig = errorSignature(e)
   const earlier = (same.data ?? []).filter((x) => x.id < e.id && sig !== null && errorSignature(x) === sig)
   if (same.isPending) return null
-  const times = earlier.slice(0, 5).map((x) => fullTime(x.at))
+  const times = earlier.slice(0, 5).map((x) => shortTime(x.at))
   const since = earlier.at(-1)
   return (
     <div className="flex flex-col gap-2">
@@ -54,7 +54,7 @@ function SameBefore({ e }: { e: LogEvent }) {
             {earlier.length > times.length && ` · and ${earlier.length - times.length} earlier`}
           </span>
           <span className="label-12 text-gray-900">
-            {plural(earlier.length + 1, 'time')} since {fullTime(since!.at).replace(/, \d\d:\d\d$/, '')}.
+            {plural(earlier.length + 1, 'time')} since {shortTime(since!.at).replace(/, \d\d:\d\d$/, '')}.
             {e.kind === 'health_raised' && earlier.length >= 2 && ' If it keeps coming back, look at what restarts or sleeps on that side.'}
           </span>
         </>
