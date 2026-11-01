@@ -4278,6 +4278,22 @@ components:
           description: The audio languages ffprobe found (English names), in track order.
           items:
             type: string
+        video_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec (\"H.264\", \"H.265\", \"AV1\"); null when unknown."
+        hdr:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format (\"HDR10\", \"HDR10+\", \"Dolby Vision\", \"Dolby Vision HDR10\", \"HLG\"); null for SDR or when unknown."
+        audio_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec (\"AAC\", \"DD\", \"DDP\", \"DTS-HD MA\", \"TrueHD Atmos\"); null when unknown."
+        audio_channels:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout (\"2.0\", \"5.1\", \"7.1\"); null when unknown."
         release_group:
           type: string
           nullable: true
@@ -4662,6 +4678,22 @@ components:
         misfit:
           type: boolean
           description: The file no longer fits the Version's Profile; the Version is Wanted.
+        video_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec (\"H.264\", \"H.265\", \"AV1\"); null when unknown."
+        hdr:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format (\"HDR10\", \"HDR10+\", \"Dolby Vision\", \"Dolby Vision HDR10\", \"HLG\"); null for SDR or when unknown."
+        audio_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec (\"AAC\", \"DD\", \"DDP\", \"DTS-HD MA\", \"TrueHD Atmos\"); null when unknown."
+        audio_channels:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout (\"2.0\", \"5.1\", \"7.1\"); null when unknown."
         release_group:
           type: string
           nullable: true
@@ -4895,6 +4927,22 @@ components:
         pack:
           type: boolean
           description: Series only. True for a season pack.
+        video_codec:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. Video codec (\"H.264\", \"H.265\", \"AV1\"); null when unknown."
+        hdr:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. HDR format (\"HDR10\", \"HDR10+\", \"Dolby Vision\", \"Dolby Vision HDR10\", \"HLG\"); null for SDR or when unknown."
+        audio_codec:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. Audio codec (\"AAC\", \"DD\", \"DDP\", \"DTS-HD MA\", \"TrueHD Atmos\"); null when unknown."
+        audio_channels:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. Audio channel layout (\"2.0\", \"5.1\", \"7.1\"); null when unknown."
         group:
           type: string
           description: The release group, as the indexer says or else as the name ends. Absent when there is none.
@@ -7079,6 +7127,12 @@ components:
         id:
           type: integer
           format: int64
+        series_status:
+          type: string
+          nullable: true
+          description: |
+            A Series' status as TheTVDB gives it, lower-case (`continuing`, `ended`, `upcoming`), read on each metadata
+            refresh. `null` for a Movie and for a Series TheTVDB has not said it for yet.
         requests:
           type: array
           description: The Requests that asked for this Title, oldest first.

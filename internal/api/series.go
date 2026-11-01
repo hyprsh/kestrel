@@ -101,7 +101,9 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
 		if f := c.File; f != nil {
 			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
+			media := imports.MediaFacts(f.ParsedRelease, f.Probe, f.ReleaseName)
 			out.File = &oapi.EpisodeFile{
+				VideoCodec: strPtr(media.VideoCodec), Hdr: strPtr(media.HDR), AudioCodec: strPtr(media.AudioCodec), AudioChannels: strPtr(media.AudioChannels),
 				Id: f.ID, Path: f.Path, Size: f.Size, Quality: strPtr(quality), EpisodeIds: f.EpisodeIDs,
 				ReleaseName: f.ReleaseName, Languages: languages, ImportedAt: f.ImportedAt,
 				ReleaseGroup: strPtr(imports.ReleaseGroup(f.ParsedRelease)), CustomFormats: formatsToAPI(formats[f.ID]),

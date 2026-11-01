@@ -62,7 +62,7 @@ export function fakeSeries() {
   }
   const seasons = () => [0, 1].map((n) => ({ number: n, monitored: state.episodes.some((e) => e.season === n && e.monitored) }))
   server.use(
-    http.get('/titles/{id}', ({ response }) => response(200).json(detail(r, { kind: 'series', tvdb_id: 81189, series_monitor: state.mode, seasons: seasons() }))),
+    http.get('/titles/{id}', ({ response }) => response(200).json(detail(r, { kind: 'series', tvdb_id: 81189, series_status: 'ended', series_monitor: state.mode, seasons: seasons() }))),
     http.get('/titles/{id}/episodes', ({ response }) => response(200).json({ items: state.episodes })),
     http.post('/titles/{id}/episodes/monitor', async ({ request, response }) => {
       const body = await request.json()

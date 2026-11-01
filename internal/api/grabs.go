@@ -89,6 +89,7 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 				rel.EpisodeTitles = &names
 			}
 		}
+		rel.VideoCodec, rel.Hdr, rel.AudioCodec, rel.AudioChannels = strPtr(f.VideoCodec), strPtr(f.HDR), strPtr(f.AudioCodec), strPtr(f.AudioChannels)
 		if f.Group != "" {
 			group := f.Group
 			rel.Group = &group

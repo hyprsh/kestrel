@@ -226,6 +226,8 @@ type Found struct {
 	Season   int
 	Episodes []int
 	Pack     bool
+	// VideoCodec, HDR, AudioCodec and AudioChannels are what the release name states; empty when it does not say.
+	VideoCodec, HDR, AudioCodec, AudioChannels string
 	// Group is the release group, as the indexer says or else as the name ends; empty when it has none.
 	Group string
 	// InfoURL is the indexer's page for the Release, and Grabs how often the indexer says it was grabbed; empty and 0 when it does not say.
@@ -552,6 +554,8 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 			ID: e.id, GUID: e.raw.GUID, Name: e.raw.Title, Indexer: e.raw.IndexerName, IndexerID: e.raw.IndexerID, Size: e.raw.Size,
 			PublishedAt: e.raw.PublishDate, Quality: e.cand.Parsed.Quality.Quality.Name, Formats: v.Matched, Score: v.Score, Fits: e.fits(slot),
 		}
+		pa := e.cand.Parsed
+		f.VideoCodec, f.HDR, f.AudioCodec, f.AudioChannels = pa.VideoCodec, pa.HDR, pa.AudioCodec, pa.AudioChannels
 		f.Group, f.InfoURL, f.Grabs = cmp.Or(e.raw.Group, e.cand.Parsed.ReleaseGroup), e.raw.InfoURL, e.raw.Grabs
 		if sr := e.cand.Parsed.Series; sr != nil {
 			f.Season, f.Episodes, f.Pack = sr.Season, slices.Clone(sr.Episodes), sr.FullSeason

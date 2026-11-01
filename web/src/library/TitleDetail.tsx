@@ -81,6 +81,9 @@ function TitleSkeleton() {
   )
 }
 
+/** TheTVDB's status as the meta line says it: "Ended", "Continuing", "Upcoming". */
+const statusWord = (status: string) => status.charAt(0).toUpperCase() + status.slice(1)
+
 /** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
 export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: EpisodeScope; label: string } }
 
@@ -92,6 +95,7 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
   const meta: ReactNode[] = [
     title.year,
     title.kind === 'series' ? (seasons > 0 ? plural(seasons, 'season') : null) : runtime(title.runtime),
+    title.kind === 'series' && title.series_status ? statusWord(title.series_status) : null,
     title.certification,
     rated(title.ratings) ? <Ratings ratings={title.ratings} compact /> : null,
     title.kind === 'movie' && title.original_language ? `Original ${title.original_language.toUpperCase()}` : null,

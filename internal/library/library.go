@@ -261,11 +261,14 @@ type Detail struct {
 	Folder           string
 	AddedAt          time.Time
 	RefreshedAt      time.Time
-	Rating           metadata.AudienceRating // TMDB's audience rating, as of the last refresh
-	ReleaseDates     metadata.ReleaseDates
-	ReleaseSeenAt    *time.Time // when a Release for a Movie was first seen; nil if never
-	Aliases          []Alias
-	Versions         []Version // in Slot order
+	// SeriesStatus is TheTVDB's status of a Series ("continuing", "ended", "upcoming") as of the
+	// last refresh; "" for a Movie and until a refresh has read it.
+	SeriesStatus  string
+	Rating        metadata.AudienceRating // TMDB's audience rating, as of the last refresh
+	ReleaseDates  metadata.ReleaseDates
+	ReleaseSeenAt *time.Time // when a Release for a Movie was first seen; nil if never
+	Aliases       []Alias
+	Versions      []Version // in Slot order
 	// SeriesMonitor and Seasons are set for a Series.
 	SeriesMonitor Monitor
 	Seasons       []Season
@@ -652,6 +655,9 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		OriginalLanguage: t.OriginalLanguage, Overview: t.Overview, Runtime: int(t.Runtime.Int64), PosterPath: t.PosterPath.String,
 		Monitored: t.Monitored == 1, MetadataFrozen: t.MetadataFrozen == 1, RootFolder: t.RootFolder, Folder: t.Folder.String,
 		AddedAt: parseTime(t.AddedAt), RefreshedAt: parseTime(t.RefreshedAt), Rating: ratingOf(t),
+	}
+	if t.Kind == string(Series) {
+		d.SeriesStatus = t.TvdbStatus
 	}
 	d.ReleaseDates = releaseDatesOf(dates)
 	d.ReleaseSeenAt = optTime(t.ReleaseSeenAt)

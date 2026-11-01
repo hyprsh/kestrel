@@ -70,3 +70,34 @@ func TestTheNetworkFallsBackToTheTVDBsWhenTMDBHasNone(t *testing.T) {
 		t.Errorf("network = %q, want TheTVDB's", got)
 	}
 }
+
+func TestASeriesDetailCarriesTheStatusAndAnOlderSeriesGainsItOnTheNextRefresh(t *testing.T) {
+	ctx := context.Background()
+	lib, st := newLibrary(t)
+	id, err := lib.AddSeries(ctx, nightShow(metadata.TVDBSeries{ID: 5001, Status: "ended"}, "HBO"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := lib.Get(ctx, id, library.View{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.SeriesStatus != "ended" {
+		t.Errorf("status = %q, want ended", d.SeriesStatus)
+	}
+
+	// A Series added before Kestrel read the status has none; the refresh that follows backfills it.
+	if _, err := st.Write().Exec(`UPDATE titles SET tvdb_status = '' WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ = lib.Get(ctx, id, library.View{}); d.SeriesStatus != "" {
+		t.Fatalf("status = %q, want none before the refresh", d.SeriesStatus)
+	}
+	tv := metadata.TVDBSeries{ID: 5001, Status: "continuing"}
+	if _, err := lib.RefreshSeries(ctx, id, library.SeriesRefresh{TMDB: nightShow(tv, "HBO").TMDB, TVDB: tv, PrimaryLanguage: "en"}); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ = lib.Get(ctx, id, library.View{}); d.SeriesStatus != "continuing" {
+		t.Errorf("status after refresh = %q, want continuing", d.SeriesStatus)
+	}
+}

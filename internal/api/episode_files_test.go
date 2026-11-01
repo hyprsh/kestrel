@@ -34,6 +34,16 @@ func TestAFilledEpisodeCellCarriesItsFile(t *testing.T) {
 	if f.ReleaseGroup == nil || *f.ReleaseGroup != "GRP" {
 		t.Errorf("release group = %v, want GRP", f.ReleaseGroup)
 	}
+	// The name says H.264; the probe says E-AC-3 in 5.1; the name has no HDR.
+	str := func(p *string) string {
+		if p == nil {
+			return "<null>"
+		}
+		return *p
+	}
+	if str(f.VideoCodec) != "H.264" || str(f.AudioCodec) != "DDP" || str(f.AudioChannels) != "5.1" || f.HDR != nil {
+		t.Errorf("media = %s / %s / %s / %s, want H.264 / null / DDP / 5.1", str(f.VideoCodec), str(f.HDR), str(f.AudioCodec), str(f.AudioChannels))
+	}
 	if f.CustomFormats == nil {
 		t.Error("the file has no custom_formats list")
 	}

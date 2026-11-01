@@ -50,6 +50,7 @@ describe('the Title page header', () => {
     expect(within(pane).getByText(/^Next: S01E04 · /)).toBeInTheDocument()
     expect(within(pane).getByRole('button', { name: 'Monitoring all episodes' })).toBeInTheDocument()
     expect(within(pane).getByText(/^1 season/)).toBeInTheDocument()
+    expect(within(pane).getByText(/^Ended/)).toBeInTheDocument()
   })
 
   it('keeps every Title action in the Title menu and asks before removing', async () => {

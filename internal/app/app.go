@@ -138,6 +138,11 @@ func New(opts Options) *App {
 		opts.Plugins = plugin.NewRegistry()
 	}
 	st := opts.Store
+	if n, err := imports.BackfillMedia(context.Background(), st.Write()); err != nil {
+		opts.Logger.Warn("reading codecs off stored release names failed", "err", err)
+	} else if n > 0 {
+		opts.Logger.Info("read codecs and audio formats off stored release names", "files", n)
+	}
 	appSettings := settings.New(st)
 	pluginInstances := instances.NewService(st, opts.Plugins)
 	pluginInstances.SetClock(opts.Clock)

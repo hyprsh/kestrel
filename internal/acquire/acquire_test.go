@@ -203,6 +203,23 @@ func TestASearchScoresEveryReleaseAgainstTheVersionsProfile(t *testing.T) {
 	}
 }
 
+func TestASearchReadsTheCodecsAndAudioOffAReleaseName(t *testing.T) {
+	r := newRig(t)
+	if err := r.idx.Publish(indexer.Release{
+		Title: betterEnglish, IMDBID: "tt1109624", TMDBID: 116149, Size: 8 << 30, PublishDate: r.clock.now.Add(-time.Hour), Categories: []int{2040},
+	}, []byte("<nzb>x</nzb>")); err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := r.found(t, res, betterEnglish)
+	if f.VideoCodec != "H.264" || f.HDR != "" || f.AudioCodec != "DDP" || f.AudioChannels != "5.1" {
+		t.Errorf("media = %q %q %q %q, want H.264, none, DDP, 5.1", f.VideoCodec, f.HDR, f.AudioCodec, f.AudioChannels)
+	}
+}
+
 func TestASearchPassesOnWhatTheIndexerSaysAboutARelease(t *testing.T) {
 	r := newRig(t)
 	err := r.idx.Publish(indexer.Release{

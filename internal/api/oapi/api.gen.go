@@ -2580,11 +2580,20 @@ type EpisodeCell struct {
 
 // EpisodeFile A file on disk holding one or more episodes of a Version (a multi-episode file holds several).
 type EpisodeFile struct {
+	// AudioChannels From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout ("2.0", "5.1", "7.1"); null when unknown.
+	AudioChannels *string `json:"audio_channels,omitempty"`
+
+	// AudioCodec From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec ("AAC", "DD", "DDP", "DTS-HD MA", "TrueHD Atmos"); null when unknown.
+	AudioCodec *string `json:"audio_codec,omitempty"`
+
 	// CustomFormats The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
 	CustomFormats []CustomFormatMatch `json:"custom_formats"`
 
 	// EpisodeIds Every episode the file holds, in aired order; more than one for a multi-episode file.
-	EpisodeIds []int64   `json:"episode_ids"`
+	EpisodeIds []int64 `json:"episode_ids"`
+
+	// Hdr From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format ("HDR10", "HDR10+", "Dolby Vision", "Dolby Vision HDR10", "HLG"); null for SDR or when unknown.
+	Hdr        *string   `json:"hdr,omitempty"`
 	Id         int64     `json:"id"`
 	ImportedAt time.Time `json:"imported_at"`
 
@@ -2601,6 +2610,9 @@ type EpisodeFile struct {
 	// ReleaseName The name of the Release the file came from.
 	ReleaseName string `json:"release_name"`
 	Size        int64  `json:"size"`
+
+	// VideoCodec From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec ("H.264", "H.265", "AV1"); null when unknown.
+	VideoCodec *string `json:"video_codec,omitempty"`
 }
 
 // EpisodeList defines model for EpisodeList.
@@ -2679,9 +2691,18 @@ type EventsSummary struct {
 
 // FileSummary defines model for FileSummary.
 type FileSummary struct {
+	// AudioChannels From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout ("2.0", "5.1", "7.1"); null when unknown.
+	AudioChannels *string `json:"audio_channels,omitempty"`
+
+	// AudioCodec From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec ("AAC", "DD", "DDP", "DTS-HD MA", "TrueHD Atmos"); null when unknown.
+	AudioCodec *string `json:"audio_codec,omitempty"`
+
 	// CustomFormats The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
 	CustomFormats *[]CustomFormatMatch `json:"custom_formats,omitempty"`
-	ImportedAt    time.Time            `json:"imported_at"`
+
+	// Hdr From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format ("HDR10", "HDR10+", "Dolby Vision", "Dolby Vision HDR10", "HLG"); null for SDR or when unknown.
+	Hdr        *string   `json:"hdr,omitempty"`
+	ImportedAt time.Time `json:"imported_at"`
 
 	// Languages The audio languages ffprobe found (English names), in track order.
 	Languages *[]string `json:"languages,omitempty"`
@@ -2698,6 +2719,9 @@ type FileSummary struct {
 	ReleaseName  string  `json:"release_name"`
 	Score        *int    `json:"score"`
 	Size         int64   `json:"size"`
+
+	// VideoCodec From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec ("H.264", "H.265", "AV1"); null when unknown.
+	VideoCodec *string `json:"video_codec,omitempty"`
 }
 
 // FolderChange defines model for FolderChange.
@@ -3799,6 +3823,12 @@ type RejectionCode string
 
 // Release defines model for Release.
 type Release struct {
+	// AudioChannels Parsed from the release name. Audio channel layout ("2.0", "5.1", "7.1"); null when unknown.
+	AudioChannels *string `json:"audio_channels,omitempty"`
+
+	// AudioCodec Parsed from the release name. Audio codec ("AAC", "DD", "DDP", "DTS-HD MA", "TrueHD Atmos"); null when unknown.
+	AudioCodec *string `json:"audio_codec,omitempty"`
+
 	// Covers What the Release holds, for the Version searched: each episode of a Series Release that the Library
 	// knows (every episode of the season for a pack), or the Movie itself. Absent when the name
 	// names nothing the Library has.
@@ -3818,7 +3848,10 @@ type Release struct {
 	Grabs *int `json:"grabs,omitempty"`
 
 	// Group The release group, as the indexer says or else as the name ends. Absent when there is none.
-	Group   *string `json:"group,omitempty"`
+	Group *string `json:"group,omitempty"`
+
+	// Hdr Parsed from the release name. HDR format ("HDR10", "HDR10+", "Dolby Vision", "Dolby Vision HDR10", "HLG"); null for SDR or when unknown.
+	Hdr     *string `json:"hdr,omitempty"`
 	Indexer string  `json:"indexer"`
 
 	// InfoUrl The indexer's page for the Release. Absent when the indexer gives none.
@@ -3841,6 +3874,9 @@ type Release struct {
 	// Season Series only. The season of the Release (the first of a multi-season pack).
 	Season *int  `json:"season,omitempty"`
 	Size   int64 `json:"size"`
+
+	// VideoCodec Parsed from the release name. Video codec ("H.264", "H.265", "AV1"); null when unknown.
+	VideoCodec *string `json:"video_codec,omitempty"`
 }
 
 // ReleaseFits defines model for Release.Fits.
@@ -4789,9 +4825,13 @@ type TitleDetail struct {
 
 	// SeriesMonitor `null` for a Movie.
 	SeriesMonitor *SeriesMonitor `json:"series_monitor"`
-	Title         string         `json:"title"`
-	TmdbId        *int           `json:"tmdb_id"`
-	TvdbId        *int           `json:"tvdb_id"`
+
+	// SeriesStatus A Series' status as TheTVDB gives it, lower-case (`continuing`, `ended`, `upcoming`), read on each metadata
+	// refresh. `null` for a Movie and for a Series TheTVDB has not said it for yet.
+	SeriesStatus *string `json:"series_status,omitempty"`
+	Title        string  `json:"title"`
+	TmdbId       *int    `json:"tmdb_id"`
+	TvdbId       *int    `json:"tvdb_id"`
 
 	// Versions In Slot order.
 	Versions []VersionDetail `json:"versions"`

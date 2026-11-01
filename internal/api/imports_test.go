@@ -48,6 +48,10 @@ type fileJSON struct {
 	Languages   []string `json:"languages"`
 
 	ReleaseGroup  *string `json:"release_group"`
+	VideoCodec    *string `json:"video_codec"`
+	HDR           *string `json:"hdr"`
+	AudioCodec    *string `json:"audio_codec"`
+	AudioChannels *string `json:"audio_channels"`
 	CustomFormats []struct {
 		Name   string `json:"name"`
 		Points int    `json:"points"`

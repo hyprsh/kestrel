@@ -3134,6 +3134,14 @@ export interface components {
             release_name: string;
             /** @description The audio languages ffprobe found (English names), in track order. */
             languages: string[];
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec ("H.264", "H.265", "AV1"); null when unknown. */
+            video_codec?: string | null;
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format ("HDR10", "HDR10+", "Dolby Vision", "Dolby Vision HDR10", "HLG"); null for SDR or when unknown. */
+            hdr?: string | null;
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec ("AAC", "DD", "DDP", "DTS-HD MA", "TrueHD Atmos"); null when unknown. */
+            audio_codec?: string | null;
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout ("2.0", "5.1", "7.1"); null when unknown. */
+            audio_channels?: string | null;
             /** @description The release group parsed from the release name; null when the name has none. */
             release_group?: string | null;
             /** Format: date-time */
@@ -3368,6 +3376,14 @@ export interface components {
             languages?: string[];
             /** @description The file no longer fits the Version's Profile; the Version is Wanted. */
             misfit?: boolean;
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec ("H.264", "H.265", "AV1"); null when unknown. */
+            video_codec?: string | null;
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format ("HDR10", "HDR10+", "Dolby Vision", "Dolby Vision HDR10", "HLG"); null for SDR or when unknown. */
+            hdr?: string | null;
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec ("AAC", "DD", "DDP", "DTS-HD MA", "TrueHD Atmos"); null when unknown. */
+            audio_codec?: string | null;
+            /** @description From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout ("2.0", "5.1", "7.1"); null when unknown. */
+            audio_channels?: string | null;
             /** @description The release group parsed from the release name; null when the name has none. */
             release_group?: string | null;
             /** Format: date-time */
@@ -3509,6 +3525,14 @@ export interface components {
             episode_titles?: string[];
             /** @description Series only. True for a season pack. */
             pack?: boolean;
+            /** @description Parsed from the release name. Video codec ("H.264", "H.265", "AV1"); null when unknown. */
+            video_codec?: string | null;
+            /** @description Parsed from the release name. HDR format ("HDR10", "HDR10+", "Dolby Vision", "Dolby Vision HDR10", "HLG"); null for SDR or when unknown. */
+            hdr?: string | null;
+            /** @description Parsed from the release name. Audio codec ("AAC", "DD", "DDP", "DTS-HD MA", "TrueHD Atmos"); null when unknown. */
+            audio_codec?: string | null;
+            /** @description Parsed from the release name. Audio channel layout ("2.0", "5.1", "7.1"); null when unknown. */
+            audio_channels?: string | null;
             /** @description The release group, as the indexer says or else as the name ends. Absent when there is none. */
             group?: string;
             /** @description The indexer's page for the Release. Absent when the indexer gives none. */
@@ -5024,6 +5048,11 @@ export interface components {
         TitleDetail: {
             /** Format: int64 */
             id: number;
+            /**
+             * @description A Series' status as TheTVDB gives it, lower-case (`continuing`, `ended`, `upcoming`), read on each metadata
+             *     refresh. `null` for a Movie and for a Series TheTVDB has not said it for yet.
+             */
+            series_status?: string | null;
             /** @description The Requests that asked for this Title, oldest first. */
             requests: components["schemas"]["RequestOrigin"][];
             kind: components["schemas"]["TitleKind"];

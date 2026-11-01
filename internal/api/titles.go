@@ -330,7 +330,7 @@ func detailToAPI(d library.Detail, country string, formats map[int64][]scoring.M
 		Title: d.Title, OriginalTitle: d.OriginalTitle, PrimaryTitle: d.PrimaryTitle, Year: intPtr(d.Year),
 		OriginalLanguage: d.OriginalLanguage, Overview: d.Overview, Runtime: intPtr(d.Runtime), HasPoster: d.PosterPath != "",
 		Monitored: d.Monitored, MetadataFrozen: d.MetadataFrozen, RootFolder: d.RootFolder, Folder: strPtr(d.Folder),
-		AddedAt: d.AddedAt, RefreshedAt: d.RefreshedAt, Certification: strPtr(cert),
+		AddedAt: d.AddedAt, RefreshedAt: d.RefreshedAt, Certification: strPtr(cert), SeriesStatus: strPtr(d.SeriesStatus),
 		ReleaseDates: make([]oapi.ReleaseDateEntry, 0, len(d.ReleaseDates)), Requests: []oapi.RequestOrigin{}, Versions: make([]oapi.VersionDetail, 0, len(d.Versions)),
 		Seasons: make([]oapi.Season, 0, len(d.Seasons)),
 		Ratings: ratingsOf(oapi.TitleKind(d.Kind), d.TMDBID, d.Rating),
@@ -355,7 +355,9 @@ func detailToAPI(d library.Detail, country string, formats map[int64][]scoring.M
 		if f := v.File; f != nil {
 			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
 			cfs := formatsToAPI(formats[f.ID])
+			media := imports.MediaFacts(f.ParsedRelease, f.Probe, f.ReleaseName)
 			ov.File = &oapi.FileSummary{
+				VideoCodec: strPtr(media.VideoCodec), Hdr: strPtr(media.HDR), AudioCodec: strPtr(media.AudioCodec), AudioChannels: strPtr(media.AudioChannels),
 				Path: f.Path, Size: f.Size, ReleaseName: f.ReleaseName, Score: f.Score, ImportedAt: f.ImportedAt,
 				Quality: strPtr(quality), Languages: &languages, Misfit: &f.Misfit,
 				ReleaseGroup: strPtr(imports.ReleaseGroup(f.ParsedRelease)), CustomFormats: &cfs,

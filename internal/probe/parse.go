@@ -58,6 +58,7 @@ func ParseJSON(data []byte) (Info, error) {
 				Index:    s.Index,
 				Codec:    s.CodecName,
 				Channels: s.Channels,
+				Profile:  s.Profile,
 				Language: NormalizeLanguage(s.Tags["language"]),
 				Title:    s.Tags["title"],
 				Default:  s.Disposition["default"] == 1,
@@ -97,6 +98,7 @@ type ffprobeStream struct {
 	Width         int               `json:"width"`
 	Height        int               `json:"height"`
 	Channels      int               `json:"channels"`
+	Profile       string            `json:"profile"`
 	ColorTransfer string            `json:"color_transfer"`
 	Tags          map[string]string `json:"tags"`
 	Disposition   map[string]int    `json:"disposition"`
