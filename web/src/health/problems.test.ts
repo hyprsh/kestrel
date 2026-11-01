@@ -45,6 +45,15 @@ describe('problemsOf', () => {
     expect(fixLabel(test)).toBe('Test')
   })
 
+  it('puts a drifting clock in the verdict as a warning, with what it throws off', () => {
+    const log: AttentionAction = { key: 'log', label: 'Show in the Log', method: 'GET', path: '/log?q=kind:health_raised', body: null, confirm: null }
+    const [p] = problemsOf([row({ kind: 'clock_drift', severity: 'warning', message: "The server's clock is 3 min behind TMDB's", actions: [log] })], undefined, now)
+    expect(p).toMatchObject({ severity: 'warning', action: log })
+    expect(p.sentence).toBe(
+      `The server's clock is 3 min behind TMDB's, since ${clockTime('2026-11-01T12:12:00')}. Dates Kestrel records and the days Upcoming shows are off until the clock is put right.`,
+    )
+  })
+
   it('counts only the health rows, as the rail button does', () => {
     expect(problemsOf([row({ id: 'stuck-4', kind: 'stuck_download' })], undefined, now)).toEqual([])
   })

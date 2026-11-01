@@ -48,7 +48,7 @@ async function row() {
   history.replaceState(null, '', '/health/jobs')
   renderApp()
   const section = await screen.findByRole('region', { name: /^Background jobs/ })
-  return (await within(section).findAllByRole('listitem')).find((li) => within(li).queryByText('Search', { selector: 'span' }))!
+  return (await within(section).findAllByRole('listitem')).find((li) => within(li).queryByText('Search pass', { selector: 'span' }))!
 }
 
 /** The Search row's "Search all Wanted" button. */

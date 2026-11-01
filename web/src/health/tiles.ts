@@ -1,8 +1,8 @@
 // The Health checks as tiles in three groups: Connections (the download client, the indexers, the metadata providers and
-// the media servers), Storage (each disk) and System (the version, the TRaSH snapshot, Grabs). Failing tiles come first in
+// the media servers), Storage (each disk and the database) and System (the version, the clock, the TRaSH snapshot, Grabs). Failing tiles come first in
 // their group and say since when. Used by the Health screen, Settings (which pages need attention) and the Trash.
 import type { SystemStatus } from '../api/attention'
-import { clockTime } from '../time'
+import { ago, clockTime } from '../time'
 import type { TileData, Tone } from './HealthTile'
 
 /** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
@@ -15,6 +15,24 @@ function formatBytes(n: number): string {
     i++
   }
   return `${Number.isInteger(v) ? v : v.toFixed(1)} ${units[i]}`
+}
+
+/** "84 MB", "1.2 GB": a database's size, a whole number once it is over ten of its unit. */
+function sizeText(n: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let v = n
+  let i = 0
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024
+    i++
+  }
+  return `${v < 10 && i > 0 ? v.toFixed(1).replace(/\.0$/, '') : Math.round(v)} ${units[i]}`
+}
+
+/** "0.7 s", or "0.6 – 0.9 s" for a range, from milliseconds. */
+function secondsText(lo: number, hi: number): string {
+  const s = (ms: number) => (ms / 1000).toFixed(1)
+  return s(lo) === s(hi) ? `${s(lo)} s` : `${s(lo)} – ${s(hi)} s`
 }
 
 /** "12:12" for a time today, "Oct 30, 12:12" for an earlier day. */
@@ -53,7 +71,8 @@ function indexerTile(i: Indexer, now: number): TileData {
   else if (i.grabs_paused) details.push(`Grabs paused (${i.grab_used ?? '?'} of ${i.grab_max ?? '?'} downloads used)`)
   const paused = details.length > 0
   const tone: Tone = i.state === 'failing' ? 'failing' : i.state === 'disabled' ? 'idle' : paused ? 'paused' : 'ok'
-  const detail = i.state === 'failing' ? failingSince(i.message ?? 'Not answering', i.since, now) : i.state === 'disabled' ? 'Disabled' : paused ? details.join(' · ') : `Answering · ${searches(i)}`
+  const answering = i.median_ms == null ? searches(i) : i.search_max == null ? secondsText(i.median_ms, i.median_ms) : `${secondsText(i.median_ms, i.median_ms)} · ${searches(i)}`
+  const detail = i.state === 'failing' ? failingSince(i.message ?? 'Not answering', i.since, now) : i.state === 'disabled' ? 'Disabled' : paused ? details.join(' · ') : `Answering · ${answering}`
   return { key: `indexer-${i.instance_id}`, instanceId: i.instance_id, name: i.name, tone, word: i.state === 'disabled' ? 'disabled' : undefined, detail }
 }
 
@@ -62,7 +81,9 @@ function indexerTiles(list: Indexer[], now: number): TileData[] {
   const own = list.map((i) => indexerTile(i, now))
   const fine = own.filter((t) => t.tone === 'ok')
   if (fine.length < 2) return own
-  const used = list.filter((i) => fine.some((t) => t.instanceId === i.instance_id)).reduce((n, i) => n + i.search_used, 0)
+  const answering = list.filter((i) => fine.some((t) => t.instanceId === i.instance_id))
+  const used = answering.reduce((n, i) => n + i.search_used, 0)
+  const times = answering.flatMap((i) => (i.median_ms == null ? [] : [i.median_ms]))
   const group: TileData = {
     key: 'indexers-ok',
     name: list
@@ -70,7 +91,7 @@ function indexerTiles(list: Indexer[], now: number): TileData[] {
       .map((i) => i.name)
       .join(', '),
     tone: 'ok',
-    detail: `Answering · ${used} searches today`,
+    detail: `Answering · ${times.length > 0 ? secondsText(Math.min(...times), Math.max(...times)) : `${used} searches today`}`,
   }
   return [...own.filter((t) => t.tone !== 'ok'), group]
 }
@@ -82,7 +103,7 @@ function serviceTile(s: SystemStatus['services'][number], now: number): TileData
     instanceId: media ? s.instance_id : undefined,
     name: s.name,
     tone: s.state === 'failing' ? 'failing' : 'ok',
-    detail: s.state === 'failing' ? failingSince(s.message ?? 'Not answering', s.since, now) : media ? 'Connected' : 'No problems seen',
+    detail: s.state === 'failing' ? failingSince(s.message ?? 'Not answering', s.since, now) : media ? 'Connected' : s.key ? `Reachable · ${s.key} key` : 'No problems seen',
   }
 }
 
@@ -99,6 +120,21 @@ export function snapshotAge(committedAt: string | null, now = Date.now()): strin
   return days === 0 ? 'from today' : `${days} day${days === 1 ? '' : 's'} old`
 }
 
+/** The database: its size and how long ago the last scheduled backup was taken. */
+function databaseTile(d: NonNullable<SystemStatus['database']>, now: number): TileData {
+  const backup = d.last_backup_at ? `last backup ${ago(d.last_backup_at, now)}` : 'no backup yet'
+  return { key: 'database', name: 'Database', tone: 'ok', detail: `${sizeText(d.size_bytes)} · ${backup}` }
+}
+
+/** The clock: "In sync", or how far off it is when it is out by over a minute. Nothing until it has been compared. */
+function clockTile(c: NonNullable<SystemStatus['clock']>): TileData | null {
+  if (c.state === 'unknown' || c.offset_seconds == null) return null
+  if (c.state === 'in_sync') return { key: 'clock', name: 'Clock', tone: 'ok', detail: 'In sync' }
+  const secs = Math.abs(c.offset_seconds)
+  const amount = secs < 3600 ? `${Math.max(1, Math.round(secs / 60))} min` : secs < 172_800 ? `${(secs / 3600).toFixed(1).replace(/\.0$/, '')} h` : `${Math.round(secs / 86_400)} days`
+  return { key: 'clock', name: 'Clock', tone: 'low', word: 'off', detail: `${amount} ${c.offset_seconds < 0 ? 'behind' : 'ahead'}` }
+}
+
 export type HealthGroup = { title: string; tiles: TileData[] }
 
 const failingFirst = (tiles: TileData[]) => [...tiles].sort((a, b) => Number(b.tone === 'failing') - Number(a.tone === 'failing'))
@@ -107,7 +143,7 @@ const failingFirst = (tiles: TileData[]) => [...tiles].sort((a, b) => Number(b.t
  * The groups that have a tile in them, each with its failing tiles first, and how many tiles fail, warn or are ok.
  * Only the download client, the indexers, the metadata providers and the media servers can fail; a low disk or a pause is a
  * warning, not a failure. Everything else (ok, off, an update to install) is ok, so the three counts add up to the number
- * of tiles. The database and the clock have no check, so they have no tile.
+ * of tiles. A clock that is out by over a minute is a warning; before it has been compared there is no Clock tile.
  */
 export function healthOf(s: SystemStatus, now = Date.now()): { groups: HealthGroup[]; failing: number; warnings: number; ok: number } {
   const system: TileData[] = []
@@ -116,11 +152,13 @@ export function healthOf(s: SystemStatus, now = Date.now()): { groups: HealthGro
       ? { key: 'update', name: 'Version', tone: 'update', detail: `${s.version} · ${s.update.version} available`, link: { path: '/settings/about', label: 'About' } }
       : { key: 'version', name: 'Version', tone: 'ok', detail: `${s.version} · up to date` },
   )
+  const clock = s.clock ? clockTile(s.clock) : null
+  if (clock) system.push(clock)
   system.push({ key: 'trash', name: 'TRaSH', tone: 'ok', detail: `Snapshot ${snapshotAge(s.trash.committed_at, now)}` })
   if (s.grabs_paused) system.push({ key: 'grabs', name: 'Grabs', tone: 'paused', detail: 'Automatic Grabs are paused' })
   const groups = [
     { title: 'Connections', tiles: [clientTile(s.download_client, now), ...indexerTiles(s.indexers, now), ...s.services.map((v) => serviceTile(v, now))] },
-    { title: 'Storage', tiles: s.disks.map(diskTile) },
+    { title: 'Storage', tiles: [...s.disks.map(diskTile), ...(s.database ? [databaseTile(s.database, now)] : [])] },
     { title: 'System', tiles: system },
   ]
     .filter((g) => g.tiles.length > 0)

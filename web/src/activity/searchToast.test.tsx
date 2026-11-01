@@ -90,7 +90,7 @@ describe('the search Toast', () => {
     await frame({})
     server.use(http.post('/jobs/{name}/run', ({ response }) => response(202).empty()))
     await openHealth()
-    await userEvent.click(screen.getByRole('button', { name: 'Run Search now' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Run Search pass now' }))
     expect(await findToast('Search started')).toBeInTheDocument()
 
     await frame({ pass: passOf({ done: 1, total: 4 }) })

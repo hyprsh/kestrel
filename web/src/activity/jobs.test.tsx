@@ -63,8 +63,8 @@ describe('Background jobs', () => {
     expect(rss).toHaveTextContent('20 min')
     expect(rss).toHaveTextContent('ok · 0.2 s · 5 min ago')
     // The schedule is the server's: the cadences live with the loops.
-    expect(await rowOf(section, 'Poll')).toHaveTextContent('10 s – 5 min')
-    expect(await rowOf(section, 'Refresh')).toHaveTextContent('1 d')
+    expect(await rowOf(section, 'Download check')).toHaveTextContent('10 s – 5 min')
+    expect(await rowOf(section, 'Metadata refresh')).toHaveTextContent('1 d')
     expect(await rowOf(section, 'Import')).toHaveTextContent('1 min')
     expect(section).toHaveTextContent('Last 10: one bar per run, its height the duration; red runs failed.')
   })
@@ -77,11 +77,11 @@ describe('Background jobs', () => {
     ])
     const section = await openJobs()
 
-    expect(await rowOf(section, 'Search')).toHaveTextContent('not run since start')
+    expect(await rowOf(section, 'Search pass')).toHaveTextContent('not run since start')
     const health = await rowOf(section, 'Health')
     expect(health).toHaveTextContent('failed · 2.0 s · 5 min ago')
     expect(health).toHaveTextContent('disk check: no such directory')
-    expect(await rowOf(section, 'Refresh')).toHaveTextContent('running')
+    expect(await rowOf(section, 'Metadata refresh')).toHaveTextContent('running')
   })
 
   it('says since when a running loop runs, from the stream', async () => {
@@ -90,7 +90,7 @@ describe('Background jobs', () => {
     const section = await openJobs(client)
     act(() => client.setQueryData(['activity'], { running: ['refresh'], passes: [{ name: 'refresh', started_at: at(-2 * min) }], adoption: null }))
 
-    await waitFor(async () => expect(await rowOf(section, 'Refresh')).toHaveTextContent('running · started 2 min ago'))
+    await waitFor(async () => expect(await rowOf(section, 'Metadata refresh')).toHaveTextContent('running · started 2 min ago'))
   })
 
   it('says which setting turns a disabled loop off, and promises no run', async () => {
@@ -103,7 +103,7 @@ describe('Background jobs', () => {
 
     const updates = await rowOf(section, 'Updates')
     expect(updates).toHaveTextContent('Off while “Check GitHub for updates” is off in Settings › Updates')
-    const trash = await rowOf(section, 'TRaSH')
+    const trash = await rowOf(section, 'TRaSH sync')
     expect(trash).toHaveTextContent('Off while “Check TRaSH daily and update automatically” is off in Settings › TRaSH')
     for (const row of [updates, trash]) {
       expect(row).not.toHaveTextContent(/ok ·|failed ·/)
@@ -120,8 +120,8 @@ describe('Background jobs', () => {
     ])
     const section = await openJobs()
 
-    const poll = await rowOf(section, 'Poll')
-    const bars = within(poll).getByRole('img', { name: 'Poll: last 4 runs, oldest first. 3 ok, 1 failed. Took 0.2 s to 1.4 s.' })
+    const poll = await rowOf(section, 'Download check')
+    const bars = within(poll).getByRole('img', { name: 'Download check: last 4 runs, oldest first. 3 ok, 1 failed. Took 0.2 s to 1.4 s.' })
     const colours = Array.from(bars.children).map((b) => (b.getAttribute('data-failed') === 'true' ? 'red' : 'gray'))
     expect(colours).toEqual(['gray', 'gray', 'red', 'gray'])
     // Heights follow the durations: the longest run is the tallest.
@@ -138,7 +138,7 @@ describe('Background jobs', () => {
     const section = await openJobs()
 
     expect(within(await rowOf(section, 'Import')).queryByRole('button', { name: /run/i })).not.toBeInTheDocument()
-    await userEvent.click(within(await rowOf(section, 'Search')).getByRole('button', { name: 'Run Search now' }))
+    await userEvent.click(within(await rowOf(section, 'Search pass')).getByRole('button', { name: 'Run Search pass now' }))
     await waitFor(() => expect(posted).toEqual(['search']))
     expect(await findToast('Search started')).toBeInTheDocument()
     expect(within(await toastRegion()).getByRole('button', { name: 'Watch on Overview' })).toBeInTheDocument()
@@ -154,9 +154,9 @@ describe('Background jobs', () => {
     fakeJobs([job({ name: 'search' })])
     const section = await openJobs()
 
-    await userEvent.click(within(await rowOf(section, 'Search')).getByRole('button', { name: 'Run Search now' }))
+    await userEvent.click(within(await rowOf(section, 'Search pass')).getByRole('button', { name: 'Run Search pass now' }))
 
-    expect(await findToast('Could not run Search: already running')).toBeInTheDocument()
+    expect(await findToast('Could not run Search pass: already running')).toBeInTheDocument()
   })
 
   it('follows the stream', async () => {

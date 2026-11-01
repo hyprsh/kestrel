@@ -2,7 +2,7 @@
 // Background jobs section, "Running now" and the top bar's indicator.
 
 export type JobWords = {
-  /** The loop's name in Background jobs: "Poll". */
+  /** The loop's name in Background jobs: "Download check". */
   label: string
   /** What it does: "Follows the download client's progress". */
   does: string
@@ -16,7 +16,7 @@ export type JobWords = {
 
 const jobs: Record<string, JobWords> = {
   poll: {
-    label: 'Poll',
+    label: 'Download check',
     does: "Follows the download client's progress",
     busy: 'while downloading',
     running: 'Polling the download client',
@@ -24,7 +24,7 @@ const jobs: Record<string, JobWords> = {
   },
   import: { label: 'Import', does: 'Imports finished downloads', running: 'Importing finished Grabs', short: 'Importing…' },
   search: {
-    label: 'Search',
+    label: 'Search pass',
     does: 'Searches the Wanted Versions and those due an Upgrade',
     running: 'Searching for Wanted and Upgrades',
     short: 'Searching…',
@@ -37,7 +37,7 @@ const jobs: Record<string, JobWords> = {
     running: 'Pruning old Log entries',
     short: 'Pruning the Log…',
   },
-  refresh: { label: 'Refresh', does: "Refreshes Titles' metadata", running: 'Refreshing metadata', short: 'Refreshing metadata…' },
+  refresh: { label: 'Metadata refresh', does: "Refreshes Titles' metadata", running: 'Refreshing metadata', short: 'Refreshing metadata…' },
   marks: {
     label: 'Marks in Plex',
     does: 'Labels requested Titles in Plex and badges their posters',
@@ -45,7 +45,7 @@ const jobs: Record<string, JobWords> = {
     short: 'Marking in Plex…',
   },
   trash: {
-    label: 'TRaSH',
+    label: 'TRaSH sync',
     does: 'Checks for newer TRaSH Custom Formats and profiles',
     running: 'Updating the TRaSH snapshot',
     short: 'Updating TRaSH…',
@@ -61,6 +61,12 @@ const jobs: Record<string, JobWords> = {
     does: 'Adds the next seasons of series you are watching',
     running: 'Adding next seasons to watch ahead',
     short: 'Watching ahead…',
+  },
+  backup: {
+    label: 'Backup',
+    does: 'Copies the database into the backups folder and keeps the last 7',
+    running: 'Backing up the database',
+    short: 'Backing up…',
   },
   updates: {
     label: 'Updates',

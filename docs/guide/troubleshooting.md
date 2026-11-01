@@ -63,6 +63,16 @@ Kestrel looks up Titles at TMDB (Movies) and TheTVDB (Series). Adding a Title an
 - **If a key is rejected,** check it at the provider and enter it again. A key saved in the UI outranks the variable, so remove a stale one there.
 - **If the provider is down,** wait. Nothing is lost, and Kestrel retries.
 
+Health tells you whose key each provider runs on: "Reachable · own key" when you set one (in Settings or the environment), "Reachable · project key" for the key built into the release.
+
+## The server's clock is off
+
+Release ages, the days in Upcoming, sign-in sessions and the times in the Log all follow the server's clock. Kestrel compares it with the time TMDB reports in every answer (the HTTP `Date` header; a quiet Kestrel asks TMDB at least once an hour, so the comparison is never old). Health shows **Clock · In sync**, or "Clock · 3 min behind" when it is out by more than a minute, and adds a warning to Needs attention while it is. Kestrel doesn't set the clock.
+
+- **Fix the host's clock.** Turn on time sync on the machine that runs Docker (`timedatectl set-ntp true` on Linux). A container shares the host's clock, so fixing it in the container does nothing. A virtual machine that was paused or restored from a snapshot often wakes up behind; most hypervisors have a "sync time with host" option.
+- **The warning goes by itself** at the next answer from TMDB once the clock is right.
+- **No Clock tile?** Kestrel hasn't heard from TMDB since it started (no key, or no network). It appears after the first answer.
+
 ## An indexer's daily limit
 
 Many indexers allow only so many API requests, and so many downloads, a day. In Settings > Downloads, each indexer has two optional limits:
@@ -70,7 +80,7 @@ Many indexers allow only so many API requests, and so many downloads, a day. In 
 - **API requests per day:** Kestrel stays under it by pausing searches. Set it a little under your indexer's limit.
 - **Grabs per day:** once it is reached, Kestrel stops grabbing from that indexer until the UTC day ends.
 
-If the indexer reports its limits, Kestrel shows them on the Health screen next to the indexer ("18 searches today"). An indexer that says it is rate limiting Kestrel is left alone for as long as it asks.
+Health shows how fast the indexers that answer are, from the searches Kestrel really made over the last day ("Answering · 0.6 – 0.9 s" is the range of their median times). If the indexer reports its limits, Kestrel shows them on the Health screen next to the indexer ("18 searches today"). An indexer that says it is rate limiting Kestrel is left alone for as long as it asks.
 
 To stop downloads altogether for a while, such as when you reach a monthly cap, switch on **Pause Grabs** in Settings > Downloads > Automatic Grabs. Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client on its own. A Release you grab by hand still goes through. Switch it off and the next search sweep grabs as usual.
 
@@ -101,7 +111,7 @@ If a [Config File](configuration.md#the-config-file) declares the account, Kestr
 
 - **What Kestrel did:** the Log screen lists every search, Grab, Import and rename as a sentence with its Title, under a strip of the last days, and you can filter it with the side panel's Views (Everything, Errors, Warnings, Grabs, Imports, Adoption, Searches) or the filter field (try `kind:` and `title:`). Its **...** menu opens the Blocklist. Done and Failed Grabs in Activity reach back 7 days. The Log keeps routine events for 30 days.
 - **The server's own output:** `docker logs kestrel`. Set `KESTREL_LOG_LEVEL=debug` for more.
-- **Database backups:** `/config/backups/` (the host folder you mount as `/config`, then `backups/`). Kestrel copies the database there before each schema migration and keeps the newest five. To go back to one, stop Kestrel and copy the backup over `/config/kestrel.db`. Kestrel never downgrades: a database newer than the binary stops startup and names the backup to restore.
+- **Database backups:** `/config/backups/` (the host folder you mount as `/config`, then `backups/`). Kestrel copies the database there before each schema migration (the newest five are kept) and once a day (`kestrel-daily-<timestamp>.db`, the newest seven are kept). Health shows when the last daily one was taken; if it says "no backup yet" or the Backup job shows a failed run, check that `/config` is writable and has room for another copy of the database. To go back to one, stop Kestrel and copy the backup over `/config/kestrel.db`. Kestrel never downgrades: a database newer than the binary stops startup and names the backup to restore.
 - **Where it keeps everything else:** the database and poster cache are in `/config`. Your media is never in it.
 
 ## Common questions

@@ -123,7 +123,7 @@ The screen showing every Grab from search to Import, grouped by stage (Searching
 _Avoid_: Downloads, Queue (for the screen)
 
 **Background job**:
-One of Kestrel's fixed set of periodic loops (ADR 0007), such as the Search sweep, RSS, Import or the health checks: an idempotent pass over what the domain rows say is due, run on its own schedule or kicked awake. It is not a queued unit of work: there is no job table, and what runs now, the last run and the next are kept in memory. Activity lists them under Background jobs.
+One of Kestrel's fixed set of periodic loops (ADR 0007), such as the Search sweep, RSS, Import or the health checks: an idempotent pass over what the domain rows say is due, run on its own schedule or kicked awake. It is not a queued unit of work: there is no job table to resume from, and what runs now and the next run are kept in memory; only how each loop's last ten runs went is stored, so Health's run bars survive a restart. Health lists them under Background jobs.
 _Avoid_: Task, scheduled job, queue entry
 
 ### Requests
@@ -153,6 +153,10 @@ The timeline around today of episodes and movie releases, from the last two week
 _Avoid_: Calendar
 
 ### Deployment
+
+**Backup**:
+A copy of the database in `backups/`. Kestrel takes one before each schema migration (the newest five are kept) and one a day on its own, from the Backup job (the newest seven are kept, counted apart). Health shows the database's size and the age of the last one. Restoring is copying one over `kestrel.db` with Kestrel stopped; a Backup holds the database only, never your media.
+_Avoid_: Snapshot (that is TRaSH's word for its data), export
 
 **Config File**:
 The file a deployment uses to declare the account, settings, Profiles and plugin instances it wants. Whatever it declares can't be changed in the UI; anything it leaves out stays the UI's to manage, down to a declared plugin instance's `enabled` when the file doesn't set it. Say "declared" for what it holds: a declared section, a declared instance.

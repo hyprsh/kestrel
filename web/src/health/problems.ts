@@ -23,6 +23,7 @@ const affects: Record<string, string> = {
   media_server_unreachable: 'Its library is not told about new files until it is fixed.',
   low_disk_space: 'Downloads and Imports may fail when it runs out.',
   refresh_failed: 'Its library may not show new files yet.',
+  clock_drift: 'Dates Kestrel records and the days Upcoming shows are off until the clock is put right.',
   untrusted_proxy_header: 'Sign-in through the proxy is not trusted from that address.',
 }
 

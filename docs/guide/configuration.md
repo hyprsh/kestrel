@@ -55,7 +55,14 @@ By default you generate the API key in Settings > Account > API key. Set `KESTRE
 
 `/config` holds `kestrel.db` (the SQLite database), `backups/` and `cache/posters/`.
 
-Before each schema migration of an existing database, Kestrel copies it to `backups/kestrel-<schema>-<timestamp>.db` and keeps the newest five. Kestrel never downgrades. If the database is newer than the binary, Kestrel refuses to start and names the backup to restore.
+Kestrel copies the database into `backups/` in two cases, and keeps each kind apart:
+
+- Before each schema migration of an existing database, as `backups/kestrel-<schema>-<timestamp>.db`. The newest five are kept.
+- Once a day, as `backups/kestrel-daily-<timestamp>.db`, by the **Backup** job (Health > Background jobs). The newest seven are kept, so a bad day is recoverable for a week. Kestrel checks hourly and takes one when the newest is about a day old, so a Kestrel that was off for a while backs up soon after it starts. The number kept is fixed, not a setting.
+
+Health > Storage shows the database's size and how long ago the last daily backup was taken ("84 MB · last backup 3 h ago"). Each copy is a full, consistent copy of the database made while Kestrel runs, about as large as `kestrel.db`, so seven of them need roughly eight times its size in `/config`. Your media is never in a backup.
+
+Kestrel never downgrades. If the database is newer than the binary, Kestrel refuses to start and names the backup to restore.
 
 ### Updates
 
