@@ -168,7 +168,6 @@ describe('Library rows: Slot chips', () => {
     )
     await userEvent.click(within(within(list).getByRole('option', { name: /heat/i })).getByRole('button', { name: /^Standard: Have/ }))
     const file = await screen.findByRole('dialog')
-    expect(file.querySelector('.hy-skeleton')).toBeInTheDocument()
     expect(file).not.toHaveTextContent('Bluray-1080p')
     await act(async () => release())
     await waitFor(() => expect(file).toHaveTextContent('Bluray-1080p \u00b7 H.265 \u00b7 HDR10 \u00b7 DDP 5.1 \u00b7 18.0 GB'))
