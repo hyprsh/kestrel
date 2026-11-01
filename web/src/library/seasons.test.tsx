@@ -14,11 +14,13 @@ async function openSeries() {
   const state = fakeSeries()
   const view = renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  const grid = await screen.findByRole('grid', { name: 'Episodes' })
-  return { state, grid, view }
+  await screen.findByRole('grid', { name: 'Episodes' })
+  return { state, view }
 }
 
 const filled = { standard: cell('filled', 100), '4k': cell('filled', 100) }
+/** The episode table of the open season, looked up afresh: the accordion draws a season's table when it opens. */
+const episodeGrid = () => screen.getByRole('grid', { name: 'Episodes' })
 const params = () => new URLSearchParams(location.search)
 
 beforeEach(() => history.replaceState(null, '', '/'))
@@ -36,37 +38,76 @@ describe('the Seasons at a glance on the Title page', () => {
     ]
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await screen.findByRole('grid', { name: 'Episodes' })
 
     const region = screen.getByRole('region', { name: 'Seasons' })
     expect(
       within(region)
         .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
         .map((b) => b.getAttribute('aria-label')),
-    ).toEqual(['Specials: not monitored', 'Season 1: Standard 2 of 2; 4K 2 of 2', 'Season 2: Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted, open'])
-    expect(within(region).getByRole('button', { name: /^Season 2:/ })).toHaveAttribute('aria-current', 'true')
+    ).toEqual(['Specials: Not monitored', 'Season 1: Complete, Standard 2 of 2; 4K 2 of 2', 'Season 2: 2 Wanted, Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted'])
+    // The first season with something Wanted is open; the others are closed.
+    expect(
+      within(region)
+        .getAllByRole('button', { name: /^(Season \d+|Specials):/, expanded: true })
+        .map((b) => b.getAttribute('aria-label')),
+    ).toEqual([expect.stringMatching(/^Season 2:/)])
     // One chip per Slot with its count, amber while Wanted.
-    expect(within(region).getByTitle('Standard 1 of 2, 1 Wanted')).toHaveTextContent('STD 1/2')
-    expect(within(region).getByTitle('4K 0 of 2, 2 Wanted')).toHaveTextContent('4K 0/2')
-    expect(within(region).getByTitle('4K 0 of 2, 2 Wanted')).toHaveAttribute('data-wanted')
-    expect(within(region).getByTitle('Standard 2 of 2')).not.toHaveAttribute('data-wanted')
-    expect(within(region).getByRole('button', { name: /^Specials:/ })).toHaveTextContent('not monitored')
-    expect(within(region).getByText('Not monitored')).toBeInTheDocument() // the legend
-    expect(screen.getByRole('heading', { name: 'Season 2' })).toBeInTheDocument()
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 2 episode 1' })).toBeInTheDocument()
-    expect(within(grid).queryByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeInTheDocument()
+    expect(within(region).getByTitle('Standard 1 of 2, 1 Wanted')).toHaveTextContent(/^STD\s*1\/2$/)
+    expect(within(region).getByTitle('Standard 1 of 2, 1 Wanted')).toHaveAttribute('data-state', 'wanted')
+    expect(within(region).getByTitle('4K 0 of 2, 2 Wanted')).toHaveTextContent(/^4K\s*0\/2$/)
+    expect(within(region).getByTitle('Standard 2 of 2')).toHaveAttribute('data-state', 'filled')
+    expect(within(region).getByRole('button', { name: /^Specials:/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('region', { name: 'Season 2 episodes' })).toBeInTheDocument()
+    expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 2 episode 1' })).toBeInTheDocument()
+    expect(within(episodeGrid()).queryByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeInTheDocument()
   })
 
   it('shows the episodes of the season picked, and keeps the season in the address bar', async () => {
-    const { grid } = await openSeries()
+    await openSeries()
     expect(params().get('season')).toBeNull()
 
     await pickSeason('Specials')
 
-    expect(screen.getByRole('button', { name: /^Specials:.*, open$/ })).toBeInTheDocument()
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })).toBeInTheDocument()
-    expect(within(grid).queryByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeInTheDocument()
-    await waitFor(() => expect(location.pathname + location.search).toBe('/library?season=0'))
+    expect(screen.getByRole('button', { name: /^Specials:/, expanded: true })).toBeInTheDocument()
+    expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })).toBeInTheDocument()
+    expect(within(episodeGrid()).queryByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeInTheDocument()
+    await waitFor(() => expect(location.pathname + location.search).toBe('/library?open=0'))
+  })
+
+  it('opens several seasons at once, keeps them in the address and compares with Expand all', async () => {
+    const state = fakeSeries()
+    state.get().episodes = [episode(1, 1, 1, 'Pilot', { cells: filled }), episode(2, 2, 1, 'Next', { cells: filled }), episode(3, 3, 1, 'Later', { cells: filled })]
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('region', { name: 'Seasons' })
+    // Nothing is Wanted: the newest season opens.
+    expect(screen.getByRole('button', { name: /^Season 3:/ })).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(screen.getByRole('button', { name: /^Season 1:/ }))
+    expect(screen.getAllByRole('grid', { name: 'Episodes' })).toHaveLength(2)
+    await waitFor(() => expect(location.search).toBe('?open=1,3'))
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(screen.getAllByRole('grid', { name: 'Episodes' })).toHaveLength(3)
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
+    await waitFor(() => expect(location.search).toBe('?open='))
+  })
+
+  it('reads the open seasons from the address, and the old ?season= too', async () => {
+    const state = fakeSeries()
+    state.get().episodes = [episode(1, 1, 1, 'Pilot', { cells: filled }), episode(2, 2, 1, 'Next', { cells: filled }), episode(3, 3, 1, 'Later', { cells: filled })]
+    history.replaceState(null, '', '/library?open=2,3')
+    const view = renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('region', { name: 'Seasons' })
+    expect(screen.getAllByRole('button', { name: /^Season \d:/, expanded: true })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: /^Season 1:/ })).toHaveAttribute('aria-expanded', 'false')
+    view.unmount()
+    history.replaceState(null, '', '/library?season=1')
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    expect(await screen.findByRole('button', { name: /^Season 1:/, expanded: true })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Season \d:/, expanded: true })).toHaveLength(1)
   })
 
   it('drops the season from the address when another Title is selected, a Movie included', async () => {
@@ -91,12 +132,12 @@ describe('the Seasons at a glance on the Title page', () => {
 
   it('opens the season the address names', async () => {
     history.replaceState(null, '', '/library?season=0')
-    const { grid } = await openSeries()
-    expect(screen.getByRole('button', { name: /^Specials:.*, open$/ })).toBeInTheDocument()
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })).toBeInTheDocument()
+    await openSeries()
+    expect(screen.getByRole('button', { name: /^Specials:/, expanded: true })).toBeInTheDocument()
+    expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })).toBeInTheDocument()
   })
 
-  it('counts the open season’s episodes in its filter: All, Missing, Downloading and Not aired', async () => {
+  it('counts the open season’s episodes in its filter: All, Wanted, Downloading and Not aired', async () => {
     const state = fakeSeries()
     const eps = state.get().episodes
     eps[1] = { ...eps[1], cells: { standard: cell('filled', 120), '4k': cell('filled', 120) } }
@@ -104,32 +145,32 @@ describe('the Seasons at a glance on the Title page', () => {
     eps.push(episode(5, 1, 4, 'Crazy Handful', { cells: { standard: cell('wanted'), '4k': cell('wanted') } }))
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await screen.findByRole('grid', { name: 'Episodes' })
 
-    const tabs = screen.getByRole('tablist', { name: 'Show' })
+    const tabs = screen.getByRole('tablist', { name: /^Show/ })
     expect(
       within(tabs)
         .getAllByRole('tab')
         .map((t) => t.textContent),
-    ).toEqual(['All 4', 'Missing 2', 'Downloading 1', 'Not aired 1'])
-    expect(screen.getByRole('button', { name: /^Season 1:/ })).toHaveTextContent('1/3')
+    ).toEqual(['All 4', 'Wanted 2', 'Downloading 1', 'Not aired 1'])
+    expect(screen.getByTitle(/^Standard 1 of 3/)).toHaveTextContent('1/3')
 
-    await userEvent.click(within(tabs).getByRole('tab', { name: 'Missing 2' }))
+    await userEvent.click(within(tabs).getByRole('tab', { name: 'Wanted 2' }))
     expect(
-      within(grid)
+      within(episodeGrid())
         .getAllByRole('checkbox', { name: /^Tick Season 1/ })
         .map((c) => c.getAttribute('aria-label')),
     ).toEqual(['Tick Season 1 episode 3', 'Tick Season 1 episode 4'])
     await userEvent.click(within(tabs).getByRole('tab', { name: 'Not aired 1' }))
     expect(
-      within(grid)
+      within(episodeGrid())
         .getAllByRole('checkbox', { name: /^Tick Season 1/ })
         .map((c) => c.getAttribute('aria-label')),
     ).toEqual(['Tick Season 1 episode 2'])
 
     // Another season starts on All again.
     await pickSeason('Specials')
-    expect(within(screen.getByRole('tablist', { name: 'Show' })).getByRole('tab', { selected: true })).toHaveTextContent('All 1')
+    expect(within(screen.getByRole('tablist', { name: /^Show/ })).getByRole('tab', { selected: true })).toHaveTextContent('All 1')
   })
 
   it('folds the episodes not aired yet into one row that expands, and shows them under Not aired', async () => {
@@ -143,24 +184,24 @@ describe('the Seasons at a glance on the Title page', () => {
     ]
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await screen.findByRole('grid', { name: 'Episodes' })
 
-    expect(within(grid).queryByRole('checkbox', { name: 'Tick Season 1 episode 2' })).not.toBeInTheDocument()
-    const fold = within(grid).getByRole('button', { name: '3 more, not aired yet (S01E02 – S01E04, from Mon, Nov 2)' })
+    expect(within(episodeGrid()).queryByRole('checkbox', { name: 'Tick Season 1 episode 2' })).not.toBeInTheDocument()
+    const fold = within(episodeGrid()).getByRole('button', { name: '3 more, not aired yet (S01E02 – S01E04, from Mon, Nov 2)' })
     expect(fold).toHaveAttribute('aria-expanded', 'false')
-    await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick all of Season 1' }))
+    await userEvent.click(within(episodeGrid()).getByRole('checkbox', { name: 'Tick all of Season 1' }))
     expect(screen.getByRole('toolbar', { name: 'S01E01 ticked' })).toBeInTheDocument() // only what shows is ticked
     await userEvent.click(screen.getByRole('button', { name: 'Clear ticks' }))
 
     await userEvent.click(fold)
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
-    expect(within(grid).getByRole('row', { name: /Cat/ })).toHaveTextContent('Nov 2')
-    await userEvent.click(within(grid).getByRole('button', { name: 'Hide the episodes not aired yet' }))
-    expect(within(grid).queryByRole('checkbox', { name: 'Tick Season 1 episode 4' })).not.toBeInTheDocument()
+    expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
+    expect(within(episodeGrid()).getByRole('row', { name: /Cat/ })).toHaveTextContent('Nov 2')
+    await userEvent.click(within(episodeGrid()).getByRole('button', { name: 'Hide the episodes not aired yet' }))
+    expect(within(episodeGrid()).queryByRole('checkbox', { name: 'Tick Season 1 episode 4' })).not.toBeInTheDocument()
 
-    await userEvent.click(within(screen.getByRole('tablist', { name: 'Show' })).getByRole('tab', { name: 'Not aired 3' }))
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
-    expect(within(grid).queryByRole('button', { name: /more, not aired yet/ })).not.toBeInTheDocument()
+    await userEvent.click(within(screen.getByRole('tablist', { name: /^Show/ })).getByRole('tab', { name: 'Not aired 3' }))
+    expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
+    expect(within(episodeGrid()).queryByRole('button', { name: /more, not aired yet/ })).not.toBeInTheDocument()
   })
 
   it('opens the folded row of an episode the address names', async () => {
@@ -174,36 +215,33 @@ describe('the Seasons at a glance on the Title page', () => {
     history.replaceState(null, '', '/library?season=1&episode=3')
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 3' }).closest('tr')).toHaveAttribute('aria-current', 'true')
+    await screen.findByRole('grid', { name: 'Episodes' })
+    expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 3' }).closest('tr')).toHaveAttribute('aria-current', 'true')
   })
 
-  it('has Find an episode in the toolbar and the season’s actions on its row in the Seasons card', async () => {
+  it('has Find an episode and Expand all by the heading, and the season’s tools in its open body', async () => {
     const { state } = await openSeries()
     expect(state.get().sent).toEqual([])
     expect(screen.getByRole('button', { name: 'Find an episode' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Expand all' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Table options' })).not.toBeInTheDocument()
 
-    const region = screen.getByRole('region', { name: 'Seasons' })
-    // The open-season button and the actions are siblings in the row, not nested buttons.
-    const open = within(region).getByRole('button', { name: /^Season 1:/ })
-    expect(open.querySelector('button')).toBeNull()
-    expect(open.parentElement).toContainElement(within(region).getByRole('button', { name: 'Search Season 1' }))
-    expect(within(region).getByRole('button', { name: 'Search Season 1' }).textContent).toBe('')
-
-    await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
-    const menu = screen.getByRole('menu', { name: 'Actions for Season 1' })
+    const body = screen.getByRole('region', { name: 'Season 1 episodes' })
+    // The tools row: the filters, Search season and the season's menu, none nested in another button.
+    expect(within(body).getByRole('tablist', { name: /^Show/ })).toBeInTheDocument()
+    expect(within(body).getByRole('button', { name: 'Search season' })).toBeEnabled()
+    await userEvent.click(within(body).getByRole('button', { name: 'Season 1 actions' }))
+    const menu = screen.getByRole('menu', { name: 'Season 1 actions' })
     const items = ['Search Season', 'Manual Search Season Standard…', 'Manual Search Season 4K…', 'Delete Standard Season’s Files…', 'Delete 4K Season’s Files…']
     expect(
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
     ).toEqual(items.map((t) => expect.stringContaining(t.replace('’', "'"))))
-    expect(screen.queryByRole('menuitem', { name: 'Reset Columns' })).not.toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
   })
 
-  it('acts on a season that is not the open one, and marks the row whose menu is open', async () => {
+  it('disables Search season when nothing in the season is Wanted, and monitors a closed season from its bookmark without opening it', async () => {
     const state = fakeSeries()
     state.get().episodes = [episode(1, 1, 1, 'Pilot', { cells: filled }), episode(2, 2, 1, 'Next', { cells: { standard: cell('wanted'), '4k': cell('wanted') } })]
     renderApp()
@@ -211,19 +249,19 @@ describe('the Seasons at a glance on the Title page', () => {
     await screen.findByRole('grid', { name: 'Episodes' })
     const region = screen.getByRole('region', { name: 'Seasons' })
 
-    expect(within(region).getByRole('button', { name: 'Search Season 1' })).toBeDisabled() // nothing in Season 1 is Wanted
-    expect(within(region).getByRole('button', { name: 'Search Season 2' })).toBeEnabled()
-    await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
-    expect(within(region).getByRole('button', { name: 'Actions for Season 1' }).closest('[data-menu-open]')).not.toBeNull()
-    await userEvent.keyboard('{Escape}')
+    // Season 2 has what is Wanted, so it opened; Season 1 is closed.
+    expect(within(screen.getByRole('region', { name: 'Season 2 episodes' })).getByRole('button', { name: 'Search season' })).toBeEnabled()
+    await userEvent.click(within(region).getByRole('button', { name: /^Season 1:/ }))
+    expect(within(screen.getByRole('region', { name: 'Season 1 episodes' })).getByRole('button', { name: 'Search season' })).toBeDisabled()
+    await userEvent.click(within(region).getByRole('button', { name: /^Season 1:/ }))
     await userEvent.click(within(region).getByRole('button', { name: 'Stop monitoring Season 1' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'seasons/1', body: { monitored: false } }]))
-    expect(params().get('season')).toBeNull() // acting on a row does not open it
+    expect(within(region).getByRole('button', { name: /^Season 1:/ })).toHaveAttribute('aria-expanded', 'false') // acting on a row does not open it
   })
 
   it('has an icon button, named for the episode, for a row’s Search', async () => {
-    const { grid } = await openSeries()
-    const row = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')!
+    await openSeries()
+    const row = within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')!
     expect(within(row).getByRole('button', { name: 'Search S01E01' }).textContent).toBe('')
   })
 
@@ -238,13 +276,13 @@ describe('the Seasons at a glance on the Title page', () => {
     const start = await within(region).findByRole('button', { name: 'Monitor Season 1' })
     expect(start).toHaveAttribute('aria-pressed', 'false')
     expect(start.closest('[data-monitored]')).toHaveAttribute('data-monitored', 'off')
-    expect(within(region).getByRole('button', { name: /^Season 1:/ })).toHaveTextContent('not monitored')
+    expect(within(region).getByRole('button', { name: /^Season 1: Not monitored/ })).toBeInTheDocument()
     expect(within(region).getByRole('button', { name: 'Monitor Specials' })).toBeInTheDocument() // Specials start off
     await userEvent.click(start)
     await waitFor(() => expect(state.get().sent[1]).toEqual({ path: 'seasons/1', body: { monitored: true } }))
   })
 
-  it('draws one strip of squares per season with each episode’s combined state over every Slot, and a legend for them', async () => {
+  it('draws one bar per season with its episodes by combined state over every Slot, and a line under it', async () => {
     const state = fakeSeries()
     const none = { standard: cell('unreleased'), '4k': cell('unreleased') }
     state.get().episodes = [
@@ -258,12 +296,11 @@ describe('the Seasons at a glance on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await screen.findByRole('grid', { name: 'Episodes' })
-    const region = screen.getByRole('region', { name: 'Seasons' })
-    const row = within(region).getByRole('button', { name: /^Season 1:/ })
-    expect(Array.from(row.querySelectorAll('[data-square]')).map((q) => q.getAttribute('data-square'))).toEqual(['filled', 'partial', 'wanted', 'downloading', 'unreleased', 'unmonitored'])
-    // No per-Slot strips: a single strip, whatever the Slot count.
-    expect(row.querySelectorAll('[data-square]')).toHaveLength(6)
-    for (const l of ['Every Slot has it', 'Some Slots Wanted', 'All Wanted', 'Downloading', 'Not aired', 'Not monitored']) expect(within(region).getByText(l)).toBeInTheDocument()
+    const row = screen.getByRole('button', { name: /^Season 1:/ }).closest('[role=listitem]')!
+    expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial', 'downloading', 'unreleased', 'unmonitored'])
+    // One bar, whatever the Slot count; the line under it says what is open.
+    expect(row.querySelectorAll('[data-bar="partial"]')).toHaveLength(1)
+    expect(within(row as HTMLElement).getByText('2 Wanted · 1 downloading')).toBeInTheDocument()
   })
 })
 
@@ -275,32 +312,38 @@ describe('Find an episode', () => {
     return find()
   }
 
-  it('takes a code in any spelling, switches to the season and highlights the episode, keeping it in the address bar', async () => {
-    const { grid } = await openSeries()
+  it('takes a code in any spelling, opens the season and highlights the episode, keeping it in the address bar', async () => {
+    await openSeries()
+    const special = () => within(screen.getByRole('region', { name: 'Specials episodes' }))
 
     for (const code of ['s0e1', '0x01', 'S00E01']) {
-      await pickSeason('Season 1')
       await userEvent.clear(await field())
       await userEvent.type(await field(), code)
-      expect(screen.getByRole('button', { name: /^Specials:.*, open$/ })).toBeInTheDocument()
-      const row = within(grid).getByRole('checkbox', { name: 'Tick Season 0 episode 1' }).closest('tr')!
+      expect(screen.getByRole('button', { name: /^Specials:/, expanded: true })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Season 1:/, expanded: true })).toBeInTheDocument() // the season that was open stays
+      const row = special().getByRole('checkbox', { name: 'Tick Season 0 episode 1' }).closest('tr')!
       expect(row).toHaveAttribute('aria-current', 'true')
     }
-    await waitFor(() => expect(location.pathname + location.search).toBe('/library?season=0&episode=1'))
+    await waitFor(() => expect(location.pathname + location.search).toBe('/library?season=0&episode=1&open=0,1'))
   })
 
   it('finds part of a name and highlights only that episode', async () => {
-    const { grid } = await openSeries()
+    await openSeries()
     await userEvent.type(await field(), "cat's")
-    const row = (name: string) => within(grid).getByRole('checkbox', { name }).closest('tr')!
+    const row = (name: string) =>
+      within(screen.getByRole('region', { name: 'Season 1 episodes' }))
+        .getByRole('checkbox', { name })
+        .closest('tr')!
     expect(row('Tick Season 1 episode 2')).toHaveAttribute('aria-current', 'true')
     expect(row('Tick Season 1 episode 1')).not.toHaveAttribute('aria-current')
   })
 
   it('says when nothing matches, and clears the highlight when the field is cleared', async () => {
-    const { grid } = await openSeries()
+    await openSeries()
     await userEvent.type(await field(), 's1e1')
-    const row = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')!
+    const row = within(screen.getByRole('region', { name: 'Season 1 episodes' }))
+      .getByRole('checkbox', { name: 'Tick Season 1 episode 1' })
+      .closest('tr')!
     expect(row).toHaveAttribute('aria-current', 'true')
 
     await userEvent.clear(await field())
@@ -312,8 +355,8 @@ describe('Find an episode', () => {
 
   it('opens on the episode the address names', async () => {
     history.replaceState(null, '', '/library?season=1&episode=2')
-    const { grid } = await openSeries()
-    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }).closest('tr')).toHaveAttribute('aria-current', 'true'))
+    await openSeries()
+    await waitFor(() => expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }).closest('tr')).toHaveAttribute('aria-current', 'true'))
     expect(find()).toHaveValue('S01E02')
   })
 })

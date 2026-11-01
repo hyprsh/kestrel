@@ -295,6 +295,16 @@ export function SeasonSearch({ actions, season, episodes }: { actions: Pick<Epis
   return <IconAction icon={Search} label={`Search ${name}`} disabled={!wanted} reason={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, name, () => ({ season }))} />
 }
 
+/** Search season: the button of an open season's tools, Search now for what is Wanted in it. */
+export function SeasonSearchButton({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; season: number; episodes: Episode[] }) {
+  const wanted = wantedIn(episodes, actions.versions)
+  return (
+    <Button variant="default" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, seasonName(season), () => ({ season }))}>
+      Search season
+    </Button>
+  )
+}
+
 /**
  * The ⋯ menu of a season row: Search Season (its Wanted episodes), Manual Search Season… and Delete the season's files
  * (monitoring is the season's bookmark). `onOpenChange` tells the row when the menu opens and closes, so the row can show whose menu it is.

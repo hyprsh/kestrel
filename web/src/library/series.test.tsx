@@ -134,7 +134,7 @@ describe('the episode list', () => {
     // Specials are another season, not rows of this list.
     expect(within(grid).queryByRole('row', { name: /Good Cop Bad Cop/ })).not.toBeInTheDocument()
     await pickSeason('Specials')
-    const special = within(grid).getByRole('row', { name: /Good Cop Bad Cop/ })
+    const special = within(screen.getByRole('grid', { name: 'Episodes' })).getByRole('row', { name: /Good Cop Bad Cop/ })
     expect(within(special).getByTitle('Standard: Not monitored')).toHaveAttribute('data-state', 'unmonitored')
     expect(special).toHaveAttribute('data-monitored', 'off')
   })
@@ -175,8 +175,7 @@ describe('the episode list', () => {
   it('is operated from the keyboard: j/k and the arrows move rows, left and right move between chips, Space ticks, Enter opens a chip', async () => {
     const { grid } = await openSeries()
     // The controls above the list have their own tab stops: start at the last one before it.
-    await act(async () => screen.getByRole('button', { name: 'Find an episode' }).focus())
-    await userEvent.tab() // the open season's actions
+    await act(async () => screen.getByRole('button', { name: 'Season 1 actions' }).focus())
     await userEvent.tab() // the list's one tab stop: its first row
     const pilot = within(grid).getByRole('row', { name: /Pilot/ })
     expect(pilot).toHaveFocus()

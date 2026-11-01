@@ -193,7 +193,7 @@ describe('deleting files from the episode table', () => {
   it("asks under the season's buttons, above the table, for a season's files", async () => {
     const { grid } = await openSeriesWithFiles()
 
-    await choose(null, 'Actions for Season 1', "Delete Standard Season's Files…")
+    await choose(null, 'Season 1 actions', "Delete Standard Season's Files…")
 
     const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(grid.contains(confirm)).toBe(false)
@@ -250,7 +250,7 @@ describe('deleting files from the episode table', () => {
   it("deletes a season's files from the season's menu, blocklisting their Release", async () => {
     const { sent } = await openSeriesWithFiles()
 
-    await choose(null, 'Actions for Season 1', "Delete Standard Season's Files…")
+    await choose(null, 'Season 1 actions', "Delete Standard Season's Files…")
     await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete and blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'season=1&blocklist=true' }]))

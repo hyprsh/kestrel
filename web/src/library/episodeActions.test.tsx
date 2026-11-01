@@ -157,10 +157,10 @@ describe('searching from the episode list', () => {
   it('searches the Wanted episodes of the season, and opens Manual search for it from the season menu', async () => {
     const { searched, manual } = await openSeries()
 
-    await choose(null, 'Actions for Season 1', 'Search Season')
+    await choose(null, 'Season 1 actions', 'Search Season')
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { season: 1 } }]))
 
-    await choose(null, 'Actions for Season 1', 'Manual Search Season Standard…')
+    await choose(null, 'Season 1 actions', 'Manual Search Season Standard…')
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1 } }]))
     expect(within(await screen.findByRole('region', { name: 'Manual search' })).getByText('Season 1')).toBeInTheDocument()
   })
@@ -236,7 +236,7 @@ describe('searching from the episode list', () => {
     await pickSeason('Specials')
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
     await pickSeason('Season 1')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
+    expect(within(screen.getByRole('grid', { name: 'Episodes' })).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
   })
 
   it('opens the menu of a row from the keyboard and Escape closes it', async () => {

@@ -77,7 +77,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [titleOpen, setTitleOpen] = useState(startTitle !== null)
   // A Series' season tab and found episode ("/library?season=2&episode=5"), kept here so they reach the address bar.
   const [episodeView, setEpisodeView] = useState<EpisodeView>(() =>
-    start.screen === 'library' && (start.season !== null || start.slot) ? { titleId: startTitle, season: start.season, episode: start.episode, slot: start.slot } : noEpisodeView,
+    start.screen === 'library' && (start.season !== null || start.slot || start.open)
+      ? { titleId: startTitle, season: start.season, episode: start.episode, slot: start.slot, open: start.open }
+      : noEpisodeView,
   )
   // A Title's Manual search ("/library/12/search?version=4&scope=S05"): it replaces the Title page and has its own address.
   const [manual, setManual] = useState<ManualSearchAt | null>(start.search)

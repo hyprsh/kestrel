@@ -6,7 +6,12 @@
 import { createContext, useCallback, useContext, useSyncExternalStore } from 'react'
 
 /** The season tab (0 is Specials) and the found episode's number of a Series' Title page; null: not set. */
-export type EpisodeAt = { season: number | null; episode: number | null; /** A Slot's key: the Title page opens at that Slot's Version. */ slot?: string | null }
+export type EpisodeAt = {
+  season: number | null
+  episode: number | null
+  /** A Slot's key: the Title page opens at that Slot's Version. */ slot?: string | null
+  /** The seasons open on a Series' Title page ("?open=5,3"); null: not named, so the page opens its own. */ open?: number[] | null
+}
 
 /**
  * A Title's Manual search: the Version it searches and, for a Series, the season or episodes it is narrowed to, as the code
@@ -34,8 +39,9 @@ export function placePath(screen: string, q = '', section = '', at?: EpisodeAt, 
   if (q) params.set('q', q)
   if (at?.season != null) params.set('season', String(at.season))
   if (at?.season != null && at.episode != null) params.set('episode', String(at.episode))
+  if (at?.open) params.set('open', at.open.join(','))
   if (at?.slot) params.set('slot', at.slot)
-  const query = params.toString()
+  const query = params.toString().replace(/%2C/g, ',')
   return `/${screen}${section ? `/${section}` : ''}${query ? `?${query}` : ''}`
 }
 
@@ -49,6 +55,8 @@ export function placeOf(path: string): Place {
   const titleId = count(section)
   const versionId = count(url.searchParams.get('version'))
   const scope = url.searchParams.get('scope')
+  const openParam = url.searchParams.get('open')
+  const open = openParam === null ? null : openParam.split(',').flatMap((n) => (/^\d+$/.test(n) ? [Number(n)] : []))
   const slotParam = url.searchParams.get('slot')
   const slot = slotParam && /^[\w-]+$/.test(slotParam) ? slotParam : null
   const search: ManualSearchAt | null =
@@ -61,7 +69,7 @@ export function placeOf(path: string): Place {
   if (screen === 'about') return { screen: 'settings', section: 'about', q: '', search: null, season: null, episode: null }
   if (screen === 'activity' && section === 'health') return { screen: 'health', section: '', q: '', search: null, season: null, episode: null }
   if (screen === 'activity' && (section === 'jobs' || section === 'running')) return { screen: 'health', section: 'jobs', q: '', search: null, season: null, episode: null }
-  return { screen, section, q: url.searchParams.get('q') ?? '', search, season, episode: season === null ? null : count(url.searchParams.get('episode')), slot }
+  return { screen, section, q: url.searchParams.get('q') ?? '', search, season, episode: season === null ? null : count(url.searchParams.get('episode')), slot, open }
 }
 
 /** The directory the SPA is served under: "/" or the base URL's path. */

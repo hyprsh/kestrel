@@ -77,9 +77,9 @@ describe('episode titles', () => {
   })
 
   it('shows a listed episode without a title as TBA with no tooltip', async () => {
-    const { grid } = await openSeries()
+    await openSeries()
     await pickSeason('Season 2')
-    expect(within(rowOf(grid, 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
+    expect(within(rowOf(screen.getByRole('grid', { name: 'Episodes' }), 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
   })
 })
 

@@ -120,20 +120,22 @@ describe('a Series with four Slots', () => {
     expect(searched).toEqual([{ version: 53, body: { season: 1, episode_ids: [2] } }])
   })
 
-  it('draws one strip per season, a count chip per Slot and half green, half amber where some Slots are Wanted', async () => {
+  it('draws one bar per season, a count chip per Slot, amber where some Slots are Wanted', async () => {
     const state = await openFourSlotSeries()
     state.get().episodes = [
       episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('filled'), german: cell('filled'), remux: cell('filled') }) }),
       episode(3, 1, 2, 'Some', { cells: cells({ standard: cell('filled'), '4k': cell('wanted'), german: cell('filled'), remux: cell('wanted') }) }),
     ]
     await show()
-    const row = within(screen.getByRole('region', { name: 'Seasons' })).getByRole('button', { name: /^Season 1:/ })
-    expect(Array.from(row.querySelectorAll('[data-square]')).map((q) => q.getAttribute('data-square'))).toEqual(['filled', 'partial'])
-    expect(row).toHaveTextContent('STD 2/2')
-    expect(row).toHaveTextContent('4K 1/2')
-    expect(row).toHaveTextContent('GERMAN 2/2')
-    expect(row).toHaveTextContent('REMUX 1/2')
-    expect(within(row).getByTitle('4K 1 of 2, 1 Wanted')).toHaveAttribute('data-wanted')
+    const row = within(screen.getByRole('region', { name: 'Seasons' }))
+      .getByRole('button', { name: /^Season 1:/ })
+      .closest<HTMLElement>('[role=listitem]')!
+    expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial'])
+    expect(row).toHaveTextContent(/STD\s*2\/2/)
+    expect(row).toHaveTextContent(/4K\s*1\/2/)
+    expect(row).toHaveTextContent(/GERMAN\s*2\/2/)
+    expect(row).toHaveTextContent(/REMUX\s*1\/2/)
+    expect(within(row).getByTitle('4K 1 of 2, 1 Wanted')).toHaveAttribute('data-state', 'wanted')
   })
 })
 

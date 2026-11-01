@@ -99,7 +99,11 @@ export function fakeSeries() {
   return { ...state, lib, get: () => state }
 }
 
-/** Opens a season of a Series' Title page by its name ("Season 1", "Specials") from the Seasons at a glance. */
+/** Shows just one season of a Series' Title page, by its name ("Season 1", "Specials"): closes the other open ones in the Seasons accordion and opens it. */
 export async function pickSeason(name: string) {
-  await userEvent.click(screen.getByRole('button', { name: new RegExp(`^${name}:`) }))
+  for (const open of screen.queryAllByRole('button', { name: /^(Season \d+|Specials):/, expanded: true })) {
+    if (!new RegExp(`^${name}:`).test(open.getAttribute('aria-label') ?? '')) await userEvent.click(open)
+  }
+  const row = screen.getByRole('button', { name: new RegExp(`^${name}:`) })
+  if (row.getAttribute('aria-expanded') !== 'true') await userEvent.click(row)
 }
