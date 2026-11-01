@@ -55,9 +55,15 @@ SELECT t.kind, CAST(COALESCE(SUM(f.size), 0) AS INTEGER) AS bytes
 FROM files f JOIN versions v ON v.id = f.version_id JOIN titles t ON t.id = v.title_id
 GROUP BY t.kind;
 
--- Every file's Slot and parse, for the quality split.
+-- The quality split: files counted by Slot, source and modifier, read out of each parse by SQLite so that thousands of
+-- kilobyte parses are not copied out and decoded here. A parse that is missing or not JSON counts as empty strings.
 -- name: FileQualities :many
-SELECT v.slot, f.parsed_release FROM files f JOIN versions v ON v.id = f.version_id;
+SELECT v.slot,
+  CAST(COALESCE(CASE WHEN json_valid(f.parsed_release) THEN json_extract(f.parsed_release, '$.quality.quality.source') END, '') AS TEXT) AS source,
+  CAST(COALESCE(CASE WHEN json_valid(f.parsed_release) THEN json_extract(f.parsed_release, '$.quality.quality.modifier') END, '') AS TEXT) AS modifier,
+  COUNT(*) AS files
+FROM files f JOIN versions v ON v.id = f.version_id
+GROUP BY v.slot, source, modifier;
 
 -- Files that Grabs brought in the window: their size and parse (release group), and when.
 -- name: GrabbedFiles :many

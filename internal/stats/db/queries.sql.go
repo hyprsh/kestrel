@@ -104,15 +104,23 @@ func (q *Queries) FileBytesByKind(ctx context.Context) ([]FileBytesByKindRow, er
 }
 
 const fileQualities = `-- name: FileQualities :many
-SELECT v.slot, f.parsed_release FROM files f JOIN versions v ON v.id = f.version_id
+SELECT v.slot,
+  CAST(COALESCE(CASE WHEN json_valid(f.parsed_release) THEN json_extract(f.parsed_release, '$.quality.quality.source') END, '') AS TEXT) AS source,
+  CAST(COALESCE(CASE WHEN json_valid(f.parsed_release) THEN json_extract(f.parsed_release, '$.quality.quality.modifier') END, '') AS TEXT) AS modifier,
+  COUNT(*) AS files
+FROM files f JOIN versions v ON v.id = f.version_id
+GROUP BY v.slot, source, modifier
 `
 
 type FileQualitiesRow struct {
-	Slot          string
-	ParsedRelease sql.NullString
+	Slot     string
+	Source   string
+	Modifier string
+	Files    int64
 }
 
-// Every file's Slot and parse, for the quality split.
+// The quality split: files counted by Slot, source and modifier, read out of each parse by SQLite so that thousands of
+// kilobyte parses are not copied out and decoded here. A parse that is missing or not JSON counts as empty strings.
 func (q *Queries) FileQualities(ctx context.Context) ([]FileQualitiesRow, error) {
 	rows, err := q.db.QueryContext(ctx, fileQualities)
 	if err != nil {
@@ -122,7 +130,12 @@ func (q *Queries) FileQualities(ctx context.Context) ([]FileQualitiesRow, error)
 	var items []FileQualitiesRow
 	for rows.Next() {
 		var i FileQualitiesRow
-		if err := rows.Scan(&i.Slot, &i.ParsedRelease); err != nil {
+		if err := rows.Scan(
+			&i.Slot,
+			&i.Source,
+			&i.Modifier,
+			&i.Files,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
