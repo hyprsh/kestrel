@@ -113,6 +113,19 @@ function inside(words: string[], t: Folded): [number, number][] | null {
 /** The typos a query word may have: none in short words, where one would match almost anything. */
 const budget = (w: string) => (w.length >= 9 ? 2 : w.length >= 5 ? 1 : 0)
 
+/** How many letters of `w` the window `t` lacks (each letter counted as often as `w` has it). */
+function missingLetters(w: string, t: string): number {
+  const have = new Map<string, number>()
+  for (const ch of t) have.set(ch, (have.get(ch) ?? 0) + 1)
+  let missing = 0
+  for (const ch of w) {
+    const n = have.get(ch) ?? 0
+    if (n > 0) have.set(ch, n - 1)
+    else missing++
+  }
+  return missing
+}
+
 /**
  * The fewest edits (a letter added, dropped, changed, or two swapped) that turn `w` into the
  * start of `s` at `from`, and how long that start is; null beyond the word's budget.
@@ -120,6 +133,8 @@ const budget = (w: string) => (w.length >= 9 ? 2 : w.length >= 5 ? 1 : 0)
 function typosAt(w: string, s: string, from: number): { edits: number; length: number } | null {
   const max = budget(w)
   const t = s.slice(from, from + w.length + max)
+  // Each edit puts at most one missing letter right, so more missing letters than edits cannot match: most starts end here.
+  if (missingLetters(w, t) > max) return null
   // d[i][j]: edits between w[0, i) and t[0, j), the optimal string alignment distance.
   const d = Array.from({ length: w.length + 1 }, (_, i) => Array.from({ length: t.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)))
   for (let i = 1; i <= w.length; i++) {

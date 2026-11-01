@@ -206,6 +206,22 @@ function namesOf(r: TitleRow): FoldedText[] {
 }
 
 /**
+ * Whether a row's names match `text`, remembered for the rows and text of the last call: the list and the tab counts filter the
+ * same rows by the same text one after the other, and a name that does not match costs a typo search.
+ */
+let lastNamed: { rows: readonly TitleRow[]; text: string; matches: Map<TitleRow, boolean> } | null = null
+function namesMatching(rows: readonly TitleRow[], text: string): (r: TitleRow) => boolean {
+  if (!lastNamed || lastNamed.rows !== rows || lastNamed.text !== text) lastNamed = { rows, text, matches: new Map() }
+  const { matches } = lastNamed
+  const folded = foldText(text)
+  return (r) => {
+    let m = matches.get(r)
+    if (m === undefined) matches.set(r, (m = matchFolded(folded, namesOf(r))))
+    return m
+  }
+}
+
+/**
  * The Titles a parsed filter keeps, in the order it asks for: every term must match, and `sort:` orders rather than filters.
  * `grabbing` holds the Titles with a Grab on its way, which `is:downloading` keeps. Ties keep the Library's order, newest first.
  */
@@ -213,8 +229,8 @@ export function filterLibrary(rows: readonly TitleRow[], q: Query, profiles: rea
   const filters = q.terms.filter((t) => t.name !== 'sort')
   const text = nameOf(q.text)
   if (text === null) return []
-  const folded = foldText(text)
-  const kept = rows.filter((r) => filters.every((t) => test(r, t, profiles, grabbing)) && matchFolded(folded, namesOf(r)))
+  const named = namesMatching(rows, text)
+  const kept = rows.filter((r) => filters.every((t) => test(r, t, profiles, grabbing)) && named(r))
   const sort = sortOfQuery(q)
   // The Library comes newest first: the default order needs no sort, and keeps a Title added in the same second where it was.
   return sort.key === 'added' && sort.dir === 'desc' ? kept : kept.sort(comparer(sort))
