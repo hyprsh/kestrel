@@ -648,7 +648,7 @@ describe('Adoption review on a phone', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'More' }))
     const sheet = await screen.findByRole('dialog', { name: 'More' })
-    const names = ['Settings', 'Log', 'Requests', 'Adoption', 'Clean up', 'About']
+    const names = ['Settings', 'Log', 'Requests', 'Adoption', 'Clean up']
     // A row's button is a cover over its content, named by it, so the names are read as accessible names, not text.
     names.forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await user.click(within(sheet).getByRole('button', { name: 'Adoption' }))

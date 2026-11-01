@@ -20,7 +20,7 @@ describe('the empty shell', () => {
   it('shows the icon rail with every top-level screen', async () => {
     renderApp()
     const rail = await screen.findByRole('navigation')
-    for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings', 'About']) {
+    for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings']) {
       expect(within(rail).getByRole('button', { name })).toBeInTheDocument()
     }
     expect(screen.getByRole('main')).toHaveTextContent(/happening now/i) // Overview is the home screen

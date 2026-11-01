@@ -37,15 +37,16 @@ describe('About', () => {
       ),
       http.get('/about/notices', () => HttpResponse.text('# Third-party notices\n\nRadarr and Sonarr')),
     )
+    // "/about" is Settings' About page.
+    history.replaceState(null, '', '/about')
     renderApp()
-
-    await userEvent.click(await screen.findByRole('button', { name: 'About' }))
 
     const kestrel = await screen.findByRole('region', { name: 'Kestrel' })
     expect(await within(kestrel).findByText('0.2.0')).toBeInTheDocument()
     expect(within(kestrel).queryByRole('status')).not.toBeInTheDocument()
     expect(kestrel).toHaveTextContent('GPL-3.0-only')
     expect(kestrel).toHaveTextContent('14a4166')
+    expect(screen.getByRole('heading', { level: 2, name: 'About' })).toBeInTheDocument()
     expect(within(kestrel).getByRole('link', { name: 'Kestrel 0.3.0 available' })).toHaveAttribute('href', 'https://github.com/hyprsh/kestrel/releases/tag/v0.3.0')
     expect(within(kestrel).getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://hyprsh.github.io/kestrel/')
     const attribution = screen.getByRole('region', { name: 'Attribution' })
@@ -69,9 +70,9 @@ describe('About', () => {
 
   it('says the check is off when the switch is off', async () => {
     server.use(http.get('/about', ({ response }) => response(200).json(about({ check_github_updates: false }))))
+    // "/about" is Settings' About page.
+    history.replaceState(null, '', '/about')
     renderApp()
-
-    await userEvent.click(await screen.findByRole('button', { name: 'About' }))
 
     expect(await screen.findByText(/the check is off/i)).toBeInTheDocument()
   })
@@ -87,9 +88,9 @@ describe('About while loading', () => {
         return response(200).json(about())
       }),
     )
+    // "/about" is Settings' About page.
+    history.replaceState(null, '', '/about')
     renderApp()
-
-    await userEvent.click(await screen.findByRole('button', { name: 'About' }))
     const kestrel = await screen.findByRole('region', { name: 'Kestrel' })
     expect(within(kestrel).getByRole('status')).toHaveTextContent('Loading the version')
     expect(within(kestrel).getByText('Licence')).toBeInTheDocument()

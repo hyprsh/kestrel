@@ -32,6 +32,8 @@ export function placeOf(path: string): Place {
   const season = count(url.searchParams.get('season'))
   // Health and Background Jobs were views of Activity; old bookmarks and links open the Health screen: "/activity/health" at its top,
   // "/activity/jobs" and "/activity/running" at its Background jobs.
+  // About is a page of Settings; "/about" opens it.
+  if (screen === 'about') return { screen: 'settings', section: 'about', q: '', season: null, episode: null }
   if (screen === 'activity' && section === 'health') return { screen: 'health', section: '', q: '', season: null, episode: null }
   if (screen === 'activity' && (section === 'jobs' || section === 'running')) return { screen: 'health', section: 'jobs', q: '', season: null, episode: null }
   return { screen, section, q: url.searchParams.get('q') ?? '', season, episode: season === null ? null : count(url.searchParams.get('episode')) }

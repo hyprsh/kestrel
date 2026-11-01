@@ -9,6 +9,7 @@ import { healthOf } from '../health/tiles'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { adoptionLabel, useAdoption } from '../api/adoption'
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogout, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
+import { About } from '../about/About'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { PauseGrabsSwitch } from '../grabs/PauseGrabs'
 import { DownloadClientRow } from '../plugins/DownloadClient'
@@ -96,6 +97,12 @@ const pages: Page[] = [
       { id: 'reverse-proxy', title: 'Reverse proxy', rows: ['Reverse proxy', 'Trusted proxies', 'Header'] },
     ],
   },
+  {
+    id: 'about',
+    title: 'About',
+    group: 'System',
+    parts: [{ id: 'about', title: 'About', rows: ['Version', 'Licence', 'Update', 'Keyboard shortcuts'] }],
+  },
 ]
 const groups = ['General', 'Connections', 'System']
 
@@ -132,11 +139,11 @@ const hashId = () => {
 const anchorOf = (id: string) => document.getElementById(`settings-${id}`)
 
 /** Opens a page: its heading takes focus (or the Part's anchor scrolls into view) and the address keeps the place, rather than the base URL's Overview. */
-function openSectionLink(event: MouseEvent<HTMLAnchorElement>, id: string, open: (id: string) => void) {
+function openSectionLink(event: MouseEvent<HTMLElement>, id: string, open: (id: string) => void) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   event.preventDefault()
   open(id)
-  history.replaceState(history.state, '', event.currentTarget.href)
+  history.replaceState(history.state, '', (event.currentTarget as HTMLAnchorElement).href)
   // The page renders on the next paint.
   setTimeout(() => {
     const r = resolve(id)
@@ -254,6 +261,7 @@ export function Settings({
     security: <ApiKeyRow />,
     plex: <PlexSignInRow />,
     'reverse-proxy': <ReverseProxyRow />,
+    about: <About />,
   }
 
   if (phone) {
@@ -346,31 +354,32 @@ function DesktopSettings({ content, initial }: { content: Record<string, ReactNo
             }}
           />
         }
-      >
-        <JumpNav label="Settings sections">
-          {matches.length === 0 && <p className="label-13 px-2.5 py-2 text-gray-900">No setting matches “{find.trim()}”.</p>}
-          {groups.map((g) => {
-            const inGroup = matches.filter(({ page }) => page.group === g)
-            if (inGroup.length === 0) return null
-            return (
-              <JumpGroup key={g} title={g}>
-                {inGroup.map(({ page, part, note }) => (
-                  <JumpLink
-                    key={page.id}
-                    href={`${location.pathname}#settings-${part?.id ?? page.id}`}
-                    current={page.id === current.page.id}
-                    warn={attention.has(page.id)}
-                    note={note}
-                    onClick={(e) => openSectionLink(e, part?.id ?? page.id, choose)}
-                  >
-                    {page.title}
-                  </JumpLink>
-                ))}
-              </JumpGroup>
-            )
-          })}
-        </JumpNav>
-      </SidePanel>
+        views={
+          <JumpNav label="Settings sections">
+            {matches.length === 0 && <p className="label-13 px-2.5 py-2 text-gray-900">No setting matches “{find.trim()}”.</p>}
+            {groups.map((g) => {
+              const inGroup = matches.filter(({ page }) => page.group === g)
+              if (inGroup.length === 0) return null
+              return (
+                <JumpGroup key={g} title={g}>
+                  {inGroup.map(({ page, part, note }) => (
+                    <JumpLink
+                      key={page.id}
+                      href={`${location.pathname}#settings-${part?.id ?? page.id}`}
+                      current={page.id === current.page.id}
+                      warn={attention.has(page.id)}
+                      note={note}
+                      onClick={(e) => openSectionLink(e, part?.id ?? page.id, choose)}
+                    >
+                      {page.title}
+                    </JumpLink>
+                  ))}
+                </JumpGroup>
+              )
+            })}
+          </JumpNav>
+        }
+      />
       <div className="min-w-0 flex-1 overflow-auto px-10 py-7">
         <div key={current.page.id} className="max-w-[880px]">
           <PageView page={current.page} content={content} target={current.part?.id} />

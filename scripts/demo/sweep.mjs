@@ -7,7 +7,7 @@ import { mkdirSync } from 'node:fs'
 import { open, wait } from './lib.mjs'
 
 // The Settings pages; an old section id (indexers, plex, security…) also opens its page.
-const settings = ['general', 'profiles', 'library', 'downloads', 'media-servers', 'account', 'access']
+const settings = ['general', 'profiles', 'library', 'downloads', 'media-servers', 'account', 'access', 'about']
 const widths = [
   { w: 390, h: 844 },
   { w: 1440, h: 900 },
@@ -26,7 +26,6 @@ const screens = {
   health: '/health',
   log: '/log',
   ...Object.fromEntries(settings.map((s) => [`settings-${s}`, `/settings/${s}`])),
-  about: '/about',
   // The command menu with a query no Library Title matches, which leads with Add.
   'menu-add': {
     path: '/',

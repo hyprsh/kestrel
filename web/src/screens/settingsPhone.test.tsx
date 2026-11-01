@@ -25,7 +25,7 @@ describe('Settings on a phone', () => {
     await openSettings(user)
 
     const list = await screen.findByRole('navigation', { name: 'Settings sections' })
-    expect(within(list).getAllByRole('button')).toHaveLength(7)
+    expect(within(list).getAllByRole('button')).toHaveLength(8)
     expect(screen.queryByRole('heading', { name: 'Downloads' })).not.toBeInTheDocument() // the list, not the page
     expect(location.pathname).toBe('/settings')
 

@@ -1,5 +1,5 @@
 // The shell on a phone: a bottom tab bar in place of the icon rail, and the More sheet that holds
-// the rest of the rail (Settings, Log, About, the theme, signing out) and the version with its status dot.
+// the rest of the rail (Settings, Log, the theme, signing out) and the version with its status dot.
 import { Drawer, Entity, Separator, TabBar, ThemeSwitcher } from '@hyprsh/design'
 import { Ellipsis, LogOut, Search } from 'lucide-react'
 import type { ReactNode } from 'react'

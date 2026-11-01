@@ -59,11 +59,11 @@ describe('the shell on a phone', () => {
     expect(within(tabs).getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('opens More with Settings, Log, About, the theme switch, the version and its status dot', async () => {
+  it('opens More with Settings, Log, the theme switch, the version and its status dot', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'More' }))
     const sheet = await screen.findByRole('dialog', { name: 'More' })
-    for (const name of ['Settings', 'Log', 'About']) expect(within(sheet).getByRole('button', { name })).toBeInTheDocument()
+    for (const name of ['Settings', 'Log']) expect(within(sheet).getByRole('button', { name })).toBeInTheDocument()
     expect(within(sheet).getByRole('radio', { name: /dark/i })).toBeInTheDocument()
     expect(await within(sheet).findByText(/Kestrel \d/)).toBeInTheDocument()
 

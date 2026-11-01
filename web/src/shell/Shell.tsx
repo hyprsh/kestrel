@@ -1,10 +1,9 @@
 // The Geist shell: a thin icon rail, and beside it each screen's SidePanel (layout/SidePanel.tsx) or, for a screen without one yet, a heading line.
 // Ported from the prototype's variant C; screens arrive with later tickets.
-import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
 import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -48,7 +47,6 @@ const screens = [
   { key: 'log', label: 'Log', icon: <ScrollText /> },
   { key: 'settings', label: 'Settings', icon: <Settings /> },
 ]
-const about = { key: 'about', label: 'About', icon: <Info /> }
 // Reached from Settings and the command menu, not the rail.
 const adoption = { key: 'adoption', label: 'Adopt existing library', icon: <FolderInput /> }
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files', icon: <Eraser /> }
@@ -58,15 +56,15 @@ const requests = { key: 'requests', label: 'Requests', icon: <ListPlus /> }
 const health = { key: 'health', label: 'Health', icon: <HeartPulse /> }
 // The tab bar of a phone; the rest of the screens are behind More.
 const tabKeys = ['overview', 'library', 'upcoming', 'activity']
-// Settings and Log first, then the screens a phone reaches only from here (Requests also from the Overview), About last.
-const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup', 'about']
+// Settings and Log first, then the screens a phone reaches only from here (Requests also from the Overview). About is a page of Settings.
+const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup']
 // Short names for the More sheet; a screen's heading keeps the long ones.
 const moreLabels: Record<string, string> = { adoption: 'Adoption', cleanup: 'Clean up' }
 // The screens that carry their own name in a SidePanel (see layout/SidePanel.tsx), so the Shell adds no heading above them.
 // Phase 2 adds Log, Upcoming, Settings, Activity and Health as they move over.
 const panelScreens = ['library', 'activity', 'health', 'settings', 'upcoming', 'log']
 const isTitleId = (section: string) => /^\d+$/.test(section)
-const isPlace = (key: string) => [...screens, about, requests, health].some((s) => s.key === key)
+const isPlace = (key: string) => [...screens, requests, health].some((s) => s.key === key)
 
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // A bookmarked address opens its screen with its filter.
@@ -121,7 +119,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const { theme, setTheme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
-  const current = [...screens, about, adoption, cleanup, requests, health].find((s) => s.key === screen)!
+  const current = [...screens, adoption, cleanup, requests, health].find((s) => s.key === screen)!
   const running = useRunningNow()
   // What a phone's header shows before the screen's own actions: what runs and Health. A desktop has them in the rail.
   const phoneExtras = (
@@ -189,10 +187,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         : {}),
     }))
   const moreItems: Tab[] = moreKeys.map((k) => {
-    const s = [...screens, about, adoption, cleanup, requests].find((x) => x.key === k)!
+    const s = [...screens, adoption, cleanup, requests].find((x) => x.key === k)!
     return { ...s, label: moreLabels[k] ?? s.label }
   })
-  const places = useMemo(() => [...screens, about, health].map((s) => ({ id: s.key, label: s.label })), [])
+  const places = useMemo(() => [...screens, health, { key: 'about', label: 'About' }].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
   // An action that opens a place: "/settings/download-client" is the Settings screen at that
   // section, "/log?q=kind:failures" the Log with that filter.
@@ -293,8 +291,6 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                       onAdd={() => setMenu({ mode: 'add' })}
                       onAdopt={() => setScreen('adoption')}
                     />
-                  ) : screen === 'about' ? (
-                    <About />
                   ) : screen === 'log' ? (
                     <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
                   ) : screen === 'activity' ? (
@@ -324,7 +320,16 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                   onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
                 />
               )}
-              {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
+              {menu && (
+                <CommandMenu
+                  initialMode={menu.mode}
+                  actions={actions}
+                  places={places}
+                  onClose={closeMenu}
+                  onGo={(place) => (place === 'about' ? goPath('/settings/about') : setScreen(place))}
+                  onOpenTitle={openTitle}
+                />
+              )}
             </div>
           </SidePanelPhoneContext.Provider>
         </EpisodeViewContext.Provider>
@@ -417,9 +422,6 @@ function Rail({
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
       <HealthButton tooltipPosition="right" active={screen === 'health'} />
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
-      <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
-        {about.icon}
-      </RailButton>
     </RailFrame>
   )
 }

@@ -81,7 +81,7 @@ export function healthOf(s: SystemStatus): { groups: HealthGroup[]; failing: num
   const rest: TileData[] = []
   if (s.grabs_paused) rest.push({ key: 'grabs', name: 'Grabs', tone: 'paused', details: ['Automatic Grabs are paused'] })
   rest.push({ key: 'trash', name: 'TRaSH', tone: 'ok', details: [snapshotAge(s.trash.committed_at)] })
-  if (s.update) rest.push({ key: 'update', name: 'Update', tone: 'update', details: [`Kestrel ${s.update.version} available`], link: { path: '/about', label: 'About' } })
+  if (s.update) rest.push({ key: 'update', name: 'Update', tone: 'update', details: [`Kestrel ${s.update.version} available`], link: { path: '/settings/about', label: 'About' } })
   const groups = [
     { title: 'Download client', tiles: [clientTile(s.download_client)] },
     { title: 'Indexers', tiles: s.indexers.map(indexerTile) },
