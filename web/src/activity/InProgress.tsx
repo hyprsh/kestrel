@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useDownloadClient, useStalledImport, type GrabEntry } from '../api/activity'
 import type { QueueItem } from '../api/queue'
 import type { SearchStatus } from '../api/search'
-import { percent } from '../format'
+import { percent, plural } from '../format'
 import { useCancel } from '../grabs/useCancel'
 import { phases } from '../grabs/phase'
 import type { RowNav } from '../keys'
@@ -28,7 +28,7 @@ type Gist = { text: string; tone: 'blue' | 'amber' | 'red'; pct: number | null }
 function activeGist(i: QueueItem, now: number): Gist {
   const pct = i.phase === 'importing' ? 100 : percent(i.bytes_total, i.bytes_left)
   if (i.stuck) return { text: stuckText(i.stuck, now), tone: 'amber', pct }
-  if (i.phase === 'importing') return { text: 'Importing', tone: 'amber', pct }
+  if (i.phase === 'importing') return { text: i.checking_files ? `Importing · checking ${plural(i.checking_files, 'file')}` : 'Importing', tone: 'amber', pct }
   if (i.phase === 'paused') return { text: 'Paused', tone: 'amber', pct }
   const parts: (string | null)[] = [phases[i.phase].label]
   if (i.phase === 'downloading') {

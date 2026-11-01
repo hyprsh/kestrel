@@ -10,7 +10,9 @@ import { placePath, useOpenPlace } from '../place'
 import { until, useNow } from '../time'
 import { useReport } from '../toasts'
 import { cx } from '../ui'
+import { plural } from '../format'
 import { failureText, hhmm } from './words'
+import { whyText } from '../log/sentence'
 
 type Dot = 'neutral' | 'info' | 'success' | 'error'
 type Step = { dot: Dot; when: string; text: string; tone?: 'red' }
@@ -34,7 +36,8 @@ function failureStep(g: GrabEntry): string {
 
 /** The steps of a Grab, oldest first, from the Grab itself and what the Log recorded of it. */
 function stepsOf(g: GrabEntry, s: GrabSteps, client: string): Step[] {
-  const out: Step[] = [{ dot: 'neutral', when: hhmm(s.grabbed_at), text: `Grabbed${s.grabbed_by ? grabbedBy[s.grabbed_by] : ''} · ${g.indexer}` }]
+  const why = whyText(null, s.why)
+  const out: Step[] = [{ dot: 'neutral', when: hhmm(s.grabbed_at), text: `Grabbed${s.grabbed_by ? grabbedBy[s.grabbed_by] : ''} · ${g.indexer}${why ? ` · ${why}` : ''}` }]
   const { download_started_at: from, download_finished_at: to } = s
   if (from || to) {
     const rate = from && to ? average(g.size, from, to) : null
@@ -43,10 +46,17 @@ function stepsOf(g: GrabEntry, s: GrabSteps, client: string): Step[] {
   }
   if (s.ended_at) {
     const when = hhmm(s.ended_at)
-    if (g.state === 'imported') out.push({ dot: 'success', when, text: s.files.length > 0 ? `Imported ${s.files.length === 1 ? '1 file' : `${s.files.length} files`}` : 'Imported' })
+    if (g.state === 'imported') out.push({ dot: 'success', when, text: importedText(s) })
     else out.push({ dot: 'error', when, text: failureStep(g), tone: 'red' })
   }
   return out
+}
+
+/** "Imported 2 files · replaced nothing": the files the Import wrote and how many library files they replaced, when it said. */
+function importedText(s: GrabSteps): string {
+  const files = s.files.length > 0 ? `Imported ${plural(s.files.length, 'file')}` : 'Imported'
+  if (s.replaced == null) return files
+  return `${files} · ${s.replaced === 0 ? 'replaced nothing' : `replaced ${s.replaced}`}`
 }
 
 /** The "Now" note of a failed Grab: whether its Release is blocklisted, whether it is still Wanted, and when the next pass runs. */
@@ -143,7 +153,12 @@ export function GrabDetail({ grab: g, onOpenTitle, onManualSearch }: { grab: Gra
                 variant="primary"
                 size="small"
                 disabled={searchNow.isPending || searchNow.isSuccess}
-                onClick={() => void report(searchNow.mutateAsync({ versionId: g.version_id! }), { started: `Search started for ${name}`, failed: `Could not search ${name}` })}
+                onClick={() =>
+                  void report(searchNow.mutateAsync({ versionId: g.version_id!, scope: g.episode_ids.length > 0 ? { episode_ids: g.episode_ids } : undefined }), {
+                    started: `Search started for ${name}`,
+                    failed: `Could not search ${name}`,
+                  })
+                }
               >
                 {searchNow.isSuccess ? 'Searching…' : `Search ${target} Now`}
               </Button>

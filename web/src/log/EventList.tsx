@@ -32,7 +32,7 @@ import { plural } from '../format'
 import { useOpenPlace } from '../place'
 import { EventDetail } from './EventDetail'
 import { byDay, clock, type Row } from './rows'
-import { actionOf, foldSummary, searchResult, sentence, sentenceText, type IconName, type Sentence } from './sentence'
+import { actionOf, foldSummary, searchParts, sentence, sentenceText, type IconName, type Recovery, type Sentence } from './sentence'
 
 const icons: Record<IconName, LucideIcon> = {
   grab: ArrowDownToLine,
@@ -67,6 +67,8 @@ export type ListContext = {
   onOpenTitle: (id: number) => void
   /** Sets the Log's filter to the kind or the Title of an event. */
   onShowOnly: (e: LogEvent, by: 'kind' | 'title') => void
+  /** What a Needs attention event's outage came to, once it cleared; null when it did not or the event is another kind. */
+  recovery?: (e: LogEvent) => Recovery | null
 }
 
 /** The sentence of one event: the verb in its severity's colour, the Title bold and linking to it, the details muted. */
@@ -112,7 +114,7 @@ function EventRow({
 }) {
   const goTo = useOpenPlace()
   const title = ctx.names.get(e.title_id ?? -1)
-  const s = sentence(e, title)
+  const s = sentence(e, title, ctx.recovery?.(e))
   const Icon = icons[s.icon]
   const action = actionOf(e)
   const ChevronIcon = open ? ChevronUp : ChevronDown
@@ -167,16 +169,16 @@ function EventRow({
 function CompactEvent({ e, ctx }: { e: LogEvent; ctx: ListContext }) {
   const title = ctx.names.get(e.title_id ?? -1)
   const Icon = icons[sentence(e, title).icon]
-  const r = e.kind === 'search' ? searchResult(e.message) : null
+  const search = e.kind === 'search'
   const s = sentence(e, title)
   return (
     <li className="grid grid-cols-[56px_20px_minmax(0,1fr)] items-center gap-x-3 px-4 py-1.5 text-[13px] text-gray-900 max-sm:grid-cols-[18px_minmax(0,1fr)_auto]">
       <span className="label-12-mono tabular max-sm:order-3">{clock(e.at)}</span>
       <Icon aria-hidden className="size-3.5 max-sm:order-1" />
       <span className="min-w-0 truncate max-sm:order-2 max-sm:whitespace-normal">
-        {r ? (
+        {search ? (
           <>
-            Searched {title && <b className="text-gray-1000">{title}</b>} {[r.scope, r.slot, r.result].filter(Boolean).join(' · ')}
+            Searched {title && <b className="text-gray-1000">{title}</b>} {searchParts(e).join(' · ')}
           </>
         ) : (
           <>

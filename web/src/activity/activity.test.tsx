@@ -79,7 +79,7 @@ describe('Activity', () => {
     fakeQueue([
       queueItem({ grab_id: 1, phase: 'queued', release_name: 'A.Queued-GRP' }),
       queueItem({ grab_id: 3, phase: 'downloading', release_name: 'C.Downloading-GRP', slot: '4k', episodes: ['S05E07'], title: 'Breaking Bad' }),
-      queueItem({ grab_id: 5, phase: 'importing', release_name: 'E.Importing-GRP' }),
+      queueItem({ grab_id: 5, phase: 'importing', release_name: 'E.Importing-GRP', checking_files: 2 }),
     ])
     fakeGrabs([
       grabEntry({ grab_id: 6, state: 'importing', stalled, release_name: 'F.Stalled-GRP' }),
@@ -102,7 +102,7 @@ describe('Activity', () => {
     expect(rows[1]).toHaveTextContent('S05E07 · 4K')
     expect(rows[1]).toHaveTextContent('Downloading · 75% · 2 min · ')
     expect(within(rows[1]).getByRole('progressbar', { name: 'C.Downloading-GRP progress' })).toBeInTheDocument()
-    expect(rows[2]).toHaveTextContent('Importing')
+    expect(rows[2]).toHaveTextContent('Importing · checking 2 files')
     expect(rows[3]).toHaveTextContent('Stalled · disk full')
 
     const history = within(screen.getByRole('region', { name: 'History' }))
@@ -458,7 +458,14 @@ describe('Activity', () => {
 
   it('opens a failed row with the exact reason, what is left to do, and Search Now, Manual Search and Remove from Blocklist', async () => {
     const searched: string[] = []
-    server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).empty())))
+    const scopes: unknown[] = []
+    server.use(
+      http.post('/versions/{id}/search', async ({ params, request, response }) => {
+        searched.push(String(params.id))
+        scopes.push(await request.clone().json())
+        return response(202).empty()
+      }),
+    )
     server.use(
       http.get('/search/status', ({ response }) =>
         response(200).json({
@@ -481,6 +488,7 @@ describe('Activity', () => {
         kind: 'series',
         slot: '4k',
         episodes: ['S05E09'],
+        episode_ids: [909],
         version_id: 11,
         blocklist_reason: 'import rejected: x',
       }),
@@ -498,6 +506,7 @@ describe('Activity', () => {
 
     await userEvent.click(within(item).getByRole('button', { name: 'Search S05E09 Now' }))
     await waitFor(() => expect(searched).toEqual(['11']))
+    expect(scopes).toEqual([{ episode_ids: [909] }])
     await userEvent.click(within(item).getByRole('button', { name: 'Remove from Blocklist' }))
     await waitFor(() => expect(steps.unblocked).toEqual([9]))
     expect(within(item).getByRole('button', { name: 'Manual Search…' })).toBeInTheDocument()
@@ -541,6 +550,50 @@ describe('Activity', () => {
     await userEvent.click(within(failed).getByRole('button', { expanded: false }))
     await userEvent.click(await within(failed).findByRole('button', { name: 'Search Heat Now' }))
     expect(await findToast('Could not search Heat: the indexer is down')).toBeInTheDocument()
+  })
+
+  it('says in the steps why a Release was grabbed and what the Import replaced, from the Grab and not the pruned events', async () => {
+    fakeDownloadClient()
+    fakeLibrary([row(5, 'Paddington', 'Paddington')])
+    fakeSteps([
+      stepsOf({
+        grab_id: 21,
+        grabbed_at: ago(6000),
+        download_started_at: ago(5990),
+        download_finished_at: ago(5900),
+        ended_at: ago(5880),
+        files: [
+          { episode: 'S05E05', path: '/tv/a.mkv' },
+          { episode: 'S05E06', path: '/tv/b.mkv' },
+        ],
+        why: { covers_wanted: 2, replaces_files: 0, score_delta: 0 },
+        replaced: 0,
+      }),
+    ])
+    fakeGrabs([grabEntry({ grab_id: 21, indexer: 'NZBgeek', size: 3.2 * 1024 ** 3, updated_at: ago(5880) })])
+    await openActivity()
+
+    const item = within(await screen.findByRole('region', { name: 'History' })).getByRole('listitem')
+    await userEvent.click(within(item).getByRole('button', { expanded: false }))
+
+    const steps = within(await within(item).findByRole('list', { name: 'What happened' })).getAllByRole('listitem')
+    expect(steps[0]).toHaveTextContent('Grabbed by the search pass · NZBgeek · covers 2 Wanted')
+    expect(steps[1]).toHaveTextContent(/Downloaded in SABnzbd · 3\.2 GB/)
+    expect(steps[2]).toHaveTextContent('Imported 2 files · replaced nothing')
+  })
+
+  it('counts the files an Import replaced', async () => {
+    fakeDownloadClient()
+    fakeLibrary([row(5, 'Paddington', 'Paddington')])
+    fakeSteps([stepsOf({ grab_id: 21, replaced: 1 })])
+    fakeGrabs([grabEntry({ grab_id: 21 })])
+    await openActivity()
+
+    const item = within(await screen.findByRole('region', { name: 'History' })).getByRole('listitem')
+    await userEvent.click(within(item).getByRole('button', { expanded: false }))
+
+    const steps = within(await within(item).findByRole('list', { name: 'What happened' })).getAllByRole('listitem')
+    expect(steps.at(-1)).toHaveTextContent('Imported 1 file · replaced 1')
   })
 
   it('opens the Title from an opened imported row', async () => {

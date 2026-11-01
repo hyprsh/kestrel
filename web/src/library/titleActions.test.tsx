@@ -258,7 +258,7 @@ describe('the Version rows', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Delete files…No file to delete', 'Remove Version…'])
+    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Why is it Wanted?', 'Delete files…No file to delete', 'Remove Version…'])
     expect(within(menu).getByRole('menuitem', { name: /Delete files/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
@@ -272,6 +272,6 @@ describe('the Version rows', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Remove Version…'])
+    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Why is it Wanted?', 'Remove Version…'])
   })
 })

@@ -3,6 +3,7 @@
 // from those and from the Title's name (the Library knows it), so what an event does not hold is left out, never guessed.
 // A message that does not read as the formatter expects falls back to being shown as it is.
 import type { LogEvent } from '../api/log'
+import { clock } from './rows'
 
 /** How an event reads: red for an error, amber for a warning, plain otherwise. */
 export type Severity = 'plain' | 'warning' | 'error'
@@ -45,7 +46,7 @@ function bytesText(n: number): string {
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
 /** The words for who chose a Grab's Release (the `by` of its payload). */
-export function chosenBy(by: unknown): string | null {
+function chosenBy(by: unknown): string | null {
   switch (by) {
     case 'by_hand':
       return 'chosen by hand'
@@ -56,6 +57,64 @@ export function chosenBy(by: unknown): string | null {
     default:
       return null
   }
+}
+
+/** The chooser as the Grab's Why starts: "Search pass", "By hand", "RSS sweep". */
+const choosers: Record<string, string> = { by_search: 'Search pass', by_hand: 'By hand', by_rss: 'RSS sweep' }
+
+/** What a Grab's Why holds: how many Wanted it covers, how many files it replaces and the average Score gain over them. */
+export type Why = { covers_wanted: number; replaces_files: number; score_delta: number }
+
+/**
+ * Why a Release was grabbed: "Search pass · covers 6 Wanted, replaces 4 at +250". `by` is who chose it (the Grab event's payload),
+ * `why` what the Grab records of it; either may be missing, and null comes back when neither says anything.
+ */
+export function whyText(by: unknown, why: Why | null | undefined): string | null {
+  const chooser = typeof by === 'string' ? choosers[by] : undefined
+  const parts: string[] = []
+  if (why) {
+    if (why.covers_wanted > 0) parts.push(`covers ${why.covers_wanted} Wanted`)
+    if (why.replaces_files > 0) parts.push(`replaces ${why.replaces_files}${why.score_delta !== 0 ? ` at ${why.score_delta > 0 ? '+' : '−'}${Math.abs(why.score_delta).toLocaleString()}` : ''}`)
+  }
+  const reason = parts.join(', ')
+  return [chooser, reason].filter(Boolean).join(' · ') || null
+}
+
+/** What a failing connection did before it came back, from the `health_cleared` event that closed its row. */
+export type Recovery = { attempts: string[]; recoveredAt: string; waited?: number; lost?: number }
+
+/** The recovery a `health_cleared` event records, or null for one that cleared a row that was not a connection outage. */
+export function recoveryOf(e: LogEvent): Recovery | null {
+  const d = (e.data ?? {}) as Record<string, unknown>
+  if (!Array.isArray(d.attempts) || d.attempts.length === 0 || typeof d.recovered_at !== 'string') return null
+  return {
+    attempts: d.attempts.filter((a): a is string => typeof a === 'string'),
+    recoveredAt: d.recovered_at,
+    ...(typeof d.waited === 'number' && { waited: d.waited }),
+    ...(typeof d.lost === 'number' && { lost: d.lost }),
+  }
+}
+
+/** The recoveries by the Needs attention key of the row they closed, newest first events in, so an older recovery wins for an older outage. */
+export function recoveriesByKey(cleared: readonly LogEvent[]): Map<string, LogEvent[]> {
+  const out = new Map<string, LogEvent[]>()
+  for (const e of cleared) {
+    const key = str((e.data as Record<string, unknown> | null)?.key)
+    if (key && recoveryOf(e)) out.set(key, [...(out.get(key) ?? []), e])
+  }
+  return out
+}
+
+/** The recovery that closed the outage a `health_raised` event opened: the first recovery of its key after it. */
+export function recoveryAfter(raised: LogEvent, byKey: ReadonlyMap<string, LogEvent[]>): Recovery | null {
+  const key = str((raised.data as Record<string, unknown> | null)?.key)
+  const closing = key
+    ? byKey
+        .get(key)
+        ?.filter((c) => c.id > raised.id)
+        .at(-1)
+    : undefined
+  return closing ? recoveryOf(closing) : null
 }
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined)
@@ -79,6 +138,35 @@ export function searchResult(message: string): SearchResult | null {
   return { scope: m[1] ?? '', slot: m[2], result: failed ? `failed: ${tail}` : tail, grabbed }
 }
 
+/** The words for how a search ended, after its Releases: "1 Grab", "none fit". */
+export function searchEnd(data: Record<string, unknown>): string | undefined {
+  const grabbed = typeof data.grabbed === 'number' ? data.grabbed : 0
+  if (grabbed > 0) return plural(grabbed, 'Grab')
+  switch (data.result) {
+    case 'nothing_fit':
+      return 'none fit'
+    case 'no_indexer':
+      return 'no indexer'
+    case 'error':
+      return 'failed'
+    default:
+      return undefined
+  }
+}
+
+/**
+ * What a Searched event says, as the parts of its line: scope, Slot, Releases and the end ("S05 · 4K · 37 releases · 1 Grab").
+ * The payload has them; an event from before it only has the message, which is then all there is.
+ */
+export function searchParts(e: LogEvent): string[] {
+  const data = (e.data ?? {}) as Record<string, unknown>
+  const r = searchResult(e.message)
+  if (!r) return [e.message]
+  const releases = typeof data.releases === 'number' ? plural(data.releases, 'release') : undefined
+  const end = releases ? searchEnd(data) : undefined
+  return [str(data.scope) ?? r.scope, str(data.slot) ?? r.slot, releases ?? r.result, end].filter((p): p is string => !!p)
+}
+
 /** The failure of a failed Grab: "Download failed (encrypted): R" -> "encrypted". */
 function failureReason(message: string): string | undefined {
   return /^Download failed \((.+?)\): /.exec(message)?.[1]
@@ -97,7 +185,7 @@ const between = (message: string, prefix: RegExp, suffix?: RegExp) => {
  * The sentence for `e`. `title` is the name of its Title, when the Library has it. Every kind the server records has a
  * case; a kind it does not know yet reads as its message.
  */
-export function sentence(e: LogEvent, title?: string): Sentence {
+export function sentence(e: LogEvent, title?: string, recovery?: Recovery | null): Sentence {
   const data = (e.data ?? {}) as Record<string, unknown>
   const m = e.message
   const make = (verb: string, icon: IconName, rest = '', severity: Severity = severityOf(e.kind), withTitle = true): Sentence => ({
@@ -183,14 +271,16 @@ export function sentence(e: LogEvent, title?: string): Sentence {
       const m2 = /^Blocklisted (.+?): (.+)$/.exec(m)
       return m2 ? make('Blocklisted', 'blocklist', details(m2[1], m2[2])) : make('Blocklisted', 'blocklist', details(m))
     }
-    case 'health_raised':
-      return make(m, 'warning', '', 'warning', false)
+    case 'health_raised': {
+      const back = recovery ? `· Kestrel retried ${plural(recovery.attempts.length, 'time')}, then it came back at ${clock(recovery.recoveredAt)}` : ''
+      return make(m, 'warning', back, 'warning', false)
+    }
     case 'health_cleared':
       return make(m, 'done', '', 'plain', false)
     case 'search': {
       const r = searchResult(m)
       if (!r) return make('Searched', 'search', details(m))
-      return make('Searched', 'search', details(r.scope, r.slot, r.result), r.result.startsWith('failed') ? 'warning' : 'plain')
+      return make('Searched', 'search', details(...searchParts(e)), r.result.startsWith('failed') ? 'warning' : 'plain')
     }
     case 'original_offered': {
       const m2 = /^(.+?) has the Original Language only: (.+)$/.exec(m)
@@ -267,15 +357,23 @@ const foldNames: Record<string, [string, string]> = {
   original_offered: ['Original Offer', 'Original Offers'],
 }
 
-/** "12 searches · 1 Grab" for a run of routine events; the Grabs are the Releases its searches grabbed. */
+/**
+ * "12 searches · 418 releases checked · 1 Grab" for a run of routine events: the Releases its searches checked and the Grabs
+ * they made. An event from before those were recorded adds none to the Releases, and its Grabs come from its message.
+ */
 export function foldSummary(events: readonly LogEvent[]): string {
   const counts = new Map<string, number>()
   let grabbed = 0
+  let checked = 0
   for (const e of events) {
     counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1)
-    if (e.kind === 'search') grabbed += searchResult(e.message)?.grabbed ?? 0
+    if (e.kind !== 'search') continue
+    const data = (e.data ?? {}) as Record<string, unknown>
+    checked += typeof data.releases === 'number' ? data.releases : 0
+    grabbed += typeof data.grabbed === 'number' ? data.grabbed : (searchResult(e.message)?.grabbed ?? 0)
   }
   const parts = [...counts].map(([kind, n]) => (foldNames[kind] ? `${n} ${foldNames[kind][n === 1 ? 0 : 1]}` : plural(n, kindNames[kind]?.toLowerCase() ?? kind)))
+  if (checked > 0) parts.push(`${checked.toLocaleString()} ${checked === 1 ? 'release' : 'releases'} checked`)
   if (grabbed > 0) parts.push(plural(grabbed, 'Grab'))
   return parts.join(' · ')
 }

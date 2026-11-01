@@ -3,7 +3,7 @@
 import { Button, DotsMenu, EmptyState, Entity, MenuDivider, MenuItem, MenuSection, Note, Pager, Table, Toggle, parseQuery, withValue } from '@hyprsh/design'
 import { ArrowDownToLine, CircleAlert, FileCheck, FolderInput, List, Search, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useBlocklist, useEventsHistogram, useEventsSummary, useUnblock, type EventsSummary } from '../api/log'
+import { useBlocklist, useEventsHistogram, useEventsSummary, useSameKind, useUnblock, type EventsSummary, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
@@ -23,6 +23,7 @@ import { EventList } from './EventList'
 import { useFeed, useFollowLive } from './feed'
 import { currentView, logFilter, logQualifiers, logViews, oldestFirst, refinements, viewCount, viewQuery } from './filter'
 import { foldRows, type Row } from './rows'
+import { recoveriesByKey, recoveryAfter } from './sentence'
 import { Strip, stripTotals } from './Strip'
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -301,6 +302,10 @@ function Events({ query, onQuery, onOpenTitle, onBlocklist }: { query: string; o
   // A title: filter names Titles, so it waits for the Library to know which.
   const feed = useFeed(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined, follow)
   const strip = useStrip()
+  // A Needs attention row that closed again says how often Kestrel retried and when the connection came back; asked only when the Log shows one.
+  const cleared = useSameKind((feed.events ?? []).some((e) => e.kind === 'health_raised') ? 'health_cleared' : undefined)
+  const recoveries = useMemo(() => recoveriesByKey(cleared.data ?? []), [cleared.data])
+  const recovery = (e: LogEvent) => (e.kind === 'health_raised' ? recoveryAfter(e, recoveries) : null)
 
   const [page, setPage] = usePageParam()
   const oldest = oldestFirst(parsed)
@@ -437,7 +442,7 @@ function Events({ query, onQuery, onOpenTitle, onBlocklist }: { query: string; o
                 onFolds={setFolds}
                 phone={phone}
                 label="Events"
-                ctx={{ names, onOpenTitle, onShowOnly: showOnly }}
+                ctx={{ names, onOpenTitle, onShowOnly: showOnly, recovery }}
               />
             )}
           </div>

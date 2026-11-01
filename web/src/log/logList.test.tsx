@@ -314,6 +314,8 @@ describe('an opened event', () => {
           ],
           blocklist_id: null,
           still_wanted: true,
+          why: { covers_wanted: 6, replaces_files: 4, score_delta: 250 },
+          replaced: null,
         }),
       ),
     )
@@ -325,10 +327,37 @@ describe('an opened event', () => {
     expect(await within(detail).findByText('NZBgeek')).toBeInTheDocument()
     expect(within(detail).getByText('Breaking.Bad.S05.2160p-NTb', { selector: 'dd' })).toBeInTheDocument()
     expect(within(detail).getByText('2,350 · WEB Tier 01 +1,700 · HDR +500')).toBeInTheDocument()
-    expect(within(detail).getByText('Found by a search')).toBeInTheDocument()
+    expect(within(detail).getByText('Search pass · covers 6 Wanted, replaces 4 at +250')).toBeInTheDocument()
     expect(within(detail).getByText(/^Downloading/)).toBeInTheDocument()
     await user.click(within(detail).getByRole('button', { name: 'View in Activity' }))
     expect(location.pathname).toBe('/activity')
+  })
+
+  it('tells an error that came back how often Kestrel retried, when it was back and which Grabs waited', async () => {
+    serve(() => [
+      event(9, 'health_raised', 'SABnzbd refused the connection', { data: { key: 'download_client', kind: 'download_client_unreachable', severity: 'blocking' } }),
+      event(12, 'health_cleared', 'Cleared: SABnzbd refused the connection', {
+        data: {
+          key: 'download_client',
+          kind: 'download_client_unreachable',
+          severity: 'blocking',
+          attempts: ['2026-10-17T12:12:00Z', '2026-10-17T12:13:00Z', '2026-10-17T12:14:00Z'],
+          recovered_at: '2026-10-17T12:15:00Z',
+          waited: 2,
+          lost: 0,
+        },
+      }),
+    ])
+    const user = await openLog()
+    await ready()
+    const at = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+
+    const row = rowsOf().find((r) => r.textContent?.includes('SABnzbd refused the connection') && !r.textContent?.includes('Cleared'))!
+    expect(await within(row).findByText(`· Kestrel retried 3 times, then it came back at ${at('2026-10-17T12:15:00Z')}`)).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: /^Open event/ }))
+    expect(within(row).getByText(`${['2026-10-17T12:12:00Z', '2026-10-17T12:13:00Z', '2026-10-17T12:14:00Z'].map(at).join(', ')} · back at ${at('2026-10-17T12:15:00Z')}`)).toBeInTheDocument()
+    expect(within(row).getByText('2 Grabs waited · none lost')).toBeInTheDocument()
   })
 
   it('has actions under the fields: the place that puts it right, only these errors, and Copy Details', async () => {

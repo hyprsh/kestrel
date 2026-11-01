@@ -46,6 +46,7 @@ const grab = (titleId: number, slot: 'standard' | '4k', pct: number): components
   kind: 'movie',
   slot,
   episodes: [],
+  episode_ids: [],
   release_name: 'Some.Film.2014.1080p-GRP',
   indexer: 'Fake',
   size: 100,

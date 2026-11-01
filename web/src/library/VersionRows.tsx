@@ -19,6 +19,7 @@ import { OriginalOfferNote } from './OriginalOfferNote'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
 import { useSearchVersion } from './VersionSearch'
+import { WantedLine } from './WantedLine'
 
 type Version = TitleDetail['versions'][number]
 
@@ -47,10 +48,10 @@ export function VersionRows({ title, profiles, profileName, onManualSearch }: Pr
 }
 
 /**
- * A Version's "…" menu and what its items open: Search now, Manual search, Change Profile, Cancel download while it downloads,
- * Delete files (a Movie's file) and Remove Version. Nothing here is the Version's one next action; that sits beside it.
+ * A Version's "…" menu and what its items open: Search now, Manual search, Change Profile, Why is it Wanted? while it is Wanted,
+ * Cancel download while it downloads, Delete files (a Movie's file) and Remove Version. Nothing here is the Version's one next action; that sits beside it.
  */
-function VersionMenu({ title, version: v, profiles, profileName, onManualSearch, downloads }: Props & { version: Version; downloads: SlotDownloads | null }) {
+function VersionMenu({ title, version: v, profiles, profileName, onManualSearch, downloads, onWhy }: Props & { version: Version; downloads: SlotDownloads | null; onWhy: () => void }) {
   const sw = useSwitchProfile(v.id)
   const report = useReport()
   const rm = useRemoveVersion(v.id)
@@ -69,6 +70,7 @@ function VersionMenu({ title, version: v, profiles, profileName, onManualSearch,
         <MenuItem suffix={<span className="label-12-mono text-gray-900">{profileName(v.profile)}</span>} onSelect={() => setMode('switch')}>
           Change Profile…
         </MenuItem>
+        {v.state === 'wanted' && <MenuItem onSelect={onWhy}>Why is it Wanted?</MenuItem>}
         {downloads && (
           <>
             <MenuDivider />
@@ -122,6 +124,8 @@ function VersionCard({ version: v, downloads, ...rest }: Props & { version: Vers
   const { title } = rest
   const name = slotLabel[v.slot]
   const movie = title.kind === 'movie'
+  const [whyOpen, setWhyOpen] = useState(false)
+  const wanted = v.state === 'wanted' && !downloads
   return (
     <Entity aria-label={name}>
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
@@ -131,9 +135,10 @@ function VersionCard({ version: v, downloads, ...rest }: Props & { version: Vers
           <span className="flex-1" />
           {movie ? <MovieStateLabel version={v} downloads={downloads} /> : v.coverage && v.coverage.wanted > 0 && <span className="label-13 text-amber-900">{`${v.coverage.wanted} Wanted`}</span>}
           {movie && <MovieAction {...rest} version={v} downloads={downloads} />}
-          <VersionMenu {...rest} version={v} downloads={downloads} />
+          <VersionMenu {...rest} version={v} downloads={downloads} onWhy={() => setWhyOpen(true)} />
         </div>
         {movie ? !downloads && <MovieHolds version={v} /> : <SeriesHolds version={v} />}
+        {wanted && <VersionWanted {...rest} version={v} open={whyOpen} onOpenChange={setWhyOpen} />}
         {downloads && (
           <Note variant="success" fill size="small" icon={<Download aria-hidden className="size-3.5" />}>
             <span className="flex min-w-0 items-center justify-between gap-3">
@@ -147,6 +152,23 @@ function VersionCard({ version: v, downloads, ...rest }: Props & { version: Vers
         <OriginalOfferNote offer={v.original_offer} />
       </div>
     </Entity>
+  )
+}
+
+/** The Wanted line of a Version: when it was last searched and what came of it, "Why?", and when the next search is. */
+function VersionWanted({ title, version: v, open, onOpenChange, onManualSearch, profileName }: Props & { version: Version; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const now = useNow()
+  const search = useSearchVersion(title, v.id)
+  return (
+    <WantedLine
+      version={v}
+      now={now}
+      open={open}
+      onOpenChange={onOpenChange}
+      searching={search.pending || unmonitored(title)}
+      onSearch={search.run}
+      onManualSearch={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}
+    />
   )
 }
 

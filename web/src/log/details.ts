@@ -2,7 +2,9 @@
 // Only what the event holds is listed: its message, its payload and the Title it is about. The facts of a Grab, which the
 // event does not hold, come from the Grab itself (see GrabFacts in EventDetail.tsx).
 import type { LogEvent } from '../api/log'
-import { kindNames, searchResult } from './sentence'
+import { plural } from '../format'
+import { clock } from './rows'
+import { kindNames, searchEnd, searchResult, type Recovery } from './sentence'
 
 /** One line of the opened event. `mono` is for values that are names, paths and errors. */
 export type Field = { key: string; value: string; mono?: boolean }
@@ -30,7 +32,7 @@ export const shortTime = (iso: string) =>
  * The opened event's fields. `title` is its Title's name. The payload keys a kind's own lines did not use follow as they are,
  * so a field the server adds later shows without a change here.
  */
-export function fields(e: LogEvent, title?: string): Field[] {
+export function fields(e: LogEvent, title?: string, recovery?: Recovery | null): Field[] {
   const data = (e.data ?? {}) as Record<string, unknown>
   const m = e.message
   const out: Field[] = [{ key: 'Kind', value: kindNames[e.kind] ?? e.kind }]
@@ -102,8 +104,10 @@ export function fields(e: LogEvent, title?: string): Field[] {
       const r = searchResult(m)
       if (r) {
         add('Scope', r.scope || 'The whole Title')
-        add('Slot', r.slot)
-        add('Result', r.result, r.result.startsWith('failed'))
+        add('Slot', str(data.slot) ?? r.slot)
+        if (typeof data.releases === 'number') add('Releases', String(data.releases))
+        add('Result', (typeof data.releases === 'number' ? searchEnd(data) : undefined) ?? r.result, r.result.startsWith('failed'))
+        use('scope', 'slot', 'releases', 'grabbed', 'result')
       } else add('Message', m)
       break
     }
@@ -133,7 +137,11 @@ export function fields(e: LogEvent, title?: string): Field[] {
       add('Check', str(data.kind))
       add('Key', str(data.key), true)
       add('Severity', str(data.severity))
-      use('kind', 'key', 'severity')
+      use('kind', 'key', 'severity', 'attempts', 'recovered_at', 'waited', 'lost')
+      if (recovery) {
+        add('Retries', `${recovery.attempts.map(clock).join(', ')} · back at ${clock(recovery.recoveredAt)}`)
+        add('Affected', affectedText(recovery))
+      }
       break
     default:
       add('Message', m)
@@ -142,6 +150,13 @@ export function fields(e: LogEvent, title?: string): Field[] {
   for (const [k, v] of Object.entries(data)) if (!used.has(k) && v !== null && v !== undefined && v !== '') add(label(k), valueText(v), typeof v === 'string' && /[/\\.]/.test(v))
   out.push({ key: 'When', value: fullTime(e.at) })
   return out
+}
+
+/** Which Grabs an outage held up: "2 Grabs waited · none lost". Undefined when the event does not say. */
+function affectedText(r: Recovery): string | undefined {
+  if (r.waited === undefined) return undefined
+  const lost = r.lost === undefined ? '' : r.lost > 0 ? ` · ${r.lost} lost` : ' · none lost'
+  return r.waited === 0 ? `No Grabs waited${lost}` : `${plural(r.waited, 'Grab')} waited${lost}`
 }
 
 /**

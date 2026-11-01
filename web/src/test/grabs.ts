@@ -17,6 +17,7 @@ export const grabEntry = (over: Partial<GrabEntry> = {}): GrabEntry => ({
   kind: 'movie',
   slot: 'standard',
   episodes: [],
+  episode_ids: [],
   release_name: 'Paddington.2014.1080p.BluRay.x264-GRP',
   indexer: 'NZBgeek',
   size: 8 * 1024 ** 3,

@@ -18,6 +18,7 @@ const grab = (over: Partial<QueueItem> = {}): QueueItem => ({
   kind: 'movie',
   slot: 'standard',
   episodes: [],
+  episode_ids: [],
   release_name: 'X.1080p-GRP',
   indexer: 'Fake',
   size: 100,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LogEvent } from '../api/log'
-import { actionOf, foldSummary, kindNames, searchResult, sentence, sentenceText, severityOf } from './sentence'
+import { actionOf, foldSummary, kindNames, recoveriesByKey, recoveryAfter, recoveryOf, searchResult, sentence, sentenceText, severityOf, whyText } from './sentence'
 
 const ev = (kind: string, message: string, data: LogEvent['data'] = null, over: Partial<LogEvent> = {}): LogEvent => ({
   id: 1,
@@ -64,6 +64,16 @@ describe('the sentence of each kind the server records', () => {
     ['health_cleared', ev('health_cleared', 'Cleared: SABnzbd refused the connection', null, { title_id: null }), 'Cleared: SABnzbd refused the connection'],
     ['search found nothing', ev('search', 'Searched by hand for S05 in 4K: nothing to grab', null, { routine: true }), 'Searched Paddington · S05 · 4K · nothing to grab'],
     ['search of a whole Title', ev('search', 'Searched by hand in Standard: grabbed 1 Release', null, { routine: true }), 'Searched Paddington · Standard · grabbed 1 Release'],
+    [
+      'search with what it checked and grabbed',
+      ev('search', 'Searched by hand for S05 in 4K: grabbed 1 Release', { scope: 'S05', slot: '4K', releases: 37, grabbed: 1, result: 'grabbed' }, { routine: true }),
+      'Searched Paddington · S05 · 4K · 37 releases · 1 Grab',
+    ],
+    [
+      'search where nothing fit',
+      ev('search', 'Searched by hand in Standard: nothing to grab', { scope: '', slot: 'Standard', releases: 23, grabbed: 0, result: 'nothing_fit' }, { routine: true }),
+      'Searched Paddington · Standard · 23 releases · none fit',
+    ],
     ['search that failed', ev('search', 'Searched by hand in Standard and failed: indexers down', null, { routine: true }), 'Searched Paddington · Standard · failed: indexers down'],
     [
       'original_offered',
@@ -129,5 +139,66 @@ describe('the summary of a fold', () => {
         ev('grab_downloading', 'Download started: R', null, { routine: true }),
       ]),
     ).toBe('2 searches · 1 download started · 1 Grab')
+  })
+})
+
+describe('a fold of searches that recorded what they checked', () => {
+  const search = (n: number, data: Record<string, unknown>) => ev('search', 'Searched by hand in Standard: nothing to grab', data, { id: n, routine: true })
+
+  it('adds up the Releases they checked and the Grabs they made', () => {
+    expect(foldSummary([search(1, { releases: 37, grabbed: 1 }), search(2, { releases: 381, grabbed: 0 }), ev('grab_downloading', 'Download started: R', null, { id: 3, routine: true })])).toBe(
+      '2 searches · 1 download started · 418 releases checked · 1 Grab',
+    )
+  })
+
+  it('leaves the Releases out for searches from before they were recorded', () => {
+    expect(foldSummary([search(1, {}), search(2, {})].map((e) => ({ ...e, data: null })))).toBe('2 searches')
+  })
+})
+
+describe('why a Release was grabbed', () => {
+  it('names who chose it, what it covers and what it replaces at what gain', () => {
+    expect(whyText('by_search', { covers_wanted: 6, replaces_files: 4, score_delta: 250 })).toBe('Search pass · covers 6 Wanted, replaces 4 at +250')
+    expect(whyText('by_hand', { covers_wanted: 1, replaces_files: 0, score_delta: 0 })).toBe('By hand · covers 1 Wanted')
+    expect(whyText('by_rss', { covers_wanted: 0, replaces_files: 1, score_delta: -30 })).toBe('RSS sweep · replaces 1 at −30')
+  })
+
+  it('says only what it knows', () => {
+    expect(whyText('by_search', null)).toBe('Search pass')
+    expect(whyText(null, { covers_wanted: 2, replaces_files: 0, score_delta: 0 })).toBe('covers 2 Wanted')
+    expect(whyText(undefined, undefined)).toBeNull()
+  })
+})
+
+describe('a connection that failed and came back', () => {
+  const raised = ev('health_raised', 'SABnzbd refused the connection', { key: 'download_client' }, { id: 5 })
+  const cleared = ev(
+    'health_cleared',
+    'Cleared: SABnzbd refused the connection',
+    {
+      key: 'download_client',
+      attempts: ['2026-10-17T12:12:00Z', '2026-10-17T12:13:00Z', '2026-10-17T12:14:00Z'],
+      recovered_at: '2026-10-17T12:15:00Z',
+      waited: 2,
+      lost: 0,
+    },
+    { id: 8 },
+  )
+
+  it('reads its retries, the recovery time and the Grabs held up from the event that cleared it', () => {
+    expect(recoveryOf(cleared)).toEqual({ attempts: ['2026-10-17T12:12:00Z', '2026-10-17T12:13:00Z', '2026-10-17T12:14:00Z'], recoveredAt: '2026-10-17T12:15:00Z', waited: 2, lost: 0 })
+    expect(recoveryOf(ev('health_cleared', 'Cleared: x', { key: 'exdev' }))).toBeNull()
+  })
+
+  it('finds the recovery after the raised event, not one before it', () => {
+    const byKey = recoveriesByKey([ev('health_cleared', 'old', { ...(cleared.data as object) }, { id: 2 }), cleared])
+    expect(recoveryAfter(raised, byKey)?.waited).toBe(2)
+    expect(recoveryAfter({ ...raised, id: 9 }, byKey)).toBeNull()
+  })
+
+  it('adds the retries to the sentence of the raised event', () => {
+    const s = sentence(raised, undefined, recoveryOf(cleared))
+    expect(sentenceText(s)).toMatch(/^SABnzbd refused the connection · Kestrel retried 3 times, then it came back at \d\d:\d\d$/)
+    expect(sentenceText(sentence(raised))).toBe('SABnzbd refused the connection')
   })
 })
