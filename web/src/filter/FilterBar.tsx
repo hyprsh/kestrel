@@ -1,9 +1,10 @@
 // The filter field of a list screen with a dropdown per qualifier that has a `label`, GitHub-style.
 // The query text is the only state: the menus read their rows off it and write back to it. On a
 // phone they flow onto rows under the field.
-import { Button, QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
+import { Button, Kbd, QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
 import { X } from 'lucide-react'
 import type { KeyboardEvent, ReactNode } from 'react'
+import { usePhone } from '../responsive'
 import type { Facet } from './qualifiers'
 
 const rowsOf = (q: Facet, suffix?: (name: string, value: string) => ReactNode): FilterMenuItemProps[] =>
@@ -39,6 +40,10 @@ export function FilterBar({
   menus?: boolean
 }) {
   const menus = qualifiers.filter((q) => q.label)
+  const phone = usePhone()
+  // A placeholder ending in "  /" names the key that focuses the field: it shows as a key cap in the field's end while it is empty.
+  const hinted = placeholder?.endsWith('  /') ?? false
+  const hint = hinted ? placeholder!.slice(0, -3) : placeholder
 
   const items = menus.map((q) =>
     q.single ? (
@@ -66,14 +71,18 @@ export function FilterBar({
       >
         <X />
       </Button>
+    ) : hinted && !phone ? (
+      <Kbd small aria-hidden>
+        /
+      </Kbd>
     ) : undefined
 
   return (
     <QueryBar
       id={id}
       aria-label={label}
-      size="small"
-      placeholder={placeholder}
+      size={phone ? 'large' : 'small'}
+      placeholder={hint}
       value={value}
       onChange={onChange}
       qualifiers={qualifiers}

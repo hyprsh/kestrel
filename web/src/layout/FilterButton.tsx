@@ -22,7 +22,7 @@ export function FilterButton({ count, children }: { count: number; children: Rea
   return (
     <Menu.Container position="bottom-start">
       {phone ? (
-        <Menu.Button variant="secondary" size="small" svgOnly aria-label="Filter" badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
+        <Menu.Button variant="secondary" size="medium" svgOnly aria-label="Filter" badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
           <Funnel />
         </Menu.Button>
       ) : (
@@ -208,7 +208,7 @@ export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { quer
   return (
     <Menu.Container position="bottom-start">
       {phone ? (
-        <Menu.Button variant="secondary" size="small" svgOnly aria-label={`${facet.label}: ${chosen.label}`}>
+        <Menu.Button variant="secondary" size="medium" svgOnly aria-label={`${facet.label}: ${chosen.label}`}>
           <ArrowUpDown />
         </Menu.Button>
       ) : (
