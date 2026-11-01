@@ -1010,9 +1010,11 @@ export interface paths {
          *     entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
          *     on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
          *     stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
-         *     then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
-         *     `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
-         *     page before.
+         *     then or later (`updated_at`). The Activity screen reads `imported` and `failed` Grabs here a
+         *     page at a time, as far back as Kestrel holds them. `cursor` is the `next_cursor` of the page
+         *     before. `q` keeps the Grabs whose Title, Release name or indexer contain every one of its
+         *     words (any case); `kind`, `slot` and `grab` (ids) keep the Grabs of those kinds, Slots and ids.
+         *     A Grab whose Title was deleted has no kind or Slot, so `kind` and `slot` leave it out.
          */
         get: operations["listGrabs"];
         put?: never;
@@ -1029,6 +1031,29 @@ export interface paths {
          *     `502 upstream_unavailable`.
          */
         post: operations["createGrab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grabs/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the Grab history holds
+         * @description How many `imported` and `failed` Grabs match the filter, over all the history Kestrel holds, and
+         *     when the oldest of them last changed state (`oldest`, null when none match). It takes the filters
+         *     of `GET /grabs` that are not about paging or state (`q`, `kind`, `slot`, `grab`), so Activity's
+         *     Done and Failed counts stay true however many pages are loaded.
+         */
+        get: operations["getGrabsSummary"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1229,7 +1254,7 @@ export interface paths {
          * Recently added
          * @description The ten most recent Imports, newest first. An Import of several files at once (a season pack)
          *     is one row with `files` set to how many it brought. `total` counts the Imports of the last
-         *     7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
+         *     7 days, so it may be more or fewer than `items`.
          */
         get: operations["listRecentlyAdded"];
         put?: never;
@@ -3308,6 +3333,12 @@ export interface components {
         GrabList: {
             items: components["schemas"]["GrabEntry"][];
             next_cursor: string | null;
+        };
+        GrabsSummary: {
+            imported: number;
+            failed: number;
+            /** Format: date-time */
+            oldest: string | null;
         };
         /** @description A Grab as the Activity screen shows it, joined with its Title and Slot. */
         GrabEntry: {
@@ -5870,6 +5901,10 @@ export interface operations {
                 state?: ("sent" | "downloading" | "completed" | "importing" | "imported" | "failed")[];
                 stalled?: boolean;
                 since?: string;
+                q?: string;
+                kind?: components["schemas"]["TitleKind"][];
+                slot?: components["schemas"]["Slot"][];
+                grab?: number[];
                 limit?: number;
                 cursor?: string;
             };
@@ -5919,6 +5954,32 @@ export interface operations {
             422: components["responses"]["Problem"];
             429: components["responses"]["Problem"];
             502: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getGrabsSummary: {
+        parameters: {
+            query?: {
+                q?: string;
+                kind?: components["schemas"]["TitleKind"][];
+                slot?: components["schemas"]["Slot"][];
+                grab?: number[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrabsSummary"];
+                };
+            };
             default: components["responses"]["Problem"];
         };
     };

@@ -2556,6 +2556,13 @@ type GrabStall struct {
 	Since  time.Time `json:"since"`
 }
 
+// GrabsSummary defines model for GrabsSummary.
+type GrabsSummary struct {
+	Failed   int        `json:"failed"`
+	Imported int        `json:"imported"`
+	Oldest   *time.Time `json:"oldest"`
+}
+
 // IndexerError defines model for IndexerError.
 type IndexerError struct {
 	// Code The plugin error code (`auth`, `unavailable`, `rate_limited`, `invalid`, `not_found`).
@@ -4669,12 +4676,24 @@ type ListGrabsParams struct {
 	State   *[]ListGrabsParamsState `form:"state,omitempty" json:"state,omitempty"`
 	Stalled *bool                   `form:"stalled,omitempty" json:"stalled,omitempty"`
 	Since   *time.Time              `form:"since,omitempty" json:"since,omitempty"`
+	Q       *string                 `form:"q,omitempty" json:"q,omitempty"`
+	Kind    *[]TitleKind            `form:"kind,omitempty" json:"kind,omitempty"`
+	Slot    *[]Slot                 `form:"slot,omitempty" json:"slot,omitempty"`
+	Grab    *[]int64                `form:"grab,omitempty" json:"grab,omitempty"`
 	Limit   *int                    `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor  *string                 `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListGrabsParamsState defines parameters for ListGrabs.
 type ListGrabsParamsState string
+
+// GetGrabsSummaryParams defines parameters for GetGrabsSummary.
+type GetGrabsSummaryParams struct {
+	Q    *string      `form:"q,omitempty" json:"q,omitempty"`
+	Kind *[]TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
+	Slot *[]Slot      `form:"slot,omitempty" json:"slot,omitempty"`
+	Grab *[]int64     `form:"grab,omitempty" json:"grab,omitempty"`
+}
 
 // LookupParams defines parameters for Lookup.
 type LookupParams struct {
@@ -5296,6 +5315,9 @@ type ServerInterface interface {
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(w http.ResponseWriter, r *http.Request)
+	// GetGrabsSummary What the Grab history holds
+	// (GET /grabs/summary)
+	GetGrabsSummary(w http.ResponseWriter, r *http.Request, params GetGrabsSummaryParams)
 	// GetGrab One Grab
 	// (GET /grabs/{id})
 	GetGrab(w http.ResponseWriter, r *http.Request, id GrabId)
@@ -6272,6 +6294,58 @@ func (siw *ServerInterfaceWrapper) ListGrabs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "slot" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "slot"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slot", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "grab" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "grab", r.URL.Query(), &params.Grab, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "grab"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grab", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -6314,6 +6388,78 @@ func (siw *ServerInterfaceWrapper) CreateGrab(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateGrab(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGrabsSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetGrabsSummary(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetGrabsSummaryParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "slot" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "slot", r.URL.Query(), &params.Slot, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "slot"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slot", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "grab" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "grab", r.URL.Query(), &params.Grab, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "grab"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grab", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGrabsSummary(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8205,6 +8351,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/versions/{id}/original-offer/dismiss", wrapper.DismissOriginalOffer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs", wrapper.ListGrabs)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs", wrapper.CreateGrab)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/summary", wrapper.GetGrabsSummary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/grabs/{id}", wrapper.GetGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/cancel", wrapper.CancelGrab)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/grabs/{id}/retry-import", wrapper.RetryGrabImport)
@@ -10140,6 +10287,45 @@ type CreateGrabdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response CreateGrabdefaultApplicationProblemPlusJSONResponse) VisitCreateGrabResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrabsSummaryRequestObject struct {
+	Params GetGrabsSummaryParams
+}
+
+type GetGrabsSummaryResponseObject interface {
+	VisitGetGrabsSummaryResponse(w http.ResponseWriter) error
+}
+
+type GetGrabsSummary200JSONResponse GrabsSummary
+
+func (response GetGrabsSummary200JSONResponse) VisitGetGrabsSummaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGrabsSummarydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetGrabsSummarydefaultApplicationProblemPlusJSONResponse) VisitGetGrabsSummaryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -14216,6 +14402,9 @@ type StrictServerInterface interface {
 	// CreateGrab Grab a Release into the download client
 	// (POST /grabs)
 	CreateGrab(ctx context.Context, request CreateGrabRequestObject) (CreateGrabResponseObject, error)
+	// GetGrabsSummary What the Grab history holds
+	// (GET /grabs/summary)
+	GetGrabsSummary(ctx context.Context, request GetGrabsSummaryRequestObject) (GetGrabsSummaryResponseObject, error)
 	// GetGrab One Grab
 	// (GET /grabs/{id})
 	GetGrab(ctx context.Context, request GetGrabRequestObject) (GetGrabResponseObject, error)
@@ -15359,6 +15548,32 @@ func (sh *strictHandler) CreateGrab(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateGrabResponseObject); ok {
 		if err := validResponse.VisitCreateGrabResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetGrabsSummary operation middleware
+func (sh *strictHandler) GetGrabsSummary(w http.ResponseWriter, r *http.Request, params GetGrabsSummaryParams) {
+	var request GetGrabsSummaryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGrabsSummary(ctx, request.(GetGrabsSummaryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGrabsSummary")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetGrabsSummaryResponseObject); ok {
+		if err := validResponse.VisitGetGrabsSummaryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -4,19 +4,19 @@
 import { valuesOf, type Query } from '@hyprsh/design'
 import { matchText } from '../fuzzy'
 import { kindQualifier, type Facet } from '../filter/qualifiers'
-import { slotKeys } from '../library/bits'
+import { slotKeys, slotLabel } from '../library/bits'
 import { facetsOf, stageLabel, stages, type Entry, type Stage } from './stages'
 
 export const activityQualifiers: Facet[] = [
   {
+    // No label, so no menu section: the Views are the stages, and a phone's Filter menu opens with them.
     name: 'stage',
-    label: 'Stage',
     help: `Where in the pipeline: ${stages.join(', ')}`,
     values: stages,
     options: Object.fromEntries(stages.map((s) => [s, { label: stageLabel[s] }])),
   },
-  kindQualifier(),
-  { name: 'slot', help: 'Grabs for a Version in that Slot', values: slotKeys },
+  { ...kindQualifier(), label: 'Kind', options: { movie: { label: 'Movies' }, series: { label: 'Series' } } },
+  { name: 'slot', label: 'Slot', help: 'Grabs for a Version in that Slot', values: slotKeys, options: Object.fromEntries(slotKeys.map((k) => [k, { label: slotLabel[k] }])) },
   { name: 'grab', help: 'One Grab, by its id, in whatever stage it is in' },
 ]
 

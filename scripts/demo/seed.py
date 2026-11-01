@@ -18,6 +18,8 @@ Standard and a quarter in 4K, and one Special. BIN is scripts/demo/parse, which
 writes each release name's parsed form as Imports stores it. Then the dates around
 today (Upcoming's window) are set in the same way: see "Upcoming looks at" below. Paddington and two
 Breaking Bad episodes (S05E07-E08) get an imported Grab each, a day or two old, so Recently added has rows.
+Behind them 64 older finished Grabs, one every four days back for most of a year and every fifth failed, give Activity
+a history longer than a page to scroll.
 
 Then, through the API again, what the Overview shows besides the Library: with the fake indexer's
 releases on for a moment, a manual search and a Grab of Paddington in Peru's Release, which the fake
@@ -234,6 +236,19 @@ def imported(patterns, when, guid):
             db.execute("INSERT INTO grab_episodes(grab_id,episode_id) VALUES (?,?)", (cur.lastrowid, e["episode_id"]))
 
 
+# Activity pages Done and Failed as far back as there are Grabs: 64 older ones (no files behind them, like Grabs whose
+# files were since replaced), one every four days for most of a year, every fifth of them failed.
+older = db.execute("SELECT v.id, v.title_id FROM versions v JOIN titles t ON t.id = v.title_id "
+                   "WHERE v.slot='standard' AND t.title IN ('Paddington','Breaking Bad') ORDER BY v.id").fetchall()
+for n in reversed(range(64)):  # oldest first, so ids run with time as the list's order does
+    v, when = older[n % len(older)], stamp(-(9 + 4 * n))
+    failed = n % 5 == 4
+    name = f"{'Paddington.2014' if v['title_id'] == older[0]['title_id'] else 'Breaking.Bad.S01E0' + str(n % 7 + 1)}.1080p.WEB-DL.DDP5.1.H.264-OLD{n}"
+    db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,"
+               "parsed,verdict,client_instance_id,client_id,state,failure,created_at,updated_at) "
+               "VALUES (?,?,?,?,?,?,?,?,?,'{}','{}',?,?,?,?,?,?)",
+               (v["title_id"], v["id"], f"seed-old-{n}", name, indexer, INDEXER, 4 << 30, when, 1200,
+                sab, f"SABnzbd_nzo_seed-old-{n}", "failed" if failed else "imported", "download_failed" if failed else None, when, when))
 imported([f"{ROOT}/movies/%"], stamp(-2, hours=-3), "seed-paddington")
 imported(["%S05E07 - [Standard]%", "%S05E08 - [Standard]%"], stamp(-1, hours=-7), "seed-breaking-bad")
 db.commit()

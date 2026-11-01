@@ -2,10 +2,10 @@
 // with stage chips and one filter field above it. It stays live through the stream: the queue
 // from `queue` frames, the stalled and finished Grabs from the `grab` hints, Searching from
 // `search` frames.
-import { Button, DestructiveActionModal, EmptyState, Link, Note, StatusDot, parseQuery } from '@hyprsh/design'
+import { Button, DestructiveActionModal, EmptyState, Note, StatusDot, parseQuery, valuesOf } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
-import { useMemo, useState, type ReactNode } from 'react'
-import { useFinishedGrabs, useStalledGrabs, useStalledImport, HISTORY_DAYS, type GrabEntry } from '../api/activity'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useFinishedGrabs, useGrabsSummary, useStalledGrabs, useStalledImport, type GrabEntry, type GrabsFilter } from '../api/activity'
 import { useSearchNow } from '../api/grabs'
 import { useBlocklist } from '../api/log'
 import { useTitles } from '../api/queries'
@@ -20,7 +20,6 @@ import { useKey, useListNav, type RowNav } from '../keys'
 import { size } from '../library/bits'
 import { SkeletonRows } from '../loading'
 import { SearchSummary } from './SearchSummary'
-import { useOpenPlace } from '../place'
 import { ago, lasting, span, until, useNow } from '../time'
 import { cx } from '../ui'
 import { activityFilter, activityQualifiers } from './filter'
@@ -54,29 +53,54 @@ function Line({ tone, children }: { tone?: 'amber' | 'red'; children: ReactNode 
   return <div className={cx('label-12', tone === 'amber' ? 'text-amber-900' : tone === 'red' ? 'text-red-900' : 'text-gray-900')}>{children}</div>
 }
 
+/** The part of a filter the server applies to the Done and Failed history: its words, kinds, Slots and Grab ids. */
+function historyFilter(q: ReturnType<typeof parseQuery>): GrabsFilter {
+  const grabs = valuesOf(q, 'grab')
+  return {
+    q: q.text,
+    kind: valuesOf(q, 'kind'),
+    slot: valuesOf(q, 'slot'),
+    // A value that is not an id matches no Grab.
+    grab: grabs && grabs.map((g) => (/^\d+$/.test(g) ? Number(g) : 0)),
+  }
+}
+
 /** What the Grabs view shows for a filter: the entries, grouped by stage, and the state of the data behind them. The screen bar's Stage items and count read it too, so it is taken above Pipeline. */
 export function usePipeline(query: string) {
   const queue = useQueue()
   const stalled = useStalledGrabs()
-  const finished = useFinishedGrabs()
   const blocked = useBlocklist()
   const titles = useTitles().data
   const search = useSearchStatus().data
-  const now = useNow()
 
   const parsed = useMemo(() => parseQuery(query, activityQualifiers), [query])
   const filter = useMemo(() => activityFilter(parsed), [parsed])
-  const all = useMemo(
-    () => entriesOf(queue.data ?? [], stalled.data ?? [], finished.data?.items ?? [], blocked.data ?? [], titles ?? [], now),
-    [queue.data, stalled.data, finished.data, blocked.data, titles, now],
-  )
-  const matching = useMemo(() => all.filter(filter.matches), [all, filter])
-  const count = (s: Stage) => (s === 'searching' ? (search?.due.versions ?? 0) : matching.filter((e) => e.stage === s).length)
+  const history = useMemo(() => historyFilter(parsed), [parsed])
   const chosen = filter.stages ?? stages
+  const states = useMemo(() => [...(chosen.includes('done') ? ['imported' as const] : []), ...(chosen.includes('failed') ? ['failed' as const] : [])], [chosen])
+  const finished = useFinishedGrabs(history, states)
+  const summary = useGrabsSummary(history)
+  const grabs = useMemo(() => finished.data?.pages.flatMap((p) => p.items) ?? [], [finished.data])
+  const hasMore = Boolean(finished.hasNextPage)
+  // Older Blocklist entries wait until the list has loaded back to them.
+  const reach = useMemo(() => (hasMore && grabs.length > 0 ? Math.min(...grabs.map((g) => Date.parse(g.updated_at))) : null), [hasMore, grabs])
+  const all = useMemo(() => entriesOf(queue.data ?? [], stalled.data ?? [], grabs, blocked.data ?? [], titles ?? [], reach), [queue.data, stalled.data, grabs, blocked.data, titles, reach])
+  // The finished Grabs are filtered by the server, over the whole history; the rest here.
+  const matching = useMemo(() => all.filter((e) => (e.type === 'grab' && (e.stage === 'done' || e.stage === 'failed')) || filter.matches(e)), [all, filter])
+  // Blocklist entries no Grab is left for are not in the server's count: they come in whole.
+  const orphans = useMemo(() => entriesOf([], [], [], blocked.data ?? [], titles ?? [], null).filter(filter.matches), [blocked.data, titles, filter])
+  const loadedCount = (s: Stage) => matching.filter((e) => e.stage === s).length
+  const count = (s: Stage) => {
+    if (s === 'searching') return search?.due.versions ?? 0
+    if (s === 'done') return summary.data?.imported ?? loadedCount(s)
+    if (s === 'failed') return (summary.data?.failed ?? loadedCount(s) - orphans.length) + orphans.length
+    return loadedCount(s)
+  }
   // Searching is one summary of the pipeline, not rows: a kind, Slot or text filter cannot narrow it.
   const searching = search && chosen.includes('searching') && !filter.narrowed && (search.due.versions > 0 || search.pass !== null)
   const groups = chosen.filter((s) => s !== 'searching').map((s) => ({ stage: s, entries: matching.filter((e) => e.stage === s) }))
   const rows = groups.flatMap((g) => g.entries)
+  const oldests = [summary.data?.oldest, ...orphans.map((o) => (o.type === 'blocked' ? o.entry.created_at : null))].filter((d): d is string => Boolean(d))
   return {
     search,
     count,
@@ -84,19 +108,20 @@ export function usePipeline(query: string) {
     searching,
     groups,
     rows,
-    total: all.length,
-    loaded: Boolean(queue.data && stalled.data && finished.data && blocked.data),
-    pending: queue.isPending || stalled.isPending || finished.isPending || blocked.isPending,
+    total: stages.filter((s) => s !== 'searching').reduce((n, s) => n + count(s), 0),
+    /** When the oldest Done or Failed Grab happened, null when there is none. */
+    oldest: oldests.length > 0 ? oldests.reduce((a, b) => (Date.parse(a) <= Date.parse(b) ? a : b)) : null,
+    loaded: Boolean(queue.data && stalled.data && blocked.data && (states.length === 0 || finished.data)),
+    pending: queue.isPending || stalled.isPending || (states.length > 0 && finished.isPending) || blocked.isPending,
     failed: queue.isError || stalled.isError || finished.isError || blocked.isError,
-    moreFinished: finished.data ? { more: finished.data.more, shown: finished.data.items.length } : null,
+    history: states.length > 0 ? { hasMore, loading: finished.isFetchingNextPage, loadMore: () => void finished.fetchNextPage() } : null,
   }
 }
 
 export type PipelineData = ReturnType<typeof usePipeline>
 
 export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitle: (id: number) => void }) {
-  const { search, count, chosen, searching, groups, rows, loaded, pending, failed, moreFinished } = data
-  const openPlace = useOpenPlace()
+  const { search, count, searching, groups, rows, loaded, pending, failed, history } = data
   const now = useNow()
   const [sel, setSel] = useState(0)
 
@@ -135,7 +160,7 @@ export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitl
       {groups.map(
         (g) =>
           g.entries.length > 0 && (
-            <SectionBlock key={g.stage} title={stageLabel[g.stage]} count={g.entries.length}>
+            <SectionBlock key={g.stage} title={stageLabel[g.stage]} count={count(g.stage)}>
               <div className="px-4 pt-1 pb-4">
                 <RowList aria-label={stageLabel[g.stage]}>
                   {g.entries.map((e) => {
@@ -152,15 +177,33 @@ export function Pipeline({ data, onOpenTitle }: { data: PipelineData; onOpenTitl
           <EmptyState description="Nothing in Activity matches." />
         </div>
       )}
-      {(chosen.includes('done') || chosen.includes('failed')) && (
-        <p className="label-12 px-4 py-3 text-gray-900">
-          {moreFinished?.more ? `Done and Failed show the latest ${moreFinished.shown} Grabs. ` : `Done and Failed reach back ${HISTORY_DAYS} days. `}
-          <Link as="button" onClick={() => openPlace('/log?q=kind:grabs,imports')}>
-            Older ones are in the Log
-          </Link>
-        </p>
-      )}
+      {history && <HistoryEnd history={history} />}
     </section>
+  )
+}
+
+/** Below the last row: loads the next page of Done and Failed when it scrolls into view, with a button for where that cannot be seen. */
+function HistoryEnd({ history }: { history: NonNullable<PipelineData['history']> }) {
+  const end = useRef<HTMLDivElement>(null)
+  const { hasMore, loading, loadMore } = history
+  const watching = typeof IntersectionObserver !== 'undefined'
+  useEffect(() => {
+    const el = end.current
+    if (!el || !watching || !hasMore || loading) return
+    const seen = new IntersectionObserver((hits) => hits.some((h) => h.isIntersecting) && loadMore(), { rootMargin: '600px' })
+    seen.observe(el)
+    return () => seen.disconnect()
+  }, [watching, hasMore, loading, loadMore])
+  return (
+    <div ref={end} className="label-12 px-4 py-3 text-gray-900">
+      {hasMore ? (
+        <Button variant="secondary" size="small" disabled={loading} onClick={loadMore}>
+          {loading ? 'Loading older Grabs…' : 'Load older Grabs'}
+        </Button>
+      ) : (
+        'That is all the history.'
+      )}
+    </div>
   )
 }
 

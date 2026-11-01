@@ -126,6 +126,7 @@ type Library interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	InLibrary(ctx context.Context, kind library.Kind, tmdbIDs []int) (map[int]int64, error)
 	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
+	Names(ctx context.Context) ([]library.Named, error)
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 	SetSeriesMonitor(ctx context.Context, id int64, mode library.Monitor) error
 	SetMovieMonitored(ctx context.Context, id int64, monitored bool) error

@@ -185,3 +185,81 @@ func TestGrabsSinceLeavesOutOlderOnesAndPages(t *testing.T) {
 		t.Errorf("a bad cursor = %d %s", r.Status, r.Body)
 	}
 }
+
+func TestGrabsFilterOnTheServerByWordsKindSlotAndIdBeforePaging(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	s.publish(t, uhdRelease)
+	s.pass(t, jobs.Search)
+	all := s.grabs(t, "")
+	if len(all.Items) != 2 {
+		t.Fatalf("grabs = %+v, want one per Slot", all.Items)
+	}
+
+	cases := []struct {
+		query string
+		want  int
+	}{
+		{"?q=PADDINGTON", 2},
+		{"?q=paddington+alpha", 2},
+		{"?q=paddington+nothing-like-it", 0},
+		{"?slot=4k", 1},
+		{"?slot=standard&slot=4k", 2},
+		{"?kind=series", 0},
+		{"?kind=movie&q=paddington", 2},
+		{"?grab=" + itoa(all.Items[1].GrabID), 1},
+	}
+	for _, c := range cases {
+		if l := s.grabs(t, c.query); len(l.Items) != c.want {
+			t.Errorf("GET /grabs%s = %d Grabs, want %d", c.query, len(l.Items), c.want)
+		}
+	}
+
+	first := s.grabs(t, "?q=paddington&limit=1")
+	if len(first.Items) != 1 || first.NextCursor == nil {
+		t.Fatalf("first filtered page = %+v", first)
+	}
+	second := s.grabs(t, "?q=paddington&limit=1&cursor="+*first.NextCursor)
+	if len(second.Items) != 1 || second.NextCursor != nil || second.Items[0].GrabID >= first.Items[0].GrabID {
+		t.Errorf("second filtered page = %+v after %+v", second, first)
+	}
+}
+
+func TestTheGrabsSummaryCountsTheFinishedOnesThatPassTheFilterOverAllHistory(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	short := goodProbe()
+	short.Duration = 5 * time.Minute
+	s.prober.set(short, nil)
+	s.publish(t, secondRelease)
+	s.download(t, map[string]string{"paddington.mkv": "the movie"})
+	s.pass(t, jobs.Poll)
+	s.pass(t, jobs.Import)
+	failedAt := s.in.clock.Now()
+	s.in.clock.Advance(3 * 24 * time.Hour)
+
+	type summary struct {
+		Imported int        `json:"imported"`
+		Failed   int        `json:"failed"`
+		Oldest   *time.Time `json:"oldest"`
+	}
+	get := func(query string) summary {
+		t.Helper()
+		r := s.valid("GET", "/grabs/summary"+query, "")
+		if r.Status != 200 {
+			t.Fatalf("GET /grabs/summary%s = %d %s", query, r.Status, r.Body)
+		}
+		return decode[summary](t, r)
+	}
+
+	if g := get(""); g.Imported != 0 || g.Failed != 1 || g.Oldest == nil || !g.Oldest.Equal(failedAt) {
+		t.Errorf("summary = %+v, want the one failed Grab from days ago", g)
+	}
+	if g := get("?q=paddington"); g.Failed != 1 {
+		t.Errorf("summary for paddington = %+v", g)
+	}
+	if g := get("?q=unrelated"); g.Failed != 0 || g.Oldest != nil {
+		t.Errorf("summary for a word nothing has = %+v", g)
+	}
+}

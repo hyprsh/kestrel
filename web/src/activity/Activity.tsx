@@ -2,13 +2,14 @@
 // "/activity?q=stage:done" opens it on the Done stage. The Shell owns the filter text, so a change is handed to it.
 // The side panel holds the filter and the Views, which are presets of the `stage:` term; the Pipeline fills the rest.
 // The background jobs and what runs now moved to the Health screen.
-import { DotsMenu, MenuItem, parseQuery, termText, valuesOf, withoutValue } from '@hyprsh/design'
+import { DotsMenu, MenuItem, MenuSection, parseQuery, termText, valuesOf, withoutValue } from '@hyprsh/design'
 import { ArrowDownToLine, CircleAlert, FileCheck, List, Search } from 'lucide-react'
 import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
 import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
 import { useOpenPlace } from '../place'
+import { usePhone } from '../responsive'
 import { activityQualifiers } from './filter'
 import { Pipeline, usePipeline, type PipelineData } from './Pipeline'
 import type { Stage } from './stages'
@@ -38,12 +39,28 @@ function currentView(query: string): string | null {
   return views.find((v) => v.stages.length === chosen.length && v.stages.every((s) => chosen.includes(s)))?.key ?? null
 }
 
+const viewCount = (v: (typeof views)[number], pipeline: PipelineData) => (v.stages.length === 0 ? pipeline.total : v.stages.reduce((sum, s) => sum + pipeline.count(s), 0))
+
+/** The Views as the first section of a phone's Filter menu, where the panel's own Views are hidden. */
+function ViewsSection({ query, onQuery, pipeline }: { query: string; onQuery: (query: string) => void; pipeline: PipelineData }) {
+  const current = currentView(query)
+  return (
+    <MenuSection title="Views">
+      {views.map((v) => (
+        <MenuItem key={v.key} checked={current === v.key} suffix={<span className="tabular-nums">{viewCount(v, pipeline)}</span>} onSelect={() => onQuery(withStages(query, v.stages))}>
+          {v.label}
+        </MenuItem>
+      ))}
+    </MenuSection>
+  )
+}
+
 function ActivityViews({ query, onQuery, pipeline }: { query: string; onQuery: (query: string) => void; pipeline: PipelineData }) {
   const current = currentView(query)
   return (
     <SidePanelViews>
       {views.map((v) => {
-        const n = v.stages.length === 0 ? pipeline.total : v.stages.reduce((sum, s) => sum + pipeline.count(s), 0)
+        const n = viewCount(v, pipeline)
         return (
           <SidePanelView
             key={v.key}
@@ -73,24 +90,24 @@ function ActivityMenu() {
   )
 }
 
+/** The footer line: how many Grabs there are and how far back the history goes, "12 Grabs · since 3 Mar 2026". */
+function footer(total: number, oldest: string | null): string {
+  const n = total === 1 ? '1 Grab' : `${total} Grabs`
+  return oldest ? `${n} · since ${new Date(oldest).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}` : n
+}
+
 /** `query` is the Grabs filter text, kept by the Shell so it can live in the address bar. */
 export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
   const pipeline = usePipeline(query)
+  const phone = usePhone()
   const panel = {
     title: 'Activity',
     actions: <ActivityMenu />,
     filter: <FilterBar id="activity-filter" label="Filter Activity" placeholder="Filter grabs, e.g. stage:failed  /" value={query} onChange={onQuery} qualifiers={activityQualifiers} menus={false} />,
-    controls: (
-      <FacetFilterButton
-        query={query}
-        onQuery={onQuery}
-        qualifiers={activityQualifiers}
-        suffix={(name, value) => (name === 'stage' ? <span className="tabular-nums">{pipeline.count(value as Stage)}</span> : null)}
-      />
-    ),
+    controls: <FacetFilterButton query={query} onQuery={onQuery} qualifiers={activityQualifiers} lead={phone ? <ViewsSection query={query} onQuery={onQuery} pipeline={pipeline} /> : undefined} />,
     chips: <FilterChips chips={filterChips(query, onQuery, activityQualifiers)} />,
     views: <ActivityViews query={query} onQuery={onQuery} pipeline={pipeline} />,
-    footer: <span>{pipeline.total === 1 ? '1 Grab' : `${pipeline.total} Grabs`}</span>,
+    footer: <span>{footer(pipeline.total, pipeline.oldest)}</span>,
   }
   return (
     <div className="flex min-h-0 flex-1 max-sm:flex-col">

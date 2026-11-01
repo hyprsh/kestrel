@@ -1,6 +1,6 @@
-// Activity's reads and actions beyond the queue: GET /grabs (stalled and finished Grabs),
+// Activity's reads and actions beyond the queue: GET /grabs (stalled and finished Grabs, the finished ones a page at a time) and its summary,
 // POST /grabs/{id}/retry-import and POST /grabs/{id}/discard, and the stream's `activity` frames.
-import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { skipToken, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { ApiError } from './queries'
 import type { components } from './schema.gen'
@@ -17,21 +17,48 @@ export function useActivity() {
   return useQuery<ActivitySnapshot>({ queryKey: ['activity'], queryFn: skipToken }).data
 }
 
-/** How far back Done and Failed reach; older Grabs are left to the Log. */
-export const HISTORY_DAYS = 7
+/** The most a page of Done and Failed Grabs holds; more load as the list is scrolled. */
+const PAGE = 50
 
-/** The most a stage list reads in one go. */
-const PAGE = 500
+/** What narrows the Grab history on the server: the filter's words, kinds, Slots and ids. */
+export type GrabsFilter = { q: string; kind: string[] | null; slot: string[] | null; grab: number[] | null }
 
-/** Imported and failed Grabs of the last HISTORY_DAYS, newest first; `more` when the page could not hold them all. */
-export function useFinishedGrabs() {
-  return useQuery({
-    queryKey: ['grabs', 'finished'],
-    queryFn: async () => {
-      const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000).toISOString()
-      const { data, error } = await api.GET('/grabs', { params: { query: { state: ['imported', 'failed'], since, limit: PAGE } } })
+function filterQuery(f: GrabsFilter) {
+  return {
+    ...(f.q.trim() && { q: f.q.trim() }),
+    ...(f.kind && { kind: f.kind as components['schemas']['TitleKind'][] }),
+    ...(f.slot && { slot: f.slot as components['schemas']['Slot'][] }),
+    ...(f.grab && { grab: f.grab }),
+  }
+}
+
+/**
+ * Imported and failed Grabs that pass `f`, newest first, a page at a time as far back as there are any.
+ * `states` is the history stages shown; with none the query waits.
+ */
+export function useFinishedGrabs(f: GrabsFilter, states: readonly ('imported' | 'failed')[]) {
+  return useInfiniteQuery({
+    queryKey: ['grabs', 'finished', f, states],
+    enabled: states.length > 0,
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: components['schemas']['GrabList']) => last.next_cursor,
+    queryFn: async ({ pageParam }) => {
+      const query = { state: [...states], limit: PAGE, ...filterQuery(f), ...(pageParam && { cursor: pageParam }) }
+      const { data, error } = await api.GET('/grabs', { params: { query } })
       if (!data) throw error
-      return { items: data.items, more: data.next_cursor !== null }
+      return data
+    },
+  })
+}
+
+/** How many Done and Failed Grabs pass `f` over all the history, and when the oldest happened. */
+export function useGrabsSummary(f: GrabsFilter) {
+  return useQuery({
+    queryKey: ['grabs', 'summary', f],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/grabs/summary', { params: { query: filterQuery(f) } })
+      if (!data) throw error
+      return data
     },
   })
 }

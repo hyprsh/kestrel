@@ -1308,9 +1308,11 @@ paths:
         entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
         on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
         stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
-        then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
-        `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
-        page before.
+        then or later (`updated_at`). The Activity screen reads `imported` and `failed` Grabs here a
+        page at a time, as far back as Kestrel holds them. `cursor` is the `next_cursor` of the page
+        before. `q` keeps the Grabs whose Title, Release name or indexer contain every one of its
+        words (any case); `kind`, `slot` and `grab` (ids) keep the Grabs of those kinds, Slots and ids.
+        A Grab whose Title was deleted has no kind or Slot, so `kind` and `slot` leave it out.
       tags: [grabs]
       parameters:
         - name: state
@@ -1323,6 +1325,10 @@ paths:
               enum: [sent, downloading, completed, importing, imported, failed]
         - { name: stalled, in: query, schema: { type: boolean } }
         - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
       responses:
@@ -1373,6 +1379,30 @@ paths:
           $ref: "#/components/responses/Problem"
         "502":
           $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /grabs/summary:
+    get:
+      operationId: getGrabsSummary
+      summary: What the Grab history holds
+      description: |
+        How many `imported` and `failed` Grabs match the filter, over all the history Kestrel holds, and
+        when the oldest of them last changed state (`oldest`, null when none match). It takes the filters
+        of `GET /grabs` that are not about paging or state (`q`, `kind`, `slot`, `grab`), so Activity's
+        Done and Failed counts stay true however many pages are loaded.
+      tags: [grabs]
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrabsSummary"
         default:
           $ref: "#/components/responses/Problem"
   /grabs/{id}:
@@ -1561,7 +1591,7 @@ paths:
       description: |
         The ten most recent Imports, newest first. An Import of several files at once (a season pack)
         is one row with `files` set to how many it brought. `total` counts the Imports of the last
-        7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
+        7 days, so it may be more or fewer than `items`.
       tags: [titles]
       responses:
         "200":
@@ -4670,6 +4700,13 @@ components:
         next_cursor:
           type: string
           nullable: true
+    GrabsSummary:
+      type: object
+      required: [imported, failed, oldest]
+      properties:
+        imported: { type: integer }
+        failed: { type: integer }
+        oldest: { type: string, format: date-time, nullable: true }
     GrabEntry:
       type: object
       description: A Grab as the Activity screen shows it, joined with its Title and Slot.

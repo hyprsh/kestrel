@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { blockedEntry, fakeGrabs, grabEntry } from '../test/grabs'
 import { http } from '../test/handlers'
@@ -57,19 +57,43 @@ describe('Activity', () => {
     expect(await stage('Failed · 1')).toEqual([expect.stringContaining('H.Failed-GRP')])
   })
 
-  it('reads Done and Failed for the last 7 days and points to the Log for older ones', async () => {
-    const grabs = fakeGrabs([grabEntry()])
+  it('pages Done and Failed as far back as there are Grabs, loading the next page as the list ends', async () => {
+    const old = (n: number) => grabEntry({ grab_id: 1000 - n, release_name: `Old${n}.Release-GRP`, updated_at: new Date(Date.now() - (n + 30) * 86_400_000).toISOString() })
+    const grabs = fakeGrabs(Array.from({ length: 120 }, (_, n) => old(n)))
     await openActivity()
 
-    await screen.findByRole('region', { name: 'Done · 1' })
-    const finished = grabs.queries.find((q) => q.getAll('state').length > 0)!
-    expect(finished.getAll('state')).toEqual(['imported', 'failed'])
-    const days = (Date.now() - Date.parse(finished.get('since')!)) / 86_400_000
-    expect(days).toBeCloseTo(7, 1)
-    expect(grabs.queries.some((q) => q.get('stalled') === 'true')).toBe(true)
+    await screen.findByRole('region', { name: 'Done · 120' })
+    expect(within(screen.getByRole('region', { name: 'Done · 120' })).getAllByRole('listitem')).toHaveLength(50)
+    const first = grabs.queries.find((q) => q.getAll('state').length > 0)!
+    expect(first.getAll('state')).toEqual(['imported', 'failed'])
+    expect(first.has('since')).toBe(false)
+    expect(first.get('limit')).toBe('50')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Older ones are in the Log' }))
-    expect(await screen.findByRole('combobox', { name: 'Filter the Log' })).toHaveValue('kind:grabs,imports')
+    await userEvent.click(screen.getByRole('button', { name: 'Load older Grabs' }))
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Done · 120' })).getAllByRole('listitem')).toHaveLength(100))
+    await userEvent.click(screen.getByRole('button', { name: 'Load older Grabs' }))
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Done · 120' })).getAllByRole('listitem')).toHaveLength(120))
+    expect(screen.getByText('That is all the history.')).toBeInTheDocument()
+    expect(grabs.queries.some((q) => q.get('stalled') === 'true')).toBe(true)
+  })
+
+  it('counts and filters over the whole history, not only the loaded page, and says how far back it goes', async () => {
+    const at = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString()
+    fakeGrabs([
+      ...Array.from({ length: 60 }, (_, n) => grabEntry({ grab_id: 500 - n, release_name: `Recent${n}.Release-GRP`, updated_at: at(1 + n / 100) })),
+      grabEntry({ grab_id: 3, state: 'failed', failure: 'download_failed', release_name: 'Ancient.Failure-GRP', updated_at: at(400) }),
+    ])
+    await openActivity()
+
+    const views = within(await screen.findByRole('navigation', { name: 'Views' }))
+    await waitFor(() => expect(views.getByRole('button', { name: /^Failed/ })).toHaveTextContent('1'))
+    expect(views.getByRole('button', { name: /^All/ })).toHaveTextContent('61')
+    expect(screen.getByText(/^61 Grabs · since /)).toBeInTheDocument()
+    expect(screen.queryByText(/Ancient/)).not.toBeInTheDocument() // beyond the first page
+
+    await userEvent.click(views.getByRole('button', { name: /^Failed/ }))
+    const region = await screen.findByRole('region', { name: 'Failed · 1' })
+    expect(within(region).getByText(/Ancient\.Failure-GRP/)).toBeInTheDocument()
   })
 
   it('names the indexer, Score, size, speed, when it was grabbed and how long it has been in its stage', async () => {
@@ -103,33 +127,23 @@ describe('Activity', () => {
     expect(row).toHaveTextContent('grabbed just now · in this stage for under a minute')
   })
 
-  it('filters to one or more stages with the Stage menu, each row with its count, and keeps them in the address bar', async () => {
+  it('keeps the Views out of the Filter menu on a desktop: it refines by Kind and Slot, and its badge counts only those', async () => {
     fakeQueue([queueItem({ grab_id: 1, phase: 'downloading' })])
     fakeGrabs([grabEntry({ grab_id: 7, state: 'imported' }), grabEntry({ grab_id: 8, state: 'failed', failure: 'download_failed' })])
     await openActivity()
 
     await screen.findByRole('region', { name: 'Done · 1' })
     await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
-    const stage = (name: string) => screen.getByRole('menuitemcheckbox', { name: new RegExp(`^${name}`) })
-    expect(stage('Downloading')).toHaveTextContent('1')
-    expect(stage('Downloading')).toHaveAttribute('aria-checked', 'false')
-    expect(stage('Stalled')).toHaveTextContent('0')
+    expect(screen.queryByRole('menuitemcheckbox', { name: /^Downloading/ })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Views')).toHaveLength(1) // the panel's own, not one in the menu
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: /^Series/ }))
+    expect(screen.getByRole('combobox', { name: 'Filter Activity' })).toHaveValue('kind:series')
+    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
 
-    await userEvent.click(stage('Done'))
-    expect(stage('Done')).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument() // the badge counts the facets in use
-    expect(screen.getByRole('region', { name: 'Done · 1' })).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Downloading · 1' })).not.toBeInTheDocument()
-    expect(location.pathname + location.search).toBe('/activity?q=stage%3Adone')
-
-    await userEvent.click(stage('Failed'))
-    expect(screen.getByRole('combobox', { name: 'Filter Activity' })).toHaveValue('stage:done,failed')
-    expect(screen.getByRole('region', { name: 'Failed · 1' })).toBeInTheDocument()
-
-    await userEvent.click(stage('Done'))
-    await userEvent.click(stage('Failed'))
-    expect(screen.getByRole('combobox', { name: 'Filter Activity' })).toHaveValue('')
-    expect(screen.getByRole('region', { name: 'Downloading · 1' })).toBeInTheDocument()
+    // A stage typed in the field narrows the list but is not a refinement of the menu.
+    await userEvent.type(screen.getByRole('combobox', { name: 'Filter Activity' }), ' stage:done')
+    expect(screen.getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument()
   })
 
   it('opens on one Grab from its address with grab:<id>, in whatever stage it is in, and clearing the filter shows the pipeline', async () => {
@@ -169,14 +183,14 @@ describe('Activity', () => {
     await openActivity()
 
     const views = within(await screen.findByRole('navigation', { name: 'Views' }))
-    expect(await views.findByRole('button', { name: 'All' })).toHaveAttribute('aria-current', 'true')
-    await waitFor(() => expect(views.getByRole('button', { name: 'All' })).toHaveTextContent('3'))
-    expect(views.getByRole('button', { name: 'Failed' })).toHaveTextContent('1')
-    await userEvent.click(views.getByRole('button', { name: 'Failed' }))
+    expect(await views.findByRole('button', { name: /^All/ })).toHaveAttribute('aria-current', 'true')
+    await waitFor(() => expect(views.getByRole('button', { name: /^All/ })).toHaveTextContent('3'))
+    expect(views.getByRole('button', { name: /^Failed/ })).toHaveTextContent('1')
+    await userEvent.click(views.getByRole('button', { name: /^Failed/ }))
     expect(await screen.findByRole('region', { name: 'Failed · 1' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: /^Done/ })).not.toBeInTheDocument()
-    expect(views.getByRole('button', { name: 'Failed' })).toHaveAttribute('aria-current', 'true')
-    await userEvent.click(views.getByRole('button', { name: 'All' }))
+    expect(views.getByRole('button', { name: /^Failed/ })).toHaveAttribute('aria-current', 'true')
+    await userEvent.click(views.getByRole('button', { name: /^All/ }))
     expect(await screen.findByRole('region', { name: 'Done · 1' })).toBeInTheDocument()
   })
 
@@ -366,9 +380,7 @@ describe('Activity', () => {
     expect(within(region).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
     expect(region).toHaveTextContent('40 releases checked · 0 Grabs so far')
     expect(region).toHaveTextContent('12 Wanted waiting')
-    await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
-    expect(screen.getByRole('menuitemcheckbox', { name: /^Searching/ })).toHaveTextContent('12')
-    await userEvent.keyboard('{Escape}')
+    expect(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('button', { name: /^Searching/ })).toHaveTextContent('12')
 
     // A summary cannot be narrowed to a kind, Slot or text.
     await userEvent.type(screen.getByRole('combobox', { name: 'Filter Activity' }), 'kind:series ')
@@ -380,7 +392,9 @@ describe('Activity', () => {
     fakeGrabs([], [blockedEntry({ title_id: 5 }), blockedEntry({ id: 8, release_name: 'Old.Release-GRP', created_at: new Date(Date.now() - 8 * 86_400_000).toISOString() })])
     await openActivity()
 
-    const li = within(await screen.findByRole('region', { name: 'Failed · 1' })).getByRole('listitem')
+    const items = within(await screen.findByRole('region', { name: 'Failed · 2' })).getAllByRole('listitem') // the older one too: there is no 7-day cap
+    expect(items).toHaveLength(2)
+    const li = items[0]
     expect(li).toHaveTextContent('Paddington')
     expect(li).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-BAD')
     expect(li).toHaveTextContent('Blocklisted 10 min ago: canceled and blocklisted')
@@ -414,5 +428,27 @@ describe('Activity', () => {
 
     const row = within(await screen.findByRole('region', { name: 'Failed · 1' })).getByRole('listitem')
     expect(row).toHaveTextContent('Failed 2 h ago: language · Blocklisted: import rejected: language')
+  })
+})
+
+describe('Activity on a phone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+    history.replaceState(null, '', '/activity')
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('opens its Filter menu with the Views, with counts, and no badge for them', async () => {
+    fakeQueue([queueItem({ grab_id: 1, phase: 'downloading' })])
+    fakeGrabs([grabEntry({ grab_id: 2, state: 'imported' }), grabEntry({ grab_id: 3, state: 'failed' })])
+    renderApp()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Filter' }))
+    const failed = await screen.findByRole('menuitemcheckbox', { name: /^Failed/ })
+    await waitFor(() => expect(failed).toHaveTextContent('1'))
+    expect(screen.getByRole('menuitemcheckbox', { name: /^All/ })).toHaveAttribute('aria-checked', 'true')
+    await userEvent.click(failed)
+    expect(screen.getByRole('combobox', { name: 'Filter Activity' })).toHaveValue('stage:failed')
+    expect(screen.queryByRole('button', { name: /active/ })).not.toBeInTheDocument()
   })
 })
