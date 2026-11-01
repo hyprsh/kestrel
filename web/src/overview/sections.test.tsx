@@ -39,11 +39,12 @@ describe('Overview sections', () => {
     fakeQueue(downloads(7))
     renderApp()
 
-    const section = await screen.findByRole('region', { name: 'Happening now · 7' })
+    const section = await screen.findByRole('region', { name: 'Downloading' })
     const rows = await within(section).findAllByRole('listitem')
     expect(rows).toHaveLength(5)
+    expect(within(section).getByRole('heading', { name: 'Downloading' }).nextElementSibling).toHaveTextContent('7')
 
-    await userEvent.click(within(section).getByRole('button', { name: 'All activity →' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'All activity' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toHaveValue('')
   })
 

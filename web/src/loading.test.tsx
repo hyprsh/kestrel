@@ -65,13 +65,13 @@ describe('the Overview while its sections load', () => {
     )
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: 'Downloading' })
     expect(section.querySelector('[aria-busy="true"]')).toBeInTheDocument()
-    expect(within(section).queryByText('Nothing needs attention and nothing is downloading.')).not.toBeInTheDocument()
+    expect(within(section).queryByText('Nothing downloading')).not.toBeInTheDocument()
 
     await queue.release()
 
-    expect(await within(section).findByText('Nothing needs attention and nothing is downloading.')).toBeInTheDocument()
+    expect(await within(section).findByText('Nothing downloading')).toBeInTheDocument()
     expect(section.querySelector('[aria-busy="true"]')).not.toBeInTheDocument()
   })
 

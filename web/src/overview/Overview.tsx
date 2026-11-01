@@ -1,5 +1,5 @@
-// Overview, the home screen: its title with the range selector, the headline figures, "Happening now" (Needs attention
-// rows and Downloads in one card), the dashboard (Grabs per day, Indexers, the download client, Library quality, Storage,
+// Overview, the home screen: its title with the range selector, the headline figures, "Happening now" (Needs attention rows, then
+// the Downloading and Searching cards side by side), the dashboard (Grabs per day, Indexers, the download client, Library quality, Storage,
 // release groups and Requests, all for the chosen range), then Recently added, Recent requests and Coming this week, in a
 // column of at most 1120px. A phone shows the figures, Happening now, the Grabs chart, Indexers and the client on one line.
 import { Select, Skeleton } from '@hyprsh/design'
@@ -41,7 +41,7 @@ export function Overview({
   const coming = firstFive(useUpcoming(6).data ?? [])
 
   // One selection runs through every row in the order the screen reads: Happening now (its Needs attention
-  // rows, then its groups, then its Downloads), then the second row left to right: Recently added, Recent requests, Coming this
+  // rows, then its groups, then the Downloading card, then the Searching card), then the second row left to right: Recently added, Recent requests, Coming this
   // week. Enter does what clicking would.
   const [sel, setSel] = useState(0)
   const enter: (() => void)[] = [

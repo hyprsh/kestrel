@@ -87,7 +87,8 @@ describe('the Overview on a desktop', () => {
     await within(await rail()).findByRole('button', { name: /All checks OK/ })
     expect(screen.queryByRole('banner')).not.toBeInTheDocument() // no top bar to hold a Health button
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /Searching/ })).not.toBeInTheDocument() // the Searching card of Happening now is a region, not a pill
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
@@ -140,7 +141,7 @@ describe('the Overview on a phone', () => {
     expect(await within(main).findByRole('button', { name: /^Health · All checks OK/ })).toBeInTheDocument()
     expect(within(main).getAllByRole('button', { name: /^Health/ })).toHaveLength(1) // in the header only, not the content
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })

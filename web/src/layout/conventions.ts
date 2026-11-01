@@ -18,6 +18,8 @@
 //   JumpNav.tsx           JumpNav, JumpGroup, JumpLink: a panel's section links    <JumpNav label><JumpGroup title><JumpLink href onClick current warn>{name}</JumpLink>
 //                         (current, a "Needs attention" dot, a note line)
 //   ListPane.tsx          list column beside a detail pane       <ListPane>{list}</ListPane>
+//   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
+//                         NowEmpty: the Overview's Downloading and Searching cards
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
 //   Pane.tsx              PaneHeader and PaneFooter: top and     <PaneHeader>{title, controls}</PaneHeader>
 //                         bottom of a pane                       <PaneFooter>{status, actions}</PaneFooter>

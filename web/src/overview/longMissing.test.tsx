@@ -40,12 +40,12 @@ describe('the Long Missing row in Needs attention', () => {
     fakeLongMissing([warning])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     const group = await within(section).findByText('7 Versions long missing')
     const rows = within(section).getAllByRole('listitem')
     expect(rows).toHaveLength(2) // the Warning, then the group's own row
     expect(rows[0].compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // after the attention rows
-    expect(section).toHaveTextContent(/happening now · 1$|happening now · 1/i) // the group does not add to the count
+    expect(section).toHaveTextContent(/needs attention · 1/i) // the group does not add to the count
     expect(within(section).queryByText(/ancient film/i)).not.toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /overview.*1 needs? attention/i })).toBeInTheDocument()
 
@@ -70,10 +70,9 @@ describe('the Long Missing row in Needs attention', () => {
     fakeLongMissing()
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
 
     expect(await within(section).findByText('7 Versions long missing')).toBeInTheDocument()
-    expect(within(section).queryByText(/nothing needs attention/i)).not.toBeInTheDocument() // the group is a row of the card
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument() // no "N need attention" in its name
   })
 

@@ -6,8 +6,10 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
 import { http } from '../test/handlers'
+import { row as titleRow } from '../test/library'
 import { fakeRequests, request } from '../test/requests'
 import { lastPassOf, passOf } from '../test/search'
+import { queueItem } from '../test/queue'
 import { server } from '../test/server'
 import { RecentlyAdded } from './ComingRecent'
 
@@ -52,7 +54,7 @@ describe('Overview rows', () => {
     expect(second).toHaveTextContent('4K')
   })
 
-  it('moves one selection with j through Happening now, Recently added, Recent requests and Coming this week, in reading order', async () => {
+  it('moves one selection with j through Happening now (Needs attention, Downloading, Wanted), Recently added, Recent requests and Coming this week, in reading order', async () => {
     server.use(
       http.get('/attention', ({ response }) =>
         response(200).json({
@@ -100,10 +102,12 @@ describe('Overview rows', () => {
               is_upgrade: false,
               score_delta: null,
               stuck: null,
+              episode_ids: [],
             },
           ],
         }),
       ),
+      http.get('/titles', ({ response }) => response(200).json({ items: [titleRow(4, 'Alien', 'Alien')], next_cursor: null })),
       http.get('/upcoming', ({ response }) =>
         response(200).json({
           from: dayString(),
@@ -139,6 +143,8 @@ describe('Overview rows', () => {
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Heat')
     await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Alien') // the right card follows the left one
+    await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Severance')
@@ -173,7 +179,7 @@ describe('Overview rows', () => {
     expect(current()).toHaveTextContent('Paddington')
   })
 
-  it('shows the running search pass in Happening now, and j runs through it', async () => {
+  it('shows the running search pass in the Searching card, and j runs through it', async () => {
     server.use(
       http.get('/search/status', ({ response }) =>
         response(200).json({
@@ -191,21 +197,25 @@ describe('Overview rows', () => {
           indexers: [],
         }),
       ),
+      http.get('/queue', ({ response }) => response(200).json({ items: [queueItem({ title: 'Heat' })] })),
+      http.get('/titles', ({ response }) => response(200).json({ items: [titleRow(4, 'Alien', 'Alien')], next_cursor: null })),
       http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
     )
     renderApp()
     const row = (await screen.findByText('Searching Wanted')).closest<HTMLElement>('[data-nav]')!
 
-    expect(row).toHaveTextContent('Searching Wanted')
-    expect(row).toHaveTextContent('Now: Breaking Bad · S05 · Standard · 12 releases')
-    expect(row).toHaveTextContent('1 of 4 Wanted')
-    expect(row).toHaveTextContent('30 releases checked · 2 Grabs so far')
+    expect(row).toHaveTextContent('Searching Wanted · Breaking Bad S05 · Standard')
+    expect(row).toHaveTextContent('1 of 4 · 30 checked')
     expect(within(row).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
-    expect(screen.queryByText(/nothing is downloading/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Watch in Health' })).toBeInTheDocument()
+    expect(screen.queryByText('Nothing downloading')).not.toBeInTheDocument()
 
+    // j runs down the left card (Heat), then the pass, then the Wanted rows.
     const current = () => document.querySelector('[aria-current="true"]')
+    expect(current()).toHaveTextContent('Heat')
+    await userEvent.keyboard('j')
     expect(current()).toBe(row)
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Alien')
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
   })
@@ -221,7 +231,6 @@ describe('Overview rows', () => {
     fakeLastPass(lastPassOf({ searched: 4, releases_seen: 37, grabbed: 1 }))
     renderApp()
     const row = (await screen.findByText('Search done: 4 searched · 37 releases checked · 1 Grab')).closest<HTMLElement>('[data-nav]')!
-    expect(screen.queryByText(/nothing is downloading/i)).not.toBeInTheDocument()
 
     await userEvent.click(within(row).getByRole('button', { name: 'Dismiss' }))
     expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument()
@@ -237,14 +246,14 @@ describe('Overview rows', () => {
   it('shows no finished row for a pass that ended long ago', async () => {
     fakeLastPass(lastPassOf({ finished_at: new Date(Date.now() - 5 * 60_000).toISOString() }))
     renderApp()
-    await screen.findByText(/nothing is downloading/i)
+    await screen.findByText(/^nothing downloading$/i)
     expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument()
   })
 
   it('has no search row when no pass runs', async () => {
     renderApp()
-    await screen.findByText(/nothing is downloading/i)
+    await screen.findByText(/^nothing downloading$/i)
 
-    expect(screen.queryByText(/Searching/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Searching /)).not.toBeInTheDocument()
   })
 })
