@@ -1,6 +1,6 @@
 // A Title's History: a quiet line under the page ("History · 6 events, last: Grabbed 2 h ago") that opens the Title's
 // recent events as plain sentences, with a way on to the Log. Routine events (searches, download progress) stay in the Log.
-import { Link, termText } from '@hyprsh/design'
+import { Button, Link, termText } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useEvents } from '../api/log'
@@ -23,10 +23,9 @@ export function TitleHistory({ title }: { title: TitleDetail }) {
   const Chevron = open ? ChevronDown : ChevronRight
   return (
     <section aria-label="History" className="mt-6">
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="label-14 flex cursor-pointer items-center gap-2 text-gray-900">
-        <Chevron aria-hidden className="size-4" />
+      <Button variant="tertiary" size="small" aria-expanded={open} prefix={<Chevron aria-hidden className="size-4" />} onClick={() => setOpen(!open)}>
         {`History · ${plural(items.length, 'event')}, last: ${sentence(last).verb} ${ago(last.at, now)}`}
-      </button>
+      </Button>
       {open && (
         <ul className="mt-2 flex list-none flex-col gap-1.5 p-0">
           {items.slice(0, SHOWN).map((e) => {
