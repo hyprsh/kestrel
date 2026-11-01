@@ -9,7 +9,8 @@ import type { QueueItem } from '../api/queue'
 import { plural } from '../format'
 import { cx } from '../ui'
 import { gridDays, shiftMonth } from './MonthCalendar'
-import { StatusDot, StatusLegend } from './StatusMark'
+import { SlotLegend } from '../ui/slotState'
+import { StatusDot } from './StatusMark'
 import { addDays, entryStatus, episodeCode, releaseName, upcomingKey, weekdayShort, type EntryStatus } from './state'
 
 const PILLS = 3
@@ -109,7 +110,7 @@ export function MonthView({
                     onClick={() => onOpenTitle(item.title_id)}
                     className="label-12 flex min-w-0 items-center gap-1 rounded-sm bg-gray-100 px-1 py-0.5 text-left hover:bg-gray-200"
                   >
-                    <StatusDot kind={status.kind} className="size-1.5" />
+                    <StatusDot kind={status.kind} long={status.long} className="size-1.5" />
                     <span className="truncate">{label}</span>
                   </button>
                 )
@@ -123,7 +124,7 @@ export function MonthView({
           )
         })}
       </div>
-      <StatusLegend />
+      <SlotLegend />
     </section>
   )
 }

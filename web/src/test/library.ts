@@ -20,7 +20,20 @@ const slot = (profile: string, state: Schemas['SlotState'], id: number): Schemas
 const slotStates = (slots: TitleRow['slots']): TitleRow['slot_states'] =>
   (['standard', '4k'] as const).flatMap((k) => {
     const s = slots[k]
-    return s ? [{ slot: k, label: k === '4k' ? '4K' : 'Standard', version_id: s.version_id, profile: s.profile, state: s.state, long_missing: s.long_missing }] : []
+    return s
+      ? [
+          {
+            slot: k,
+            label: k === '4k' ? '4K' : 'Standard',
+            version_id: s.version_id,
+            profile: s.profile,
+            state: s.state,
+            long_missing: s.long_missing,
+            last_search: s.last_search,
+            next_search_at: s.next_search_at,
+          },
+        ]
+      : []
   })
 
 export const row = (id: number, title: string, primary: string, over: Partial<TitleRow> = {}): TitleRow => {

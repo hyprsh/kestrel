@@ -258,26 +258,22 @@ describe('Upcoming: where each entry stands', () => {
     ])
     fakeQueue([queueItem({ title_id: 8, slot: 'standard', bytes_total: 8000, bytes_left: 2000 })])
     await openUpcoming()
-    expect(within(rowOf('Soon')).getByText('Searched when out')).toBeInTheDocument()
-    expect(rowOf('Soon').querySelector('[data-status="searching"]')).not.toBeNull()
-    expect(within(rowOf('Waiting')).getByText('Out · not found yet')).toBeInTheDocument()
-    expect(rowOf('Waiting').querySelector('[data-status="missing"]')).not.toBeNull()
+    const chip = (row: HTMLElement, name: string | RegExp) => within(row).getByRole('img', { name })
+    expect(chip(rowOf('Soon'), 'Standard: Not out yet')).toHaveAttribute('data-state', 'unreleased')
+    expect(chip(rowOf('Waiting'), 'Standard: Wanted')).toHaveAttribute('data-state', 'wanted')
     const done = rowOf('Done')
-    expect(within(done).getByText('Imported')).toBeInTheDocument()
+    expect(chip(done, 'Standard: Have')).toHaveAttribute('data-state', 'filled')
     expect(done).toHaveAttribute('data-imported')
-    expect(within(rowOf('Off')).getByText('Not monitored')).toBeInTheDocument()
-    expect(rowOf('Off').querySelector('[data-status="unmonitored"]')).not.toBeNull()
-    expect(await within(rowOf('Fetching')).findByText('Downloading · 75%')).toBeInTheDocument()
-    expect(rowOf('Fetching').querySelector('[data-status="downloading"]')).not.toBeNull()
+    expect(chip(rowOf('Off'), 'Standard: Not monitored')).toHaveAttribute('data-state', 'unmonitored')
+    expect(await within(rowOf('Fetching')).findByRole('img', { name: 'Standard: Downloading 75%' })).toHaveAttribute('data-state', 'downloading')
   })
 
-  it('shows a chip per Slot of a Title with two, and one status for the entry', async () => {
+  it('shows a chip per Slot of a Title with two, each in its own state', async () => {
     fakeAgenda([movie({ date: day(-1), slots: [slot('wanted'), slot('imported', { slot: '4k', version_id: 12, quality: 'Bluray-2160p' })] })])
     await openUpcoming()
     const r = rowOf('Paddington')
-    expect(within(r).getByText('Standard')).toBeInTheDocument()
-    expect(within(r).getByText('4K')).toBeInTheDocument()
-    expect(within(r).getByText('Out · not found yet')).toBeInTheDocument()
+    expect(within(r).getByRole('img', { name: 'Standard: Wanted' })).toHaveAttribute('data-state', 'wanted')
+    expect(within(r).getByRole('img', { name: '4K: Have' })).toHaveAttribute('data-state', 'filled')
   })
 
   it('matches a download to its episode', async () => {
@@ -287,8 +283,8 @@ describe('Upcoming: where each entry stands', () => {
     ])
     fakeQueue([queueItem({ title_id: 2, kind: 'series', episodes: ['S02E05'] })])
     await openUpcoming()
-    expect(await within(rowOf(/Four/)).findByText('Out · not found yet')).toBeInTheDocument()
-    expect(within(rowOf(/Five/)).getByText(/Downloading/)).toBeInTheDocument()
+    expect(await within(rowOf(/Four/)).findByRole('img', { name: 'Standard: Wanted' })).toBeInTheDocument()
+    expect(within(rowOf(/Five/)).getByRole('img', { name: /Standard: Downloading/ })).toBeInTheDocument()
   })
 
   it('offers Search now on a Wanted entry, narrowed to its episode', async () => {
@@ -934,7 +930,7 @@ describe('Upcoming: the Display switch and the Month display', () => {
       within(legend)
         .getAllByRole('listitem')
         .map((l) => l.textContent),
-    ).toEqual(['Searched when out', 'Downloading', 'Imported', 'Out, not found yet', 'Not monitored'])
+    ).toEqual(['Have', 'Downloading', 'Wanted', 'Long Missing', 'Not out yet', 'Upgrade wanted', 'Not monitored'])
   })
 
   it('shows up to three pills a day, with a status dot, the title and code, a full tooltip, then "+N more"', async () => {
@@ -955,7 +951,7 @@ describe('Upcoming: the Display switch and the Month display', () => {
     expect(within(cell).getByRole('button', { name: '+2 more' })).toBeInTheDocument()
     expect(within(month.getByRole('button', { name: /Sunday, October 25/ }).closest('[data-day]') as HTMLElement).queryByRole('button', { name: /more/ })).not.toBeInTheDocument()
     expect(month.getByText(/^6 releases · 3 searched when out$/)).toBeInTheDocument()
-    expect(month.getByRole('button', { name: /Paddington · digital release — Searched when out/ })).toHaveAttribute('title', 'Paddington · digital release — Searched when out')
+    expect(month.getByRole('button', { name: /Paddington · digital release — Not out yet/ })).toHaveAttribute('title', 'Paddington · digital release — Not out yet')
   })
 
   it('opens the Title from a pill, and the Agenda at the day from "+N more" and from the day number', async () => {
@@ -1030,7 +1026,7 @@ describe('Upcoming: on a phone', () => {
     await openUpcoming()
     const list = screen.getByRole('list', { name: 'Thu, Oct 22' })
     const row = within(list).getByText('Tonight').closest('li')!
-    expect(row.querySelector('[data-status="missing"]')).not.toBeNull()
+    expect(within(row).getByRole('img', { name: 'Standard: Wanted' })).toBeInTheDocument()
     expect(within(row).getByText('20:00')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Week' })).not.toBeInTheDocument() // the strip stands in for the week header
   })

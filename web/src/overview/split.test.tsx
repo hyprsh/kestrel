@@ -78,7 +78,7 @@ describe('Happening now, split in two cards', () => {
     expect(within(card).getByRole('heading', { name: 'Wanted' }).nextElementSibling).toHaveTextContent('6')
     expect(rows.map((r) => r.querySelector('b')?.textContent)).toEqual(['Oldest Long', 'Ancient', 'Older', 'Middle', 'Newest'])
     expect(rows[0]).toHaveTextContent('Long Missing · 200 days')
-    expect(rows[0].textContent).toContain('Standard')
+    expect(within(rows[0] as HTMLElement).getByRole('img', { name: 'Standard: Long Missing' })).toHaveAttribute('data-state', 'long_missing')
     expect(rows[1]).toHaveTextContent('Long Missing · 100 days')
     expect(rows[2]).toHaveTextContent('Wanted 20 days')
     expect(rows[4]).toHaveTextContent('Wanted 1 day')
@@ -95,7 +95,8 @@ describe('Happening now, split in two cards', () => {
     renderApp()
 
     const [item] = await within(await screen.findByRole('region', { name: 'Searching' })).findAllByRole('listitem')
-    expect(item).toHaveTextContent('Breaking Bad 4K · 3 episodes')
+    expect(item).toHaveTextContent('Breaking Bad 3 episodes')
+    expect(within(item as HTMLElement).getByRole('img', { name: '4K: Wanted' })).toBeInTheDocument()
   })
 
   it('searches the Version at once from the Search button, and says so in a Toast', async () => {

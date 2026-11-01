@@ -465,7 +465,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                           sel={sel}
                           onSelect={() => (select(i), openRow(i))}
                           left={<TitlePoster id={u.title_id} hasPoster={u.has_poster} size="sm" />}
-                          right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
+                          right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} />}
                         >
                           <Entity.Content
                             fill

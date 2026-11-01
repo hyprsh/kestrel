@@ -4,6 +4,9 @@ import type { QueueItem } from '../api/queue'
 import { localDay, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { percent } from '../format'
 import { phases } from '../grabs/phase'
+import { stateName, type SlotDotState } from '../ui/slotState'
+import type { ChipData } from '../library/SlotChip'
+import { slotName, slotShort } from '../library/slots'
 
 /** "S02E04". */
 export const episodeCode = (season: number, episode: number) => `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
@@ -111,6 +114,8 @@ export type EntryStatus = {
   label: string
   /** The Versions that are Wanted and not being downloaded: what Search now would look for. */
   wanted: UpcomingSlot[]
+  /** Whether a Wanted Version has been so long enough to be Long Missing: the dot is red then, else amber. */
+  long: boolean
 }
 
 /**
@@ -123,15 +128,39 @@ export function entryStatus(item: UpcomingItem, queue: readonly QueueItem[]): En
   const wanted = all.filter((x) => x.st.kind === 'wanted').map((x) => x.slot)
   const grabbed = all.find((x) => x.st.kind === 'grabbed')
   const imported = all.length > 0 && all.every((x) => x.st.kind === 'imported')
-  if (!imported && item.monitored === false) return { kind: 'unmonitored', label: 'Not monitored', wanted: [] }
+  if (!imported && item.monitored === false) return { kind: 'unmonitored', label: 'Not monitored', wanted: [], long: false }
   if (grabbed && grabbed.st.kind === 'grabbed') {
     const g = grabbed.st.grab
     const pct = g.phase === 'importing' ? null : percent(g.bytes_total, g.bytes_left)
-    return { kind: 'downloading', label: g.phase === 'downloading' && pct !== null ? `Downloading · ${pct}%` : phases[g.phase].label, wanted }
+    return { kind: 'downloading', label: g.phase === 'downloading' && pct !== null ? `Downloading · ${pct}%` : phases[g.phase].label, wanted, long: false }
   }
-  if (wanted.length > 0) return { kind: 'missing', label: 'Out · not found yet', wanted }
-  if (imported) return { kind: 'imported', label: 'Imported', wanted }
-  return { kind: 'searching', label: 'Searched when out', wanted }
+  if (wanted.length > 0) return { kind: 'missing', label: 'Out · not found yet', wanted, long: wanted.some((s) => s.long_missing) }
+  if (imported) return { kind: 'imported', label: 'Imported', wanted, long: false }
+  return { kind: 'searching', label: 'Not out yet', wanted, long: false }
+}
+
+/** A Version's standing as the shared Slot dot draws it: Have, Downloading (with its percent), Wanted or Long Missing, Not out yet; Not monitored when the entry is off and has no file. */
+export function standingDot(st: Standing, entryMonitored: boolean | undefined): { state: SlotDotState; text?: string } {
+  switch (st.kind) {
+    case 'imported':
+      return { state: 'filled' }
+    case 'grabbed': {
+      const pct = st.grab.phase === 'downloading' ? percent(st.grab.bytes_total, st.grab.bytes_left) : null
+      return { state: 'downloading', text: pct !== null ? `${pct}%` : undefined }
+    }
+    case 'wanted':
+      return entryMonitored === false ? { state: 'unmonitored' } : { state: st.long ? 'long_missing' : 'wanted' }
+    default:
+      return { state: entryMonitored === false ? 'unmonitored' : 'unreleased' }
+  }
+}
+
+/** An entry's Slots as chips, one per Version, each in the state it stands in: "STD", "4K 40%". */
+export function entryChips(item: Pick<UpcomingItem, 'kind' | 'title_id' | 'season' | 'episode' | 'slots' | 'monitored'>, queue: readonly QueueItem[]): ChipData[] {
+  return item.slots.map((slot) => {
+    const d = standingDot(standing(item, slot, queue), item.monitored)
+    return { key: slot.slot, short: slotShort(slot.slot), state: d.state, text: d.text, tip: `${slotName(slot.slot)}: ${stateName[d.state]}${d.text ? ` ${d.text}` : ''}` }
+  })
 }
 
 /** What a week adds up to: the episodes airing, the Movie releases, and how many entries wait for their release or are in the Library. */

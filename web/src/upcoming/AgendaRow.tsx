@@ -4,12 +4,11 @@
 import { Button } from '@hyprsh/design'
 import type { QueueItem } from '../api/queue'
 import type { UpcomingItem, UpcomingSlot } from '../api/upcoming'
-import { slotLabel, type SlotKey } from '../library/bits'
+import { SlotChips } from '../library/SlotChip'
 import { TitlePoster } from '../poster'
 import { cx } from '../ui'
 import { Markers } from './bits'
-import { StatusMark } from './StatusMark'
-import { airTime, entryStatus, episodeCode, movieWhen, releaseName } from './state'
+import { airTime, entryChips, entryStatus, episodeCode, movieWhen, releaseName } from './state'
 
 type RowProps = {
   item: UpcomingItem
@@ -24,8 +23,6 @@ type RowProps = {
   compact: boolean
 }
 
-const slotName = (slot: string) => slotLabel[slot as SlotKey] ?? slot
-
 /** "Aired 03:00 · AMC", "21:00 · HBO": the time (said to be past once the air time is), then the network when the data has one. */
 function whenLine(item: UpcomingItem, today: string, now: number): string {
   if (item.kind === 'movie') return movieWhen(item, today)
@@ -39,6 +36,7 @@ export function AgendaRow({ item, queue, today, now, current, index, onOpen, onS
   const code = item.kind === 'series' ? episodeCode(item.season!, item.episode!) : null
   const what = item.kind === 'series' ? [code, item.episode_name].filter(Boolean).join(' · ') : item.release_type ? releaseName[item.release_type] : ''
   const when = whenLine(item, today, now)
+  const chips = <SlotChips chips={entryChips(item, queue)} max={4} wrap label={`${item.title} Slots`} />
   const at = airTime(item)
   const name = (
     <>
@@ -55,7 +53,7 @@ export function AgendaRow({ item, queue, today, now, current, index, onOpen, onS
         <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="xs" />
         <div className="pointer-events-none flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="label-14 truncate">{name}</span>
-          <StatusMark status={status} className="label-12" />
+          <span className="pointer-events-none">{chips}</span>
         </div>
         {at && <span className="label-12 pointer-events-none tabular-nums text-gray-900">{at}</span>}
       </li>
@@ -69,18 +67,11 @@ export function AgendaRow({ item, queue, today, now, current, index, onOpen, onS
         <span className="label-14 truncate">{name}</span>
         <span className="label-12 flex flex-wrap items-center gap-1.5 text-gray-900">
           {when && <span>{when}</span>}
-          {item.slots.map((s) => (
-            <span key={s.slot} className="inline-flex h-5 items-center rounded-sm bg-gray-100 px-1.5 whitespace-nowrap text-gray-1000">
-              {slotName(s.slot)}
-            </span>
-          ))}
           <Markers markers={item.markers} />
         </span>
       </div>
       <div className="relative flex items-center gap-2">
-        <span className="pointer-events-none">
-          <StatusMark status={status} />
-        </span>
+        <span className="pointer-events-none">{chips}</span>
         {status.wanted.length > 0 && status.kind === 'missing' && (
           <Button variant="tertiary" size="tiny" aria-label={`Search now for ${item.title} ${what}`} onClick={() => onSearch(status.wanted)}>
             Search now

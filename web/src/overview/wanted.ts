@@ -3,7 +3,6 @@
 import type { TitleRow } from '../api/queries'
 import type { components } from '../api/schema.gen'
 import { plural } from '../format'
-import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
 import { foundText } from '../library/WantedLine'
 import { until } from '../time'
 
@@ -14,7 +13,7 @@ export type WantedItem = {
   titleId: number
   title: string
   hasPoster: boolean
-  slot: SlotKey
+  slot: string
   /** A Series' Wanted episodes, null for a Movie. */
   episodes: number | null
   longMissing: boolean
@@ -25,34 +24,34 @@ export type WantedItem = {
   nextSearchAt: string | null
 }
 
-/** Every Wanted Version of the rows, Long Missing first, then the longest Wanted; the same Title's Slots keep Standard first. */
+/** Every Wanted Version of the rows, Long Missing first, then the longest Wanted; the same Title's Slots keep their order. */
 export function wantedVersions(rows: TitleRow[]): WantedItem[] {
   const items = rows.flatMap((r) =>
-    slotKeys.flatMap((slot) => {
-      const s = r.slots[slot]
-      if (!s || s.state !== 'wanted') return []
-      return [
-        {
-          versionId: s.version_id,
-          titleId: r.id,
-          title: r.title,
-          hasPoster: r.has_poster,
-          slot,
-          episodes: r.kind === 'series' ? (r.wanted_episodes?.wanted ?? null) : null,
-          longMissing: s.long_missing,
-          since: r.wanted_since,
-          lastSearch: s.last_search ?? null,
-          nextSearchAt: s.next_search_at ?? null,
-        },
-      ]
-    }),
+    r.slot_states.flatMap((s) =>
+      s.state !== 'wanted'
+        ? []
+        : [
+            {
+              versionId: s.version_id,
+              titleId: r.id,
+              title: r.title,
+              hasPoster: r.has_poster,
+              slot: s.slot as string,
+              episodes: r.kind === 'series' ? (r.wanted_episodes?.wanted ?? null) : null,
+              longMissing: s.long_missing,
+              since: r.wanted_since,
+              lastSearch: s.last_search ?? null,
+              nextSearchAt: s.next_search_at ?? null,
+            },
+          ],
+    ),
   )
   const t = (i: WantedItem) => (i.since ? Date.parse(i.since) : Infinity)
   return items.sort((a, b) => Number(b.longMissing) - Number(a.longMissing) || t(a) - t(b))
 }
 
-/** "4K", or "4K · 3 episodes" for a Series. */
-export const wantedWhat = (i: WantedItem) => [slotLabel[i.slot], i.episodes ? plural(i.episodes, 'episode') : null].filter(Boolean).join(' · ')
+/** "3 episodes" for a Series, nothing for a Movie: the Slot is the row's chip. */
+export const wantedWhat = (i: WantedItem) => (i.episodes ? plural(i.episodes, 'episode') : '')
 
 /**
  * "Long Missing · 100 days · 23 releases, all German only", "Wanted 3 days · nothing found yet", "Wanted 2 days · next search in

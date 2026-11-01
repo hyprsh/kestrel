@@ -29,7 +29,7 @@ describe('Overview', () => {
     expect(row).toHaveTextContent('75% · 2 min')
     // The release name, byte counts and Slot are on Activity.
     expect(row).not.toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
-    expect(row).toHaveTextContent('Paddington Standard') // the Slot after the Title, for a Movie
+    expect(within(row).getByRole('img', { name: 'Standard: Downloading 75%' })).toBeInTheDocument() // the Slot's chip, for a Movie
     expect(within(row).queryByText('Upgrade')).not.toBeInTheDocument()
   })
 

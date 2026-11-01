@@ -6,6 +6,8 @@ import { passResult, phaseOf, whereOf } from '../activity/SearchProgress'
 import { useSearchNow } from '../api/grabs'
 import type { SearchStatus } from '../api/search'
 import { NowCard, NowEmpty, NowList, NowRow, NowSub } from '../layout/NowCard'
+import { SlotTag } from '../library/SlotChip'
+import { slotName } from '../library/slots'
 import { TitlePoster } from '../poster'
 import { placePath, useOpenPlace } from '../place'
 import { useReport } from '../toasts'
@@ -117,7 +119,7 @@ function FinishedRow({ pass, onDismiss, nav, index }: { pass: LastPass; onDismis
 function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; now: number; nav: OverviewNav; index: number; onOpenTitle: (id: number) => void }) {
   const search = useSearchNow()
   const report = useReport()
-  const label = item.slot === '4k' ? `${item.title} 4K` : item.title
+  const label = item.slot === 'standard' ? item.title : `${item.title} ${slotName(item.slot)}`
   return (
     <NowRow
       navIndex={index}
@@ -126,6 +128,8 @@ function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; n
       onOpen={() => onOpenTitle(item.titleId)}
       lead={<TitlePoster id={item.titleId} hasPoster={item.hasPoster} size="xs" />}
       right={
+        <span className="flex items-center gap-2">
+        <SlotTag slot={item.slot} state="wanted" longMissing={item.longMissing} />
         <Button
           svgOnly
           variant="tertiary"
@@ -136,6 +140,7 @@ function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; n
         >
           <Icon name="search" />
         </Button>
+        </span>
       }
     >
       <span className="label-14 min-w-0 truncate">

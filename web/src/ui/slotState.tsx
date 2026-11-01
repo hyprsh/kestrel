@@ -30,8 +30,9 @@ export const stateName: Record<SlotDotState, string> = {
   unmonitored: 'Not monitored',
 }
 
-export function StateDot({ state, className = '' }: { state: string | null; className?: string }) {
-  return <span aria-hidden data-state={state ?? 'none'} className={`inline-block size-2 shrink-0 rounded-full ${dots[state && state in dots ? (state as SlotDotState) : state ? 'unmonitored' : 'none']} ${className}`} />
+/** The dot of a state (null: no Version). `className` replaces the size, `size-2`. */
+export function StateDot({ state, className = 'size-2' }: { state: string | null; className?: string }) {
+  return <span aria-hidden data-state={state ?? 'none'} className={`inline-block shrink-0 rounded-full ${dots[state && state in dots ? (state as SlotDotState) : state ? 'unmonitored' : 'none']} ${className}`} />
 }
 
 const legendOrder: SlotDotState[] = ['filled', 'downloading', 'wanted', 'long_missing', 'unreleased', 'upgrade', 'unmonitored']

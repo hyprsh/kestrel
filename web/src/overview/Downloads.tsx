@@ -7,7 +7,7 @@ import { percent } from '../format'
 import { phases } from '../grabs/phase'
 import { NowCard, NowEmpty, NowList, NowRow } from '../layout/NowCard'
 import { SkeletonRows } from '../loading'
-import { slotLabel } from '../library/bits'
+import { SlotTag } from '../library/SlotChip'
 import { TitlePoster } from '../poster'
 import { cx } from '../ui'
 import { useOpenPlace } from '../place'
@@ -73,14 +73,17 @@ export function DownloadingCard({
                 onOpen={() => g.title_id != null && onOpenTitle(g.title_id)}
                 lead={g.title_id != null ? <TitlePoster id={g.title_id} hasPoster={g.has_poster} size="xs" /> : undefined}
                 right={
-                  <DotsMenu aria-label={`Actions for ${name}`} disabled={busy}>
-                    <MenuItem onClick={() => onCancel(g.grab_id, false)}>Cancel</MenuItem>
-                    <MenuItem onClick={() => onCancel(g.grab_id, true)}>Cancel and blocklist</MenuItem>
-                  </DotsMenu>
+                  <span className="flex items-center gap-2">
+                    {g.slot && <SlotTag slot={g.slot} state={g.is_upgrade ? 'filled' : 'downloading'} text={pct !== null ? `${pct}%` : undefined} />}
+                    <DotsMenu aria-label={`Actions for ${name}`} disabled={busy}>
+                      <MenuItem onClick={() => onCancel(g.grab_id, false)}>Cancel</MenuItem>
+                      <MenuItem onClick={() => onCancel(g.grab_id, true)}>Cancel and blocklist</MenuItem>
+                    </DotsMenu>
+                  </span>
                 }
               >
                 <span className="label-14 min-w-0 truncate">
-                  <b className="font-medium">{name}</b> <span className="text-gray-900">{g.episodes.length > 0 ? g.episodes.join(', ') : g.slot && slotLabel[g.slot]}</span>
+                  <b className="font-medium">{name}</b> <span className="text-gray-900">{g.episodes.join(', ')}</span>
                 </span>
                 <span className="flex items-center gap-2.5">
                   {pct !== null && <Progress value={pct} type={importing ? 'warning' : 'success'} height={4} aria-label={`${name} progress`} className="min-w-0 flex-1" />}

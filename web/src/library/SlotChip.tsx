@@ -5,7 +5,8 @@
 // puts a popover on it with just that Slot (its file, its search, its download or its monitoring).
 import { Button, Popover } from '@hyprsh/design'
 import type { ReactElement } from 'react'
-import { StateDot } from '../ui/slotState'
+import { StateDot, stateName, dotState } from '../ui/slotState'
+import { slotName, slotShort } from './slots'
 
 export { StateDot }
 
@@ -119,3 +120,13 @@ export function SlotChips({
 
 /** "Wanted 7 d" and so on: what a state is called in a tooltip. */
 export const stateWord: Record<string, string> = { filled: 'Have', wanted: 'Wanted', downloading: 'Downloading', unreleased: 'Not aired', unmonitored: 'Not monitored' }
+
+/**
+ * One Slot's chip outside a list of them (a Grab, a Request, an entry of the Overview): the Slot's short label, `text` after it
+ * ("40%"), and a dot in `state`. Its tooltip reads "Standard: Have". `longMissing` draws a Wanted Slot as Long Missing.
+ */
+export function SlotTag({ slot, state, longMissing = false, text, tip }: { slot: string; state: string | null; longMissing?: boolean; text?: string; tip?: string }) {
+  const dot = dotState(state, longMissing)
+  const name = slotName(slot)
+  return <SlotChip chip={{ key: slot, short: slotShort(slot), state: dot, text, tip: tip ?? `${name}: ${dot ? stateName[dot] : 'no Version'}${text ? ` ${text}` : ''}` }} />
+}
