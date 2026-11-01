@@ -62,7 +62,8 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
     hasPoster: item.has_poster,
     name: item.title,
     line: comingLine(item),
-    right: <SlotChips chips={entryChips(item, queue)} max={3} label={`${item.title} Slots`} />,
+    // An entry that is not out yet has nothing to say in a chip: every Slot would be Not out yet.
+    right: item.slots.every((s) => s.state === 'not_out') ? undefined : <SlotChips chips={entryChips(item, queue)} max={3} label={`${item.title} Slots`} />,
   }))
   return (
     <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined} action={all.length > 0 ? <HeadingLink path="/upcoming" label="Upcoming" /> : undefined}>
