@@ -83,7 +83,7 @@ export function MonthView({
               key={day}
               data-day={day}
               data-out={out || undefined}
-              className={cx('box-border flex min-h-[132px] min-w-0 flex-col gap-1 border-r border-b border-gray-alpha-200 p-2 [&:nth-child(7n)]:border-r-0', out && 'bg-background-200')}
+              className={cx('box-border flex min-h-[132px] min-w-0 flex-col gap-1 border-r border-b border-gray-alpha-200 p-1.5 [&:nth-child(7n)]:border-r-0', out && 'bg-background-200')}
             >
               <button
                 type="button"
@@ -107,7 +107,7 @@ export function MonthView({
                     title={tip}
                     aria-label={tip}
                     onClick={() => onOpenTitle(item.title_id)}
-                    className="label-12 flex min-w-0 items-center gap-1.5 rounded-sm bg-gray-100 px-1.5 py-0.5 text-left hover:bg-gray-200"
+                    className="label-12 flex min-w-0 items-center gap-1 rounded-sm bg-gray-100 px-1 py-0.5 text-left hover:bg-gray-200"
                   >
                     <StatusDot kind={status.kind} className="size-1.5" />
                     <span className="truncate">{label}</span>
@@ -115,7 +115,7 @@ export function MonthView({
                 )
               })}
               {all.length > PILLS && (
-                <button type="button" onClick={() => onDay(day)} className="label-12 self-start px-1.5 text-gray-900 hover:text-gray-1000">
+                <button type="button" onClick={() => onDay(day)} className="label-12 self-start px-1 text-gray-900 hover:text-gray-1000">
                   {`+${all.length - PILLS} more`}
                 </button>
               )}
