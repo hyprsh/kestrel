@@ -39,6 +39,9 @@ func (s *server) ListQueue(ctx context.Context, _ oapi.ListQueueRequestObject) (
 			secs := int(a.ETA.Seconds())
 			it.Eta = &secs
 		}
+		if a.Phase == acquire.PhaseDownloading && a.BytesPerSecond > 0 {
+			it.BytesPerSecond = &a.BytesPerSecond
+		}
 		if v := about.version; a.IsUpgrade && v != nil && v.File != nil && v.File.Score != nil {
 			delta := a.Score - *v.File.Score
 			it.ScoreDelta = &delta

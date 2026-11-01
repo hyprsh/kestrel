@@ -2500,6 +2500,9 @@ type Display struct {
 
 // DownloadClientLive defines model for DownloadClientLive.
 type DownloadClientLive struct {
+	// BytesPerSecond The client's overall download speed now; `null` when the call failed or the client does not say.
+	BytesPerSecond *int64 `json:"bytes_per_second,omitempty"`
+
 	// CheckedAt When the call was made.
 	CheckedAt time.Time `json:"checked_at"`
 
@@ -3662,8 +3665,11 @@ type ProfileScoring struct {
 
 // QueueItem defines model for QueueItem.
 type QueueItem struct {
-	BytesLeft  int64 `json:"bytes_left"`
-	BytesTotal int64 `json:"bytes_total"`
+	BytesLeft int64 `json:"bytes_left"`
+
+	// BytesPerSecond How fast the client is downloading it now; null when it is not downloading or the client does not say.
+	BytesPerSecond *int64 `json:"bytes_per_second,omitempty"`
+	BytesTotal     int64  `json:"bytes_total"`
 
 	// Episodes The episodes a Series Grab covers (`S01E02`); empty for a Movie.
 	Episodes []string `json:"episodes"`
@@ -4472,6 +4478,9 @@ type StatsDownloadClient struct {
 
 	// Completed Downloads that finished in the range.
 	Completed int `json:"completed"`
+
+	// CurrentBytesPerSecond What the client downloads at right now (the sum over the active downloads); null when none is downloading or the client does not say.
+	CurrentBytesPerSecond *int64 `json:"current_bytes_per_second"`
 
 	// Failed Grabs the client reported failed (a bad or encrypted download).
 	Failed                int  `json:"failed"`

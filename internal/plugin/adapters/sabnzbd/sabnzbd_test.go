@@ -153,6 +153,14 @@ func TestListMapsQueueAndHistoryFixtures(t *testing.T) {
 	if dl.BytesTotal != 20480*1024*1024 || dl.BytesLeft != int64(5120.5*1024*1024) || dl.ETA != time.Hour+2*time.Minute+3*time.Second {
 		t.Errorf("progress %+v", dl)
 	}
+	if dl.BytesPerSecond != 28*1024*1024+512 {
+		t.Errorf("the working job gets the queue's kbpersec: %d B/s", dl.BytesPerSecond)
+	}
+	for _, id := range []string{"SABnzbd_nzo_q1", "SABnzbd_nzo_p1", "SABnzbd_nzo_done1"} {
+		if got[id].BytesPerSecond != 0 {
+			t.Errorf("%s is not downloading but has a speed: %d", id, got[id].BytesPerSecond)
+		}
+	}
 	check("SABnzbd_nzo_q1", downloadclient.PhaseQueued, "")
 	check("SABnzbd_nzo_p1", downloadclient.PhasePaused, "")
 	check("SABnzbd_nzo_pr1", downloadclient.PhaseQueued, "")
@@ -479,7 +487,7 @@ func TestStatusCountsTheQueueAndReadsVersionAndFreeSpace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Version != "4.5.1" || st.Downloading != 2 || st.Queued != 4 || st.FreeBytes != nil {
+	if st.Version != "4.5.1" || st.Downloading != 2 || st.Queued != 4 || st.FreeBytes != nil || st.BytesPerSecond != 28*1024*1024+512 {
 		t.Fatalf("%+v free=%v", st, st.FreeBytes)
 	}
 
@@ -521,3 +529,30 @@ func TestTestReportsTheVersion(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func TestListReadsTheQueueSpeedBeforeTheCategoryFilter(t *testing.T) {
+	// The movie job is the one SABnzbd is working on, so the series job, asked for
+	// alone, is not given its speed.
+	srv := serveFixtures(t, nil)
+	items, err := sabnzbd.New(nil).List(ctx(), srv.conn(key), "tv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, it := range items {
+		if it.ClientID == "SABnzbd_nzo_tv1" && it.BytesPerSecond != 0 {
+			t.Errorf("tv job given the movie job's speed: %d", it.BytesPerSecond)
+		}
+	}
+	bad := map[string]func(http.ResponseWriter, *http.Request){
+		"queue": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"queue":{"kbpersec":"n/a","slots":[{"nzo_id":"a","filename":"A","cat":"tv","status":"Downloading","mb":"10","mbleft":"5","timeleft":"0:00:10"}]}}`))
+		},
+	}
+	items, err = sabnzbd.New(nil).List(ctx(), serveFixtures(t, bad).conn(key), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if items[0].BytesPerSecond != 0 {
+		t.Errorf("an unreadable speed is 0, got %d", items[0].BytesPerSecond)
+	}
+}

@@ -92,6 +92,9 @@ func (s *server) liveClient(ctx context.Context, inst instances.Instance, now ti
 		live.Version = &st.Version
 	}
 	live.Downloading, live.Queued, live.FreeBytes = &st.Downloading, &st.Queued, st.FreeBytes
+	if st.BytesPerSecond > 0 {
+		live.BytesPerSecond = &st.BytesPerSecond
+	}
 	return live
 }
 

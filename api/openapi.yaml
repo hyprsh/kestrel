@@ -3891,6 +3891,11 @@ components:
           format: int64
           nullable: true
           description: Free space where the client downloads to. `null` when the client does not say.
+        bytes_per_second:
+          type: integer
+          format: int64
+          nullable: true
+          description: The client's overall download speed now; `null` when the call failed or the client does not say.
     IndexerGrabs:
       type: object
       required: [instance_id, grabs_30d]
@@ -6510,7 +6515,7 @@ components:
         median_answer_ms: {type: integer, format: int64, nullable: true}
     StatsDownloadClient:
       type: object
-      required: [name, state, completed, failed, avg_bytes_per_second, median_download_seconds, speed_per_day]
+      required: [name, state, completed, failed, avg_bytes_per_second, current_bytes_per_second, median_download_seconds, speed_per_day]
       properties:
         name: {type: string, nullable: true, description: Null without an enabled download client.}
         state:
@@ -6520,6 +6525,7 @@ components:
         completed: {type: integer, description: Downloads that finished in the range.}
         failed: {type: integer, description: Grabs the client reported failed (a bad or encrypted download).}
         avg_bytes_per_second: {type: number, format: double, nullable: true}
+        current_bytes_per_second: {type: integer, format: int64, nullable: true, description: "What the client downloads at right now (the sum over the active downloads); null when none is downloading or the client does not say."}
         median_download_seconds: {type: integer, nullable: true}
         speed_per_day:
           type: array
@@ -7000,6 +7006,11 @@ components:
           type: integer
           nullable: true
           description: Seconds left, null when the client does not know.
+        bytes_per_second:
+          type: integer
+          format: int64
+          nullable: true
+          description: How fast the client is downloading it now; null when it is not downloading or the client does not say.
         is_upgrade:
           type: boolean
         score_delta:

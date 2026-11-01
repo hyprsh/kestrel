@@ -161,7 +161,7 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 		live := Live{Phase: PhaseImporting, BytesTotal: it.BytesTotal}
 		if state != "completed" {
 			res.Active = true
-			live = Live{Phase: phaseOfItem(it.Phase), BytesTotal: it.BytesTotal, BytesLeft: it.BytesLeft, ETA: it.ETA}
+			live = Live{Phase: phaseOfItem(it.Phase), BytesTotal: it.BytesTotal, BytesLeft: it.BytesLeft, ETA: it.ETA, BytesPerSecond: it.BytesPerSecond}
 		}
 		// A phase first seen now began at the Grab's last change of state when that state
 		// already meant it (queued since the send, downloading since before a restart).

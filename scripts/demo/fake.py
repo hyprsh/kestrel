@@ -23,7 +23,7 @@ What it knows (MOVIES and SERIES below):
   episode after the last listed one of the season asked for (Placeholder Episodes,
   episode_not_listed) and the season after the last (season_not_listed), as a pack and an
   episode 1. It needs releases on, and with it off the indexer offers exactly what it did.
-- SABnzbd accepts every NZB into a queue at 40 %; nothing ever completes. GET /_ctl?paused=1
+- SABnzbd accepts every NZB into a queue at 40 %, downloading at 28 MB/s (its queue's kbpersec); nothing ever completes. GET /_ctl?paused=1
   (=0 resumes) reports every queued job as Paused, which Kestrel counts as a Stuck download at once.
 - plex.tv (/plextv, KESTREL_PLEX_TV_URL) knows the owner (token DEMO_OWNER_TOKEN, the one
   seeded into the Plex instance) and Ellie, a friend whose share includes the Plex server
@@ -616,7 +616,9 @@ class H(WatchlistStandIn, BaseHTTPRequestHandler):
                 STATE["queue"] = [s for s in STATE["queue"] if s["nzo_id"] != qs.get("value", [""])[0]]
                 return self.send(200, {"status": True})
             slots = [dict(s, status="Paused") for s in STATE["queue"]] if STATE["paused"] else STATE["queue"]
-            return self.send(200, {"queue": {"version": "4.5.1", "paused": False, "slots": slots}})
+            # kbpersec is the queue's speed (27344 KB/s is about 28 MB/s); a paused queue moves nothing.
+            return self.send(200, {"queue": {"version": "4.5.1", "paused": False, "slots": slots,
+                                             "kbpersec": "0.00" if STATE["paused"] or not slots else "27344.00"}})
         if mode == "history":
             if qs.get("name", [""])[0] == "delete":
                 return self.send(200, {"status": True})

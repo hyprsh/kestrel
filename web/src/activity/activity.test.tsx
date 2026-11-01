@@ -210,6 +210,14 @@ describe('Activity', () => {
     expect(within(row).getByRole('progressbar')).toBeInTheDocument()
   })
 
+  it('shows the speed the client reports in place of the one the ETA implies', async () => {
+    fakeQueue([queueItem({ phase: 'downloading', bytes_total: 8 * 1024 ** 3, bytes_left: 600 * 1024 ** 2, eta: 60, bytes_per_second: 28_000_000 })])
+    await openActivity()
+
+    const row = within(await screen.findByRole('region', { name: 'In progress' })).getByRole('listitem')
+    expect(row).toHaveTextContent('Downloading · 93% · 1 min · 28 MB/s')
+  })
+
   it('keeps the Views out of the Filter menu on a desktop: it refines by Kind and Slot, never lists Titles, and its badge counts only those', async () => {
     fakeQueue([queueItem({ grab_id: 1, phase: 'downloading' })])
     fakeGrabs([grabEntry({ grab_id: 7, state: 'imported' }), grabEntry({ grab_id: 8, state: 'failed', failure: 'download_failed' })])

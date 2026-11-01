@@ -35,7 +35,7 @@ export function ClientCard({ stats }: { stats: Stats }) {
         state && (
           <span className="label-12 inline-flex items-center gap-1.5 text-gray-900">
             <Swatch round className={c.state === 'ok' ? mark.imported : mark.failed} />
-            {state}
+            {c.state === 'ok' && c.current_bytes_per_second ? `${state} · ${speedText(c.current_bytes_per_second)} now` : state}
           </span>
         )
       }

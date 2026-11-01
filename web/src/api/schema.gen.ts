@@ -2889,6 +2889,11 @@ export interface components {
              * @description Free space where the client downloads to. `null` when the client does not say.
              */
             free_bytes: number | null;
+            /**
+             * Format: int64
+             * @description The client's overall download speed now; `null` when the call failed or the client does not say.
+             */
+            bytes_per_second?: number | null;
         };
         IndexerGrabs: {
             /** Format: int64 */
@@ -4615,6 +4620,11 @@ export interface components {
             failed: number;
             /** Format: double */
             avg_bytes_per_second: number | null;
+            /**
+             * Format: int64
+             * @description What the client downloads at right now (the sum over the active downloads); null when none is downloading or the client does not say.
+             */
+            current_bytes_per_second: number | null;
             median_download_seconds: number | null;
             /** @description The last 14 days, oldest first. */
             speed_per_day: components["schemas"]["StatsSpeedDay"][];
@@ -4956,6 +4966,11 @@ export interface components {
             bytes_left: number;
             /** @description Seconds left, null when the client does not know. */
             eta: number | null;
+            /**
+             * Format: int64
+             * @description How fast the client is downloading it now; null when it is not downloading or the client does not say.
+             */
+            bytes_per_second?: number | null;
             is_upgrade: boolean;
             /** @description For an Upgrade, how many points the Release scores above the file it replaces. */
             score_delta: number | null;

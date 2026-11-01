@@ -6,6 +6,7 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
@@ -138,6 +139,18 @@ func (s *server) statsClient(ctx context.Context, c stats.Client) (oapi.StatsDow
 	}
 	for _, d := range c.SpeedPerDay {
 		out.SpeedPerDay = append(out.SpeedPerDay, oapi.StatsSpeedDay{Day: openapi_types.Date{Time: d.Day}, BytesPerSecond: d.BytesPerSecond})
+	}
+	// The speed now is the sum of what the client says for each active download.
+	if active, err := s.acquire.Active(ctx); err == nil {
+		var now int64
+		for _, a := range active {
+			if a.Phase == acquire.PhaseDownloading {
+				now += a.BytesPerSecond
+			}
+		}
+		if now > 0 {
+			out.CurrentBytesPerSecond = &now
+		}
 	}
 	clients, err := s.plugins.Enabled(ctx, downloadclient.Contract.ID)
 	if err != nil {

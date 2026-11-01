@@ -2,6 +2,7 @@
 import type { GrabEntry } from '../api/activity'
 import type { QueueItem } from '../api/queue'
 import { size } from '../library/bits'
+import { speedText } from '../overview/statsText'
 import { slotLabel, type SlotKey } from '../library/bits'
 import { span } from '../time'
 
@@ -27,9 +28,11 @@ export function whyFailed(g: Pick<GrabEntry, 'failure' | 'blocklist_reason'>): s
 /** The short reason for the Result column; the same words, cut where the Blocklist note starts. */
 export const shortWhy = (g: Pick<GrabEntry, 'failure'>) => (g.failure ? (failureText[g.failure] ?? g.failure) : 'it failed')
 
-/** The download speed the client's ETA implies, or null when it has not said. */
+/** The download speed: what the client reports, else the one its ETA implies, or null when it has said neither. */
 export function speed(i: QueueItem): string | null {
-  if (i.phase !== 'downloading' || !i.eta || i.bytes_left <= 0) return null
+  if (i.phase !== 'downloading') return null
+  if (i.bytes_per_second) return speedText(i.bytes_per_second)
+  if (!i.eta || i.bytes_left <= 0) return null
   return `${size(i.bytes_left / i.eta)}/s`
 }
 

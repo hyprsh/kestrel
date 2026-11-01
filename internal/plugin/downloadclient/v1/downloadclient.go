@@ -53,6 +53,9 @@ type Status struct {
 	Queued int `json:"queued"`
 	// FreeBytes is the free space where the client downloads to; nil when unknown.
 	FreeBytes *int64 `json:"free_bytes"`
+	// BytesPerSecond is the client's overall download speed right now, 0 when idle or
+	// when the client does not say.
+	BytesPerSecond int64 `json:"bytes_per_second"`
 }
 
 // PayloadKind says what AddRequest.Data holds.
@@ -113,6 +116,10 @@ type Item struct {
 	BytesLeft  int64 `json:"bytes_left"`
 	// ETA is 0 when unknown.
 	ETA time.Duration `json:"eta"`
+	// BytesPerSecond is how fast this job is downloading right now; 0 when it is not
+	// downloading or the client does not say. A client that reports one overall speed
+	// gives it to the job it is working on.
+	BytesPerSecond int64 `json:"bytes_per_second"`
 	// OutputPath is where the finished files are, set when Phase is completed.
 	OutputPath string `json:"output_path"`
 	// Seeding is true while a torrent keeps uploading after completion.

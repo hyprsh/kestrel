@@ -196,7 +196,7 @@ describe('the download client', () => {
 
     const card = await screen.findByRole('region', { name: 'Download client' })
     expect(card).toHaveTextContent('SABnzbd')
-    expect(card).toHaveTextContent('Connected')
+    expect(card).toHaveTextContent('Connected · 29 MB/s now')
     expect(card).toHaveTextContent('24 MB/saverage speed')
     expect(card).toHaveTextContent('9 minmedian download')
     expect(card).toHaveTextContent('64completed')

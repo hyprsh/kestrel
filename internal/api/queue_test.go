@@ -24,6 +24,7 @@ type queueItemJSON struct {
 	BytesTotal  int64    `json:"bytes_total"`
 	BytesLeft   int64    `json:"bytes_left"`
 	ETA         *int     `json:"eta"`
+	Speed       *int64   `json:"bytes_per_second"`
 	IsUpgrade   bool     `json:"is_upgrade"`
 	ScoreDelta  *int     `json:"score_delta"`
 }
@@ -96,6 +97,9 @@ func TestAddingAMovieGrabsTheBestReleaseAndFollowsItToCompleted(t *testing.T) {
 	if err := s.sab.SetPhase(id, downloadclient.PhaseDownloading, 250); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.sab.SetSpeed(id, 29_360_640); err != nil {
+		t.Fatal(err)
+	}
 	s.pass(t, jobs.Poll)
 
 	var now queueItemJSON
@@ -106,6 +110,21 @@ func TestAddingAMovieGrabsTheBestReleaseAndFollowsItToCompleted(t *testing.T) {
 	}
 	if now.Phase != "downloading" || now.BytesTotal != 1000 || now.BytesLeft != 250 {
 		t.Errorf("after progress: %+v", now)
+	}
+	if now.Speed == nil || *now.Speed != 29_360_640 {
+		t.Errorf("a downloading Grab carries the client's speed, got %v", now.Speed)
+	}
+	if hd.Speed != nil {
+		t.Errorf("a queued Grab has no speed, got %v", *hd.Speed)
+	}
+	// The Overview's client card gets the same speed as the sum over the active downloads.
+	st := decode[struct {
+		Client struct {
+			Now *int64 `json:"current_bytes_per_second"`
+		} `json:"download_client"`
+	}](t, s.valid("GET", "/stats", ""))
+	if st.Client.Now == nil || *st.Client.Now != 29_360_640 {
+		t.Errorf("stats current speed = %v, want 29360640", st.Client.Now)
 	}
 	if got := s.grabState(t, hd.GrabID); got != "downloading" {
 		t.Errorf("state = %s, want downloading", got)

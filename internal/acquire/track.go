@@ -42,6 +42,8 @@ type Live struct {
 	BytesLeft  int64
 	// ETA is 0 when the client does not know.
 	ETA time.Duration
+	// BytesPerSecond is the client's speed for this job; 0 when it does not say.
+	BytesPerSecond int64
 	// Since is when the Grab entered Phase, as far as this process saw it.
 	Since time.Time
 	// ProgressAt is when BytesLeft last fell, or when this process first saw

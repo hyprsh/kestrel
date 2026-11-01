@@ -103,12 +103,14 @@ func (c *Client) Status(ctx context.Context, conn plugin.Connection) (downloadcl
 			Slots     []queueSlot `json:"slots"`
 			Disk1     string      `json:"diskspace1"`
 			Disk1Norm string      `json:"diskspace1_norm"`
+			KBPerSec  string      `json:"kbpersec"`
 		} `json:"queue"`
 	}
 	if err := c.call(ctx, conn, "queue", url.Values{"start": {"0"}, "limit": {"0"}}, &q); err != nil {
 		return downloadclient.Status{}, err
 	}
-	st := downloadclient.Status{Version: v.Version, FreeBytes: freeBytes(q.Queue.Disk1Norm, q.Queue.Disk1)}
+	st := downloadclient.Status{Version: v.Version, FreeBytes: freeBytes(q.Queue.Disk1Norm, q.Queue.Disk1),
+		BytesPerSecond: kbToBytes(q.Queue.KBPerSec)}
 	for _, s := range q.Queue.Slots {
 		if s.Status == "Downloading" {
 			st.Downloading++
@@ -228,6 +230,8 @@ func (c *Client) List(ctx context.Context, conn plugin.Connection, category stri
 	var queue struct {
 		Queue struct {
 			Slots []queueSlot `json:"slots"`
+			// KBPerSec is the queue's overall speed; SABnzbd gives no speed per slot.
+			KBPerSec string `json:"kbpersec"`
 		} `json:"queue"`
 	}
 	qq := cloneValues(q)
@@ -247,9 +251,17 @@ func (c *Client) List(ctx context.Context, conn plugin.Connection, category stri
 	}
 
 	items := []downloadclient.Item{}
+	// SABnzbd downloads one job at a time, the first Downloading slot, so the queue's
+	// speed is that job's. It is the whole queue's speed, so it is read before the
+	// category filter drops the other categories' slots.
+	speed, speedGiven := kbToBytes(queue.Queue.KBPerSec), false
 	for _, s := range queue.Queue.Slots {
+		it := s.item()
+		if it.Phase == downloadclient.PhaseDownloading && !speedGiven {
+			it.BytesPerSecond, speedGiven = speed, true
+		}
 		if category == "" || s.Cat == category {
-			items = append(items, s.item())
+			items = append(items, it)
 		}
 	}
 	for _, s := range hist.History.Slots {
@@ -365,6 +377,15 @@ func (s historySlot) item() downloadclient.Item {
 		it.Phase = downloadclient.PhasePostProcessing
 	}
 	return it
+}
+
+// kbToBytes reads SABnzbd's kbpersec ("28672.5" KB/s) as bytes per second; 0 when unreadable.
+func kbToBytes(s string) int64 {
+	f, err := strconv.ParseFloat(strings.ReplaceAll(s, ",", ""), 64)
+	if err != nil || f < 0 {
+		return 0
+	}
+	return int64(f * 1024)
 }
 
 func mbToBytes(s string) int64 {
