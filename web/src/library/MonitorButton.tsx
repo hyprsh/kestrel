@@ -16,8 +16,8 @@ import { useReport } from '../toasts'
 const on = { background: 'var(--green-100)', color: 'var(--green-900)', boxShadow: 'inset 0 0 0 1px var(--green-400)' }
 const off = { background: 'var(--background-100)', color: 'var(--gray-900)', boxShadow: 'inset 0 0 0 1px var(--gray-alpha-400)' }
 
-/** A switch item says its state with its Toggle: the menu's own check mark (still the item's `checked` for a screen reader) is hidden. */
-const noCheck = '[&_.hy-menu__check]:hidden'
+/** A switch item says its state with its Toggle: the menu's own check mark (still the item's `checked` for a screen reader) is hidden (kept as a gap, so the labels line up with the modes above). */
+const noCheck = '[&_.hy-glyph]:invisible!'
 
 /** The choices of a Series' mode: the words of the menu, the button's tail and the line under the title. */
 const seriesModes: { value: SeriesMonitor; label: string; description: string; tail: string }[] = [
