@@ -33,44 +33,56 @@ describe('Settings jump list', () => {
     Element.prototype.scrollIntoView = scrollIntoView
   })
 
-  it('keeps Settings open and focuses the section when a section link is clicked', async () => {
+  it('keeps Settings open and focuses the page when a page link is clicked', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
-    await userEvent.click(within(jump).getByRole('link', { name: 'TRaSH' }))
+    await userEvent.click(within(jump).getByRole('link', { name: 'Profiles' }))
 
     expect(location.pathname).toBe('/settings')
-    expect(location.hash).toBe('#settings-trash')
+    expect(location.hash).toBe('#settings-profiles')
     expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'TRaSH' })).toHaveFocus()
+    expect(screen.getByRole('heading', { name: 'Profiles', level: 2 })).toHaveFocus()
+    expect(screen.getByRole('region', { name: 'TRaSH' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Display' })).not.toBeInTheDocument()
   })
 
-  it('has Plex and Reverse proxy links that jump to their own sections', async () => {
+  it('has Security & Access and Media servers pages holding their old sections', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
 
-    await userEvent.click(within(jump).getByRole('link', { name: 'Plex' }))
-    expect(location.hash).toBe('#settings-plex')
-    expect(screen.getByRole('heading', { name: 'Plex', level: 2 })).toHaveFocus()
+    await userEvent.click(within(jump).getByRole('link', { name: 'Security & Access' }))
+    expect(location.hash).toBe('#settings-access')
+    expect(screen.getByRole('heading', { name: 'Security & Access', level: 2 })).toHaveFocus()
     expect(screen.getByRole('heading', { name: 'Plex sign-in' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Reverse proxy' })).toBeInTheDocument()
 
-    await userEvent.click(within(jump).getByRole('link', { name: 'Reverse proxy' }))
-    expect(location.hash).toBe('#settings-reverse-proxy')
-    expect(screen.getByRole('heading', { name: 'Reverse proxy', level: 2 })).toHaveFocus()
+    await userEvent.click(within(jump).getByRole('link', { name: 'Media servers' }))
+    expect(screen.getByRole('region', { name: 'Silo' })).toBeInTheDocument()
   })
 
-  it('opens the first section, groups the list and finds a setting by its row', async () => {
+  it('opens an old section id from the address on the page that holds it, and scrolls to it', async () => {
+    history.replaceState(null, '', '/settings#settings-reverse-proxy')
+    renderApp()
+    expect(await screen.findByRole('heading', { name: 'Security & Access', level: 2 })).toBeInTheDocument()
+    await vi.waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled())
+    history.replaceState(null, '', '/')
+  })
+
+  it('opens the first page, groups the list and finds a setting by its row or sub-section', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
-    expect(within(jump).getByRole('link', { name: 'Primary Language' })).toHaveAttribute('aria-current', 'true')
+    expect(within(jump).getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'true')
     expect(within(jump).getByRole('region', { name: 'Connections' })).toBeInTheDocument()
 
     await userEvent.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'api key{Enter}')
     expect(location.hash).toBe('#settings-security')
     expect(await screen.findByRole('heading', { name: 'API key' })).toBeInTheDocument()
     expect(screen.getByRole('searchbox', { name: 'Find a setting' })).toHaveValue('')
+
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'indexers')
+    expect(within(jump).getByRole('link', { name: /Downloads/ })).toHaveTextContent('Indexers')
   })
 })

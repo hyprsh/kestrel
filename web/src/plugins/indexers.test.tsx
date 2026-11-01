@@ -144,6 +144,7 @@ describe('Settings indexers', () => {
   const open = async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Downloads' }))
     return within(await screen.findByRole('region', { name: 'Indexers' }))
   }
 

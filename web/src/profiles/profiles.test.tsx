@@ -184,11 +184,11 @@ describe('Settings', () => {
     if (section) await userEvent.click(await screen.findByRole('link', { name: section }))
   }
 
-  it('lists the Primary Language and Profiles sections in the jump list', async () => {
+  it('lists the General and Profiles pages in the jump list', async () => {
     fakeProfiles()
     await open()
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByRole('link', { name: 'Primary Language' })).toHaveAttribute('href', '/settings#settings-language')
+    expect(within(nav).getByRole('link', { name: 'General' })).toHaveAttribute('href', '/settings#settings-general')
     expect(within(nav).getByRole('link', { name: 'Profiles' })).toHaveAttribute('href', '/settings#settings-profiles')
     expect(await within(await screen.findByRole('region', { name: 'Primary Language' })).findByLabelText('Primary Language')).toHaveValue('en')
   })
@@ -262,7 +262,7 @@ describe('Settings', () => {
     await userEvent.selectOptions(await within(profiles).findByLabelText('HD Original Language only'), 'offer')
     expect(await within(profiles).findByRole('alert')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('link', { name: 'Primary Language' }))
+    await userEvent.click(screen.getByRole('link', { name: 'General' }))
     const language = await screen.findByRole('region', { name: 'Primary Language' })
     await userEvent.selectOptions(await within(language).findByLabelText('Primary Language'), 'de')
     await userEvent.click(within(language).getByRole('button', { name: 'Save language' }))

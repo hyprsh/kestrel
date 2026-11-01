@@ -79,8 +79,8 @@ describe('Settings, Display', () => {
   async function openDisplay() {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    const heading = await screen.findByRole('heading', { name: 'Display', level: 2 })
-    return heading.closest('section') as HTMLElement
+    await userEvent.click(await screen.findByRole('link', { name: 'General' }))
+    return screen.findByRole('region', { name: 'Display' })
   }
 
   it('shows the three settings it offers at their defaults', async () => {

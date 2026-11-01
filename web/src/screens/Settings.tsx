@@ -8,7 +8,7 @@ import { useStatus } from '../api/attention'
 import { healthOf } from '../health/tiles'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { adoptionLabel, useAdoption } from '../api/adoption'
-import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
+import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogout, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
 import { UpdateCheckSwitch } from '../about/UpdateCheck'
 import { PauseGrabsSwitch } from '../grabs/PauseGrabs'
 import { DownloadClientRow } from '../plugins/DownloadClient'
@@ -23,59 +23,140 @@ import { PlexSignInForm } from './PlexSignIn'
 import { SiloSettingsForm } from './SiloSettings'
 import { DefaultsPerSlot, ProfileToggles } from '../profiles/Profiles'
 
-/** Settings sections, in page order (the phone's list), each in the group the desktop panel files it under. */
-const sections = [
-  { id: 'language', title: 'Primary Language', group: 'Media', rows: ['Language and country'] },
-  { id: 'display', title: 'Display', group: 'Media', rows: ['Household defaults'] },
-  { id: 'profiles', title: 'Profiles', group: 'Media', rows: ['Defaults per Slot', 'Profiles'] },
-  { id: 'trash', title: 'TRaSH', group: 'Media', rows: ['Custom Formats and profiles'] },
-  { id: 'metadata', title: 'Provider keys', group: 'Connections', rows: ['TMDB and TheTVDB'] },
-  { id: 'download-client', title: 'Download client', group: 'Connections', rows: [] },
-  { id: 'indexers', title: 'Indexers', group: 'Connections', rows: [] },
-  { id: 'grabs', title: 'Grabs', group: 'Connections', rows: ['Automatic Grabs'] },
-  { id: 'root-folders', title: 'Root folders', group: 'Media', rows: ['Folders'] },
-  { id: 'adoption', title: 'Existing files', group: 'Media', rows: ['Adopt existing library'] },
-  { id: 'media-servers', title: 'Media servers', group: 'Connections', rows: [] },
-  { id: 'plex', title: 'Plex', group: 'Connections', rows: ['Plex sign-in'] },
-  { id: 'silo', title: 'Silo', group: 'Connections', rows: ['Watch-ahead'] },
-  { id: 'account', title: 'Account', group: 'System', rows: ['Password', 'Sessions'] },
-  { id: 'updates', title: 'Updates', group: 'System', rows: ['GitHub'] },
-  { id: 'security', title: 'Security', group: 'System', rows: ['API key'] },
-  { id: 'reverse-proxy', title: 'Reverse proxy', group: 'System', rows: ['Reverse proxy', 'Trusted proxies'] },
-  { id: 'setup', title: 'Setup', group: 'System', rows: ['Setup wizard'] },
-]
-const groups = ['Media', 'Connections', 'System']
+/** A sub-section: what was once a section of its own. Its id stays the anchor ("#settings-<id>", "/settings/<id>"); `rows` are the titles of the Rows in it, for "Find a setting". */
+type Part = { id: string; title: string; rows: string[] }
+type Page = { id: string; title: string; group: string; parts: Part[] }
 
-/** The sections whose Health check fails or warns: the download client, an indexer, a low disk (the Root folders). */
+/** Settings pages, in order (the phone's list), each in the group the desktop panel files it under. */
+const pages: Page[] = [
+  {
+    id: 'general',
+    title: 'General',
+    group: 'General',
+    parts: [
+      { id: 'language', title: 'Primary Language', rows: ['Language and country'] },
+      { id: 'display', title: 'Display', rows: ['Household defaults'] },
+      { id: 'updates', title: 'Updates', rows: ['GitHub'] },
+      { id: 'setup', title: 'Setup', rows: ['Setup wizard'] },
+    ],
+  },
+  {
+    id: 'profiles',
+    title: 'Profiles',
+    group: 'General',
+    parts: [
+      { id: 'profiles', title: 'Profiles', rows: ['Defaults per Slot', 'Profiles'] },
+      { id: 'trash', title: 'TRaSH', rows: ['Custom Formats and profiles'] },
+    ],
+  },
+  {
+    id: 'library',
+    title: 'Library',
+    group: 'General',
+    parts: [
+      { id: 'root-folders', title: 'Root folders', rows: ['Folders'] },
+      { id: 'adoption', title: 'Existing files', rows: ['Adopt existing library'] },
+      { id: 'metadata', title: 'Provider keys', rows: ['TMDB and TheTVDB'] },
+    ],
+  },
+  {
+    id: 'downloads',
+    title: 'Downloads',
+    group: 'Connections',
+    parts: [
+      { id: 'download-client', title: 'Download client', rows: [] },
+      { id: 'indexers', title: 'Indexers', rows: [] },
+      { id: 'grabs', title: 'Grabs', rows: ['Automatic Grabs'] },
+    ],
+  },
+  {
+    id: 'media-servers',
+    title: 'Media servers',
+    group: 'Connections',
+    parts: [
+      { id: 'media-servers', title: 'Media servers', rows: [] },
+      { id: 'silo', title: 'Silo', rows: ['Watch-ahead'] },
+    ],
+  },
+  {
+    id: 'account',
+    title: 'Account',
+    group: 'System',
+    parts: [
+      { id: 'account', title: 'Account', rows: ['Password', 'Sessions'] },
+      { id: 'security', title: 'API key', rows: ['API key'] },
+    ],
+  },
+  {
+    id: 'access',
+    title: 'Security & Access',
+    group: 'System',
+    parts: [
+      { id: 'plex', title: 'Plex sign-in', rows: ['Plex sign-in'] },
+      { id: 'reverse-proxy', title: 'Reverse proxy', rows: ['Reverse proxy', 'Trusted proxies', 'Header'] },
+    ],
+  },
+]
+const groups = ['General', 'Connections', 'System']
+
+/** The page and the Part an address names: a page's id ("downloads"), or any Part's old section id ("indexers"). */
+function resolve(id: string | undefined): { page: Page; part?: Part } | undefined {
+  if (!id) return undefined
+  for (const page of pages) {
+    const part = page.parts.find((p) => p.id === id)
+    if (part) return { page, part }
+  }
+  const page = pages.find((p) => p.id === id)
+  return page ? { page } : undefined
+}
+
+/** The pages whose Health check fails or warns: the download client or an indexer (Downloads), a low disk (Library). */
 function useAttentionSections(): Set<string> {
   const status = useStatus()
   const out = new Set<string>()
   if (!status.data) return out
   for (const t of healthOf(status.data).groups.flatMap((g) => g.tiles)) {
-    if (t.tone === 'failing' && t.key === 'client') out.add('download-client')
-    else if (t.tone === 'failing' && t.key.startsWith('indexer-')) out.add('indexers')
-    else if (t.tone === 'low') out.add('root-folders')
+    if (t.tone === 'failing' && (t.key === 'client' || t.key.startsWith('indexer-'))) out.add('downloads')
+    else if (t.tone === 'low') out.add('library')
   }
   return out
 }
 
-/** The section a "#settings-<id>" address names, if there is one. */
-const hashSection = () => sections.find((s) => location.hash === `#settings-${s.id}`)?.id
+/** The id a "#settings-<id>" address names, if it names a page or a Part. */
+const hashId = () => {
+  const id = location.hash.startsWith('#settings-') ? location.hash.slice('#settings-'.length) : ''
+  return resolve(id) ? id : undefined
+}
 
-/** Opens a section: its heading takes focus and the address keeps the page, rather than the base URL's Overview. */
+/** The Part's anchor id, "settings-<id>": the page's own for the Part that shares its id. */
+const anchorOf = (id: string) => document.getElementById(`settings-${id}`)
+
+/** Opens a page: its heading takes focus (or the Part's anchor scrolls into view) and the address keeps the place, rather than the base URL's Overview. */
 function openSectionLink(event: MouseEvent<HTMLAnchorElement>, id: string, open: (id: string) => void) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   event.preventDefault()
   open(id)
   history.replaceState(history.state, '', event.currentTarget.href)
-  // The section renders on the next paint.
-  setTimeout(() => document.getElementById(`settings-${id}-title`)?.focus(), 0)
+  // The page renders on the next paint.
+  setTimeout(() => {
+    const r = resolve(id)
+    if (r) document.getElementById(`settings-${r.page.id}-title`)?.focus()
+  }, 0)
+}
+
+/** Scrolls to a Part of the open page once it has rendered. */
+function useScrollToPart(target: string | undefined, pageId: string | undefined) {
+  useEffect(() => {
+    if (!target || target === pageId) return
+    anchorOf(target)?.scrollIntoView?.()
+  }, [target, pageId])
 }
 
 /**
- * A panel of sections on the left and the open section, a group of rows, beside it (the first until one is chosen). On a phone the list is a
- * screen of its own and a section another, full screen with a Back button: `section` is the open
+ * A panel of pages on the left and the open page, titled parts each holding rows, beside it (the first until one is chosen). On a phone the list is a
+ * screen of its own and a page another, full screen with a Back button: `section` is the open
  * one ("" is the list), kept by the Shell in the address bar so the browser's Back returns to the list.
+ * A page or any old section id names a place.
  */
 export function Settings({
   onRunSetup,
@@ -94,18 +175,26 @@ export function Settings({
   const adoption = useAdoption()
   const content: Record<string, ReactNode> = {
     language: (
-      <>
-        <Row label="Language and country" help="The household's language and the country whose release dates and age ratings Kestrel reads.">
-          <LanguageForm />
-        </Row>
-      </>
+      <Row label="Language and country" help="The household's language and the country whose release dates and age ratings Kestrel reads.">
+        <LanguageForm />
+      </Row>
     ),
     display: (
-      <>
-        <Row label="Household defaults" help="How every browser starts: the order of a Series' seasons, which seasons are open, and where Manual search and Upcoming begin.">
-          <DisplayForm />
-        </Row>
-      </>
+      <Row label="Household defaults" help="How every browser starts: the order of a Series' seasons, which seasons are open, and where Manual search and Upcoming begin.">
+        <DisplayForm />
+      </Row>
+    ),
+    updates: (
+      <Row label="GitHub" help="One switch for the daily release, security advisory and TRaSH checks.">
+        <UpdateCheckSwitch />
+      </Row>
+    ),
+    setup: (
+      <Row label="Setup wizard" help="Walk through the setup sections again. The account stays as it is.">
+        <Button size="small" onClick={onRunSetup}>
+          Run setup again
+        </Button>
+      </Row>
     ),
     profiles: (
       <>
@@ -118,116 +207,63 @@ export function Settings({
       </>
     ),
     trash: (
-      <>
-        <Row label="Custom Formats and profiles" help="Kestrel scores Releases with TRaSH's Custom Formats. It checks daily and takes the newest set whole, after re-scoring every file under it.">
-          <TrashForm />
-        </Row>
-      </>
-    ),
-    metadata: (
-      <>
-        <Row label="TMDB and TheTVDB" help="Kestrel looks Titles up with the project's own keys. Enter your own to use them instead; they are never shown again.">
-          <ProviderKeysForm />
-        </Row>
-      </>
-    ),
-    'download-client': (
-      <>
-        <DownloadClientRow />
-      </>
-    ),
-    indexers: (
-      <>
-        <Indexers />
-      </>
-    ),
-    grabs: (
-      <>
-        <Row label="Automatic Grabs" help="Hold Kestrel back, for example after a large Adoption, without disabling the download client or the indexers.">
-          <PauseGrabsSwitch />
-        </Row>
-      </>
+      <Row label="Custom Formats and profiles" help="Kestrel scores Releases with TRaSH's Custom Formats. It checks daily and takes the newest set whole, after re-scoring every file under it.">
+        <TrashForm />
+      </Row>
     ),
     'root-folders': (
-      <>
-        <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
-          <RootFoldersForm compact />
-        </Row>
-      </>
+      <Row label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
+        <RootFoldersForm compact />
+      </Row>
     ),
     adoption: (
-      <>
-        <Row label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
-          <Button size="small" onClick={onAdopt}>
-            {adoptionLabel(adoption.data?.state)}
-          </Button>
-        </Row>
-      </>
+      <Row label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
+        <Button size="small" onClick={onAdopt}>
+          {adoptionLabel(adoption.data?.state)}
+        </Button>
+      </Row>
     ),
-    'media-servers': (
-      <>
-        <MediaServers />
-      </>
+    metadata: (
+      <Row label="TMDB and TheTVDB" help="Kestrel looks Titles up with the project's own keys. Enter your own to use them instead; they are never shown again.">
+        <ProviderKeysForm />
+      </Row>
     ),
-    plex: (
-      <>
-        <PlexSignInRow />
-      </>
+    'download-client': <DownloadClientRow />,
+    indexers: <Indexers />,
+    grabs: (
+      <Row label="Automatic Grabs" help="Hold Kestrel back, for example after a large Adoption, without disabling the download client or the indexers.">
+        <PauseGrabsSwitch />
+      </Row>
     ),
+    'media-servers': <MediaServers />,
     silo: (
-      <>
-        <Row
-          label="Watch-ahead"
-          help="Series requested whole in Silo start with season 1, and Kestrel adds the next season once 2 episodes of the newest one have been watched in Plex or Silo. The Kestrel plugin in Silo can override this per request route."
-        >
-          <SiloSettingsForm />
-        </Row>
-      </>
+      <Row
+        label="Watch-ahead"
+        help="Series requested whole in Silo start with season 1, and Kestrel adds the next season once 2 episodes of the newest one have been watched in Plex or Silo. The Kestrel plugin in Silo can override this per request route."
+      >
+        <SiloSettingsForm />
+      </Row>
     ),
     account: (
       <>
+        <LogOut />
         <ChangePassword />
         <LogOutEverywhere />
       </>
     ),
-    updates: (
-      <>
-        <Row label="GitHub" help="One switch for the daily release, security advisory and TRaSH checks.">
-          <UpdateCheckSwitch />
-        </Row>
-      </>
-    ),
-    security: (
-      <>
-        <ApiKeyRow />
-      </>
-    ),
-    'reverse-proxy': (
-      <>
-        <ReverseProxyRow />
-      </>
-    ),
-    setup: (
-      <>
-        <Row label="Setup wizard" help="Walk through the setup sections again. The account stays as it is.">
-          <Button size="small" onClick={onRunSetup}>
-            Run setup again
-          </Button>
-        </Row>
-      </>
-    ),
+    security: <ApiKeyRow />,
+    plex: <PlexSignInRow />,
+    'reverse-proxy': <ReverseProxyRow />,
   }
 
   if (phone) {
-    const open = sections.find((s) => s.id === section)
+    const open = resolve(section)
     if (open)
       return (
-        <div key={open.id} className="flex min-h-0 flex-1 flex-col">
-          <PhoneBackHeader onBack={() => onCloseSection?.()}>{open.title}</PhoneBackHeader>
+        <div key={open.page.id} className="flex min-h-0 flex-1 flex-col">
+          <PhoneBackHeader onBack={() => onCloseSection?.()}>{open.page.title}</PhoneBackHeader>
           <div className="min-h-0 flex-1 overflow-auto p-4">
-            <Group id={open.id} title={open.title} headingHidden>
-              {content[open.id]}
-            </Group>
+            <PageView page={open.page} content={content} target={open.part?.id} headingHidden />
           </div>
         </div>
       )
@@ -236,9 +272,9 @@ export function Settings({
         <SidePanel title="Settings" />
         <nav aria-label="Settings sections" className="min-h-0 flex-1 overflow-auto">
           <Entity.List>
-            {sections.map((s) => (
-              <Entity key={s.id} as="button" right={<ChevronRight aria-hidden className="size-4 text-gray-900" />} onClick={() => onOpenSection?.(s.id)}>
-                <Entity.Content fill title={s.title} />
+            {pages.map((p) => (
+              <Entity key={p.id} as="button" right={<ChevronRight aria-hidden className="size-4 text-gray-900" />} onClick={() => onOpenSection?.(p.id)}>
+                <Entity.Content fill title={p.title} />
               </Entity>
             ))}
           </Entity.List>
@@ -251,18 +287,17 @@ export function Settings({
 }
 
 function DesktopSettings({ content, initial }: { content: Record<string, ReactNode>; initial: string }) {
-  const known = (id: string | undefined) => sections.find((s) => s.id === id)?.id
-  const [open, setOpen] = useState(known(initial) ?? hashSection() ?? sections[0].id)
+  // The open place: a page's id or a Part's old id, which opens its page and scrolls to it.
+  const [open, setOpen] = useState(resolve(initial) ? initial : (hashId() ?? pages[0].id))
   const [find, setFind] = useState('')
   const attention = useAttentionSections()
   // A place opened from elsewhere ("/settings/indexers"), or the address changing under us.
   useEffect(() => {
-    const id = known(initial)
-    if (id) setOpen(id)
+    if (resolve(initial)) setOpen(initial)
   }, [initial])
   useEffect(() => {
     const onHash = () => {
-      const id = hashSection()
+      const id = hashId()
       if (id) setOpen(id)
     }
     window.addEventListener('hashchange', onHash)
@@ -270,14 +305,22 @@ function DesktopSettings({ content, initial }: { content: Record<string, ReactNo
   }, [])
 
   const needle = find.trim().toLowerCase()
-  const matches = sections
-    .map((s) => ({ s, row: s.title.toLowerCase().includes(needle) ? undefined : s.rows.find((r) => r.toLowerCase().includes(needle)) }))
-    .filter(({ s, row }) => !needle || s.title.toLowerCase().includes(needle) || row !== undefined)
+  const matches = pages
+    .map((page) => {
+      if (!needle || page.title.toLowerCase().includes(needle)) return { page, part: undefined as Part | undefined, note: undefined as string | undefined }
+      // A Part's title, or one of its Rows' titles.
+      for (const part of page.parts) {
+        const hit = [part.title, ...part.rows].find((t) => t.toLowerCase().includes(needle))
+        if (hit) return { page, part, note: hit }
+      }
+      return undefined
+    })
+    .filter((m) => m !== undefined)
   const choose = (id: string) => {
     setOpen(id)
     setFind('')
   }
-  const current = sections.find((s) => s.id === open)!
+  const current = resolve(open)!
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -296,8 +339,9 @@ function DesktopSettings({ content, initial }: { content: Record<string, ReactNo
             onKeyDown={(e) => {
               if (e.key === 'Enter' && matches[0]) {
                 e.preventDefault()
-                choose(matches[0].s.id)
-                history.replaceState(history.state, '', `${location.pathname}#settings-${matches[0].s.id}`)
+                const id = matches[0].part?.id ?? matches[0].page.id
+                choose(id)
+                history.replaceState(history.state, '', `${location.pathname}#settings-${id}`)
               } else if (e.key === 'Escape') setFind('')
             }}
           />
@@ -306,13 +350,20 @@ function DesktopSettings({ content, initial }: { content: Record<string, ReactNo
         <JumpNav label="Settings sections">
           {matches.length === 0 && <p className="label-13 px-2.5 py-2 text-gray-900">No setting matches “{find.trim()}”.</p>}
           {groups.map((g) => {
-            const inGroup = matches.filter(({ s }) => s.group === g)
+            const inGroup = matches.filter(({ page }) => page.group === g)
             if (inGroup.length === 0) return null
             return (
               <JumpGroup key={g} title={g}>
-                {inGroup.map(({ s, row }) => (
-                  <JumpLink key={s.id} href={`${location.pathname}#settings-${s.id}`} current={s.id === open} warn={attention.has(s.id)} note={row} onClick={(e) => openSectionLink(e, s.id, choose)}>
-                    {s.title}
+                {inGroup.map(({ page, part, note }) => (
+                  <JumpLink
+                    key={page.id}
+                    href={`${location.pathname}#settings-${part?.id ?? page.id}`}
+                    current={page.id === current.page.id}
+                    warn={attention.has(page.id)}
+                    note={note}
+                    onClick={(e) => openSectionLink(e, part?.id ?? page.id, choose)}
+                  >
+                    {page.title}
                   </JumpLink>
                 ))}
               </JumpGroup>
@@ -321,23 +372,35 @@ function DesktopSettings({ content, initial }: { content: Record<string, ReactNo
         </JumpNav>
       </SidePanel>
       <div className="min-w-0 flex-1 overflow-auto px-10 py-7">
-        <div key={current.id} className="max-w-[880px]">
-          <Group id={current.id} title={current.title}>
-            {content[current.id]}
-          </Group>
+        <div key={current.page.id} className="max-w-[880px]">
+          <PageView page={current.page} content={content} target={current.part?.id} />
         </div>
       </div>
     </div>
   )
 }
 
-function Group({ id, title, headingHidden, children }: { id: string; title: string; headingHidden?: boolean; children: ReactNode }) {
+/** A page: its title as the heading, then each Part as an anchored group of rows. `target` is the Part to scroll to. */
+function PageView({ page, content, target, headingHidden }: { page: Page; content: Record<string, ReactNode>; target?: string; headingHidden?: boolean }) {
+  useScrollToPart(target, page.id)
   return (
-    <section id={`settings-${id}`} aria-labelledby={`settings-${id}-title`} className="mb-8">
-      <h2 id={`settings-${id}-title`} tabIndex={-1} className={headingHidden ? 'sr-only' : 'heading-24 mb-3'}>
-        {title}
+    <section id={`settings-${page.id}`} aria-labelledby={`settings-${page.id}-title`} className="mb-8">
+      <h2 id={`settings-${page.id}-title`} tabIndex={-1} className={headingHidden ? 'sr-only' : 'heading-24 mb-3'}>
+        {page.title}
       </h2>
-      <div className="flex flex-col gap-4">{children}</div>
+      <div className="flex flex-col gap-8">
+        {page.parts.map((part) =>
+          part.id === page.id ? (
+            <div key={part.id} className="flex flex-col gap-4">
+              {content[part.id]}
+            </div>
+          ) : (
+            <section key={part.id} id={`settings-${part.id}`} aria-label={part.title} className="flex scroll-mt-4 flex-col gap-4">
+              {content[part.id]}
+            </section>
+          ),
+        )}
+      </div>
     </section>
   )
 }
@@ -400,6 +463,20 @@ function ChangePassword() {
         </fieldset>
         {declared && <Note size="small">The Config File sets the account, so its password cannot be changed here. Change the file and restart Kestrel instead.</Note>}
       </form>
+    </Row>
+  )
+}
+
+/** Ends this browser's session; not offered to a session the proxy or the Config File opened, as the rail's button was not. */
+function LogOut() {
+  const auth = useAuth()
+  const logout = useLogout()
+  if (!(auth.data?.state === 'ok' && auth.data.me.method === 'session')) return null
+  return (
+    <Row label="Log out" help="Ends this session. Other sessions stay.">
+      <Button size="small" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
+        Log out
+      </Button>
     </Row>
   )
 }

@@ -232,6 +232,7 @@ async function openAdoption() {
   const user = userEvent.setup()
   renderApp()
   await user.click(await screen.findByRole('button', { name: 'Settings' }))
+  await user.click(await screen.findByRole('link', { name: 'Library' }))
   await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
   return user
 }
@@ -250,6 +251,7 @@ describe('Adoption while loading', () => {
     renderApp()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
+    await user.click(await screen.findByRole('link', { name: 'Library' }))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Loading')
@@ -628,7 +630,7 @@ describe('Adoption review on a phone', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'More' }))
     await user.click(within(await screen.findByRole('dialog', { name: 'More' })).getByRole('button', { name: 'Settings' }))
-    await user.click(await screen.findByRole('button', { name: 'Existing files' }))
+    await user.click(await screen.findByRole('navigation', { name: 'Settings sections' }).then((n) => within(n).getByRole('button', { name: 'Library' })))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 

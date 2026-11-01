@@ -50,7 +50,7 @@ describe('ProjectBanner for a Blocking row', () => {
     expect(await screen.findByRole('complementary', { name: 'Error' })).toHaveTextContent('SABnzbd is unreachable')
 
     await user.click(screen.getByRole('button', { name: 'Open in Settings' }))
-    expect(await screen.findByRole('heading', { name: /download client/i })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Download client' })).toBeInTheDocument()
 
     state.rows = []
     await user.click(screen.getByRole('button', { name: /^Overview/ }))

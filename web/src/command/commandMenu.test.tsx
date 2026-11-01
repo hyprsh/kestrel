@@ -113,7 +113,7 @@ describe('the command menu', () => {
     await screen.findByRole('dialog')
     await userEvent.keyboard('upcom{Enter}') // first match is Go to > Upcoming
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('banner')).toHaveTextContent('Upcoming')
+    expect(await screen.findByRole('heading', { name: 'Upcoming', level: 1 })).toBeInTheDocument()
   })
 
   it('has no footer of key hints', async () => {
@@ -154,6 +154,15 @@ describe('the command menu', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
+  })
+
+  it('leads with Add when no Library Title matches the query', async () => {
+    fakeLibrary([row(1, 'Heat', 'Heat')])
+    renderApp()
+    const menu = await openMenu()
+    await userEvent.keyboard('qqzxv')
+    const options = await within(menu).findAllByRole('option')
+    expect(options[0]).toHaveTextContent('Add "qqzxv"…')
   })
 
   it('finds Titles fuzzily, best match first', async () => {

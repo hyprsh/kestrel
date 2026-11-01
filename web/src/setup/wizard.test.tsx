@@ -218,7 +218,7 @@ describe('running setup again', () => {
     const setup = fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' }, true)
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    await userEvent.click(await screen.findByRole('link', { name: 'Setup' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'General' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Run setup again' }))
 
     const account = await screen.findByRole('region', { name: 'Account' })
@@ -236,7 +236,7 @@ describe('Root folders', () => {
   const open = async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    await userEvent.click(await screen.findByRole('link', { name: 'Root folders' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Library' }))
     return screen.findByRole('region', { name: 'Root folders' })
   }
   const edit = async (section: HTMLElement) => {
@@ -266,7 +266,7 @@ describe('Root folders', () => {
     fakeSetup({}, true)
     const section = await edit(await open())
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByRole('link', { name: 'Root folders' })).toHaveAttribute('href', '/settings#settings-root-folders')
+    expect(within(nav).getByRole('link', { name: 'Library' })).toHaveAttribute('href', '/settings#settings-library')
 
     const movies = await within(section).findByLabelText('Movies folder 1')
     expect(movies).toHaveValue('/data/media/movies')

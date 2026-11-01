@@ -6,7 +6,8 @@
 import { mkdirSync } from 'node:fs'
 import { open, wait } from './lib.mjs'
 
-const settings = ['language', 'profiles', 'trash', 'metadata', 'download-client', 'indexers', 'grabs', 'root-folders', 'adoption', 'media-servers', 'plex', 'silo', 'account', 'updates', 'security', 'reverse-proxy', 'setup']
+// The Settings pages; an old section id (indexers, plex, security…) also opens its page.
+const settings = ['general', 'profiles', 'library', 'downloads', 'media-servers', 'account', 'access']
 const widths = [
   { w: 390, h: 844 },
   { w: 1440, h: 900 },

@@ -12,6 +12,7 @@ import { server } from '../test/server'
 async function openSettings() {
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+  await userEvent.click(await screen.findByRole('link', { name: 'Profiles' }))
 }
 const renderForm = () =>
   render(
