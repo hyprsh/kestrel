@@ -2,13 +2,14 @@
 // Adoption plan, Long Missing, Originals available) and the Downloads, all rows of one card. Nothing here
 // knows a kind of row; it draws message, severity and buttons.
 import { Badge, Button, DotsMenu, Entity, Icon, MenuItem, Note, Progress } from '@hyprsh/design'
+import { X } from 'lucide-react'
 import { RowList, stackedRow, stackedRight } from '../layout/RowList'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useAttention, type ActionResult, type Attention, type AttentionRow } from '../api/attention'
 import type { OriginalsAvailable } from '../api/offers'
 import { useQueue } from '../api/queue'
 import { useSearchStatus } from '../api/search'
-import { passLines } from '../activity/SearchProgress'
+import { passLines, passResult } from '../activity/SearchProgress'
 import { useNow } from '../time'
 import { useCancel } from '../grabs/useCancel'
 import { SkeletonRows } from '../loading'
@@ -30,6 +31,30 @@ const shownRows = (rows: AttentionRow[], all: boolean) => (all ? rows : firstFiv
 
 type Group = 'adoption' | 'long-missing' | 'originals'
 
+/** How long a finished search pass stays as a row, in ms. */
+export const FINISHED_ROW_MS = 60_000
+type LastPass = NonNullable<NonNullable<ReturnType<typeof useSearchStatus>['data']>['last_pass']>
+
+/**
+ * The pass that has just finished, while it is still worth a row: the search status's `last_pass` for a minute after it
+ * ended (from any tab, and whether this one saw it end), until dismissed. Null while a pass runs.
+ */
+function useFinishedPass(running: boolean, last: LastPass | null | undefined): { pass: LastPass | null; dismiss: () => void } {
+  const [dismissed, setDismissed] = useState<string | null>(null)
+  const [, tick] = useState(0)
+  const finished = last ? Date.parse(last.finished_at) : null
+  // Re-render once the minute is up, so the row goes without waiting for the next frame.
+  useEffect(() => {
+    if (finished === null) return
+    const left = FINISHED_ROW_MS - (Date.now() - finished)
+    if (left <= 0) return
+    const id = setTimeout(() => tick((n) => n + 1), left + 20)
+    return () => clearTimeout(id)
+  }, [finished])
+  const show = !running && last && finished !== null && dismissed !== last.finished_at && Date.now() - finished < FINISHED_ROW_MS
+  return { pass: show ? last : null, dismiss: () => last && setDismissed(last.finished_at) }
+}
+
 /**
  * What the section shows and the Overview's j/k list needs to know: the Overview calls this and hands the result
  * to `HappeningNow`, so the selection runs through exactly the rows on screen (attention rows, groups, downloads).
@@ -38,7 +63,9 @@ export function useHappeningNow(onOpen: (path: string) => void, onOpenTitle: (id
   const attention = useAttention()
   const queue = useQueue()
   const adoption = useAdoption().data
-  const search = useSearchStatus().data?.pass ?? null
+  const status = useSearchStatus().data
+  const search = status?.pass ?? null
+  const finished = useFinishedPass(search !== null, status?.last_pass)
   const [all, setAll] = useState(false)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const rows = attention.data?.rows ?? []
@@ -57,10 +84,10 @@ export function useHappeningNow(onOpen: (path: string) => void, onOpenTitle: (id
     }),
     ...groups.map((g) => () => (g === 'adoption' ? onOpenAdoption() : toggle(g))),
     // The running search pass sits between the groups and the Downloads; Enter opens the Title it is searching.
-    ...(search ? [() => search.current && onOpenTitle(search.current.title_id)] : []),
+    ...(search ? [() => search.current && onOpenTitle(search.current.title_id)] : finished.pass ? [() => {}] : []),
     ...items.map((i) => () => i.title_id != null && onOpenTitle(i.title_id)),
   ]
-  return { attention, queue, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, search, enter, loaded: !attention.isPending && !queue.isPending }
+  return { attention, queue, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, search, finished, enter, loaded: !attention.isPending && !queue.isPending }
 }
 
 export type HappeningNowModel = ReturnType<typeof useHappeningNow>
@@ -79,13 +106,13 @@ export function HappeningNow({
   nav: OverviewNav
 }) {
   const cancel = useCancel()
-  const { attention, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, search, loaded } = model
-  const nothing = shown.length === 0 && groups.length === 0 && items.length === 0 && !search
+  const { attention, adoption, all, setAll, expanded, toggle, rows, shown, downloads, items, groups, search, finished, loaded } = model
+  const nothing = shown.length === 0 && groups.length === 0 && items.length === 0 && !search && !finished.pass
   const groupBase = nav.base + shown.length
   const searchBase = groupBase + groups.length
-  const downloadBase = searchBase + (search ? 1 : 0)
+  const downloadBase = searchBase + (search || finished.pass ? 1 : 0)
   return (
-    <Section id="happening-now" title="Happening now" count={rows.length + downloads.length + (search ? 1 : 0)}>
+    <Section id="happening-now" title="Happening now" count={rows.length + downloads.length + (search || finished.pass ? 1 : 0)}>
       {!loaded ? (
         <SkeletonRows poster="sm" />
       ) : nothing ? (
@@ -104,6 +131,7 @@ export function HappeningNow({
               return <OriginalsGroupRow key={g} group={attention.data.originals} open={!!expanded[g]} onToggle={() => toggle(g)} onOpenTitle={onOpenTitle} nav={nav} index={index} />
             return null
           })}
+          {finished.pass && <FinishedSearchRow pass={finished.pass} onDismiss={finished.dismiss} nav={nav} index={searchBase} />}
           {search && <SearchRow pass={search} onOpen={onOpen} onOpenTitle={onOpenTitle} nav={nav} index={searchBase} />}
           <Downloads
             items={items}
@@ -119,6 +147,36 @@ export function HappeningNow({
       {(all || shown.length < rows.length) && <ViewAllHere count={rows.length} open={all} onToggle={() => setAll(!all)} />}
       {downloads.length > 0 && <ViewAll path="/activity" label="All activity →" />}
     </Section>
+  )
+}
+
+/** The pass that has just ended, for a minute: "Search done: 4 searched · 37 releases checked · 1 Grab", with a × to dismiss it. */
+function FinishedSearchRow({ pass, onDismiss, nav, index }: { pass: LastPass; onDismiss: () => void; nav: OverviewNav; index: number }) {
+  return (
+    <Entity
+      as="button"
+      current={index === nav.sel}
+      data-nav={`ov-${index}`}
+      data-search-done
+      onClick={() => nav.select(index)}
+      left={<Icon name="search" />}
+      right={
+        <Button
+          svgOnly
+          variant="tertiary"
+          size="small"
+          aria-label="Dismiss"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDismiss()
+          }}
+        >
+          <X />
+        </Button>
+      }
+    >
+      <Entity.Content fill title={<span className="font-medium whitespace-normal">{`Search done: ${passResult(pass)}`}</span>} />
+    </Entity>
   )
 }
 
@@ -172,7 +230,7 @@ function SearchRow({
           <span className="flex flex-col gap-1 whitespace-normal">
             {nowText && <span>{nowText}</span>}
             <span className="flex items-center gap-3">
-              <Progress value={phase.done} max={Math.max(phase.total, 1)} type="success" height={6} aria-label="Search progress" className="min-w-16 flex-1" />
+              <Progress value={phase.done} max={Math.max(phase.total, 1)} type="success" height={6} aria-label="Search progress" className="max-w-80 min-w-16 flex-1" />
               <span className="shrink-0 tabular-nums">{count}</span>
             </span>
             <span>{releases}</span>

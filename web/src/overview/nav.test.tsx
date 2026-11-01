@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -7,7 +7,7 @@ import type { components } from '../api/schema.gen'
 import { dayString } from '../api/upcoming'
 import { http } from '../test/handlers'
 import { fakeRequests, request } from '../test/requests'
-import { passOf } from '../test/search'
+import { lastPassOf, passOf } from '../test/search'
 import { server } from '../test/server'
 import { RecentlyAdded } from './ComingRecent'
 
@@ -208,6 +208,37 @@ describe('Overview rows', () => {
     expect(current()).toBe(row)
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
+  })
+
+  const fakeLastPass = (last: ReturnType<typeof lastPassOf>) =>
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({ due: { versions: 0, episodes: 0, upgrades: 0 }, pass: null, next_pass_at: null, last_pass: last, upgrades_per_pass: 5, indexers: [] }),
+      ),
+    )
+
+  it('keeps a pass that has just finished as a row with its result, until dismissed', async () => {
+    fakeLastPass(lastPassOf({ searched: 4, releases_seen: 37, grabbed: 1 }))
+    renderApp()
+    const row = (await screen.findByText('Search done: 4 searched · 37 releases checked · 1 Grab')).closest<HTMLElement>('[data-nav]')!
+    expect(screen.queryByText(/nothing is downloading/i)).not.toBeInTheDocument()
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument()
+  })
+
+  it('drops the finished row a minute after the pass ended', async () => {
+    fakeLastPass(lastPassOf({ finished_at: new Date(Date.now() - 59_700).toISOString() }))
+    renderApp()
+    expect(await screen.findByText(/^Search done/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument(), { timeout: 2000 })
+  })
+
+  it('shows no finished row for a pass that ended long ago', async () => {
+    fakeLastPass(lastPassOf({ finished_at: new Date(Date.now() - 5 * 60_000).toISOString() }))
+    renderApp()
+    await screen.findByText(/nothing is downloading/i)
+    expect(screen.queryByText(/^Search done/)).not.toBeInTheDocument()
   })
 
   it('has no search row when no pass runs', async () => {

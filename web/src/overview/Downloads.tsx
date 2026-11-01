@@ -68,7 +68,7 @@ export function Downloads({
               }
               description={
                 <span className="flex items-center gap-3">
-                  {pct !== null && <Progress value={pct} type="success" height={6} aria-label={`${name} progress`} className="flex-1" />}
+                  {pct !== null && <Progress value={pct} type="success" height={6} aria-label={`${name} progress`} className="max-w-80 flex-1" />}
                   <span className="shrink-0 tabular-nums">{text}</span>
                 </span>
               }

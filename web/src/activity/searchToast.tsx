@@ -36,7 +36,7 @@ export function useWatchSearch() {
   return useCallback(
     (queued: string) => {
       following = { lastFinished: qc.getQueryData<SearchStatus>(['search'])?.last_pass?.finished_at ?? null, since: Date.now() }
-      toasts.message({ id: PROGRESS, text: <ToastBody queued={queued} />, preserve: true, action: { label: 'Watch in Health', onClick: () => open('/health/jobs') } })
+      toasts.message({ id: PROGRESS, text: <ToastBody queued={queued} />, preserve: true, action: { label: 'Watch on Overview', onClick: () => open('/overview') } })
     },
     [qc, toasts, open],
   )

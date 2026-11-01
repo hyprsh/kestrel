@@ -108,7 +108,7 @@ describe('Background jobs', () => {
     await userEvent.click(within(await rowOf(section, 'Search')).getByRole('button', { name: 'Run Search now' }))
     await waitFor(() => expect(posted).toEqual(['search']))
     expect(await findToast('Search started')).toBeInTheDocument()
-    expect(within(await toastRegion()).getByRole('button', { name: 'Watch in Health' })).toBeInTheDocument()
+    expect(within(await toastRegion()).getByRole('button', { name: 'Watch on Overview' })).toBeInTheDocument()
   })
 
   it('says in a Toast when a loop could not be run', async () => {

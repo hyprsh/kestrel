@@ -64,7 +64,7 @@ describe('the search Toast', () => {
     await frame({ pass: passOf({ done: 3, total: 12, releases_seen: 418, grabbed: 1 }) })
     expect(await findToast('Searching 3 of 12 Wanted · 418 releases checked · 1 Grab')).toBeInTheDocument()
     expect((await toast()).getAllByRole('progressbar', { name: 'Search progress' }).length).toBeGreaterThan(0)
-    expect((await toast()).getByRole('button', { name: 'Watch in Health' })).toBeInTheDocument()
+    expect((await toast()).getByRole('button', { name: 'Watch on Overview' })).toBeInTheDocument()
 
     await frame({ pass: passOf({ done: 6, total: 12, releases_seen: 500, grabbed: 2 }) })
     expect(await findToast('Searching 6 of 12 Wanted · 500 releases checked · 2 Grabs')).toBeInTheDocument()
@@ -73,6 +73,16 @@ describe('the search Toast', () => {
     await frame({ last_pass: lastPassOf({ searched: 12, grabbed: 2, releases_seen: 418 }) })
     expect(await findToast('Search done: 12 searched · 418 releases checked · 2 Grabs')).toBeInTheDocument()
     await waitFor(async () => expect((await toast()).queryByText(/^Searching \d+ of/)).not.toBeInTheDocument())
+  })
+
+  it('has an action that opens the Overview, where the search row is', async () => {
+    await frame({})
+    await openHealth()
+    await userEvent.click(await searchAll())
+    await frame({ pass: passOf({ done: 3, total: 12 }) })
+    await userEvent.click((await toast()).getByRole('button', { name: 'Watch on Overview' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(location.pathname).toBe('/')
   })
 
   it('is the same Toast for Run now on the Search job', async () => {

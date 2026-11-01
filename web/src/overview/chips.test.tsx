@@ -84,7 +84,7 @@ describe('the Overview on a desktop', () => {
     renderApp()
 
     await within(await rail()).findByRole('button', { name: /All checks OK/ })
-    expect(within(await topBar()).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument() // no top bar to hold a Health button
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
