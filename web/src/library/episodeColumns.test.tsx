@@ -66,8 +66,8 @@ describe('the episode table columns', () => {
     expect(localStorage.getItem('kestrel.columns.episodes')).toBeNull()
   })
 
-  it('pins the tick box and Name, and gives the Name and each Slot a resize handle', async () => {
+  it('gives only the Name a resize handle; the Slot columns fit their content', async () => {
     const grid = await openSeries()
-    expect(within(grid).getAllByRole('separator')).toHaveLength(3)
+    expect(within(grid).getAllByRole('separator')).toHaveLength(1)
   })
 })

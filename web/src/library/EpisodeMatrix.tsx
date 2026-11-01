@@ -160,6 +160,8 @@ export function EpisodeMatrix({
               <TableHead columnKey="name" resizable={!phone} truncate={phone} width={360} minWidth={180} maxWidth={720} className="px-2">
                 Name
               </TableHead>
+              {/* Takes the rest of the row, so the table is as wide as its card and the other columns sit at its right edge (a phone's Name does that). */}
+              {!phone && <TableHead truncate aria-hidden className="px-0" />}
               {columnOrder.order.map((k) => {
                 const { className, ...drag } = columnOrder.head(k)
                 return k === airedKey ? (
@@ -167,13 +169,11 @@ export function EpisodeMatrix({
                     Aired
                   </TableHead>
                 ) : (
-                  <TableHead key={k} {...drag} columnKey={k} resizable={!phone} width={150} minWidth={96} maxWidth={480} className={`px-2 ${className}`}>
+                  <TableHead key={k} {...drag} columnKey={k} align="right" className={`px-2 whitespace-nowrap ${className}`}>
                     {slotLabel[k as SlotKey]}
                   </TableHead>
                 )
               })}
-              {/* Takes the rest of the row, so the table is as wide as its card (a phone's Name does that). */}
-              {!phone && <TableHead truncate aria-hidden className="px-0" />}
               <TableHead align="right" className="px-2 sr-only">
                 Search
               </TableHead>
@@ -250,6 +250,7 @@ function EpisodeRow({
             <EpisodeName episode={episode} />
           </span>
         </TableCell>
+        {!phone && <TableCell aria-hidden className="px-0" />}
         {order.map((k) => {
           if (k === airedKey) {
             return (
@@ -281,7 +282,7 @@ function EpisodeRow({
             </Button>
           )
           return (
-            <TableCell key={s} className="px-2">
+            <TableCell key={s} align="right" className="px-2">
               {cell?.file ? (
                 <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={button} />
               ) : phone ? (
@@ -293,7 +294,6 @@ function EpisodeRow({
             </TableCell>
           )
         })}
-        {!phone && <TableCell aria-hidden className="px-0" />}
         <TableCell align="right" className="px-2">
           <span className={`flex items-center justify-end gap-1 ${rowActionsShown}`}>
             <RowButtons actions={actions} episode={episode} />
