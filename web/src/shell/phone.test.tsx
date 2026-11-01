@@ -39,7 +39,7 @@ describe('the shell on a phone', () => {
     expect(await screen.findByRole('region', { name: 'Health' })).toBeInTheDocument()
     expect(location.pathname).toBe('/health')
     expect(screen.getByRole('banner')).toHaveTextContent('Health')
-    expect(within(screen.getByRole('banner')).getByRole('button', { name: /^Health/ })).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: /^Health(?! actions)/ })).toHaveAttribute('aria-current', 'page')
   })
 
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {

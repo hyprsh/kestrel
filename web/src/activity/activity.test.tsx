@@ -163,6 +163,23 @@ describe('Activity', () => {
     expect(screen.getByText('Nothing in Activity matches.')).toBeInTheDocument()
   })
 
+  it('has Views with counts that set the stage filter, and All clears it', async () => {
+    fakeQueue([queueItem({ grab_id: 1, phase: 'downloading' })])
+    fakeGrabs([grabEntry({ grab_id: 2, state: 'imported' }), grabEntry({ grab_id: 3, state: 'failed' })])
+    await openActivity()
+
+    const views = within(await screen.findByRole('navigation', { name: 'Views' }))
+    expect(await views.findByRole('button', { name: 'All' })).toHaveAttribute('aria-current', 'true')
+    await waitFor(() => expect(views.getByRole('button', { name: 'All' })).toHaveTextContent('3'))
+    expect(views.getByRole('button', { name: 'Failed' })).toHaveTextContent('1')
+    await userEvent.click(views.getByRole('button', { name: 'Failed' }))
+    expect(await screen.findByRole('region', { name: 'Failed · 1' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /^Done/ })).not.toBeInTheDocument()
+    expect(views.getByRole('button', { name: 'Failed' })).toHaveAttribute('aria-current', 'true')
+    await userEvent.click(views.getByRole('button', { name: 'All' }))
+    expect(await screen.findByRole('region', { name: 'Done · 1' })).toBeInTheDocument()
+  })
+
   it('lists grab: in the filter help', async () => {
     fakeQueue([])
     fakeGrabs([])
@@ -317,7 +334,7 @@ describe('Activity', () => {
     await openActivity()
     const rows = within(await screen.findByRole('region', { name: 'Done · 2' })).getAllByRole('listitem')
     ;(document.activeElement as HTMLElement).blur()
-    const current = () => document.querySelector('[aria-current="true"]')
+    const current = () => document.querySelector('li[aria-current="true"]')
 
     expect(current()).toBe(rows[0])
     await userEvent.keyboard('j')

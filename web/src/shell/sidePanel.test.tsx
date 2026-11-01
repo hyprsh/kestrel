@@ -56,12 +56,14 @@ describe('the desktop shell without a top bar', () => {
     expect(field).toHaveFocus()
   })
 
-  it("keeps Activity's filter field and Upcoming's Today in their bar, in the content", async () => {
+  it("holds Activity's filter field and Views in its side panel, and Upcoming has its own panel", async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
-    expect(await within(screen.getByRole('main')).findByRole('combobox', { name: 'Filter Activity' })).toBeInTheDocument()
+    const panel = await screen.findByRole('complementary', { name: 'Activity' })
+    expect(await within(panel).findByRole('combobox', { name: 'Filter Activity' })).toBeInTheDocument()
+    expect(within(panel).getByRole('navigation', { name: 'Views' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Upcoming' }))
-    expect(await within(screen.getByRole('main')).findByRole('button', { name: 'Today' })).toBeInTheDocument()
+    expect(await screen.findByRole('complementary', { name: 'Upcoming' })).toBeInTheDocument()
   })
 
   it('opens the command menu from the rail search button, on any screen', async () => {

@@ -114,26 +114,30 @@ describe('Health screen', () => {
     expect(url()).toBe('/settings')
   })
 
-  it('opens at /health with the shared top bar, no screen bar and no view switcher', async () => {
+  it('opens at /health with its side panel, no screen bar and no view switcher', async () => {
     fakeStatus(status())
     await openHealth()
 
-    expect(screen.getByRole('banner')).toHaveTextContent('Health')
+    expect(screen.getByRole('complementary', { name: 'Health' })).toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument()
   })
+
+  // The rail is the navigation without a name; a side panel's Views are named.
+  const rail = async () => (await screen.findAllByRole('navigation')).find((n) => !n.hasAttribute('aria-label'))!
 
   it('opens from the rail button, which is the current page while Health is shown', async () => {
     fakeStatus(status())
     renderApp()
 
-    const button = await within(await screen.findByRole('navigation')).findByRole('button', { name: /^Health/ })
+    const button = await within(await rail()).findByRole('button', { name: /^Health/ })
     expect(button).not.toHaveAttribute('aria-current')
     await userEvent.click(button)
     expect(await screen.findByRole('region', { name: 'Health' })).toBeInTheDocument()
     expect(url()).toBe('/health')
     expect(button).toHaveAttribute('aria-current', 'page')
-    await userEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'Overview' }))
+    await userEvent.click(within(await rail()).getByRole('button', { name: 'Overview' }))
     expect(button).not.toHaveAttribute('aria-current')
   })
 

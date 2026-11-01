@@ -35,7 +35,8 @@ async function frame(client: QueryClient, snapshot: Partial<ActivitySnapshot>) {
 }
 
 // What runs shows in the rail on a desktop.
-const topBar = () => within(screen.getByRole('navigation'))
+// The Views of a side panel are a navigation too; the rail is the one without a name.
+const topBar = () => within(screen.getAllByRole('navigation').find((n) => !n.hasAttribute('aria-label'))!)
 
 describe('the rail', () => {
   beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
@@ -141,7 +142,7 @@ describe('Running now', () => {
 
     await user().click(topBar().getByRole('button', { name: '2 running' }))
 
-    expect(screen.getByRole('banner')).toHaveTextContent('Health')
+    expect(screen.getByRole('complementary', { name: 'Health' })).toBeInTheDocument()
     expect(location.pathname).toBe('/health/jobs')
     expect(
       runningNow()
