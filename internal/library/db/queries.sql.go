@@ -213,6 +213,26 @@ func (q *Queries) GetFile(ctx context.Context, id int64) (File, error) {
 	return i, err
 }
 
+const getFileEpisodeRelease = `-- name: GetFileEpisodeRelease :one
+SELECT f.parsed_release
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id
+WHERE fe.version_id = ? AND fe.episode_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits)
+`
+
+type GetFileEpisodeReleaseParams struct {
+	VersionID int64
+	EpisodeID int64
+}
+
+// One Version's file for an episode and the parse of a Movie Version's file, misfits left out, for the agenda to ask only
+// about the entries it shows.
+func (q *Queries) GetFileEpisodeRelease(ctx context.Context, arg GetFileEpisodeReleaseParams) (sql.NullString, error) {
+	row := q.db.QueryRowContext(ctx, getFileEpisodeRelease, arg.VersionID, arg.EpisodeID)
+	var parsed_release sql.NullString
+	err := row.Scan(&parsed_release)
+	return parsed_release, err
+}
+
 const getFileOfGrab = `-- name: GetFileOfGrab :one
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? LIMIT 1
 `
@@ -318,6 +338,17 @@ func (q *Queries) GetVersion(ctx context.Context, id int64) (Version, error) {
 		&i.AddedAt,
 	)
 	return i, err
+}
+
+const getVersionFileRelease = `-- name: GetVersionFileRelease :one
+SELECT f.parsed_release FROM files f WHERE f.version_id = ? AND f.id NOT IN (SELECT file_id FROM file_misfits) ORDER BY f.id DESC LIMIT 1
+`
+
+func (q *Queries) GetVersionFileRelease(ctx context.Context, versionID int64) (sql.NullString, error) {
+	row := q.db.QueryRowContext(ctx, getVersionFileRelease, versionID)
+	var parsed_release sql.NullString
+	err := row.Scan(&parsed_release)
+	return parsed_release, err
 }
 
 const insertAlias = `-- name: InsertAlias :exec
@@ -772,6 +803,60 @@ func (q *Queries) ListEpisodes(ctx context.Context) ([]Episode, error) {
 	return items, nil
 }
 
+const listEpisodesForList = `-- name: ListEpisodesForList :many
+SELECT id, title_id, season, number, tvdb_id, '' AS name, air_date, monitored, '' AS primary_name, placeholder_at, '' AS overview
+FROM episodes ORDER BY title_id, season, number
+`
+
+type ListEpisodesForListRow struct {
+	ID            int64
+	TitleID       int64
+	Season        int64
+	Number        int64
+	TvdbID        sql.NullInt64
+	Name          string
+	AirDate       sql.NullString
+	Monitored     int64
+	PrimaryName   string
+	PlaceholderAt sql.NullString
+	Overview      string
+}
+
+func (q *Queries) ListEpisodesForList(ctx context.Context) ([]ListEpisodesForListRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodesForList)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEpisodesForListRow
+	for rows.Next() {
+		var i ListEpisodesForListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.Season,
+			&i.Number,
+			&i.TvdbID,
+			&i.Name,
+			&i.AirDate,
+			&i.Monitored,
+			&i.PrimaryName,
+			&i.PlaceholderAt,
+			&i.Overview,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEpisodesOfTitle = `-- name: ListEpisodesOfTitle :many
 SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes WHERE title_id = ? ORDER BY season, number
 `
@@ -971,6 +1056,40 @@ func (q *Queries) ListFileEpisodesOfTitle(ctx context.Context, titleID int64) ([
 	for rows.Next() {
 		var i ListFileEpisodesOfTitleRow
 		if err := rows.Scan(&i.VersionID, &i.EpisodeID, &i.Score); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileSizes = `-- name: ListFileSizes :many
+SELECT id, version_id, size FROM files
+`
+
+type ListFileSizesRow struct {
+	ID        int64
+	VersionID int64
+	Size      int64
+}
+
+// The Library list needs every file's size, but a file's release and probe (a kilobyte of JSON each) only for a Movie's row.
+func (q *Queries) ListFileSizes(ctx context.Context) ([]ListFileSizesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileSizes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileSizesRow
+	for rows.Next() {
+		var i ListFileSizesRow
+		if err := rows.Scan(&i.ID, &i.VersionID, &i.Size); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1382,6 +1501,45 @@ func (q *Queries) ListMisfitFileIDs(ctx context.Context) ([]int64, error) {
 	return items, nil
 }
 
+const listMovieFiles = `-- name: ListMovieFiles :many
+SELECT f.id, f.version_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.score, f.grab_id, f.imported_at
+FROM files f JOIN versions v ON v.id = f.version_id JOIN titles t ON t.id = v.title_id WHERE t.kind = 'movie'
+`
+
+func (q *Queries) ListMovieFiles(ctx context.Context) ([]File, error) {
+	rows, err := q.db.QueryContext(ctx, listMovieFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []File
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Path,
+			&i.Size,
+			&i.ReleaseName,
+			&i.ParsedRelease,
+			&i.Probe,
+			&i.Score,
+			&i.GrabID,
+			&i.ImportedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOriginalFileIDs = `-- name: ListOriginalFileIDs :many
 SELECT file_id FROM file_originals
 `
@@ -1677,6 +1835,100 @@ func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 	var items []Title
 	for rows.Next() {
 		var i Title
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.TmdbID,
+			&i.TvdbID,
+			&i.ImdbID,
+			&i.Title,
+			&i.OriginalTitle,
+			&i.PrimaryTitle,
+			&i.Year,
+			&i.OriginalLanguage,
+			&i.Overview,
+			&i.Runtime,
+			&i.PosterPath,
+			&i.Monitored,
+			&i.SeriesMonitor,
+			&i.MetadataFrozen,
+			&i.RootFolder,
+			&i.Folder,
+			&i.AddedAt,
+			&i.RefreshedAt,
+			&i.TmdbVoteAverage,
+			&i.TmdbVoteCount,
+			&i.ReleaseSeenAt,
+			&i.Network,
+			&i.TvdbStatus,
+			&i.AirTime,
+			&i.AirTimezone,
+			&i.MonitorNewSeasons,
+			&i.MonitorSpecials,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitlesForList = `-- name: ListTitlesForList :many
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, '' AS overview, runtime, poster_path, monitored,
+  series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status,
+  air_time, air_timezone, monitor_new_seasons, monitor_specials
+FROM titles ORDER BY added_at DESC, id DESC
+`
+
+type ListTitlesForListRow struct {
+	ID                int64
+	Kind              string
+	TmdbID            sql.NullInt64
+	TvdbID            sql.NullInt64
+	ImdbID            sql.NullString
+	Title             string
+	OriginalTitle     string
+	PrimaryTitle      string
+	Year              sql.NullInt64
+	OriginalLanguage  string
+	Overview          string
+	Runtime           sql.NullInt64
+	PosterPath        sql.NullString
+	Monitored         int64
+	SeriesMonitor     sql.NullString
+	MetadataFrozen    int64
+	RootFolder        string
+	Folder            sql.NullString
+	AddedAt           string
+	RefreshedAt       string
+	TmdbVoteAverage   sql.NullFloat64
+	TmdbVoteCount     sql.NullInt64
+	ReleaseSeenAt     sql.NullString
+	Network           string
+	TvdbStatus        string
+	AirTime           string
+	AirTimezone       string
+	MonitorNewSeasons int64
+	MonitorSpecials   int64
+}
+
+// The list's Titles and episodes without their overviews and names, which it never shows: a Library of thousands reads and
+// allocates megabytes of text for nothing otherwise. The columns keep the order of the tables, so a row converts to the model.
+func (q *Queries) ListTitlesForList(ctx context.Context) ([]ListTitlesForListRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesForList)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTitlesForListRow
+	for rows.Next() {
+		var i ListTitlesForListRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
