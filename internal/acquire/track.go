@@ -361,10 +361,10 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 		return out, err
 	}
 	obs.Releases(len(entries))
+	out.found(entries)
 	out.Failures = failures
 	byRelease := map[string]*entry{}
 	for _, e := range entries {
-	out.found(entries)
 		in.Candidates = append(in.Candidates, e.cand)
 		byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
 	}
