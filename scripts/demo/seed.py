@@ -417,7 +417,7 @@ for tmdb, slot_, ago, releases, outcome, reasons, nxt in (
     (1396, "4k", 1, 37, "nothing_fit", [("below_min_score", None, 21), ("resolution", None, 9), ("language", "German", 7)], 3),
 ):
     v = ver[(tid[tmdb], slot_)]
-    db.execute("INSERT INTO version_searches(version_id,at,releases,outcome,reasons,upgrade) VALUES (?,?,?,?,?,0)",
+    db.execute("INSERT OR REPLACE INTO version_searches(version_id,at,releases,outcome,reasons,upgrade) VALUES (?,?,?,?,?,0)",
                (v, iso(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=ago)), releases, outcome,
                 json.dumps([{"code": c, "detail": d, "count": n} if d else {"code": c, "count": n} for c, d, n in reasons], separators=(",", ":"))))
     db.execute("UPDATE search_state SET next_missing_at=? WHERE version_id=?",
@@ -427,9 +427,9 @@ for tmdb, slot_, ago, releases, outcome, reasons, nxt in (
 imp = db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,parsed,verdict,"
                  "client_instance_id,client_id,state,created_at,updated_at,download_started_at,download_done_at,covers_wanted,replaces_files,score_delta,import_checking) "
                  "VALUES (?,?,?,?,?,?,?,?,?,'{}','{}',?,?,'importing',?,?,?,?,2,0,0,2)",
-                 (tid[1396], std_bb, "seed-importing", "Breaking.Bad.S05E07-E08.1080p.WEB-DL.DD5.1.H.264-NTb", IDS["NZBgeek"], "NZBgeek", 3 << 30,
+                 (tid[1396], std_bb, "seed-importing", "Breaking.Bad.S05E09-E10.1080p.WEB-DL.DD5.1.H.264-NTb", IDS["NZBgeek"], "NZBgeek", 3 << 30,
                   iso(at_day(0, 0)), 1600, sab, "SABnzbd_nzo_seed-importing", iso(at_day(0, 0, 5)), iso(at_day(0, 0, 25)), iso(at_day(0, 0, 6)), iso(at_day(0, 0, 24)))).lastrowid
-for n in (7, 8):
+for n in (9, 10):
     db.execute("INSERT INTO grab_episodes(grab_id, episode_id) VALUES (?,?)", (imp, eps[(5, n)]))
 db.commit()
 versions = [(r["id"], r["profile_key"]) for r in db.execute("SELECT DISTINCT v.id, v.profile_key FROM versions v JOIN files f ON f.version_id = v.id")]
@@ -472,7 +472,7 @@ db.commit()
 db.close()
 # The Log: a week of events, written as the app records them (messages and payloads of internal/history), oldest first.
 db = sqlite3.connect(args.db)
-grabs = db.execute("SELECT id, title_id, version_id, release_name FROM grabs ORDER BY id DESC").fetchall()
+grabs = db.execute("SELECT id, title_id, version_id, release_name FROM grabs WHERE state != 'importing' ORDER BY id DESC").fetchall()
 gb = next(g for g in grabs if g[1] == tid[1396]) if any(g[1] == tid[1396] for g in grabs) else grabs[0]
 gp = next(g for g in grabs if g[1] == tid[116149]) if any(g[1] == tid[116149] for g in grabs) else grabs[0]
 log = []
