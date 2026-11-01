@@ -3,7 +3,7 @@
 import { useRunningNow, type Running } from '../activity/running'
 import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
 import { useAuth, useLogout } from '../api/queries'
@@ -22,6 +22,7 @@ import { usePhone } from '../responsive'
 import { guardLeave } from '../settings/draft'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { PageSkeleton } from '../loading'
+import { lazyScreen } from './lazyScreen'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
 import { SidePanelPhoneContext } from '../layout/SidePanel'
@@ -31,21 +32,33 @@ import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { HealthButton } from './HealthButton'
 
 // Each screen is its own chunk, so a cold load fetches the shell and the screen it opens at; the tab bar's screens follow when the browser is idle.
-const screenModules = {
-  overview: () => import('../overview/Overview'),
-  library: () => import('../library/Library'),
-  upcoming: () => import('../upcoming/Upcoming'),
-  activity: () => import('../activity/Activity'),
-  log: () => import('../log/Log'),
-  health: () => import('../health/Health'),
-  requests: () => import('../requests/Requests'),
-  settings: () => import('../screens/Settings'),
-  adoption: () => import('../adoption/Adoption'),
-  cleanup: () => import('../cleanup/Cleanup'),
-  menu: () => import('../command/CommandMenu'),
+const lazyScreens = {
+  overview: lazyScreen(() => import('../overview/Overview').then((m) => m.Overview)),
+  library: lazyScreen(() => import('../library/Library').then((m) => m.Library)),
+  upcoming: lazyScreen(() => import('../upcoming/Upcoming').then((m) => m.Upcoming)),
+  activity: lazyScreen(() => import('../activity/Activity').then((m) => m.Activity)),
+  log: lazyScreen(() => import('../log/Log').then((m) => m.Log)),
+  health: lazyScreen(() => import('../health/Health').then((m) => m.Health)),
+  requests: lazyScreen(() => import('../requests/Requests').then((m) => m.Requests)),
+  settings: lazyScreen(() => import('../screens/Settings').then((m) => m.Settings)),
+  adoption: lazyScreen(() => import('../adoption/Adoption').then((m) => m.Adoption)),
+  cleanup: lazyScreen(() => import('../cleanup/Cleanup').then((m) => m.Cleanup)),
+  menu: lazyScreen(() => import('../command/CommandMenu').then((m) => m.CommandMenu)),
 }
+const Overview = lazyScreens.overview.Screen
+const Library = lazyScreens.library.Screen
+const Upcoming = lazyScreens.upcoming.Screen
+const Activity = lazyScreens.activity.Screen
+const Log = lazyScreens.log.Screen
+const Health = lazyScreens.health.Screen
+const Requests = lazyScreens.requests.Screen
+const SettingsScreen = lazyScreens.settings.Screen
+const Adoption = lazyScreens.adoption.Screen
+const Cleanup = lazyScreens.cleanup.Screen
+const CommandMenu = lazyScreens.menu.Screen
+
 // The rail, tab bar and More sheet items by the name they carry: pointing at, touching or focusing one fetches its screen at once.
-const screenOfLabel: Record<string, keyof typeof screenModules> = {
+const screenOfLabel: Record<string, keyof typeof lazyScreens> = {
   Overview: 'overview',
   Library: 'library',
   Upcoming: 'upcoming',
@@ -65,7 +78,7 @@ function prefetchOnIntent() {
     if (!el) return
     const label = (el.getAttribute('aria-label') ?? el.textContent ?? '').split(',')[0].trim()
     const key = screenOfLabel[label]
-    if (key) void screenModules[key]().catch(() => {})
+    if (key) void lazyScreens[key].preload().catch(() => {})
   }
   const events = ['pointerover', 'pointerdown', 'focusin'] as const
   for (const ev of events) document.addEventListener(ev, onIntent, true)
@@ -74,30 +87,18 @@ function prefetchOnIntent() {
   }
 }
 
-const Overview = lazy(() => screenModules.overview().then((m) => ({ default: m.Overview })))
-const Library = lazy(() => screenModules.library().then((m) => ({ default: m.Library })))
-const Upcoming = lazy(() => screenModules.upcoming().then((m) => ({ default: m.Upcoming })))
-const Activity = lazy(() => screenModules.activity().then((m) => ({ default: m.Activity })))
-const Log = lazy(() => screenModules.log().then((m) => ({ default: m.Log })))
-const Health = lazy(() => screenModules.health().then((m) => ({ default: m.Health })))
-const Requests = lazy(() => screenModules.requests().then((m) => ({ default: m.Requests })))
-const SettingsScreen = lazy(() => screenModules.settings().then((m) => ({ default: m.Settings })))
-const Adoption = lazy(() => screenModules.adoption().then((m) => ({ default: m.Adoption })))
-const Cleanup = lazy(() => screenModules.cleanup().then((m) => ({ default: m.Cleanup })))
-const CommandMenu = lazy(() => screenModules.menu().then((m) => ({ default: m.CommandMenu })))
-
 /** Fetches the chunks of the tab bar's screens and the command menu once the first screen has settled, one at a time, unless the browser asks to save data. */
 function prefetchScreens() {
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
   if (conn?.saveData) return () => {}
-  const order = [screenModules.library, screenModules.upcoming, screenModules.activity, screenModules.overview, screenModules.menu]
+  const order = [lazyScreens.library, lazyScreens.upcoming, lazyScreens.activity, lazyScreens.overview, lazyScreens.menu]
   let cancelled = false
   let handle: number | undefined
   const idle = (f: () => void) => (typeof requestIdleCallback === 'function' ? (requestIdleCallback(f, { timeout: 5000 }) as number) : (window.setTimeout(f, 1500) as unknown as number))
   const next = (i: number) => {
     if (cancelled || i >= order.length) return
     handle = idle(() => {
-      order[i]().then(
+      order[i].preload().then(
         () => next(i + 1),
         () => {}, // offline: the screen fetches itself when opened
       )
