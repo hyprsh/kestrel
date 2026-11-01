@@ -1,4 +1,4 @@
-{"queue": {"version": "4.5.1", "paused": false, "slots": [
+{"queue": {"version": "4.5.1", "paused": false, "speed": "28.0 M", "kbpersec": "28672.50", "slots": [
   {"index": 0, "nzo_id": "SABnzbd_nzo_dl1", "filename": "Movie.2024.2160p.WEB-DL.DV.HDR.x265-GRP", "cat": "movies", "status": "Downloading",
    "priority": "-100", "mb": "20480.00", "mbleft": "5120.50", "percentage": "75", "timeleft": "1:02:03", "labels": []},
   {"index": 1, "nzo_id": "SABnzbd_nzo_q1", "filename": "Other.Movie.2023.1080p.BluRay-GRP", "cat": "movies", "status": "Queued",

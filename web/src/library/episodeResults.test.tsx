@@ -6,6 +6,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
+import { releaseList } from '../test/grabs'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -24,7 +25,7 @@ async function openLibrary() {
     }),
     http.post('/versions/{id}/releases', async ({ params, request, response }) => {
       manual.push({ version: Number(params.id), body: await request.json() })
-      return response(200).json({ items: [], indexer_errors: [] })
+      return response(200).json(releaseList())
     }),
   )
   renderApp()
@@ -134,7 +135,7 @@ describe('the Library filter with an episode code', () => {
 
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
     await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')).toHaveAttribute('aria-current', 'true'))
-    expect(screen.getByRole('tab', { name: /^Season 1/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: /^Season 1:/, expanded: true })).toBeInTheDocument()
     await waitFor(() => expect(new URLSearchParams(location.search).get('episode')).toBe('1'))
   })
 

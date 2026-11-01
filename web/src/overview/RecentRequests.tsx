@@ -3,14 +3,14 @@
 // Its rows are part of the Overview's j/k selection.
 import { Badge, Entity } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
-import { useQueue } from '../api/queue'
 import { useRecentRequests, type Request } from '../api/requests'
-import { slotLabel, type SlotKey } from '../library/bits'
 import { Loaded, SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
-import { reasons, slotState } from '../requests/status'
+import { RequestSlots, requestStatus } from '../requests/RequestSlots'
+import { useQueue } from '../api/queue'
+import { reasons } from '../requests/status'
 import type { OverviewNav } from './nav'
-import { EmptyLine, firstFive, Section, ViewAll } from './Section'
+import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
 
 function StateBadges({ request: r }: { request: Request }) {
   const queue = useQueue().data ?? []
@@ -21,22 +21,20 @@ function StateBadges({ request: r }: { request: Request }) {
       </Badge>
     )
   }
-  return r.slots.map((s) => {
-    const st = slotState(s, queue)
-    return (
-      <Badge key={s.slot} variant={st.tone} contrast="low" size="sm">
-        {`${slotLabel[s.slot as SlotKey]} · ${st.text}`}
-      </Badge>
-    )
-  })
+  return (
+    <>
+      <RequestSlots request={r} />
+      <span className="text-gray-900">{requestStatus(r, queue)}</span>
+    </>
+  )
 }
 
 export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const recent = useRecentRequests()
-  const shown = firstFive(recent.data?.items ?? [])
+  const shown = firstThree(recent.data?.items ?? [])
   const total = recent.data?.total ?? 0
   return (
-    <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined}>
+    <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined} action={total > 0 ? <HeadingLink path="/requests" label="Requests" /> : undefined}>
       <Loaded query={recent} skeleton={<SkeletonRows poster="sm" />} empty={<EmptyLine title="Nobody has asked for anything yet." />} isEmpty={() => shown.length === 0}>
         {() => (
           <RowList>
@@ -70,7 +68,6 @@ export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number)
           </RowList>
         )}
       </Loaded>
-      {total > 0 && <ViewAll path="/requests" label="All requests →" />}
     </Section>
   )
 }

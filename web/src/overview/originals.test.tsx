@@ -63,7 +63,7 @@ describe('the Originals available group in Needs attention', () => {
     fakeOffers([movieOffer])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     expect(await within(section).findByText(/Standard · HD$/)).toBeInTheDocument()
     expect(within(section).queryByText(/hd-primary/)).not.toBeInTheDocument()
@@ -73,7 +73,7 @@ describe('the Originals available group in Needs attention', () => {
     fakeOffers([{ ...movieOffer, slot: '4k', profile: '4k-primary' }])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     const item = within(section).getAllByRole('listitem')[1] // after the group's own row
     await waitFor(() => expect(item).toHaveTextContent('Paddington · 4K'))
@@ -84,7 +84,7 @@ describe('the Originals available group in Needs attention', () => {
     const sent = fakeOffers([movieOffer, seriesOffer])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     expect(await within(section).findByText('Originals available · 2')).toBeInTheDocument()
     expect(within(section).queryByText(/paddington/i)).not.toBeInTheDocument()
 
@@ -113,7 +113,7 @@ describe('the Originals available group in Needs attention', () => {
     server.use(http.post('/versions/{id}/original-offer/accept', refuse as never), http.post('/versions/{id}/original-offer/dismiss', refuse as never))
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     await userEvent.click(within(section).getByRole('button', { name: 'Accept' }))
     expect(await findToast('Could not accept the original for Paddington: indexer offline')).toBeInTheDocument()
@@ -121,13 +121,12 @@ describe('the Originals available group in Needs attention', () => {
     expect(await findToast('Could not dismiss the original for Paddington: indexer offline')).toBeInTheDocument()
   })
 
-  it('does not say nothing needs attention while it shows', async () => {
+  it('shows Needs attention while it shows', async () => {
     fakeOffers([movieOffer])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     expect(await within(section).findByText('Originals available · 1')).toBeInTheDocument()
-    expect(within(section).queryByText(/nothing needs attention/i)).not.toBeInTheDocument()
   })
 
   it('opens the Title from a row', async () => {
@@ -135,7 +134,7 @@ describe('the Originals available group in Needs attention', () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 1' }))
     await userEvent.click(within(section).getByRole('button', { name: 'Paddington' }))
 
@@ -149,7 +148,7 @@ describe('the Originals available group in Needs attention', () => {
     ])
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /happening now/i })
+    const section = await screen.findByRole('region', { name: /needs attention/i })
     await userEvent.click(await within(section).findByRole('button', { name: 'Originals available · 2' }))
     const offers = within(section).getAllByRole('listitem').slice(1) // after the group's own row
 
@@ -161,9 +160,9 @@ describe('the Originals available group in Needs attention', () => {
   it('does not show without offers', async () => {
     fakeOffers([])
     renderApp()
-    const section = await screen.findByRole('region', { name: /happening now/i })
-    expect(await within(section).findByText(/nothing needs attention/i)).toBeInTheDocument()
-    expect(within(section).queryByText(/originals available/i)).not.toBeInTheDocument()
+    await screen.findByText('Nothing downloading')
+    expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/originals available/i)).not.toBeInTheDocument()
   })
 })
 
@@ -185,21 +184,25 @@ describe('the Original Offer indicator on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    return within(pane).findByRole('listitem', { name: 'Standard' })
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    return pane
   }
 
   it('says an original is available on the Version', async () => {
-    const hd = await openWith(movieOffer)
-    expect(within(hd).getByText('Original available')).toHaveAttribute('title', 'Paddington.2014.1080p.BluRay.x264-GRP · Score 50')
+    const pane = await openWith(movieOffer)
+    expect(within(pane).getByText('A Standard release in the original language only is available · Score 50')).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: 'Accept' })).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
   })
 
   it('says when the offer was dismissed', async () => {
-    const hd = await openWith({ ...movieOffer, dismissed: true })
-    expect(within(hd).getByText('Original available, dismissed')).toBeInTheDocument()
+    const pane = await openWith({ ...movieOffer, dismissed: true })
+    expect(within(pane).getByText('A Standard release in the original language only is available · Score 50 · Dismissed')).toBeInTheDocument()
+    expect(within(pane).queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
   })
 
   it('is absent without an offer', async () => {
-    const hd = await openWith(null)
-    expect(within(hd).queryByText(/original available/i)).not.toBeInTheDocument()
+    const pane = await openWith(null)
+    expect(within(pane).queryByText(/original language only/i)).not.toBeInTheDocument()
   })
 })

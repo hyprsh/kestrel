@@ -1,11 +1,9 @@
-// The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
+// The Geist shell: a thin icon rail, and beside it each screen's SidePanel (layout/SidePanel.tsx) or, for a screen without one, a plain title at the top of its content.
 // Ported from the prototype's variant C; screens arrive with later tickets.
-import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { activityTabOf, activityTabSection, type ActivityTab } from '../activity/tabs'
-import { Button, CommandMenuTrigger, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings } from 'lucide-react'
+import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -15,8 +13,10 @@ import { Adoption } from '../adoption/Adoption'
 import { adoptionLabel, useAdoption } from '../api/adoption'
 import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
+import { plural } from '../format'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
+import { useSearchPassToast, useWatchSearch } from '../activity/searchToast'
 import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
 import { Health } from '../health/Health'
@@ -25,15 +25,16 @@ import { Overview } from '../overview/Overview'
 import { Requests } from '../requests/Requests'
 import { useTrashOutcomeToasts } from '../trash/toasts'
 import { EpisodeViewContext, noEpisodeView, type EpisodeView } from '../library/episodeView'
-import { currentPlace, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace } from '../place'
+import { currentPlace, manualSearchPath, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace, type ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
+import { guardLeave } from '../settings/draft'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
-import { ScreenBarPlacesContext } from '../layout/ScreenBar'
-import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
+import { SidePanelPhoneContext } from '../layout/SidePanel'
+import { PhoneTopBar } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { HealthButton } from './HealthButton'
@@ -46,7 +47,6 @@ const screens = [
   { key: 'log', label: 'Log', icon: <ScrollText /> },
   { key: 'settings', label: 'Settings', icon: <Settings /> },
 ]
-const about = { key: 'about', label: 'About', icon: <Info /> }
 // Reached from Settings and the command menu, not the rail.
 const adoption = { key: 'adoption', label: 'Adopt existing library', icon: <FolderInput /> }
 const cleanup = { key: 'cleanup', label: 'Clean up Unmanaged files', icon: <Eraser /> }
@@ -56,14 +56,15 @@ const requests = { key: 'requests', label: 'Requests', icon: <ListPlus /> }
 const health = { key: 'health', label: 'Health', icon: <HeartPulse /> }
 // The tab bar of a phone; the rest of the screens are behind More.
 const tabKeys = ['overview', 'library', 'upcoming', 'activity']
-// Settings and Log first, then the screens a phone reaches only from here (Requests also from the Overview), About last.
-const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup', 'about']
-// Short names for the More sheet; the top bar keeps the long ones.
+// Settings and Log first, then the screens a phone reaches only from here (Requests also from the Overview). About is a page of Settings.
+const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup']
+// Short names for the More sheet; a screen's heading keeps the long ones.
 const moreLabels: Record<string, string> = { adoption: 'Adoption', cleanup: 'Clean up' }
-// The screens that put their own bar in the middle of a desktop's top bar, in place of the command box.
-const barScreens = ['library', 'upcoming', 'activity', 'log']
+// The screens that carry their own name in a SidePanel (see layout/SidePanel.tsx), so the Shell adds no heading above them.
+// Phase 2 adds Log, Upcoming, Settings, Activity and Health as they move over.
+const panelScreens = ['overview', 'library', 'activity', 'health', 'settings', 'upcoming', 'log', 'requests']
 const isTitleId = (section: string) => /^\d+$/.test(section)
-const isPlace = (key: string) => [...screens, about, requests, health].some((s) => s.key === key)
+const isPlace = (key: string) => [...screens, requests, health].some((s) => s.key === key)
 
 export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // A bookmarked address opens its screen with its filter.
@@ -76,47 +77,51 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [titleOpen, setTitleOpen] = useState(startTitle !== null)
   // A Series' season tab and found episode ("/library?season=2&episode=5"), kept here so they reach the address bar.
   const [episodeView, setEpisodeView] = useState<EpisodeView>(() =>
-    start.screen === 'library' && start.season !== null ? { titleId: startTitle, season: start.season, episode: start.episode } : noEpisodeView,
+    start.screen === 'library' && (start.season !== null || start.slot || start.open)
+      ? { titleId: startTitle, season: start.season, episode: start.episode, slot: start.slot, open: start.open }
+      : noEpisodeView,
   )
+  // A Title's Manual search ("/library/12/search?version=4&scope=S05"): it replaces the Title page and has its own address.
+  const [manual, setManual] = useState<ManualSearchAt | null>(start.search)
   // On a phone Settings' list and an opened section are two screens; "/settings/indexers" is the second.
   const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
   const [more, setMore] = useState(false)
-  // Where a screen's bar goes in a desktop's top bar (see ScreenBar); a phone has none.
-  const [barMiddle, setBarMiddle] = useState<HTMLElement | null>(null)
-  const [barEnd, setBarEnd] = useState<HTMLElement | null>(null)
-  const barPlaces = useMemo(() => (phone ? undefined : { middle: barMiddle, end: barEnd }), [phone, barMiddle, barEnd])
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
+  // The search belongs to the Library and to its Title: another screen or Title closes it.
+  const searchShown = screen === 'library' && manual !== null && manual.titleId === libraryId ? manual : null
+  useEffect(() => {
+    if (manual !== null && (screen !== 'library' || manual.titleId !== libraryId)) setManual(null)
+  }, [manual, screen, libraryId])
   const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
-  // Activity's tab is the place's section ("/activity/jobs"); only Grabs has a filter.
-  const [activityTab, setActivityTab] = useState<ActivityTab>(start.screen === 'activity' ? activityTabOf(start.section) : 'grabs')
+  // Health's section ("/health/jobs") is scrolled to; the address keeps it until the screen changes.
+  const [healthSection, setHealthSection] = useState(start.screen === 'health' ? start.section : '')
   // Another Title selected: its Series' season and found episode are not the previous Title's (a Movie shows none). A view that names no Title stays for the first Series shown.
   useEffect(() => {
     if (libraryId !== null) setEpisodeView((v) => (v.titleId !== null && v.titleId !== libraryId ? noEpisodeView : v))
   }, [libraryId])
   const shownView = screen === 'library' ? episodeView : noEpisodeView
-  const address = screen === 'activity' ? { q: activityTab === 'grabs' ? query : '', section: activityTabSection(activityTab) } : { q: query, section }
-  useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView)), [screen, address.q, address.section, shownView])
-  // A click on a tab is a history entry of its own, so Back returns to the tab before it.
-  const openActivityTab = useCallback(
-    (tab: ActivityTab) => {
-      setActivityTab(tab)
-      pushPlace(placePath('activity', tab === 'grabs' ? filter.q : '', activityTabSection(tab)))
-    },
-    [filter.q],
-  )
+  const address = { q: query, section: screen === 'health' ? healthSection : section }
+  useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView, searchShown)), [screen, address.q, address.section, shownView, searchShown])
+  // A first load at "/health/jobs" scrolls to that section.
+  useEffect(() => {
+    if (start.screen === 'health' && start.section) document.getElementById(`health-${start.section}`)?.scrollIntoView?.()
+  }, [start])
   // Back and Forward step between the list and a Title page (and the screen a Title was opened from).
   useEffect(() => {
     const onPop = () => {
       const place = currentPlace()
       if (isPlace(place.screen)) setScreen(place.screen)
-      if (place.screen === 'activity') setActivityTab(activityTabOf(place.section))
+      if (place.screen === 'health') setHealthSection(place.section)
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))
-      setEpisodeView(place.season === null ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode })
+      setManual(place.search)
+      setEpisodeView(
+        place.season === null && !place.slot ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode, slot: place.slot },
+      )
       setSettingsSection(place.screen === 'settings' ? place.section : '')
       if (isTitleId(place.section)) setLibraryId(Number(place.section))
     }
@@ -126,8 +131,15 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const { theme, setTheme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
-  const current = [...screens, about, adoption, cleanup, requests, health].find((s) => s.key === screen)!
+  const current = [...screens, adoption, cleanup, requests, health].find((s) => s.key === screen)!
   const running = useRunningNow()
+  // What a phone's header shows before the screen's own actions: what runs and Health. A desktop has them in the rail.
+  const phoneExtras = (
+    <>
+      <RunningIndicator running={running} onOpen={() => goPath('/health/jobs')} phone />
+      <HealthButton tooltipPosition="bottom" active={screen === 'health'} />
+    </>
+  )
 
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
   const queryClient = useQueryClient()
@@ -153,6 +165,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const searchAll = useSearchAllWanted()
   const { mutate: searchAllWanted } = searchAll
   useTrashOutcomeToasts()
+  useSearchPassToast()
+  const watchSearch = useWatchSearch()
   const toasts = useToasts()
   const adoptionState = useAdoption().data?.state
   const actions: MenuAction[] = useMemo(
@@ -163,7 +177,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         keywords: 'missing search catch up',
         run: () =>
           searchAllWanted(undefined, {
-            onSuccess: (versions) => toasts.success(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
+            onSuccess: (versions) => watchSearch(`${versions} Wanted ${versions === 1 ? 'Version' : 'Versions'} queued for a search`),
             onError: (e) => toasts.error(`Search all Wanted failed: ${e.message}`),
           }),
       },
@@ -171,9 +185,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: adoptionLabel(adoptionState), keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
       { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
-      ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
+      ...(canLogout ? [{ id: 'logout', label: 'Log Out', keywords: 'sign out logout', run: () => logout.mutate(undefined) }] : []),
     ],
-    [cycle, onRunSetup, canLogout, logout, searchAllWanted, toasts, openCleanup, adoptionState],
+    [cycle, onRunSetup, canLogout, logout, searchAllWanted, toasts, watchSearch, openCleanup, adoptionState],
   )
   const needs = useAttention().data
   const tabs: Tab[] = tabKeys
@@ -185,29 +199,50 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
         : {}),
     }))
   const moreItems: Tab[] = moreKeys.map((k) => {
-    const s = [...screens, about, adoption, cleanup, requests].find((x) => x.key === k)!
+    const s = [...screens, adoption, cleanup, requests].find((x) => x.key === k)!
     return { ...s, label: moreLabels[k] ?? s.label }
   })
-  const places = useMemo(() => [...screens, about, health].map((s) => ({ id: s.key, label: s.label })), [])
+  const places = useMemo(() => [...screens, health, { key: 'about', label: 'About' }].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
+  // Opens a Title's Manual search as a new history entry, so Back returns to where it was opened from; null closes it the same way.
+  const openSearch = useCallback((at: ManualSearchAt) => {
+    setLibraryId(at.titleId)
+    setFilter({ screen: 'library', q: '' })
+    setScreen('library')
+    setTitleOpen(true)
+    setManual(at)
+    pushPlace(manualSearchPath(at))
+  }, [])
+  const closeSearch = useCallback(() => {
+    if (pushedPlace()) history.back()
+    else setManual(null)
+  }, [])
   // An action that opens a place: "/settings/download-client" is the Settings screen at that
   // section, "/log?q=kind:failures" the Log with that filter.
   const goPath = useCallback(
     (path: string) => {
-      const { screen: key, section, q } = placeOf(path)
+      const { screen: key, section, q, search } = placeOf(path)
       if (!isPlace(key)) return
-      setScreen(key)
-      setFilter({ screen: key, q })
-      if (key === 'settings') {
-        // A phone opens the section as its own screen; elsewhere it is scrolled to.
-        setSettingsSection(section)
-        if (phone && section) pushPlace(placePath('settings', '', section))
+      if (search) {
+        guardLeave(() => openSearch(search))
+        return
       }
-      // Activity's sections are its tabs, not places to scroll to ("/activity/running" is Background Jobs).
-      if (key === 'activity') setActivityTab(activityTabOf(section))
-      else if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+      const go = () => {
+        setScreen(key)
+        setFilter({ screen: key, q })
+        if (key === 'settings') {
+          // A phone opens the section as its own screen; elsewhere it is scrolled to.
+          setSettingsSection(section)
+          if (phone && section) pushPlace(placePath('settings', '', section))
+        }
+        if (key === 'health') setHealthSection(section)
+        if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
+      }
+      // Unsaved Settings are asked about, unless the place is Settings itself (it asks on its own when the page changes).
+      if (key === 'settings') go()
+      else guardLeave(go)
     },
-    [phone],
+    [phone, openSearch],
   )
   // An opened Title is shown, so the Library's filter must not hide it.
   const openTitle = useCallback(
@@ -243,31 +278,39 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   }, [])
   // The Library tab always leads to the list, also while a Title page is open; Settings to its list of sections.
   const select = useCallback((key: string) => {
-    setScreen(key)
-    if (key === 'library') setTitleOpen(false)
-    if (key === 'settings') setSettingsSection('')
+    guardLeave(() => {
+      setScreen(key)
+      if (key === 'library') setTitleOpen(false)
+      if (key === 'settings') setSettingsSection('')
+    })
   }, [])
 
   return (
     <CleanupLauncher.Provider value={openCleanup}>
       <PlaceOpener.Provider value={goPath}>
         <EpisodeViewContext.Provider value={{ view: episodeView, setView: setEpisodeView }}>
-          <ScreenBarPlacesContext.Provider value={barPlaces}>
+          <SidePanelPhoneContext.Provider value={phoneExtras}>
             <div className="flex h-full">
-              {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} onSearch={() => setMenu({ mode: 'root' })} />}
-              <div className="flex min-w-0 flex-1 flex-col">
-                <TopBar
-                  title={current.label}
-                  phone={phone}
-                  bar={barScreens.includes(screen)}
-                  onBarMiddle={setBarMiddle}
-                  onBarEnd={setBarEnd}
-                  onOpenMenu={() => setMenu({ mode: 'root' })}
-                  onAdd={() => setMenu({ mode: 'add' })}
+              {!phone && (
+                <Rail
+                  screen={screen}
+                  onSelect={(key) => guardLeave(() => setScreen(key))}
                   running={running}
-                  onOpenRunning={() => goPath('/activity/running')}
-                  healthOpen={screen === 'health'}
+                  onOpenRunning={() => goPath('/health/jobs')}
+                  theme={theme}
+                  onTheme={setTheme}
+                  onSearch={() => setMenu({ mode: 'root' })}
                 />
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                {phone && !panelScreens.includes(screen) && (
+                  <PhoneTopBar title={current.label}>
+                    {phoneExtras}
+                    <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={() => setMenu({ mode: 'add' })}>
+                      <Plus />
+                    </Button>
+                  </PhoneTopBar>
+                )}
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
                 <BlockingBanner onOpen={goPath} />
                 <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
@@ -288,27 +331,19 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                       onCloseTitle={closeLibraryTitle}
                       onAdd={() => setMenu({ mode: 'add' })}
                       onAdopt={() => setScreen('adoption')}
+                      search={searchShown}
+                      onSearch={(at) => (at ? openSearch(at) : closeSearch())}
                     />
-                  ) : screen === 'about' ? (
-                    <About />
                   ) : screen === 'log' ? (
-                    <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
+                    <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} onOpenTitle={openTitle} />
                   ) : screen === 'activity' ? (
-                    <Activity
-                      tab={activityTab}
-                      onTab={openActivityTab}
-                      query={query}
-                      onQuery={(q) => setFilter({ screen: 'activity', q })}
-                      onOpenTitle={openTitle}
-                      running={running}
-                      onOpenAdoption={() => setScreen('adoption')}
-                    />
+                    <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
                   ) : screen === 'health' ? (
-                    <Health />
+                    <Health running={running} onOpenAdoption={() => setScreen('adoption')} onOpenTitle={openTitle} />
                   ) : screen === 'requests' ? (
                     <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
                   ) : screen === 'upcoming' ? (
-                    <Upcoming onOpenTitle={openTitle} />
+                    <Upcoming query={query} onQuery={(q) => setFilter({ screen: 'upcoming', q })} onOpenTitle={openTitle} />
                   ) : (
                     <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
                   )}
@@ -328,9 +363,18 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                   onLogout={canLogout ? () => logout.mutate(undefined) : undefined}
                 />
               )}
-              {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
+              {menu && (
+                <CommandMenu
+                  initialMode={menu.mode}
+                  actions={actions}
+                  places={places}
+                  onClose={closeMenu}
+                  onGo={(place) => (place === 'about' ? goPath('/settings/about') : setScreen(place))}
+                  onOpenTitle={openTitle}
+                />
+              )}
             </div>
-          </ScreenBarPlacesContext.Provider>
+          </SidePanelPhoneContext.Provider>
         </EpisodeViewContext.Provider>
       </PlaceOpener.Provider>
     </CleanupLauncher.Provider>
@@ -379,133 +423,80 @@ function Rail({
   onSelect,
   theme,
   onTheme,
-  onAdd,
   onSearch,
+  running,
+  onOpenRunning,
 }: {
   screen: string
   onSelect: (key: string) => void
   theme: Theme
   onTheme: (theme: Theme) => void
-  onAdd: () => void
   onSearch: () => void
+  running: Running[]
+  onOpenRunning: () => void
 }) {
-  const logout = useLogout()
-  const auth = useAuth()
   const attention = useAttention().data
   const needs = attention?.count ?? 0
   return (
     <RailFrame>
-      <span className="mb-2 inline-flex">
-        <Button svgOnly variant="tertiary" aria-label="Kestrel, go to Overview" onClick={() => onSelect('overview')}>
-          <KestrelLogo />
-        </Button>
-      </span>
-      <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
-        <Plus />
+      {/* The mark is the Overview link (home), with its attention badge, and active like the other screens. */}
+      <RailButton
+        label="Overview"
+        active={screen === 'overview'}
+        onClick={() => onSelect('overview')}
+        badge={needs > 0 ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) } : undefined}
+      >
+        <KestrelLogo />
       </RailButton>
-      <RailButton label={`Search or run a command (${MOD} K)`} onClick={onSearch}>
+      {/* One entry point: the command menu searches the Library and, with "Add Title…", the Movies and Series to add. */}
+      <RailButton label={`Search or add (${MOD} K)`} onClick={onSearch}>
         <Search />
       </RailButton>
       <Separator className="my-1 w-6" />
-      {screens.map((s) => (
-        <RailButton
-          key={s.key}
-          label={s.label}
-          active={screen === s.key}
-          onClick={() => onSelect(s.key)}
-          badge={s.key === 'overview' && needs > 0 ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) } : undefined}
-        >
-          {s.icon}
-        </RailButton>
-      ))}
+      {screens
+        .filter((s) => s.key !== 'overview')
+        .map((s) => (
+          <RailButton key={s.key} label={s.label} active={screen === s.key} onClick={() => onSelect(s.key)}>
+            {s.icon}
+          </RailButton>
+        ))}
       <RailSpacer />
+      <RailRunning running={running} onOpen={onOpenRunning} />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
       <HealthButton tooltipPosition="right" active={screen === 'health'} />
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
-      <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
-        {about.icon}
-      </RailButton>
-      {/* A proxy-authenticated request has no session to end; the portal owns logging out. */}
-      {auth.data?.state === 'ok' && auth.data.me.method === 'session' && (
-        <RailButton label="Log out" onClick={() => logout.mutate(undefined)}>
-          <LogOut />
-        </RailButton>
-      )}
     </RailFrame>
   )
 }
 
-/** The desktop header: the title, then the command box or the screen's own bar, then what runs and the screen's menu and action. */
-function TopBar({
-  title,
-  phone,
-  bar,
-  onBarMiddle,
-  onBarEnd,
-  onOpenMenu,
-  onAdd,
-  running,
-  onOpenRunning,
-  healthOpen,
-}: {
-  title: string
-  phone: boolean
-  /** Whether the screen puts its own bar in the middle, in place of the command box. */
-  bar: boolean
-  onBarMiddle: (el: HTMLElement | null) => void
-  onBarEnd: (el: HTMLElement | null) => void
-  onOpenMenu: () => void
-  onAdd: () => void
-  running: Running[]
-  onOpenRunning: () => void
-  /** Whether the Health screen is the one shown, for the Health button. */
-  healthOpen: boolean
-}) {
-  // A phone has no room for the search box: the title, what runs, Health and Add; Search is the tab bar's accessory.
-  if (phone)
-    return (
-      <PhoneTopBar title={title}>
-        <RunningIndicator running={running} onOpen={onOpenRunning} />
-        <HealthButton tooltipPosition="bottom" active={healthOpen} />
-        <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
-          <Plus />
-        </Button>
-      </PhoneTopBar>
-    )
+/** What runs, in a few words: "Searching 15/40", "Searching 1/4 · 12 releases" (off a phone's narrow header), or how many things run. */
+function runningLabel(running: Running[], phone: boolean) {
+  const [one] = running
+  // The count takes the ellipsis's place: "Searching 15/40". A search pass adds the Releases checked, off a phone's narrow bar.
+  const counted = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
+  const progress = counted && one.releases && !phone ? `${counted} · ${plural(one.releases, 'release')}` : counted
+  return running.length > 1 ? `${running.length} running` : (progress ?? one.short)
+}
+
+/** The tooltip, which a screen reader gets as the description, names what runs and what is searched now. */
+const runningTip = (running: Running[]) => running.map((r) => (r.now ? `${r.name}\n${r.now}` : r.name)).join('\n')
+
+/** A phone header's mark for work in progress: a dot and what runs, or how many things do. Quiet while nothing runs. */
+function RunningIndicator({ running, onOpen, phone = false }: { running: Running[]; onOpen: () => void; phone?: boolean }) {
+  if (running.length === 0) return null
   return (
-    <TopBarFrame
-      title={title}
-      bar={bar}
-      end={
-        <>
-          <RunningIndicator running={running} onOpen={onOpenRunning} />
-          {/* The screen's "…" menu and primary action. */}
-          {bar && <div ref={onBarEnd} className="flex items-center gap-2 empty:hidden" />}
-        </>
-      }
-    >
-      {bar ? (
-        <div ref={onBarMiddle} className="flex min-w-0 items-center gap-2" />
-      ) : (
-        /* A button that opens the menu, styled as the search box it stands for. */
-        <CommandMenuTrigger size="small" aria-label="Search or run a command" onClick={onOpenMenu} className="w-full">
-          Search or run a command…
-        </CommandMenuTrigger>
-      )}
-    </TopBarFrame>
+    <Button variant="tertiary" size="small" className="min-w-0 [&_span]:truncate" onClick={onOpen} title={runningTip(running)} prefix={<StatusDot state="info" label={false} aria-hidden />}>
+      {runningLabel(running, phone)}
+    </Button>
   )
 }
 
-/** Quiet while nothing runs; a dot and what runs, or how many things do, while work does. */
-function RunningIndicator({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
+/** The rail's mark for work in progress: a dot that opens the jobs, named by what runs (the same words a phone's header shows). */
+function RailRunning({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
   if (running.length === 0) return null
-  const [one] = running
-  // The count takes the ellipsis's place: "Searching 15/40".
-  const progress = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
-  const label = running.length > 1 ? `${running.length} running` : (progress ?? one.short)
   return (
-    <Button variant="tertiary" size="small" onClick={onOpen} title={running.map((r) => r.name).join('\n')} prefix={<StatusDot state="info" label={false} aria-hidden />}>
-      {label}
+    <Button svgOnly variant="tertiary" aria-label={runningLabel(running, false)} title={runningTip(running)} onClick={onOpen}>
+      <StatusDot state="info" label={false} aria-hidden />
     </Button>
   )
 }

@@ -67,6 +67,9 @@ type Check struct {
 	// are empty when OK.
 	Code    string
 	Message string
+	// LatencyMS is how long the latest Test of the instance took, in ms; 0 until
+	// one succeeded. A call the app made for its own work leaves it as it was.
+	LatencyMS int64
 }
 
 // Connection is what a plugin call receives for this instance.
@@ -135,7 +138,7 @@ func fromRow(r db.PluginInstance) (Instance, error) {
 		Enabled: r.Enabled == 1, Priority: int(r.Priority), Config: cfg, Declared: r.Declared == 1,
 	}
 	if at, err := time.Parse(time.RFC3339, r.CheckedAt); err == nil {
-		inst.LastCheck = &Check{At: at, OK: r.CheckOk == 1, Code: r.CheckCode, Message: r.CheckMessage}
+		inst.LastCheck = &Check{At: at, OK: r.CheckOk == 1, Code: r.CheckCode, Message: r.CheckMessage, LatencyMS: r.CheckLatencyMs}
 	}
 	return inst, nil
 }
@@ -143,7 +146,12 @@ func fromRow(r db.PluginInstance) (Instance, error) {
 // RecordCheck stores the outcome of a call to an instance as its last check: err
 // nil is a good call. A call to an instance that is gone is ignored.
 func (s *Service) RecordCheck(ctx context.Context, id int64, at time.Time, err error) error {
-	p := db.RecordCheckParams{CheckedAt: at.UTC().Format(time.RFC3339), CheckOk: 1, ID: id}
+	return s.recordCheck(ctx, id, at, err, 0)
+}
+
+// recordCheck is RecordCheck with the measured latency of the call; 0 keeps the stored one.
+func (s *Service) recordCheck(ctx context.Context, id int64, at time.Time, err error, latency time.Duration) error {
+	p := db.RecordCheckParams{LatencyMs: latency.Milliseconds(), CheckedAt: at.UTC().Format(time.RFC3339), CheckOk: 1, ID: id}
 	if err != nil {
 		pe := plugin.AsError(err)
 		p.CheckOk, p.CheckCode, p.CheckMessage = 0, string(pe.Code), pe.Message
@@ -154,7 +162,11 @@ func (s *Service) RecordCheck(ctx context.Context, id int64, at time.Time, err e
 // Observe records the outcome of a call to an instance as its last check, now.
 // A check that cannot be stored is logged: it is not worth failing the call for.
 func (s *Service) Observe(ctx context.Context, id int64, err error) {
-	if rerr := s.RecordCheck(context.WithoutCancel(ctx), id, s.clock(), err); rerr != nil {
+	s.observe(ctx, id, err, 0)
+}
+
+func (s *Service) observe(ctx context.Context, id int64, err error, latency time.Duration) {
+	if rerr := s.recordCheck(context.WithoutCancel(ctx), id, s.clock(), err, latency); rerr != nil {
 		s.log.Warn("recording a plugin instance check failed", "instance", id, "err", rerr)
 	}
 }
@@ -165,16 +177,23 @@ const CallTimeout = 30 * time.Second
 // Test runs the plugin's live Test on conn, bounded by CallTimeout; a plugin
 // that does not answer in time is unavailable. A Test of a stored instance's
 // saved connection (check set) is a check of it, and Observe records it; a Test
-// of edits on a form is not.
+// of edits on a form is not. A good check also keeps how long the call took.
 func (s *Service) Test(ctx context.Context, p plugin.Plugin, conn plugin.Connection, check bool) (plugin.TestResult, error) {
 	tctx, cancel := context.WithTimeout(ctx, CallTimeout)
 	defer cancel()
+	began := time.Now()
 	res, err := p.Test(tctx, conn)
+	took := time.Since(began)
 	if err != nil && tctx.Err() != nil && errors.Is(err, tctx.Err()) {
 		err = plugin.Errorf(plugin.CodeUnavailable, "the plugin did not answer in time")
 	}
 	if check {
-		s.Observe(ctx, conn.ID, err)
+		if err != nil {
+			took = 0 // a failure says nothing about how fast the client answers
+		} else if took < time.Millisecond {
+			took = time.Millisecond // measured, so not "unknown"
+		}
+		s.observe(ctx, conn.ID, err, took)
 	}
 	return res, err
 }

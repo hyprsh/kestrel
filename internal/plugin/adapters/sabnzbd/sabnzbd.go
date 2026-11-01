@@ -41,7 +41,10 @@ type Client struct {
 	http *http.Client
 }
 
-var _ downloadclient.Client = (*Client)(nil)
+var (
+	_ downloadclient.Client         = (*Client)(nil)
+	_ downloadclient.StatusReporter = (*Client)(nil)
+)
 
 // New returns the adapter. A nil httpClient means a client with a 30 s timeout.
 func New(httpClient *http.Client) *Client {
@@ -82,7 +85,59 @@ func (c *Client) Test(ctx context.Context, conn plugin.Connection) (plugin.TestR
 	if v.Version == "" {
 		return plugin.TestResult{Message: "SABnzbd"}, nil
 	}
-	return plugin.TestResult{Message: "SABnzbd " + v.Version}, nil
+	return plugin.TestResult{Message: "SABnzbd " + v.Version, Version: v.Version}, nil
+}
+
+// Status reads the version and the queue's counts and free disk space. A job
+// counts as downloading when SABnzbd says so; every other queue entry
+// (Queued, Paused, Propagating, Grabbing...) is queued.
+func (c *Client) Status(ctx context.Context, conn plugin.Connection) (downloadclient.Status, error) {
+	var v struct {
+		Version string `json:"version"`
+	}
+	if err := c.call(ctx, conn, "version", nil, &v); err != nil {
+		return downloadclient.Status{}, err
+	}
+	var q struct {
+		Queue struct {
+			Slots     []queueSlot `json:"slots"`
+			Disk1     string      `json:"diskspace1"`
+			Disk1Norm string      `json:"diskspace1_norm"`
+			KBPerSec  string      `json:"kbpersec"`
+		} `json:"queue"`
+	}
+	if err := c.call(ctx, conn, "queue", url.Values{"start": {"0"}, "limit": {"0"}}, &q); err != nil {
+		return downloadclient.Status{}, err
+	}
+	st := downloadclient.Status{Version: v.Version, FreeBytes: freeBytes(q.Queue.Disk1Norm, q.Queue.Disk1),
+		BytesPerSecond: kbToBytes(q.Queue.KBPerSec)}
+	for _, s := range q.Queue.Slots {
+		if s.Status == "Downloading" {
+			st.Downloading++
+		} else {
+			st.Queued++
+		}
+	}
+	return st, nil
+}
+
+// freeBytes reads SABnzbd's free space: diskspace1_norm carries a unit ("1.5 T",
+// "123.4 G"); diskspace1 is a bare figure in GB. nil when neither parses.
+func freeBytes(norm, gb string) *int64 {
+	if f := strings.Fields(norm); len(f) == 2 {
+		if n, err := strconv.ParseFloat(strings.ReplaceAll(f[0], ",", ""), 64); err == nil && n >= 0 {
+			mult := map[string]float64{"B": 1, "K": 1 << 10, "M": 1 << 20, "G": 1 << 30, "T": 1 << 40, "P": 1 << 50}
+			if m, ok := mult[strings.ToUpper(strings.TrimSuffix(strings.TrimSuffix(f[1], "iB"), "B"))]; ok {
+				b := int64(n * m)
+				return &b
+			}
+		}
+	}
+	if n, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(gb), ",", ""), 64); err == nil && n >= 0 {
+		b := int64(n * (1 << 30))
+		return &b
+	}
+	return nil
 }
 
 func (c *Client) ListOptions(ctx context.Context, conn plugin.Connection, field string) ([]plugin.Option, error) {
@@ -175,6 +230,8 @@ func (c *Client) List(ctx context.Context, conn plugin.Connection, category stri
 	var queue struct {
 		Queue struct {
 			Slots []queueSlot `json:"slots"`
+			// KBPerSec is the queue's overall speed; SABnzbd gives no speed per slot.
+			KBPerSec string `json:"kbpersec"`
 		} `json:"queue"`
 	}
 	qq := cloneValues(q)
@@ -194,9 +251,17 @@ func (c *Client) List(ctx context.Context, conn plugin.Connection, category stri
 	}
 
 	items := []downloadclient.Item{}
+	// SABnzbd downloads one job at a time, the first Downloading slot, so the queue's
+	// speed is that job's. It is the whole queue's speed, so it is read before the
+	// category filter drops the other categories' slots.
+	speed, speedGiven := kbToBytes(queue.Queue.KBPerSec), false
 	for _, s := range queue.Queue.Slots {
+		it := s.item()
+		if it.Phase == downloadclient.PhaseDownloading && !speedGiven {
+			it.BytesPerSecond, speedGiven = speed, true
+		}
 		if category == "" || s.Cat == category {
-			items = append(items, s.item())
+			items = append(items, it)
 		}
 	}
 	for _, s := range hist.History.Slots {
@@ -312,6 +377,15 @@ func (s historySlot) item() downloadclient.Item {
 		it.Phase = downloadclient.PhasePostProcessing
 	}
 	return it
+}
+
+// kbToBytes reads SABnzbd's kbpersec ("28672.5" KB/s) as bytes per second; 0 when unreadable.
+func kbToBytes(s string) int64 {
+	f, err := strconv.ParseFloat(strings.ReplaceAll(s, ",", ""), 64)
+	if err != nil || f < 0 {
+		return 0
+	}
+	return int64(f * 1024)
 }
 
 func mbToBytes(s string) int64 {

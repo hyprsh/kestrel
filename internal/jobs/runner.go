@@ -1,7 +1,8 @@
 // Package jobs runs Kestrel's background work as state-driven reconcilers (ADR
 // 0007): a small in-memory set of periodic loops, each an idempotent "find
 // what is due and do it" pass over domain rows, that can be kicked awake. There
-// is no job table; a restart resumes from the rows.
+// is no job table to resume from: a restart resumes from the rows. The one thing
+// kept is how each loop's last ten passes went (RunLog), for the Health screen.
 //
 // jobs is the only package that strings modules together. It sees them through
 // the small interfaces in loops.go, and cmd/kestrel (through api) hands it the
@@ -65,11 +66,17 @@ type loopState struct {
 	next time.Time
 	// last is the last pass that finished; nil until the first does.
 	last *PassResult
+	// recent are the last passes that finished, oldest first, at most RecentPasses.
+	recent []PassResult
 	// progress is how far the pass running now has got, if it says; nil between passes.
 	progress *Progress
 	// outcome is the last outcome a pass reported; nil until one does.
 	outcome *Outcome
 }
+
+// RecentPasses is how many finished passes the runner remembers per loop, for
+// the Health screen's run bars.
+const RecentPasses = 10
 
 // PassResult is how one pass of a loop went.
 type PassResult struct {
@@ -85,8 +92,10 @@ type PassResult struct {
 type Job struct {
 	Name    string
 	Running bool
-	// Last is nil until the first pass since start ends.
+	// Last is nil until the first pass ends; after a restart it is the last one the RunLog kept.
 	Last *PassResult
+	// Recent are the last RecentPasses passes that finished, oldest first, those of earlier runs included when a RunLog is in use.
+	Recent []PassResult
 	// Next is zero while a pass runs and before the loops start; a kick starts one sooner.
 	Next     time.Time
 	Schedule Schedule
@@ -113,6 +122,8 @@ type Runner struct {
 	startup []startup
 	stop    []func()
 	search  *searchTracker
+	// runlog keeps the finished passes across restarts; nil keeps them in memory only.
+	runlog RunLog
 	// recount refreshes the Search status's due counts; nil without a Search loop.
 	recount func(ctx context.Context) error
 }
@@ -138,6 +149,46 @@ func (r *Runner) Add(l Loop) {
 	}
 	r.loops[l.Name] = &loop{Loop: l, kick: make(chan struct{}, 1)}
 	r.order = append(r.order, l.Name)
+}
+
+// UseRunLog keeps each loop's last RecentPasses passes in log: Run loads them
+// before the loops start, and every pass that finishes is saved.
+func (r *Runner) UseRunLog(log RunLog) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.runlog = log
+}
+
+// loadRuns brings back the passes a previous run saved. A failure is logged;
+// the bars then start empty.
+func (r *Runner) loadRuns(ctx context.Context) {
+	r.mu.Lock()
+	log := r.runlog
+	r.mu.Unlock()
+	if log == nil {
+		return
+	}
+	saved, err := log.Load(ctx)
+	if err != nil {
+		r.log.Warn("loading the background jobs' past runs failed", "err", err)
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for name, runs := range saved {
+		l := r.loops[name]
+		if l == nil || len(runs) == 0 {
+			continue
+		}
+		l.state.recent = append(slices.Clone(runs), l.state.recent...)
+		if n := len(l.state.recent); n > RecentPasses {
+			l.state.recent = slices.Clone(l.state.recent[n-RecentPasses:])
+		}
+		if l.state.last == nil {
+			last := l.state.recent[len(l.state.recent)-1]
+			l.state.last = &last
+		}
+	}
 }
 
 // OnStart registers startup reconciliation: work that runs once, in
@@ -208,7 +259,18 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 	}
 	r.mu.Lock()
 	l.state.started, l.state.last, l.state.progress = time.Time{}, p, nil
+	l.state.recent = append(l.state.recent, *p)
+	if n := len(l.state.recent); n > RecentPasses {
+		l.state.recent = slices.Clone(l.state.recent[n-RecentPasses:])
+	}
+	log := r.runlog
 	r.mu.Unlock()
+	if log != nil {
+		// Not the pass's ctx: a pass cut short by shutdown still has its bar.
+		if serr := log.Save(context.WithoutCancel(ctx), l.Name, *p); serr != nil {
+			r.log.Warn("saving a background job's run failed", "loop", l.Name, "err", serr)
+		}
+	}
 	return err
 }
 
@@ -234,7 +296,7 @@ func (r *Runner) Running() []Run {
 }
 
 // Jobs lists the loops in registration order, each with its last pass and
-// when the next is due. It is in memory only, so it starts empty at every start.
+// when the next is due. It is in memory, but for the last passes, which a RunLog brings back at start.
 func (r *Runner) Jobs() []Job {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -246,6 +308,7 @@ func (r *Runner) Jobs() []Job {
 			p := *l.state.last
 			j.Last = &p
 		}
+		j.Recent = slices.Clone(l.state.recent)
 		if p := l.state.progress; p != nil {
 			c := *p
 			j.Progress = &c
@@ -263,6 +326,7 @@ func (r *Runner) Jobs() []Job {
 // then the shutdown work. Each loop passes once at once, then again after
 // Every or when kicked.
 func (r *Runner) Run(ctx context.Context) error {
+	r.loadRuns(ctx)
 	r.Reconcile(ctx)
 	r.mu.Lock()
 	loops := make([]*loop, 0, len(r.order))

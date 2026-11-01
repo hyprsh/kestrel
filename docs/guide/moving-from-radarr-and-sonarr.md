@@ -32,7 +32,7 @@ Kestrel makes fewer things configurable. If you rely on one of these, check befo
 - **Editing Custom Formats and Scores.** There is no editor. A score that bothers you is TRaSH's to change, or a reason to pick another Profile.
 - **Other quality ladders.** The six Profiles are all there is. A 720p-only or "any resolution" setup isn't one of them, apart from Any, which takes every resolution up to 1080p.
 - **A naming editor.** The scheme is fixed.
-- **Tags, delay profiles, release restrictions and notifications.** None of these exist. The Blocklist keeps out Releases that failed, and Pause Grabs stops all downloads for a while (Settings > Grabs).
+- **Tags, delay profiles, release restrictions and notifications.** None of these exist. The Blocklist keeps out Releases that failed, and Pause Grabs stops all downloads for a while (Settings > Downloads > Automatic Grabs).
 - **A Prowlarr connection.** Add each indexer by hand.
 - **A third Slot.** A Title has Standard and 4K, and nothing more ([ADR 0012](../adr/0012-two-slots-standard-and-4k.md)).
 
@@ -42,8 +42,8 @@ Kestrel makes fewer things configurable. If you rely on one of these, check befo
 
 Adoption renames files into Kestrel's scheme and moves them into the Title's folder, such as `Paddington (2014) {tmdb-116149}/`. Radarr and Sonarr will then see their files as missing. So back up your library and both apps' databases first, and don't let Radarr or Sonarr manage the same folders afterwards ([Running both](#running-both-side-by-side) shows how).
 
-1. **Set the root folders.** In the setup screen or Settings > Root folders, enter the folders your library already lives in, such as `/data/media/movies` and `/data/media/tv`. Keep them on the same mount as your downloads.
-2. **Scan.** Choose **Adopt** in the Library, or Settings > Existing files (also the last step of the setup screen), then **Scan for existing files**. Kestrel reads each folder and file, and plans:
+1. **Set the root folders.** In the setup screen or Settings > Library > Root folders, enter the folders your library already lives in, such as `/data/media/movies` and `/data/media/tv`. Keep them on the same mount as your downloads.
+2. **Scan.** Choose **Adopt** in the Library, or Settings > Library > Existing files (also the last step of the setup screen), then **Scan for existing files**. Kestrel reads each folder and file, and plans:
    - **Matched:** Kestrel found the Title and its Version. These are ticked, and adopted when you commit.
    - **Needs choice:** Kestrel found candidates and ranks the best one as a suggested match. A match is _Confident_ when the year, the title and the runtime all fit and no other candidate comes close. Choose the right one by hand, or **Accept suggested matches** to settle only the Confident ones.
    - **Skipped:** Kestrel can't manage it, and says why: no readable video file, no enabled Profile for its Slot, or a Series that is not on TheTVDB.

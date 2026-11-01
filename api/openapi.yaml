@@ -537,8 +537,8 @@ paths:
   /profiles:
     get:
       operationId: listProfiles
-      summary: The eight Profiles
-      description: In display order. Profiles are named by `key`, never by id.
+      summary: The Profiles
+      description: In display order, the six builtin ones and then the custom ones. Profiles are named by `key`, never by id.
       tags: [profiles]
       responses:
         "200":
@@ -547,6 +547,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfileList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createProfile
+      summary: Make a custom Profile
+      description: |
+        Copies the Profile `copy_from` under a new `name`: the same Slot, audio rule, resolutions, TRaSH backing and
+        settings on top of TRaSH. It starts enabled and is never a default. `422 validation` for an empty,
+        too long or taken `name`; `404 not_found` for an unknown `copy_from`; `409 conflict` while the Config File
+        declares `profiles`.
+      tags: [profiles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileCreate"
+      responses:
+        "201":
+          description: The new Profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /profiles/{key}:
@@ -562,6 +592,11 @@ paths:
         a disabled Profile cannot be made a default. `original_language` other than `reject` (or
         `original_fallback: true`) is a `validation` error on Original-Language Profiles, and so is an
         `original_fallback` that disagrees with `original_language` in the same patch.
+        `name` renames a custom Profile only. `overlay` replaces everything set on top of TRaSH at once (see
+        `ProfileOverlay`); it is a `validation` error when a size's smallest bound is above its largest, a quality list
+        names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. A custom Profile
+        cannot be made a default. When `overlay` changes what the Profile does, the Versions under it are re-scored from
+        what was stored at Import.
         `409 conflict` while the Config File declares `profiles`.
       tags: [profiles]
       requestBody:
@@ -583,6 +618,46 @@ paths:
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteProfile
+      summary: Delete a custom Profile
+      description: |
+        Only a custom Profile can be deleted (`422 validation` for a builtin one). `409 conflict` while a Version
+        still uses it, and while the Config File declares `profiles`.
+      tags: [profiles]
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /profiles/details:
+    get:
+      operationId: listProfileDetails
+      summary: What each Profile accepts and what uses it
+      description: |
+        In the order of `GET /profiles`. `titles` counts the Versions under the Profile and `files` the files in
+        them, which are the files whose Score a change of the Profile's Custom Formats would work out again.
+        The ladder, minimum Score and Custom Formats come from the active TRaSH snapshot, with what the household set
+        on top of it (`overlay`), and are empty (and `min_score` 0) while there is none. The Custom Formats and their
+        Scores are not editable. `below_cutoff` counts the files of the Profile that fit their Version, have not
+        reached the cutoff and so are still wanted for Upgrades. `rescores` is how many files saving a change of the
+        Profile re-scores.
+      tags: [profiles]
+      responses:
+        "200":
+          description: One entry per Profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileDetailList"
         default:
           $ref: "#/components/responses/Problem"
   /lookup:
@@ -888,7 +963,7 @@ paths:
         An unmonitored Movie is never Wanted, searched or Upgraded, by the sweep or RSS; its Versions
         and files stay as they are, and a Grab started by hand still works. Monitoring it again makes
         its Versions due a search now. `series_monitor` applies the mode to every episode and season
-        now (Specials are never monitored by a mode); `422` for a Movie. `metadata_frozen` true keeps
+        now (Specials only when `monitor_specials` is on); `422` for a Movie. `metadata_frozen` true keeps
         the stored metadata as it is and clears a "Title gone upstream" row; false lets refreshes
         resume.
 
@@ -1308,9 +1383,11 @@ paths:
         entry's `blocklist_reason`). A canceled Grab is gone; one canceled and blocklisted shows only
         on the Blocklist. `state` may repeat and matches any of its values; `stalled=true` keeps only
         stalled Imports and `false` leaves them out; `since` keeps the Grabs whose state last changed
-        then or later (`updated_at`). The Activity screen reads the last 7 days of `imported` and
-        `failed` Grabs here, and leaves older ones to the Log. `cursor` is the `next_cursor` of the
-        page before.
+        then or later (`updated_at`). The Activity screen reads `imported` and `failed` Grabs here a
+        page at a time, as far back as Kestrel holds them. `cursor` is the `next_cursor` of the page
+        before. `q` keeps the Grabs whose Title, Release name or indexer contain every one of its
+        words (any case); `kind`, `slot` and `grab` (ids) keep the Grabs of those kinds, Slots and ids.
+        A Grab whose Title was deleted has no kind or Slot, so `kind` and `slot` leave it out.
       tags: [grabs]
       parameters:
         - name: state
@@ -1323,6 +1400,10 @@ paths:
               enum: [sent, downloading, completed, importing, imported, failed]
         - { name: stalled, in: query, schema: { type: boolean } }
         - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
       responses:
@@ -1375,6 +1456,30 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /grabs/summary:
+    get:
+      operationId: getGrabsSummary
+      summary: What the Grab history holds
+      description: |
+        How many `imported` and `failed` Grabs match the filter, over all the history Kestrel holds, and
+        when the oldest of them last changed state (`oldest`, null when none match). It takes the filters
+        of `GET /grabs` that are not about paging or state (`q`, `kind`, `slot`, `grab`), so Activity's
+        Done and Failed counts stay true however many pages are loaded.
+      tags: [grabs]
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrabsSummary"
+        default:
+          $ref: "#/components/responses/Problem"
   /grabs/{id}:
     parameters:
       - $ref: "#/components/parameters/GrabId"
@@ -1389,6 +1494,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Grab"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /grabs/{id}/steps:
+    parameters:
+      - $ref: "#/components/parameters/GrabId"
+    get:
+      operationId: getGrabSteps
+      summary: What happened to a Grab
+      description: |
+        The steps of a Grab, read from the Log and the Grab: when it was grabbed and by what, when the download
+        started and ended, what the Import made, and what is left to do for a failed one. The download times come
+        from routine events, which are pruned after 30 days, so an older Grab has them null. `404` for an unknown Grab.
+      tags: [grabs]
+      responses:
+        "200":
+          description: The steps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrabSteps"
         "404":
           $ref: "#/components/responses/Problem"
         default:
@@ -1543,6 +1670,13 @@ paths:
           schema:
             type: string
             format: date
+        - name: unmonitored
+          in: query
+          description: |
+            Also list the unmonitored episodes and Movies in the window, each with `monitored` false (they never
+            appear in `undated`). Default false: monitored entries only.
+          schema:
+            type: boolean
       responses:
         "200":
           description: The agenda.
@@ -1561,7 +1695,7 @@ paths:
       description: |
         The ten most recent Imports, newest first. An Import of several files at once (a season pack)
         is one row with `files` set to how many it brought. `total` counts the Imports of the last
-        7 days, the window Activity's Done stage lists, so it may be more or fewer than `items`.
+        7 days, so it may be more or fewer than `items`.
       tags: [titles]
       responses:
         "200":
@@ -1605,6 +1739,47 @@ paths:
                 $ref: "#/components/schemas/EventList"
         default:
           $ref: "#/components/responses/Problem"
+  /events/summary:
+    get:
+      operationId: getEventsSummary
+      summary: What the Log holds
+      description: |
+        How many events there are of each kind (routine ones included, so a view of them can show its count), when the
+        oldest one happened and how many days routine events are kept; the others are kept forever. `oldest` is null
+        while the Log is empty.
+      tags: [system]
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventsSummary"
+        default:
+          $ref: "#/components/responses/Problem"
+  /events/histogram:
+    get:
+      operationId: getEventsHistogram
+      summary: Events over time
+      description: |
+        How many events happened in each `bucket` of the last `days` days, oldest bucket first, empty buckets
+        included, for the Log's strip. Buckets start at multiples of their length counted from midnight UTC. Routine
+        events are counted. `errors` and `warnings` count the events of the kinds the Log's Errors and Warnings views
+        show (`grab_failed`, `import_rejected`, `blocklist`; `import_stalled`, `health_raised`, `original_offered`);
+        `events` counts every other one.
+      tags: [system]
+      parameters:
+        - { name: bucket, in: query, schema: { type: string, enum: [1h, 4h, 1d], default: 4h } }
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 90, default: 7 } }
+      responses:
+        "200":
+          description: The buckets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventsHistogram"
+        default:
+          $ref: "#/components/responses/Problem"
   /blocklist:
     get:
       operationId: listBlocklist
@@ -1620,6 +1795,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BlocklistList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createBlocklistEntry
+      summary: Blocklist a Release from a search
+      description: |
+        Puts a Release of a manual search on the Blocklist, so no search grabs it again. It names the Release as
+        `POST /grabs` does, so it is `409 release_expired` once the search result has gone from the cache.
+        The entry is for the Title of the Version; `reason` defaults to "Blocklisted from a manual search".
+      tags: [grabs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlocklistCreate"
+      responses:
+        "204":
+          description: The Release is on the Blocklist.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
   /blocklist/{id}:
@@ -2805,6 +3003,73 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /settings/downloads:
+    get:
+      operationId: getDownloadsStatus
+      summary: The download client's live status and each indexer's Grabs (Settings, Downloads)
+      description: |
+        Asks the enabled download client for its version, queue and free space now, in one call that is not
+        cached. A call that fails is still `200`, with `state: failing` and the client's words in `message`;
+        a client that cannot report a figure leaves it `null`. A good call counts as a check of the client, as
+        its Test does. `indexers` has one entry per indexer instance, with the Grabs made from it in the last
+        30 days (UTC), imported or not.
+      tags: [plugins]
+      responses:
+        "200":
+          description: The status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadsStatus"
+        default:
+          $ref: "#/components/responses/Problem"
+  /stats:
+    get:
+      operationId: getStats
+      summary: Statistics (the Overview's dashboard)
+      description: |
+        What the Overview shows besides its lists, for the last 7, 30 or 90 days (UTC days, today included;
+        default 30). Everything is worked out from what Kestrel keeps, and a figure it cannot work out is `null`
+        (or an empty list), never a guess.
+
+        - `library` and `wanted` describe now, whatever the range. `wanted.count` counts Wanted Versions, and
+          `wanted.long_missing` those Wanted for more than 90 days.
+        - `grabs` counts the Grabs that finished in the range: `imported` and `failed`, and per UTC day.
+        - `time_to_fill` is the median time from a Movie or episode becoming Wanted to the Import of the Grab
+          that filled it, for the Grabs Imported in the range, against the range before it. Upgrades and files
+          Adopted without a Grab are not fills.
+        - `indexers` lists each indexer that did anything in the range. `hit_rate` is the share of the searches
+          it answered that returned a Release fitting a Slot; `median_answer_ms` the median time it took to
+          answer. Only searches made after this was first recorded count. `best` is the id of the best
+          indexer: the most imported Grabs among those with a `hit_rate` of at least 0.5, ties to the higher
+          `hit_rate`, then fewer failed Grabs; `null` when none qualifies.
+        - `download_client` is the enabled download client. Speed and download time run from the client first
+          reporting a Grab downloading to its reporting it finished (unpacking included), so they cover Grabs
+          after this was first recorded. `speed_per_day` is the last 14 days whatever the range.
+        - `quality` splits the files of each Slot by source, now. `release_groups` are the groups of the
+          files that Grabs brought in the range.
+        - `requests` counts the accepted Requests created in the range; one is done once every Slot it asked for
+          holds a file.
+        - `storage` lists the Root folders' disks. `growth_bytes_per_week` is the size of the files Grabs
+          brought in the range per week (what was replaced since is not taken off), and `months_until_full` the
+          free space over it, both `null` when no file came. A disk shared by several Root folders is counted once in
+          `free_bytes` and `total_bytes`.
+      tags: [system]
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, enum: [7d, 30d, 90d], default: 30d }
+      responses:
+        "200":
+          description: The statistics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     AttentionRowId:
@@ -3153,7 +3418,7 @@ components:
           properties:
             display:
               type: object
-              required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+              required: [season_order, seasons_open, manual_search_sort, upcoming_display, upcoming_filters]
               description: Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`.
               properties:
                 season_order:
@@ -3161,6 +3426,8 @@ components:
                 seasons_open:
                   type: boolean
                 manual_search_sort:
+                  type: boolean
+                upcoming_display:
                   type: boolean
                 upcoming_filters:
                   type: boolean
@@ -3225,12 +3492,15 @@ components:
         Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
         `score_desc` is not a value.
       enum: [best_first, score_asc, release_asc, release_desc, quality_asc, quality_desc, languages_asc, languages_desc, formats_asc, formats_desc, size_asc, size_desc, age_asc, age_desc, indexer_asc, indexer_desc]
+    UpcomingDisplay:
+      type: string
+      enum: [agenda, month]
     UpcomingKind:
       type: string
       description: One of `all`, `movie` or `series`; anything else is `422`.
     Display:
       type: object
-      required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+      required: [season_order, seasons_open, manual_search_sort, upcoming_display, upcoming_filters]
       description: |
         The household-wide view defaults. Each is where a browser or session starts: a season the
         user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
@@ -3239,13 +3509,17 @@ components:
         season_order:
           allOf:
             - $ref: "#/components/schemas/SeasonOrder"
-          description: Newest first reverses the seasons and the episodes in each. Specials come last in both orders.
+          description: Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.
         seasons_open:
           allOf:
             - $ref: "#/components/schemas/SeasonsOpen"
-          description: Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials.
+          description: Where a Series page starts. `latest_and_wanted` opens its newest season (Settings shows this as "Open the newest season"); `all` and `none` open the first season. A link to a season or episode wins.
         manual_search_sort:
           $ref: "#/components/schemas/ManualSearchSort"
+        upcoming_display:
+          allOf:
+            - $ref: "#/components/schemas/UpcomingDisplay"
+          description: The display Upcoming opens with, Agenda or Month. A browser's own last choice wins.
         upcoming_filters:
           type: object
           required: [kind, wanted_only, hide_imported]
@@ -3288,6 +3562,8 @@ components:
               $ref: "#/components/schemas/SeasonsOpen"
             manual_search_sort:
               $ref: "#/components/schemas/ManualSearchSort"
+            upcoming_display:
+              $ref: "#/components/schemas/UpcomingDisplay"
             upcoming_filters:
               type: object
               properties:
@@ -3383,6 +3659,84 @@ components:
         trash_profile_series:
           type: string
           description: The same for Series.
+        custom:
+          type: boolean
+          description: "`true` for a Profile made with `POST /profiles`, which can be renamed and deleted."
+    ProfileCreate:
+      type: object
+      required: [name, copy_from]
+      properties:
+        name:
+          type: string
+          maxLength: 40
+        copy_from:
+          type: string
+          description: The `key` of the Profile to copy.
+    ProfileSize:
+      type: object
+      required: [min, max]
+      description: A size bound in bytes per Movie, or per episode of a Series; `null` is no bound.
+      properties:
+        min:
+          type: integer
+          format: int64
+          nullable: true
+        max:
+          type: integer
+          format: int64
+          nullable: true
+    ProfileQuality:
+      type: object
+      required: [name, accepted]
+      properties:
+        name:
+          type: string
+          example: WEBDL-1080p
+        accepted:
+          type: boolean
+    ProfileKindOverlay:
+      type: object
+      required: [cutoff, qualities]
+      properties:
+        cutoff:
+          type: string
+          nullable: true
+          description: |
+            The quality that is "good enough": a file of this quality or a better one in the ladder (and of the
+            `upgrade_until` Score, if set) is not upgraded. It must be an accepted quality. `null` is none.
+        qualities:
+          type: array
+          nullable: true
+          description: |
+            The ladder, best first, with the qualities the Profile takes, replacing TRaSH's order and acceptance.
+            Qualities the list leaves out follow at the end as TRaSH has them. `null` (or TRaSH's own list) is as TRaSH has it.
+          items:
+            $ref: "#/components/schemas/ProfileQuality"
+    ProfileOverlay:
+      type: object
+      required: [min_score, upgrade_until, series, movies, episode_size, movie_size]
+      description: |
+        What the household set on a Profile on top of the TRaSH snapshot. `null` and empty fields leave TRaSH's data
+        or no limit in place, so a Profile nobody edited behaves as TRaSH has it. Upgrades stop for a file when its
+        quality has reached the kind's `cutoff` (if any) and its Score is at least `upgrade_until` (if any); with
+        neither set they never stop.
+      properties:
+        min_score:
+          type: integer
+          nullable: true
+          description: Replaces the minimum Score of the backing TRaSH profile.
+        upgrade_until:
+          type: integer
+          nullable: true
+          description: The Score at which a file stops being upgraded.
+        series:
+          $ref: "#/components/schemas/ProfileKindOverlay"
+        movies:
+          $ref: "#/components/schemas/ProfileKindOverlay"
+        episode_size:
+          $ref: "#/components/schemas/ProfileSize"
+        movie_size:
+          $ref: "#/components/schemas/ProfileSize"
     ProfileList:
       type: object
       required: [items]
@@ -3406,6 +3760,12 @@ components:
           type: boolean
         default_series:
           type: boolean
+        name:
+          type: string
+          maxLength: 40
+          description: Renames a custom Profile.
+        overlay:
+          $ref: "#/components/schemas/ProfileOverlay"
     OriginalLanguageChoice:
       type: string
       enum: [reject, offer, accept]
@@ -3579,6 +3939,11 @@ components:
           type: string
           nullable: true
           description: The error's text, `null` when the call worked.
+        latency_ms:
+          type: integer
+          format: int64
+          nullable: true
+          description: How long the latest Test of the instance took, in ms. `null` until one ran (a call Kestrel made for its own work does not change it).
     PluginInstanceList:
       type: object
       required: [items, next_cursor]
@@ -3626,6 +3991,148 @@ components:
           type: string
         config:
           $ref: "#/components/schemas/PluginConfigPatch"
+    DownloadsStatus:
+      type: object
+      required: [download_client, indexers]
+      properties:
+        download_client:
+          nullable: true
+          description: The enabled download client; `null` without one.
+          allOf:
+            - $ref: "#/components/schemas/DownloadClientLive"
+        indexers:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndexerGrabs"
+    DownloadClientLive:
+      type: object
+      required: [instance_id, name, state, message, version, checked_at, downloading, queued, free_bytes]
+      properties:
+        instance_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        state:
+          type: string
+          enum: [ok, failing]
+        message:
+          type: string
+          nullable: true
+          description: What the call said when it failed; `null` when it worked.
+        version:
+          type: string
+          nullable: true
+          description: The client's version, e.g. `4.3.2`. `null` when the call failed or the client does not say.
+        checked_at:
+          type: string
+          format: date-time
+          description: When the call was made.
+        downloading:
+          type: integer
+          nullable: true
+          description: Jobs downloading now (those in the client's queue that are not paused or waiting). `null` when the call failed.
+        queued:
+          type: integer
+          nullable: true
+          description: Jobs waiting or paused in the client's queue. `null` when the call failed.
+        free_bytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: Free space where the client downloads to. `null` when the client does not say.
+        bytes_per_second:
+          type: integer
+          format: int64
+          nullable: true
+          description: The client's overall download speed now; `null` when the call failed or the client does not say.
+    IndexerGrabs:
+      type: object
+      required: [instance_id, grabs_30d]
+      properties:
+        instance_id:
+          type: integer
+          format: int64
+        grabs_30d:
+          type: integer
+          description: Grabs made from the indexer in the last 30 days.
+    ProfileDetailList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileDetail"
+    ProfileDetail:
+      type: object
+      required: [key, titles, files, rescores, below_cutoff, overlay, movies, series]
+      properties:
+        key:
+          type: string
+        titles:
+          type: integer
+          description: Titles with a Version under the Profile.
+        files:
+          type: integer
+          description: Files in those Versions.
+        rescores:
+          type: integer
+          description: How many files saving a change of the Profile re-scores (the files in its Versions).
+        below_cutoff:
+          type: integer
+          description: |
+            Files in its Versions that fit, whose kind the Profile limits Upgrades for and that have not reached the
+            cutoff, so they are still wanted for Upgrades.
+        overlay:
+          $ref: "#/components/schemas/ProfileOverlay"
+        movies:
+          $ref: "#/components/schemas/ProfileScoring"
+        series:
+          $ref: "#/components/schemas/ProfileScoring"
+    ProfileScoring:
+      type: object
+      required: [qualities, ladder, trash_ladder, cutoff, min_score, trash_min_score, custom_formats]
+      description: What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
+      properties:
+        qualities:
+          type: array
+          description: The names of the qualities it accepts, best first.
+          items:
+            type: string
+        ladder:
+          type: array
+          description: Every quality it knows, best first, with whether it accepts it.
+          items:
+            $ref: "#/components/schemas/ProfileQuality"
+        trash_ladder:
+          type: array
+          description: The ladder as TRaSH has it (what "Reset to TRaSH" goes back to).
+          items:
+            $ref: "#/components/schemas/ProfileQuality"
+        cutoff:
+          type: string
+          nullable: true
+          description: The quality that is good enough, or `null`.
+        min_score:
+          type: integer
+          description: A Release scoring under this is rejected.
+        trash_min_score:
+          type: integer
+          description: The minimum Score of the backing TRaSH profile.
+        custom_formats:
+          type: array
+          description: The Custom Formats it scores, highest Score first, then by name.
+          items:
+            $ref: "#/components/schemas/ProfileCustomFormat"
+    ProfileCustomFormat:
+      type: object
+      required: [name, score]
+      properties:
+        name:
+          type: string
+        score:
+          type: integer
     PluginTestResult:
       type: object
       required: [ok, code, message]
@@ -3640,6 +4147,14 @@ components:
             `invalid` or `not_found`. Clients tolerate new values.
         message:
           type: string
+        latency_ms:
+          type: integer
+          format: int64
+          description: How long the test took, in ms. A test of a saved instance's own connection also keeps it as the instance's `last_check.latency_ms`.
+        version:
+          type: string
+          nullable: true
+          description: The version the plugin reported, when it does (SABnzbd).
     TitleKind:
       type: string
       enum: [movie, series]
@@ -3882,8 +4397,9 @@ components:
       type: string
       description: |
         `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
-        today or later or without an air date, and new seasons; `none` nothing. Specials (season 0) are
-        never monitored automatically.
+        today or later or without an air date, and new seasons; `none` nothing. New seasons are left
+        out when the Series' `monitor_new_seasons` is off, and Specials (season 0) are monitored by a
+        mode only when `monitor_specials` is on.
       enum: [all, future, none]
     Season:
       type: object
@@ -3909,10 +4425,17 @@ components:
             - $ref: "#/components/schemas/EpisodeFile"
           nullable: true
           description: The file holding the episode in this Version, even a misfit one; `null` when there is none.
+        last_search:
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+          description: |
+            What the last search that asked the indexers for this episode found; null when it was never searched.
+            `releases` counts the Releases that named the episode (a season pack names each episode it holds).
     EpisodeFile:
       type: object
       description: A file on disk holding one or more episodes of a Version (a multi-episode file holds several).
-      required: [id, path, size, quality, episode_ids]
+      required: [id, path, size, quality, episode_ids, release_name, languages, imported_at, custom_formats]
       properties:
         id:
           type: integer
@@ -3932,6 +4455,42 @@ components:
           items:
             type: integer
             format: int64
+        release_name:
+          type: string
+          description: The name of the Release the file came from.
+        languages:
+          type: array
+          description: The audio languages ffprobe found (English names), in track order.
+          items:
+            type: string
+        video_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec (\"H.264\", \"H.265\", \"AV1\"); null when unknown."
+        hdr:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format (\"HDR10\", \"HDR10+\", \"Dolby Vision\", \"Dolby Vision HDR10\", \"HLG\"); null for SDR or when unknown."
+        audio_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec (\"AAC\", \"DD\", \"DDP\", \"DTS-HD MA\", \"TrueHD Atmos\"); null when unknown."
+        audio_channels:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout (\"2.0\", \"5.1\", \"7.1\"); null when unknown."
+        release_group:
+          type: string
+          nullable: true
+          description: The release group parsed from the release name; null when the name has none.
+        imported_at:
+          type: string
+          format: date-time
+        custom_formats:
+          type: array
+          description: The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
+          items:
+            $ref: "#/components/schemas/CustomFormatMatch"
     Episode:
       type: object
       required: [id, season, number, name, primary_name, original_name, air_date, monitored, cells, placeholder]
@@ -3995,6 +4554,12 @@ components:
           description: A Movie only; a Series is monitored through `series_monitor`.
         series_monitor:
           $ref: "#/components/schemas/SeriesMonitor"
+        monitor_new_seasons:
+          type: boolean
+          description: A Series only (`422` for a Movie). Whether a season TheTVDB adds later is monitored by the mode; off, its episodes arrive unmonitored.
+        monitor_specials:
+          type: boolean
+          description: A Series only (`422` for a Movie). Whether Specials (season 0) follow the mode. Turning it on or off applies to the Specials now.
         metadata_frozen:
           type: boolean
         root_folder:
@@ -4196,9 +4761,75 @@ components:
           $ref: "#/components/schemas/SlotState"
         long_missing:
           type: boolean
+        last_search:
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+          description: What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched.
+        next_search_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a Wanted Version is next searched. Only a Wanted Version has it here.
+    SlotStateEntry:
+      type: object
+      description: One Slot of a Title with its Version's state.
+      required: [slot, label, version_id, profile, state, long_missing, upgrade_wanted]
+      properties:
+        slot:
+          $ref: "#/components/schemas/Slot"
+        label:
+          type: string
+          description: The Slot's display name ("Standard", "4K").
+        version_id:
+          type: integer
+          format: int64
+        profile:
+          type: string
+        state:
+          $ref: "#/components/schemas/SlotState"
+        long_missing:
+          type: boolean
+        wanted_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: Since when the Version has been Wanted; null while it is not.
+        upgrade_wanted:
+          type: boolean
+          description: |
+            The Version holds a file below its Profile's cutoff (quality or Upgrade-until Score) and the Title is monitored, so an
+            Upgrade is wanted. It is not Wanted: the Version is `filled`. Decided as the Upgrade sweep decides it.
+        episodes_upgrade:
+          type: integer
+          nullable: true
+          description: A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie.
+        file:
+          allOf:
+            - $ref: "#/components/schemas/FileSummary"
+          nullable: true
+          description: A Movie Version's file (without its Custom Formats); null for a Series Version and for a Version with none.
+        episodes_have:
+          type: integer
+          nullable: true
+          description: A Series Version's episodes that hold a file; null for a Movie.
+        episodes_aired:
+          type: integer
+          nullable: true
+          description: A Series Version's episodes that have aired; null for a Movie.
+        last_search:
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+          description: What the last search of a Wanted Version found. Only a Wanted Version has it here; null when it was never searched.
+        next_search_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a Wanted Version is next searched. Only a Wanted Version has it here.
     TitleRow:
       type: object
-      required: [id, kind, title, primary_title, year, has_poster, slots, wanted_since, added_at, size, searched_at, wanted_episodes]
+      required: [id, kind, title, primary_title, year, has_poster, monitored, slots, slot_states, wanted_since, added_at, size, searched_at, wanted_episodes]
       properties:
         id:
           type: integer
@@ -4217,8 +4848,13 @@ components:
         has_poster:
           type: boolean
           description: Whether `GET /titles/{id}/poster` has an image.
+        monitored:
+          type: boolean
+          description: A Movie's flag; a Series is monitored unless its `series_monitor` is `none`.
         slots:
           type: object
+          deprecated: true
+          description: Deprecated, use `slot_states`. The fixed Standard and 4K shape, kept for v1 compatibility.
           required: [standard, 4k]
           properties:
             standard:
@@ -4229,6 +4865,11 @@ components:
               allOf:
                 - $ref: "#/components/schemas/SlotSummary"
               nullable: true
+        slot_states:
+          type: array
+          description: The Slots the Title has a Version in, in Slot order, each with its Version's state. Prefer this to `slots`.
+          items:
+            $ref: "#/components/schemas/SlotStateEntry"
         wanted_since:
           type: string
           format: date-time
@@ -4304,9 +4945,34 @@ components:
         misfit:
           type: boolean
           description: The file no longer fits the Version's Profile; the Version is Wanted.
+        video_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Video codec (\"H.264\", \"H.265\", \"AV1\"); null when unknown."
+        hdr:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. HDR format (\"HDR10\", \"HDR10+\", \"Dolby Vision\", \"Dolby Vision HDR10\", \"HLG\"); null for SDR or when unknown."
+        audio_codec:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio codec (\"AAC\", \"DD\", \"DDP\", \"DTS-HD MA\", \"TrueHD Atmos\"); null when unknown."
+        audio_channels:
+          type: string
+          nullable: true
+          description: "From the file's ffprobe snapshot when it has the fact, else parsed from the release name. Audio channel layout (\"2.0\", \"5.1\", \"7.1\"); null when unknown."
+        release_group:
+          type: string
+          nullable: true
+          description: The release group parsed from the release name; null when the name has none.
         imported_at:
           type: string
           format: date-time
+        custom_formats:
+          type: array
+          description: The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
+          items:
+            $ref: "#/components/schemas/CustomFormatMatch"
     VersionDetail:
       type: object
       required: [id, slot, profile, state, long_missing, wanted_since, file, added_at]
@@ -4340,6 +5006,59 @@ components:
           allOf:
             - $ref: "#/components/schemas/OriginalOffer"
           nullable: true
+        last_search:
+          description: |
+            What the last search that asked the indexers for this Version found; null when it was never
+            searched (or not since Kestrel began recording it).
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+        next_search_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            When the Version is next searched on its own: for what it is missing while it is Wanted, else for
+            an Upgrade (the earliest of a Series Version's seasons). Null when none is due, such as for an
+            unmonitored Title. A time in the past means it is due now.
+    LastSearch:
+      type: object
+      description: What the last search of a Version found.
+      required: [at, releases, outcome, reasons, upgrade]
+      properties:
+        at:
+          type: string
+          format: date-time
+        releases:
+          type: integer
+          description: How many Releases the indexers returned for the Title.
+        outcome:
+          type: string
+          enum: [grabbed, nothing_fit, no_indexer, error]
+          description: |
+            `grabbed`: it grabbed a Release. `nothing_fit`: the indexers answered and nothing was fit to
+            grab (none came back, none fit the Profile, or none beat the file held). `no_indexer`: none is
+            enabled. `error`: the search failed or every indexer failed to answer.
+        reasons:
+          type: array
+          description: How many of those Releases the Version's Profile rejected, per code, the most common first.
+          items:
+            $ref: "#/components/schemas/RejectionCount"
+        upgrade:
+          type: boolean
+          description: Whether it was an Upgrade search, for a better file than the one held.
+    RejectionCount:
+      type: object
+      required: [code, detail, count]
+      properties:
+        code:
+          $ref: "#/components/schemas/RejectionCode"
+        detail:
+          type: string
+          nullable: true
+          description: For `language`, the one language those Releases are in (`German`); null otherwise or when they vary.
+        count:
+          type: integer
     VersionCoverage:
       type: object
       description: |
@@ -4452,7 +5171,7 @@ components:
         Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
         is a Release with the Title's Original Language but no Primary-Language audio under a Profile
         that offers such Releases.
-      enum: [below_min_score, resolution, quality, language, original_language_unknown, blocklisted, other_slot, episode_not_listed, season_not_listed, original_only]
+      enum: [below_min_score, resolution, quality, language, original_language_unknown, blocklisted, other_slot, episode_not_listed, season_not_listed, original_only, size]
     Rejection:
       type: object
       required: [code, message, overridable]
@@ -4463,7 +5182,7 @@ components:
           type: string
         overridable:
           type: boolean
-          description: False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides.
+          description: False for `blocklisted`, `other_slot` and `season_not_listed`, which "Grab anyway" never overrides. `size` is overridable.
     CustomFormatMatch:
       type: object
       required: [name, points]
@@ -4528,6 +5247,78 @@ components:
         pack:
           type: boolean
           description: Series only. True for a season pack.
+        video_codec:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. Video codec (\"H.264\", \"H.265\", \"AV1\"); null when unknown."
+        hdr:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. HDR format (\"HDR10\", \"HDR10+\", \"Dolby Vision\", \"Dolby Vision HDR10\", \"HLG\"); null for SDR or when unknown."
+        audio_codec:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. Audio codec (\"AAC\", \"DD\", \"DDP\", \"DTS-HD MA\", \"TrueHD Atmos\"); null when unknown."
+        audio_channels:
+          type: string
+          nullable: true
+          description: "Parsed from the release name. Audio channel layout (\"2.0\", \"5.1\", \"7.1\"); null when unknown."
+        group:
+          type: string
+          description: The release group, as the indexer says or else as the name ends. Absent when there is none.
+        info_url:
+          type: string
+          description: The indexer's page for the Release. Absent when the indexer gives none.
+        grabs:
+          type: integer
+          description: How often the indexer says the Release was grabbed. Absent when the indexer does not report it.
+        size_limit:
+          $ref: "#/components/schemas/ReleaseSizeLimit"
+        covers:
+          type: array
+          description: |
+            What the Release holds, for the Version searched: each episode of a Series Release that the Library
+            knows (every episode of the season for a pack), or the Movie itself. Absent when the name
+            names nothing the Library has.
+          items:
+            $ref: "#/components/schemas/ReleaseCover"
+    ReleaseSizeLimit:
+      type: object
+      required: [per_episode]
+      description: |
+        The size limit the Version's Profile puts on a Release of this kind, per Movie or per episode of a Series.
+        Absent when the Profile sets none. A `size` rejection says the Release's size per unit is outside it.
+      properties:
+        per_episode:
+          type: boolean
+          description: True for a Series (the limit is per episode), false for a Movie.
+        min:
+          type: integer
+          format: int64
+          description: Bytes; absent for no lower bound.
+        max:
+          type: integer
+          format: int64
+          description: Bytes; absent for no upper bound.
+    ReleaseCover:
+      type: object
+      required: [state]
+      properties:
+        season:
+          type: integer
+          description: Absent for a Movie.
+        episode:
+          type: integer
+          description: Absent for a Movie.
+        state:
+          type: string
+          enum: [wanted, filled, other]
+          description: |
+            wanted: the Version has no file for it and Wants one. filled: it holds a file, which a grab of the Release
+            replaces. other: not monitored, not out yet or already downloading.
+        file_score:
+          type: integer
+          description: The Score of the file the Version holds there. Absent when it has no file or its Score is unknown.
     IndexerError:
       type: object
       required: [indexer_id, indexer, code, message, retry_after]
@@ -4549,7 +5340,7 @@ components:
           description: Seconds, when the indexer said how long to wait.
     ReleaseList:
       type: object
-      required: [items, indexer_errors]
+      required: [items, indexer_errors, searched_at, indexers_searched, wanted]
       properties:
         items:
           type: array
@@ -4559,6 +5350,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IndexerError"
+        searched_at:
+          type: string
+          format: date-time
+          description: When the search ran.
+        indexers_searched:
+          type: integer
+          description: How many enabled indexers the search asked, those in `indexer_errors` included.
+        wanted:
+          type: integer
+          description: How many Units of the search's scope the Version Wants (its Wanted episodes, or 1 for a Wanted Movie).
     GrabCreate:
       type: object
       required: [version_id, release_id]
@@ -4623,10 +5424,17 @@ components:
         next_cursor:
           type: string
           nullable: true
+    GrabsSummary:
+      type: object
+      required: [imported, failed, oldest]
+      properties:
+        imported: { type: integer }
+        failed: { type: integer }
+        oldest: { type: string, format: date-time, nullable: true }
     GrabEntry:
       type: object
       description: A Grab as the Activity screen shows it, joined with its Title and Slot.
-      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, release_name, indexer, size, score,
+      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, episode_ids, release_name, indexer, size, score,
         is_upgrade, state, failure, blocklist_reason, stalled, grabbed_at, updated_at]
       properties:
         grab_id:
@@ -4662,6 +5470,12 @@ components:
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
           items:
             type: string
+        episode_ids:
+          type: array
+          description: The ids of those episodes, for Search now narrowed to them (`episode_ids` of the search body); empty for a Movie.
+          items:
+            type: integer
+            format: int64
         release_name:
           type: string
         indexer:
@@ -4710,6 +5524,90 @@ components:
           type: string
           format: date-time
           description: When the job was paused, or when its downloaded amount last grew. Kept in memory, so after a restart it counts from the first poll.
+    GrabSteps:
+      type: object
+      description: The steps of one Grab, from the Log and the Grab itself.
+      required: [grab_id, grabbed_at, grabbed_by, download_started_at, download_finished_at, ended_at, files, formats, blocklist_id, still_wanted]
+      properties:
+        grab_id:
+          type: integer
+          format: int64
+        grabbed_at:
+          type: string
+          format: date-time
+        grabbed_by:
+          type: string
+          nullable: true
+          enum: [by_hand, by_search, by_rss]
+          description: Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
+        download_started_at:
+          type: string
+          format: date-time
+          nullable: true
+        download_finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the Grab was imported or failed; null while it is not finished.
+        files:
+          type: array
+          description: What the Import made, one entry per file it wrote.
+          items:
+            $ref: "#/components/schemas/GrabStepFile"
+        formats:
+          type: array
+          description: The Custom Formats the Release matched when it was chosen.
+          items:
+            $ref: "#/components/schemas/GrabStepFormat"
+        blocklist_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
+        still_wanted:
+          type: boolean
+          description: Whether the Grab's episodes (a Movie's Version) are still Wanted.
+        why:
+          allOf:
+            - $ref: "#/components/schemas/GrabWhy"
+          nullable: true
+          description: How the Release was chosen, as the Grab was made; null for a Grab from before this was recorded.
+        replaced:
+          type: integer
+          nullable: true
+          description: How many files in the library the Import replaced; null until it finished, or for a Grab from before this was recorded.
+    GrabWhy:
+      type: object
+      description: How many Wanted a Grab covers, how many existing files it replaces and the average Score gain over them.
+      required: [covers_wanted, replaces_files, score_delta]
+      properties:
+        covers_wanted:
+          type: integer
+        replaces_files:
+          type: integer
+        score_delta:
+          type: integer
+          description: The average Score gain over the replaced files that had a Score; 0 when none had.
+    GrabStepFile:
+      type: object
+      required: [episode, path]
+      properties:
+        episode:
+          type: string
+          nullable: true
+          description: The episode the file holds (`S05E05`); null for a Movie.
+        path:
+          type: string
+    GrabStepFormat:
+      type: object
+      required: [name, score]
+      properties:
+        name: { type: string }
+        score: { type: integer }
     GrabStall:
       type: object
       required: [reason, since, next_at]
@@ -5129,7 +6027,7 @@ components:
             $ref: "#/components/schemas/Job"
     Job:
       type: object
-      required: [name, status, disabled_by, runnable, last_run, next_at, schedule, progress, outcome]
+      required: [name, status, disabled_by, runnable, last_run, recent_runs, next_at, schedule, progress, outcome]
       properties:
         name:
           type: string
@@ -5161,6 +6059,13 @@ components:
             - $ref: "#/components/schemas/JobRun"
           nullable: true
           description: The last pass that finished since start; `null` before the first.
+        recent_runs:
+          type: array
+          description: |
+            The last ten passes that finished since start, oldest first (the newest is `last_run`); empty
+            before the first. Kept in memory with the rest, so a restart empties it.
+          items:
+            $ref: "#/components/schemas/JobRun"
         next_at:
           type: string
           format: date-time
@@ -5460,7 +6365,7 @@ components:
             $ref: "#/components/schemas/SearchIndexer"
     SearchPass:
       type: object
-      required: [started_at, done, total]
+      required: [started_at, done, total, current, releases_seen, grabbed, upgrades_done, upgrades_total]
       properties:
         started_at:
           type: string
@@ -5469,13 +6374,58 @@ components:
           type: integer
           description: |
             The Wanted Versions it has got through: searched, or passed over because no indexer could
-            take a sweep search (those stay due). Its Upgrade searches come after them and are not counted.
+            take a sweep search (those stay due). Its Upgrade searches come after them and are counted
+            in `upgrades_done`.
         total:
           type: integer
           description: The Wanted Versions it found due.
+        current:
+          description: What is being searched now; null between items.
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SearchTarget"
+        releases_seen:
+          type: integer
+          description: The Releases the indexers returned and the pass has evaluated so far, Upgrade searches included.
+        grabbed:
+          type: integer
+          description: The Grabs the pass has made so far, Upgrades included.
+        upgrades_done:
+          type: integer
+          description: The Upgrade searches it has got through, after the Wanted ones.
+        upgrades_total:
+          type: integer
+          description: The Upgrade searches it will make, at most `upgrades_per_pass`; 0 until the Wanted ones are done.
+    SearchTarget:
+      type: object
+      required: [title_id, title, has_poster, slot, season, episodes, releases_seen]
+      properties:
+        title_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        has_poster:
+          type: boolean
+          description: Whether `GET /titles/{id}/poster` has a poster for the Title.
+        slot:
+          type: string
+          description: The Slot searched, or the Slots joined with a comma.
+        season:
+          type: integer
+          nullable: true
+          description: The season searched when it is one season of a Series; null for a Movie or several seasons.
+        episodes:
+          type: array
+          description: The Wanted episodes searched, as `S05E01` codes (at most 50); empty for a Movie.
+          items:
+            type: string
+        releases_seen:
+          type: integer
+          description: The Releases the indexers returned for this search so far; climbs season by season for a Series.
     SearchPassResult:
       type: object
-      required: [finished_at, searched, grabbed]
+      required: [finished_at, searched, grabbed, releases_seen, upgrades, duration_ms]
       properties:
         finished_at:
           type: string
@@ -5486,6 +6436,16 @@ components:
         grabbed:
           type: integer
           description: The Grabs it made, Upgrades included.
+        releases_seen:
+          type: integer
+          description: The Releases the indexers returned and it evaluated.
+        upgrades:
+          type: integer
+          description: The Upgrade searches it made.
+        duration_ms:
+          type: integer
+          format: int64
+          description: How long the pass took.
     SearchIndexer:
       type: object
       required: [instance_id, name, search_used, search_max, held, held_until]
@@ -5654,11 +6614,25 @@ components:
             Blocklist holds, leaves the offer; one that failed for another reason stays offered.
     SystemStatus:
       type: object
-      required: [download_client, indexers, disks, trash, grabs_paused]
+      required: [download_client, indexers, disks, trash, grabs_paused, version, started_at, services]
       properties:
         grabs_paused:
           type: boolean
           description: The "Pause Grabs" setting is on, so no automatic Grab is made.
+        version:
+          type: string
+          description: The running version, as `GET /about` says.
+        started_at:
+          type: string
+          format: date-time
+          description: When this Kestrel started, so the uptime is now less this.
+        services:
+          type: array
+          description: |
+            The metadata providers and the media servers, each failing or not. A service is failing while
+            its Needs attention row shows, so a provider that has failed for under a day still reads `ok`.
+          items:
+            $ref: "#/components/schemas/ServiceStatus"
         trash:
           type: object
           description: The active TRaSH snapshot.
@@ -5694,6 +6668,56 @@ components:
             - $ref: "#/components/schemas/UpdateAvailable"
           nullable: true
           description: A newer release exists. Absent when up to date or when the update check is off.
+        database:
+          $ref: "#/components/schemas/DatabaseStatus"
+        clock:
+          $ref: "#/components/schemas/ClockStatus"
+    DatabaseStatus:
+      type: object
+      description: The database file and its scheduled backups (the `backup` job, once a day).
+      required: [size_bytes, backups, last_backup_at, last_backup_bytes]
+      properties:
+        size_bytes:
+          type: integer
+          format: int64
+          description: The database on disk, with its write-ahead log.
+        backups:
+          type: integer
+          description: How many backups are kept in `backups/`, the scheduled ones and those taken before an upgrade.
+        last_backup_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the newest scheduled backup was taken; `null` before the first.
+        last_backup_bytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: The size of that backup.
+    ClockStatus:
+      type: object
+      description: |
+        The server's clock against a trusted time source: the `Date` header of TMDB's answers, which Kestrel
+        reads on every call (a quiet install probes TMDB hourly).
+      required: [state, offset_seconds, source, checked_at]
+      properties:
+        state:
+          type: string
+          enum: [in_sync, drifting, unknown]
+          description: "`drifting` beyond 60 seconds either way (it also raises a Warning in Needs attention); `unknown` until a comparison has been made."
+        offset_seconds:
+          type: integer
+          nullable: true
+          description: "The server's clock less the source's, in seconds: negative when the server is behind. `null` while `unknown`."
+        source:
+          type: string
+          nullable: true
+          description: Who the clock was compared with, e.g. `TMDB`.
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the comparison was made.
     FolderChangeList:
       type: object
       required: [changes, next_marker, expired, more]
@@ -5766,10 +6790,50 @@ components:
           format: date-time
           nullable: true
           description: When the daily GitHub check last succeeded.
+    ServiceStatus:
+      type: object
+      required: [kind, name, instance_id, state, message, since]
+      properties:
+        kind:
+          type: string
+          enum: [metadata_provider, media_server]
+        name:
+          type: string
+          description: "`TMDB`, `TheTVDB` or the media server instance's name."
+        instance_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: The plugin instance of a media server; `null` for a metadata provider.
+        key:
+          type: string
+          nullable: true
+          enum: [own, project]
+          description: |
+            For a metadata provider, whose API key it runs on: `own` when the user supplied one (Settings, or
+            the environment), `project` for the key built into the release. `null` for a media server and
+            when the provider has no key.
+        state:
+          type: string
+          enum: [ok, failing]
+        message:
+          type: string
+          nullable: true
+          description: What is wrong; `null` while `ok`.
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the failure first showed; `null` while `ok`.
     ClientStatus:
       type: object
       required: [state, name, instance_id, message]
       properties:
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the failure started; absent while it works.
         state:
           type: string
           enum: [ok, failing, none]
@@ -5794,12 +6858,23 @@ components:
           format: int64
         name:
           type: string
+        since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the failure started; absent unless `state` is `failing`.
         state:
           type: string
           enum: [ok, failing, disabled]
         message:
           type: string
           nullable: true
+        median_ms:
+          type: integer
+          nullable: true
+          description: |
+            The median time the indexer took to answer a search over the last 24 hours, from the searches
+            Kestrel really made. `null` when it answered none in that time.
         search_used:
           type: integer
           description: Search requests made today (the indexer's own count when it reports one).
@@ -5838,6 +6913,165 @@ components:
           description: |
             When the pause ends: the next UTC midnight for a spent `grabs_per_day`. Null for a spent download
             quota the indexer reports, which ends when the indexer says so.
+    Stats:
+      type: object
+      required: [range, from, to, library, wanted, grabs, time_to_fill, indexers, best_indexer_id, download_client,
+        quality, below_cutoff, release_groups, requests, storage]
+      properties:
+        range:
+          type: string
+          enum: [7d, 30d, 90d]
+        from: {type: string, format: date, description: First UTC day of the range.}
+        to: {type: string, format: date, description: Last UTC day of the range (today).}
+        library: {$ref: '#/components/schemas/StatsLibrary'}
+        wanted: {$ref: '#/components/schemas/StatsWanted'}
+        grabs: {$ref: '#/components/schemas/StatsGrabs'}
+        time_to_fill: {$ref: '#/components/schemas/StatsTimeToFill'}
+        indexers:
+          type: array
+          description: Most imported Grabs first.
+          items: {$ref: '#/components/schemas/StatsIndexer'}
+        best_indexer_id: {type: integer, format: int64, nullable: true}
+        download_client: {$ref: '#/components/schemas/StatsDownloadClient'}
+        quality:
+          type: array
+          description: One entry per Slot that holds a file.
+          items: {$ref: '#/components/schemas/StatsQuality'}
+        below_cutoff:
+          type: integer
+          description: Files that fit their Version and are below their Profile's cutoff, so Upgrades are wanted for them.
+        release_groups:
+          type: array
+          description: The five groups with the most files, most first.
+          items: {$ref: '#/components/schemas/StatsReleaseGroup'}
+        requests: {$ref: '#/components/schemas/StatsRequests'}
+        storage: {$ref: '#/components/schemas/StatsStorage'}
+    StatsLibrary:
+      type: object
+      required: [titles, movies, series, bytes]
+      properties:
+        titles: {type: integer}
+        movies: {type: integer}
+        series: {type: integer}
+        bytes: {type: integer, format: int64, description: The size of every file.}
+    StatsWanted:
+      type: object
+      required: [count, long_missing]
+      properties:
+        count: {type: integer, description: Wanted Versions.}
+        long_missing: {type: integer, description: Versions Wanted for more than 90 days.}
+    StatsGrabs:
+      type: object
+      required: [imported, failed, per_day]
+      properties:
+        imported: {type: integer}
+        failed: {type: integer}
+        per_day:
+          type: array
+          description: One entry per UTC day of the range, oldest first, zero for a day without a Grab.
+          items: {$ref: '#/components/schemas/StatsGrabDay'}
+    StatsGrabDay:
+      type: object
+      required: [day, imported, failed]
+      properties:
+        day: {type: string, format: date}
+        imported: {type: integer}
+        failed: {type: integer}
+    StatsTimeToFill:
+      type: object
+      required: [median_seconds, previous_median_seconds, fills]
+      properties:
+        median_seconds: {type: integer, nullable: true, description: Null when nothing was filled in the range.}
+        previous_median_seconds: {type: integer, nullable: true, description: The same for the range before.}
+        fills: {type: integer, description: How many Movies and episodes the median is over.}
+    StatsIndexer:
+      type: object
+      required: [id, name, imported, failed, searches, hit_rate, median_answer_ms]
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        imported: {type: integer}
+        failed: {type: integer}
+        searches: {type: integer, description: "Searches made in the range, answered or not."}
+        hit_rate: {type: number, format: double, nullable: true, description: 0 to 1; null when no search was answered.}
+        median_answer_ms: {type: integer, format: int64, nullable: true}
+    StatsDownloadClient:
+      type: object
+      required: [name, state, completed, failed, avg_bytes_per_second, current_bytes_per_second, median_download_seconds, speed_per_day]
+      properties:
+        name: {type: string, nullable: true, description: Null without an enabled download client.}
+        state:
+          type: string
+          enum: [ok, failing, none]
+          description: '`none` without an enabled download client.'
+        completed: {type: integer, description: Downloads that finished in the range.}
+        failed: {type: integer, description: Grabs the client reported failed (a bad or encrypted download).}
+        avg_bytes_per_second: {type: number, format: double, nullable: true}
+        current_bytes_per_second: {type: integer, format: int64, nullable: true, description: "What the client downloads at right now (the sum over the active downloads); null when none is downloading or the client does not say."}
+        median_download_seconds: {type: integer, nullable: true}
+        speed_per_day:
+          type: array
+          description: The last 14 days, oldest first.
+          items: {$ref: '#/components/schemas/StatsSpeedDay'}
+    StatsSpeedDay:
+      type: object
+      required: [day, bytes_per_second]
+      properties:
+        day: {type: string, format: date}
+        bytes_per_second: {type: number, format: double, nullable: true}
+    StatsQuality:
+      type: object
+      required: [slot, files, remux_bluray, web_dl, webrip_or_lower]
+      properties:
+        slot: {$ref: '#/components/schemas/Slot'}
+        files: {type: integer}
+        remux_bluray: {type: integer}
+        web_dl: {type: integer}
+        webrip_or_lower: {type: integer}
+    StatsReleaseGroup:
+      type: object
+      required: [name, files]
+      properties:
+        name: {type: string}
+        files: {type: integer}
+    StatsRequests:
+      type: object
+      required: [total, searching, median_fulfil_seconds, requesters]
+      properties:
+        total: {type: integer}
+        searching: {type: integer, description: Requests not yet done.}
+        median_fulfil_seconds: {type: integer, nullable: true}
+        requesters:
+          type: array
+          items: {$ref: '#/components/schemas/StatsRequester'}
+    StatsRequester:
+      type: object
+      required: [name, source, requests, done]
+      properties:
+        name: {type: string}
+        source: {type: string}
+        requests: {type: integer}
+        done: {type: integer}
+    StatsStorage:
+      type: object
+      required: [disks, free_bytes, total_bytes, growth_bytes_per_week, series_share, months_until_full]
+      properties:
+        disks:
+          type: array
+          items: {$ref: '#/components/schemas/StatsDisk'}
+        free_bytes: {type: integer, format: int64}
+        total_bytes: {type: integer, format: int64}
+        growth_bytes_per_week: {type: integer, format: int64, nullable: true}
+        series_share: {type: number, format: double, nullable: true, description: '0 to 1: the part of all file bytes
+            Series files take.'}
+        months_until_full: {type: number, format: double, nullable: true}
+    StatsDisk:
+      type: object
+      required: [path, free_bytes, total_bytes]
+      properties:
+        path: {type: string}
+        free_bytes: {type: integer, format: int64}
+        total_bytes: {type: integer, format: int64}
     DiskStatus:
       type: object
       required: [path, free_bytes, total_bytes, low_free_bytes]
@@ -5862,6 +7096,41 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Event"
+    EventKindCount:
+      type: object
+      required: [kind, count, routine]
+      properties:
+        kind: { type: string }
+        count: { type: integer, format: int64 }
+        routine: { type: boolean, description: "Whether events of this kind are routine, left out of the Log unless asked for." }
+    EventsSummary:
+      type: object
+      required: [counts, oldest, routine_days]
+      properties:
+        counts:
+          type: array
+          description: Events per kind, for the kinds that have any.
+          items:
+            $ref: "#/components/schemas/EventKindCount"
+        oldest: { type: string, format: date-time, nullable: true }
+        routine_days: { type: integer, description: "How many days routine events are kept." }
+    EventsHistogram:
+      type: object
+      required: [bucket, buckets]
+      properties:
+        bucket: { type: string, enum: [1h, 4h, 1d] }
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventsBucket"
+    EventsBucket:
+      type: object
+      required: [at, events, warnings, errors]
+      properties:
+        at: { type: string, format: date-time, description: "When the bucket starts; it lasts `bucket`." }
+        events: { type: integer, format: int64, description: "Events that are neither warnings nor errors." }
+        warnings: { type: integer, format: int64 }
+        errors: { type: integer, format: int64 }
     Event:
       type: object
       required: [id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data]
@@ -5891,6 +7160,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BlocklistEntry"
+    BlocklistCreate:
+      type: object
+      required: [version_id, release_id]
+      properties:
+        version_id: { type: integer, format: int64 }
+        release_id: { type: string }
+        reason:
+          type: string
+          description: Why; shown on the Blocklist. Defaults to "Blocklisted from a manual search".
     BlocklistEntry:
       type: object
       required: [id, release_name, indexer_id, reason, size, published_at, created_at, title_id, grab_id]
@@ -6008,6 +7286,9 @@ components:
           format: int64
           nullable: true
           description: The episode's id, for Search now narrowed to it (`episode_ids`); null for a Movie.
+        monitored:
+          type: boolean
+          description: Whether the episode (or Movie) is monitored. Always true unless the request asked for `unmonitored`; clients read an absent value as true.
         has_poster:
           type: boolean
           description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
@@ -6136,7 +7417,7 @@ components:
             $ref: "#/components/schemas/QueueItem"
     QueueItem:
       type: object
-      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, release_name, indexer, size, score, phase, phase_since,
+      required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, episode_ids, release_name, indexer, size, score, phase, phase_since,
         bytes_total, bytes_left, eta, is_upgrade, score_delta, grabbed_at, stuck]
       properties:
         grab_id:
@@ -6173,6 +7454,12 @@ components:
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
           items:
             type: string
+        episode_ids:
+          type: array
+          description: The ids of those episodes; empty for a Movie.
+          items:
+            type: integer
+            format: int64
         release_name:
           type: string
         indexer:
@@ -6207,12 +7494,21 @@ components:
           type: integer
           nullable: true
           description: Seconds left, null when the client does not know.
+        bytes_per_second:
+          type: integer
+          format: int64
+          nullable: true
+          description: How fast the client is downloading it now; null when it is not downloading or the client does not say.
         is_upgrade:
           type: boolean
         score_delta:
           type: integer
           nullable: true
           description: For an Upgrade, how many points the Release scores above the file it replaces.
+        checking_files:
+          type: integer
+          nullable: true
+          description: While the Import runs, how many downloaded files it is checking; null before it has counted them.
         stuck:
           allOf:
             - $ref: "#/components/schemas/StuckDownload"
@@ -6275,6 +7571,12 @@ components:
         id:
           type: integer
           format: int64
+        series_status:
+          type: string
+          nullable: true
+          description: |
+            A Series' status as TheTVDB gives it, lower-case (`continuing`, `ended`, `upcoming`), read on each metadata
+            refresh. `null` for a Movie and for a Series TheTVDB has not said it for yet.
         requests:
           type: array
           description: The Requests that asked for this Title, oldest first.
@@ -6342,6 +7644,12 @@ components:
             - $ref: "#/components/schemas/SeriesMonitor"
           nullable: true
           description: "`null` for a Movie."
+        monitor_new_seasons:
+          type: boolean
+          description: Series only; left out for a Movie. Whether a season added later is monitored.
+        monitor_specials:
+          type: boolean
+          description: Series only; left out for a Movie. Whether Specials follow the monitoring mode.
         seasons:
           type: array
           description: A Series' seasons in order, Specials (0) first; empty for a Movie.

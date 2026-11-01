@@ -324,3 +324,37 @@ func TestActiveDoesNotFlagAQueuedGrabAsStalledHoweverLongItWaits(t *testing.T) {
 		t.Errorf("active = %+v, want a queued Grab that is not stalled", q)
 	}
 }
+
+func TestPollStampsWhenTheClientStartedAndFinishedAGrab(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	g := r.grabOne(t)
+	stamps := func() (started, done *string) {
+		t.Helper()
+		err := r.deps.Store.Read().QueryRow(`SELECT download_started_at, download_done_at FROM grabs WHERE id = ?`, g.ID).Scan(&started, &done)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return started, done
+	}
+
+	if _, err := r.svc.Poll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if s, d := stamps(); s != nil || d != nil {
+		t.Errorf("a queued job has stamps %v, %v", s, d)
+	}
+	_ = r.sab.SetPhase(g.ClientID, downloadclient.PhaseDownloading, 400)
+	_, _ = r.svc.Poll(ctx)
+	s, d := stamps()
+	if s == nil || d != nil {
+		t.Fatalf("downloading: started %v done %v, want started only", s, d)
+	}
+	started := *s
+	_ = r.sab.Complete(g.ClientID, "/data/usenet/movies/Paddington")
+	_, _ = r.svc.Poll(ctx)
+	s, d = stamps()
+	if s == nil || *s != started || d == nil {
+		t.Errorf("completed: started %v (was %s) done %v, want the start kept and a finish", s, started, d)
+	}
+}

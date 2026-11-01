@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/health"
@@ -133,16 +134,22 @@ func (s *server) runTest(ctx context.Context, pluginID string, instanceID int64,
 	}
 	// A test of the saved connection is a check of it; one of edits is of the form.
 	check := instanceID != 0 && len(edits) == 0
+	began := time.Now()
 	res, err := s.plugins.Test(ctx, p, conn, check)
+	latency := max(time.Since(began).Milliseconds(), 1)
 	if check {
 		s.observeCheck(ctx, p.Describe().Contract, instanceID, err)
 	}
 	if err == nil {
-		return oapi.PluginTestResult{Ok: true, Message: res.Message}, nil
+		out := oapi.PluginTestResult{Ok: true, Message: res.Message, LatencyMs: &latency}
+		if res.Version != "" {
+			out.Version = &res.Version
+		}
+		return out, nil
 	}
 	pe := plugin.AsError(err)
 	code := string(pe.Code)
-	return oapi.PluginTestResult{Ok: false, Code: &code, Message: pe.Message}, nil
+	return oapi.PluginTestResult{Ok: false, Code: &code, Message: pe.Message, LatencyMs: &latency}, nil
 }
 
 func (s *server) ListPluginOptions(ctx context.Context, r oapi.ListPluginOptionsRequestObject) (oapi.ListPluginOptionsResponseObject, error) {
@@ -280,6 +287,9 @@ func checkToAPI(c *instances.Check) *oapi.PluginInstanceCheck {
 	out := oapi.PluginInstanceCheck{At: c.At, Ok: c.OK}
 	if !c.OK {
 		out.Code, out.Message = &c.Code, &c.Message
+	}
+	if c.LatencyMS > 0 {
+		out.LatencyMs = &c.LatencyMS
 	}
 	return &out
 }

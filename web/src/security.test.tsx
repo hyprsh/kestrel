@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -37,17 +37,19 @@ function fakeSecurity(opts: { key?: { prefix: string; created_at: string; from_e
   return saved
 }
 
-const openSecurity = async () => {
+// The API key is on the Account page, the reverse proxy on Security & Access.
+const openSecurity = async (page = 'Account') => {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-  return screen.findByRole('heading', { name: 'Security' })
+  await userEvent.click(await screen.findByRole('link', { name: page }))
+  return screen.findByRole('heading', { name: page, level: 2 })
 }
 
 describe('Settings > Security', () => {
   it('is in the jump list', async () => {
     fakeSecurity()
     await openSecurity()
-    expect(screen.getByRole('navigation', { name: /settings sections/i })).toHaveTextContent('Security')
+    expect(screen.getByRole('navigation', { name: /settings sections/i })).toHaveTextContent('Security & Access')
   })
 
   it('generates an API key, shows it once, and then only its prefix', async () => {
@@ -97,29 +99,29 @@ describe('Settings > Security', () => {
 
   it('saves reverse-proxy settings', async () => {
     const saved = fakeSecurity()
-    await openSecurity()
+    await openSecurity('Security & Access')
 
-    await userEvent.click(await screen.findByRole('checkbox', { name: /log in from the header/i }))
+    await userEvent.click(await screen.findByRole('switch', { name: /log in from the header/i }))
     await userEvent.type(screen.getByLabelText('Trusted proxies'), '172.18.0.0/16{Enter}10.0.0.5')
-    await userEvent.click(screen.getByRole('button', { name: 'Save reverse proxy' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/saved/i)
+    await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved).toEqual([{ enabled: true, trusted_proxies: ['172.18.0.0/16', '10.0.0.5'], header: 'Remote-User' }])
   })
 
   it('shows reverse-proxy settings the Config File declares as read-only', async () => {
     fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, proxyDeclared: true })
-    await openSecurity()
+    await openSecurity('Security & Access')
 
-    expect(await screen.findByRole('checkbox', { name: /log in from the header/i })).toBeDisabled()
+    expect(await screen.findByRole('switch', { name: /log in from the header/i })).toBeDisabled()
     expect(screen.getByLabelText('Trusted proxies')).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Save reverse proxy' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     expect(screen.getByText(/Config File/)).toBeInTheDocument()
   })
 
   it('lists addresses that sent the header without being trusted', async () => {
     fakeSecurity({ proxy: { enabled: true, trusted_proxies: ['10.0.0.5'] }, untrusted: true })
-    await openSecurity()
+    await openSecurity('Security & Access')
     const warning = await screen.findByRole('region', { name: /untrusted/i })
     expect(within(warning).getByText(/203\.0\.113\.9/)).toBeInTheDocument()
     expect(within(warning).getByText(/mallory/)).toBeInTheDocument()
@@ -127,10 +129,12 @@ describe('Settings > Security', () => {
 })
 
 describe('a proxy-authenticated session', () => {
-  it('has no Log out button', async () => {
+  it('has no Log Out command', async () => {
     server.use(http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', role: 'admin', method: 'proxy', proxy_user: 'alice', from_config_file: false })))
     renderApp()
     await screen.findByRole('button', { name: 'Settings' })
-    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Search or add \(/ }))
+    await screen.findByRole('dialog', { name: /command menu/i })
+    expect(screen.queryByRole('option', { name: 'Log Out' })).not.toBeInTheDocument()
   })
 })

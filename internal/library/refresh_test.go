@@ -138,3 +138,41 @@ func TestARefreshWithoutTranslatedTitlesKeepsTheStoredOnes(t *testing.T) {
 		t.Errorf("episodes = %+v, want the stored German title kept and the original standing in for the new one", eps)
 	}
 }
+
+func TestARefreshLeavesANewSeasonUnmonitoredWhenNewSeasonsIsOff(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	aired := func(m time.Month, d int) *time.Time { x := time.Date(2026, m, d, 0, 0, 0, 0, time.UTC); return &x }
+	tmdb := metadata.SeriesDetails{TMDBID: 7002, TVDBID: 5002, Title: "Night Show", OriginalTitle: "Night Show", OriginalLanguage: "en", Year: 2024}
+	id, err := lib.AddSeries(ctx, library.AddSeries{
+		TMDB:            tmdb,
+		TVDB:            metadata.TVDBSeries{ID: 5002, Episodes: []metadata.Episode{{ID: 1, Season: 1, Number: 1, Name: "Dusk", Aired: aired(1, 5)}}},
+		PrimaryLanguage: "en", Monitor: library.MonitorAll, RootFolder: "/data/media/tv",
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	off, on := false, true
+	if err := lib.SetSeriesMonitorOptions(ctx, id, &off, &on); err != nil {
+		t.Fatal(err)
+	}
+	_, err = lib.RefreshSeries(ctx, id, library.SeriesRefresh{
+		TMDB: tmdb,
+		TVDB: metadata.TVDBSeries{ID: 5002, Episodes: []metadata.Episode{
+			{ID: 1, Season: 1, Number: 1, Name: "Dusk", Aired: aired(1, 5)},
+			{ID: 2, Season: 1, Number: 2, Name: "Midnight", Aired: aired(1, 12)},
+			{ID: 9, Season: 2, Number: 1, Name: "New season", Aired: aired(3, 1)},
+			{ID: 10, Season: 0, Number: 1, Name: "Behind", Aired: aired(3, 2)},
+		}},
+		PrimaryLanguage: "en",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := monitoredByEpisode(t, lib, id)
+	if !got["Midnight"] || got["New season"] || got["Behind"] {
+		// A new Special is in a new season too: it follows new seasons being off.
+		t.Errorf("monitored = %v", got)
+	}
+}

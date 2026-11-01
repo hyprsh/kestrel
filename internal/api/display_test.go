@@ -10,6 +10,7 @@ type displaySettings struct {
 		SeasonOrder      string `json:"season_order"`
 		SeasonsOpen      string `json:"seasons_open"`
 		ManualSearchSort string `json:"manual_search_sort"`
+		UpcomingDisplay  string `json:"upcoming_display"`
 		UpcomingFilters  struct {
 			Kind         string `json:"kind"`
 			WantedOnly   bool   `json:"wanted_only"`
@@ -21,6 +22,7 @@ type displaySettings struct {
 			SeasonOrder      bool `json:"season_order"`
 			SeasonsOpen      bool `json:"seasons_open"`
 			ManualSearchSort bool `json:"manual_search_sort"`
+			UpcomingDisplay  bool `json:"upcoming_display"`
 			UpcomingFilters  bool `json:"upcoming_filters"`
 		} `json:"display"`
 	} `json:"from_config_file"`
@@ -31,15 +33,15 @@ func TestDisplayDefaultsMatchTodaysBehaviorAndSave(t *testing.T) {
 	b := newInstance(t, "").setUp()
 
 	d := decode[displaySettings](t, b.valid("GET", "/settings", "")).Display
-	if d.SeasonOrder != "oldest_first" || d.SeasonsOpen != "latest_and_wanted" || d.ManualSearchSort != "best_first" || d.UpcomingFilters.Kind != "all" || d.UpcomingFilters.WantedOnly || d.UpcomingFilters.HideImported {
+	if d.SeasonOrder != "oldest_first" || d.SeasonsOpen != "latest_and_wanted" || d.ManualSearchSort != "best_first" || d.UpcomingDisplay != "agenda" || d.UpcomingFilters.Kind != "all" || d.UpcomingFilters.WantedOnly || d.UpcomingFilters.HideImported {
 		t.Errorf("defaults = %+v", d)
 	}
-	r := b.valid("PATCH", "/settings", `{"display":{"season_order":"newest_first","manual_search_sort":"size_desc","upcoming_filters":{"wanted_only":true}}}`)
+	r := b.valid("PATCH", "/settings", `{"display":{"season_order":"newest_first","manual_search_sort":"size_desc","upcoming_display":"month","upcoming_filters":{"wanted_only":true}}}`)
 	if r.Status != 200 {
 		t.Fatalf("PATCH = %d %s", r.Status, r.Body)
 	}
 	d = decode[displaySettings](t, b.valid("GET", "/settings", "")).Display
-	if d.SeasonOrder != "newest_first" || d.SeasonsOpen != "latest_and_wanted" || d.ManualSearchSort != "size_desc" || !d.UpcomingFilters.WantedOnly || d.UpcomingFilters.Kind != "all" {
+	if d.SeasonOrder != "newest_first" || d.SeasonsOpen != "latest_and_wanted" || d.ManualSearchSort != "size_desc" || d.UpcomingDisplay != "month" || !d.UpcomingFilters.WantedOnly || d.UpcomingFilters.Kind != "all" {
 		t.Errorf("saved = %+v", d)
 	}
 }
@@ -49,6 +51,7 @@ func TestDisplayRejectsAnUnknownValueAndSavesNothing(t *testing.T) {
 	b := newInstance(t, "").setUp()
 	for _, body := range []string{
 		`{"display":{"season_order":"sideways"}}`,
+		`{"display":{"upcoming_display":"week"}}`,
 		`{"display":{"manual_search_sort":"score_desc"}}`,
 		`{"display":{"upcoming_filters":{"kind":"anime"}}}`,
 	} {
@@ -66,16 +69,17 @@ func TestADeclaredDisplaySettingIsReadOnlyAndTheRestStayWithTheUI(t *testing.T) 
 	t.Parallel()
 	in := newInstance(t, "")
 	b := in.setUp()
-	in.mustDeclare("display:\n  season_order: newest_first\n  upcoming_filters:\n    kind: series\n")
+	in.mustDeclare("display:\n  season_order: newest_first\n  upcoming_display: month\n  upcoming_filters:\n    kind: series\n")
 
 	s := decode[displaySettings](t, b.valid("GET", "/settings", ""))
-	if s.Display.SeasonOrder != "newest_first" || s.Display.UpcomingFilters.Kind != "series" {
+	if s.Display.SeasonOrder != "newest_first" || s.Display.UpcomingFilters.Kind != "series" || s.Display.UpcomingDisplay != "month" {
 		t.Errorf("declared values = %+v", s.Display)
 	}
-	if f := s.FromConfigFile.Display; !f.SeasonOrder || !f.UpcomingFilters || f.SeasonsOpen || f.ManualSearchSort {
-		t.Errorf("from_config_file.display = %+v, want season_order and upcoming_filters", f)
+	if f := s.FromConfigFile.Display; !f.SeasonOrder || !f.UpcomingFilters || !f.UpcomingDisplay || f.SeasonsOpen || f.ManualSearchSort {
+		t.Errorf("from_config_file.display = %+v, want season_order, upcoming_display and upcoming_filters", f)
 	}
 	in.conflictNamingTheFile("PATCH season_order", b.valid("PATCH", "/settings", `{"display":{"season_order":"oldest_first","seasons_open":"all"}}`))
+	in.conflictNamingTheFile("PATCH upcoming_display", b.valid("PATCH", "/settings", `{"display":{"upcoming_display":"agenda"}}`))
 	in.conflictNamingTheFile("PATCH upcoming_filters", b.valid("PATCH", "/settings", `{"display":{"upcoming_filters":{"wanted_only":true}}}`))
 	if r := b.valid("PATCH", "/settings", `{"display":{"seasons_open":"all","manual_search_sort":"age_asc"}}`); r.Status != 200 {
 		t.Errorf("PATCH of undeclared settings = %d %s, want 200", r.Status, r.Body)

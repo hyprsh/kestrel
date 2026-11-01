@@ -12,6 +12,7 @@ import { server } from '../test/server'
 async function openSettings() {
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+  await userEvent.click(await screen.findByRole('link', { name: 'Profiles' }))
 }
 const renderForm = () =>
   render(
@@ -27,6 +28,7 @@ const trashJob = (over: Partial<Job> = {}): Job => ({
   disabled_by: null,
   runnable: false,
   last_run: null,
+  recent_runs: [],
   next_at: null,
   schedule: { every_ms: 3_600_000, busy_every_ms: null, runs_every_ms: 86_400_000 },
   progress: null,
@@ -43,7 +45,7 @@ describe('Update from TRaSH', () => {
 
     const toasts = await screen.findByRole('region', { name: 'Notifications' })
     expect(await within(toasts).findByText('Updating from TRaSH in the background')).toBeInTheDocument()
-    expect(within(toasts).getByRole('button', { name: 'Watch in Activity' })).toBeInTheDocument()
+    expect(within(toasts).getByRole('button', { name: 'Watch in Health' })).toBeInTheDocument()
     expect(screen.queryByText(/already up to date|^Updated\.$/i)).not.toBeInTheDocument()
   })
 
@@ -67,9 +69,7 @@ describe('Update from TRaSH', () => {
     server.use(http.get('/jobs', ({ response }) => response(200).json({ items: [state.job] })))
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<App client={client} />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
-    await userEvent.click(await screen.findByRole('button', { name: /^Activity:/ }))
-    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Background Jobs' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Health/ }))
     await screen.findByRole('region', { name: /^Background jobs/ })
     const toasts = await screen.findByRole('region', { name: 'Notifications' })
     expect(within(toasts).queryByText('old news')).not.toBeInTheDocument()
@@ -83,9 +83,7 @@ describe('Update from TRaSH', () => {
   it('shows the progress of a running pass in Activity', async () => {
     server.use(http.get('/jobs', ({ response }) => response(200).json({ items: [trashJob({ status: 'running', progress: { done: 12, total: 40 } })] })))
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
-    await userEvent.click(await screen.findByRole('button', { name: /^Activity:/ }))
-    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Background Jobs' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Health/ }))
 
     expect(await screen.findByText('Re-scoring: 12 of 40 Titles')).toBeInTheDocument()
   })

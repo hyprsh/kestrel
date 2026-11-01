@@ -12,8 +12,8 @@ import { PaneFooter, PaneHeader } from './Pane'
 import { PhoneBackHeader } from './PhoneBackHeader'
 import { Rail, RailSpacer } from './Rail'
 import { SectionBlock } from './SectionBlock'
-import { ScreenBar, ScreenBarPlacesContext, ViewSwitcher } from './ScreenBar'
-import { PhoneTopBar, TopBar } from './TopBar'
+import { FilterChips, SidePanel, SidePanelPhoneContext, SidePanelView, SidePanelViews } from './SidePanel'
+import { PhoneTopBar } from './TopBar'
 import { WidePage } from './WidePage'
 
 describe('the layout pieces', () => {
@@ -81,20 +81,13 @@ describe('the layout pieces', () => {
     ).toEqual(['Add', 'About'])
   })
 
-  it('TopBar and PhoneTopBar show the title, the middle and the end', () => {
+  it('PhoneTopBar shows the title and what follows it', () => {
     render(
-      <>
-        <TopBar title="Library" end={<span>status</span>}>
-          <button>Search</button>
-        </TopBar>
-        <PhoneTopBar title="Log">
-          <button>Add</button>
-        </PhoneTopBar>
-      </>,
+      <PhoneTopBar title="Log">
+        <button>Add</button>
+      </PhoneTopBar>,
     )
-    const [desktop, phone] = screen.getAllByRole('banner')
-    expect(desktop).toHaveTextContent('LibrarySearchstatus')
-    expect(within(desktop).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    const phone = screen.getByRole('banner')
     expect(phone).toHaveTextContent('Log')
     expect(within(phone).getByRole('button', { name: 'Add' })).toBeInTheDocument()
   })
@@ -109,51 +102,69 @@ describe('the layout pieces', () => {
   })
 })
 
-describe('ScreenBar', () => {
-  it('holds the view, the menu and the actions, with the menu before the action at the right end', () => {
-    render(<ScreenBar view={<span>View</span>} menu={<button>Menu</button>} actions={<button>Add</button>} />)
-    expect(screen.getByText('View')).toBeInTheDocument()
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Menu', 'Add'])
-  })
-
-  it('puts the view, the filter, its controls and the aside in one row, in that order', () => {
-    render(<ScreenBar view={<button>Pages</button>} filter={<input aria-label="Field" />} controls={<button>Filter</button>} aside={<button>Today</button>} />)
+describe('SidePanel', () => {
+  const onRemove = vi.fn()
+  const panel = (
+    <SidePanel
+      title="Library"
+      width="wide"
+      actions={<button>Add</button>}
+      filter={<input aria-label="Field" />}
+      controls={<button>Filter</button>}
+      chips={<FilterChips chips={[{ key: 'a', label: 'Wanted', onRemove }]} />}
+      views={
+        <SidePanelViews>
+          <SidePanelView current count={3} onSelect={() => {}}>
+            Everything
+          </SidePanelView>
+        </SidePanelViews>
+      }
+      footer={<span>3 of 6</span>}
+    >
+      <div>the list</div>
+    </SidePanel>
+  )
+  it('is a region named by its title, with the title as the h1, then the actions, the field, the controls, the chips, the views, the body and the footer', () => {
+    render(panel)
+    const region = screen.getByRole('complementary', { name: 'Library' })
+    expect(within(region).getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     const order = [
-      screen.getByRole('button', { name: 'Pages' }),
+      screen.getByRole('heading', { name: 'Library' }),
+      screen.getByRole('button', { name: 'Add' }),
       screen.getByRole('textbox', { name: 'Field' }),
       screen.getByRole('button', { name: 'Filter' }),
-      screen.getByRole('button', { name: 'Today' }),
+      screen.getByRole('button', { name: 'Remove Wanted' }),
+      screen.getByRole('navigation', { name: 'Views' }),
+      screen.getByText('the list'),
+      screen.getByText('3 of 6'),
     ]
     for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Everything/ })).toHaveAttribute('aria-current', 'true')
   })
 
-  it('goes into the top bar places when it is given them: the bar in the middle, the menu and the action at the end', () => {
-    const middle = document.createElement('div')
-    const end = document.createElement('div')
-    document.body.append(middle, end)
-    render(
-      <ScreenBarPlacesContext.Provider value={{ middle, end }}>
-        <ScreenBar view={<button>Pages</button>} filter={<input aria-label="Field" />} menu={<button>Menu</button>} actions={<button>Add</button>} />
-      </ScreenBarPlacesContext.Provider>,
-    )
-    expect(within(middle).getByRole('button', { name: 'Pages' })).toBeInTheDocument()
-    expect(within(middle).getByRole('textbox', { name: 'Field' })).toBeInTheDocument()
-    expect(
-      within(end)
-        .getAllByRole('button')
-        .map((b) => b.textContent),
-    ).toEqual(['Menu', 'Add'])
-    middle.remove()
-    end.remove()
+  it('removes a chip when its button is pressed, and shows none without chips', async () => {
+    const { rerender } = render(panel)
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Wanted' }))
+    expect(onRemove).toHaveBeenCalledOnce()
+    rerender(<FilterChips chips={[]} />)
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
-  it('waits while the top bar places are not mounted yet, and shows no row of its own', () => {
-    render(
-      <ScreenBarPlacesContext.Provider value={{ middle: null, end: null }}>
-        <ScreenBar view={<button>Pages</button>} />
-      </ScreenBarPlacesContext.Provider>,
-    )
-    expect(screen.queryByRole('button', { name: 'Pages' })).not.toBeInTheDocument()
+  it('is the screen header on a phone: the title with the phone extras and the actions, the field with the controls, and no body or footer', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: true, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }))
+    render(<SidePanelPhoneContext.Provider value={<button>Health</button>}>{panel}</SidePanelPhoneContext.Provider>)
+    vi.unstubAllGlobals()
+    const header = screen.getByRole('banner')
+    expect(within(header).getByRole('heading', { name: 'Library' })).toBeInTheDocument()
+    const order = [
+      screen.getByRole('button', { name: 'Health' }),
+      screen.getByRole('button', { name: 'Add' }),
+      screen.getByRole('textbox', { name: 'Field' }),
+      screen.getByRole('button', { name: 'Filter' }),
+    ]
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText('the list')).not.toBeInTheDocument()
+    expect(screen.queryByText('3 of 6')).not.toBeInTheDocument()
   })
 })
 
@@ -223,27 +234,5 @@ describe('SortButton', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort: Name A–Z' }))
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Newest added' }))
     expect(screen.getByRole('status')).toHaveTextContent(/^heat$/)
-  })
-})
-
-describe('ViewSwitcher', () => {
-  it('names the current page and lists the pages, each with its hint', async () => {
-    const onChange = vi.fn()
-    render(
-      <ViewSwitcher
-        label="Activity"
-        current="grabs"
-        onChange={onChange}
-        views={[
-          { value: 'grabs', label: 'Grabs', hint: '2' },
-          { value: 'health', label: 'Health' },
-        ]}
-      />,
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'Activity: Grabs' }))
-    expect(screen.getByRole('menuitemradio', { name: 'Grabs' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('menuitemradio', { name: 'Grabs' })).toHaveTextContent('2')
-    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Health' }))
-    expect(onChange).toHaveBeenCalledWith('health')
   })
 })

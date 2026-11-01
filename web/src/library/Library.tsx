@@ -4,34 +4,36 @@ import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
 import { useQueue } from '../api/queue'
 import { useOpenCleanup } from '../cleanup/launch'
+import { filterChips } from '../filter/chips'
 import { FilterBar } from '../filter/FilterBar'
 import { useKey, useListNav } from '../keys'
 import { FacetFilterButton, SortButton } from '../layout/FilterButton'
-import { PaneFooter } from '../layout/Pane'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
-import { ScreenBar } from '../layout/ScreenBar'
-import { WideListPane } from '../layout/WideListPane'
+import { FilterChips, SidePanel } from '../layout/SidePanel'
+import type { ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
 import { useSelection } from '../selection'
 import { useNow } from '../time'
-import { size, slotLabel } from './bits'
+import { size } from './bits'
 import { BulkActions } from './BulkActions'
 import { EpisodeViewContext } from './episodeView'
 import { episodeCode, seasonName } from './episodes'
 import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
-import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
+import { filterLibrary, libraryQualifiers, slotsPresent, tabCounts, tabOf, withTab } from './filter'
+import { singleSlot } from './rowChips'
 import { AddTitle, LibraryMenu, StatusSection } from './LibraryBar'
-import { ManualSearch } from './ManualSearch'
+import { ManualSearchRoute, scopeCode } from './ManualSearchRoute'
 import { grabsByTitle } from './rowState'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 import { TitleRows } from './TitleRows'
 import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
 
 /**
- * The Library. Across the top, one bar, in the top bar of a desktop: the filter field with its Filter button (whose Status section holds the `is:`
- * states, each with its count) and the Sort button, then after Health the Library-wide "…" menu and Add Title. The count is in the footer.
- * The list is two panes: the filterable list on the left and the selected Title on the right.
+ * The Library. Two panes: on the left the SidePanel (wide), which holds the name, the Library-wide "…" menu and Add Title, the
+ * filter field, the Filter button (whose Status section holds the `is:` states, each with its count) and the Sort button,
+ * the active filters as chips, the filterable list and, in its footer, the keys and the count; on the right the selected
+ * Title, from the top of the window down.
  *
  * Everything is reachable from the keyboard: j/k and the arrows move, Enter steps into the Title,
  * Escape steps back, `/` filters (with qualifiers such as is:wanted, see ./filter.ts, kept in the address bar), x ticks
@@ -39,7 +41,7 @@ import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
  * them together, and Escape clears the ticks.
  *
  * On a phone the list and the Title page are two screens: tapping a Title opens its page full screen (`titleOpen`,
- * kept by the Shell in the address bar so Back returns to the list), the bar wraps and
+ * kept by the Shell in the address bar so Back returns to the list), the SidePanel is the list screen's header and
  * the rows show tick boxes once Tick Titles in the "…" menu asks for them.
  */
 export function Library({
@@ -52,6 +54,8 @@ export function Library({
   onAdopt,
   query,
   onQuery,
+  search,
+  onSearch,
 }: {
   selectedId: number | null
   onSelect: (id: number) => void
@@ -64,6 +68,9 @@ export function Library({
   /** The filter field's text, kept by the Shell so it can live in the address bar. */
   query: string
   onQuery: (query: string) => void
+  /** The Manual search the address names, and how to open one (pushing its address) or close it (Back); null closes. */
+  search: ManualSearchAt | null
+  onSearch: (search: ManualSearchAt | null) => void
 }) {
   const phone = usePhone()
   const titles = useTitles()
@@ -71,11 +78,19 @@ export function Library({
   const now = useNow()
   const openCleanup = useOpenCleanup()
   const profiles = useProfiles().data
-  const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` }))), [profiles])
   const listRef = useRef<HTMLDivElement>(null)
   const paneRef = useRef<HTMLElement>(null)
 
-  const all = titles.data ?? []
+  const all = useMemo(() => titles.data ?? [], [titles.data])
+  const slots = useMemo(() => slotsPresent(all), [all])
+  const qualifiers = useMemo(
+    () =>
+      libraryQualifiers(
+        (profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` })),
+        slots.length > 0 ? slots : undefined,
+      ),
+    [profiles, slots],
+  )
   const grabs = useMemo(() => grabsByTitle(queue), [queue])
   const grabbing = useMemo(() => new Set(grabs.keys()), [grabs])
   const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
@@ -116,8 +131,7 @@ export function Library({
     if (hits[0]) onSelect(hits[0].title.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstHit])
-  // A manual search replaces the Title pane; picking another Title in the list closes it.
-  const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
+  // A manual search replaces the Title pane; it has its own address (the Shell keeps it), and picking another Title in the list closes it.
   const searching = search !== null && search.titleId === current?.id
   // The listbox (EntityList takes no ref), inside the scroller that holds the ref.
   const focusList = () => listRef.current?.querySelector<HTMLElement>('[role=listbox]')?.focus()
@@ -214,6 +228,13 @@ export function Library({
       focusList()
     }
   }
+  // A chip's popover (or the "+N" list) opens the Title at that Slot: its page scrolls to the Version and marks it, the address names it.
+  const openSlot = (r: TitleRow, slot: string) => {
+    setHitKey(null)
+    onSelect(r.id)
+    episodeView?.setView({ titleId: r.id, season: null, episode: null, slot })
+    if (phone) onOpenTitle(r.id)
+  }
   const items = (
     <TitleRows
       rows={rows}
@@ -241,6 +262,9 @@ export function Library({
       }
       navOffset={hits.length}
       activeId={hit ? hitDomId(hit) : undefined}
+      onOpenSlot={openSlot}
+      single={singleSlot(all)}
+      profileName={(key) => profiles?.find((p) => p.key === key)?.name ?? key}
     />
   )
   const nothing = (
@@ -260,7 +284,7 @@ export function Library({
       ) : null}
     </div>
   )
-  const startSearchFor = (titleId: number, s: ManualSearchTarget) => setSearch({ ...s, titleId })
+  const startSearchFor = (titleId: number, s: ManualSearchTarget) => onSearch({ titleId, versionId: s.versionId, scope: s.scope?.code ?? null })
   const startSearch = (s: ManualSearchTarget) => current && startSearchFor(current.id, s)
   /** What Search and Manual… do on a result row: for that Series, whichever Title the pane shows. */
   function actionsOf(h: EpisodeHit): Pick<EpisodeActions, 'versions' | 'search' | 'manual'> {
@@ -269,22 +293,18 @@ export function Library({
       search: (eps, label, scope) => episodeSearch(h.versions, eps, label, scope),
       manual: (v, body, label) => {
         showHit(h)
-        startSearchFor(h.title.id, { versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
+        startSearchFor(h.title.id, { versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label, code: scopeCode(body, h.episodes) } })
       },
     }
   }
   // The selected Title's page, or the manual search that replaces it; `onEscape` is where Escape in the page goes.
   const titlePage = (onEscape: () => void) =>
     current && searching ? (
-      <ManualSearch
-        key={`${search.versionId} ${JSON.stringify(search.scope?.body ?? null)}`}
+      <ManualSearchRoute
+        at={search}
         titleName={current.title}
-        slotLabel={slotLabel[search.slot]}
-        profileName={search.profileName}
-        versionId={search.versionId}
-        scope={search.scope}
         onBack={() => {
-          setSearch(null)
+          onSearch(null)
           requestAnimationFrame(() => paneRef.current?.focus())
         }}
       />
@@ -303,25 +323,29 @@ export function Library({
       </div>
     )
 
-  // One bar across the whole screen, above the list and the Title; On a desktop it sits in the top bar.
-  const bar = (filtering: boolean) => (
-    <ScreenBar
-      menu={menu}
-      actions={phone ? undefined : <AddTitle onAdd={onAdd} />}
-      filter={filtering ? field : undefined}
-      controls={
-        <>
-          <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} lead={status} leadActive={parsed.terms.some((t) => t.name === 'is') ? 1 : 0} />
-          <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
-        </>
-      }
-    />
-  )
+  // The panel's parts. On a phone they are the list screen's header; on a desktop, the column beside the Title.
+  const panel = {
+    title: 'Library',
+    actions: (
+      <>
+        {menu}
+        <AddTitle onAdd={onAdd} />
+      </>
+    ),
+    filter: field,
+    controls: (
+      <>
+        <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} lead={status} leadActive={parsed.terms.some((t) => t.name === 'is') ? 1 : 0} />
+        <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+      </>
+    ),
+    chips: <FilterChips chips={filterChips(query, onQuery, qualifiers)} />,
+  }
 
   if (phone)
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {bar(true)}
+        <SidePanel {...panel} />
         <div className="relative flex min-h-0 flex-1 flex-col">
           {rows.length === 0 && !titles.isPending ? nothing : items}
           {bulk}
@@ -332,25 +356,27 @@ export function Library({
   const hints = (
     <span className="label-12 flex items-center gap-1 text-gray-900 pointer-coarse:hidden">
       <KeyboardInput small>j</KeyboardInput>
-      <KeyboardInput small>k</KeyboardInput> move <KeyboardInput small>x</KeyboardInput> tick
+      <KeyboardInput small>k</KeyboardInput> move
     </span>
   )
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {bar(true)}
-      <div className="flex min-h-0 flex-1">
-        <WideListPane>
-          <div className="relative flex min-h-0 flex-1 flex-col">
-            {items}
-            {bulk}
-          </div>
-          <PaneFooter>
+    <div className="flex min-h-0 flex-1">
+      <SidePanel
+        {...panel}
+        width="wide"
+        footer={
+          <>
             {hints}
-            <span className="ml-auto">{count}</span>
-          </PaneFooter>
-        </WideListPane>
-        {titlePage(focusList)}
-      </div>
+            {count}
+          </>
+        }
+      >
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {items}
+          {bulk}
+        </div>
+      </SidePanel>
+      {titlePage(focusList)}
     </div>
   )
 }

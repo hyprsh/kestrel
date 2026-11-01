@@ -69,7 +69,7 @@ describe('the Requester app', () => {
 
     expect(await screen.findByRole('heading', { name: 'Your Requests' })).toBeInTheDocument()
     expect(screen.getByText('anna')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log Out' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
 
@@ -83,7 +83,7 @@ describe('the Requester app', () => {
   it('logs out', async () => {
     const { stop } = fakeRequester()
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Log out' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Log Out' }))
     expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument()
     stop()
   })
@@ -103,7 +103,7 @@ describe('the Requester app', () => {
     expect(made).toEqual([{ kind: 'movie', tmdb_id: 438631 }])
     const mine = await screen.findByRole('list', { name: 'Your Requests' })
     expect(within(mine).getByText('Dune')).toBeInTheDocument()
-    expect(within(mine).getByText('Searching')).toBeInTheDocument()
+    expect(within(mine).getByRole('img', { name: 'Standard: Searching' })).toBeInTheDocument()
     expect(await within(await screen.findByRole('list', { name: 'Search results' })).findByText('Searching')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Request Dune' })).not.toBeInTheDocument()
     stop()

@@ -95,7 +95,7 @@ FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.title_id = ? AND g.version_id IS NOT NULL AND g.state NOT IN ('imported', 'failed');
 
 -- name: ListAllFileEpisodesOfTitle :many
-SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
+SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.imported_at
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?;
 
 -- When each episode's earliest file in any Version was imported, misfits included: a file shows the episode is out.
@@ -110,6 +110,9 @@ WHERE v.title_id = ? GROUP BY fe.episode_id;
 
 -- name: SetSeriesMonitor :exec
 UPDATE titles SET series_monitor = ? WHERE id = ? AND kind = 'series';
+
+-- name: SetSeriesMonitorOptions :exec
+UPDATE titles SET monitor_new_seasons = ?, monitor_specials = ? WHERE id = ? AND kind = 'series';
 
 -- name: SetEpisodeMonitored :exec
 UPDATE episodes SET monitored = ? WHERE id = ?;
@@ -127,6 +130,10 @@ UPDATE seasons SET monitored = EXISTS (
 
 -- name: ListSearchStates :many
 SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh FROM search_state ORDER BY id;
+
+-- A Title's search_state rows.
+-- name: ListSearchStatesOfTitle :many
+SELECT ss.* FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id;
 
 -- name: MarkSearchStateMissing :exec
 UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE id = ?;
@@ -316,3 +323,9 @@ UPDATE search_state SET next_upgrade_at = ? WHERE last_upgrade_at >= ?;
 
 -- name: SetTitleRootFolder :exec
 UPDATE titles SET root_folder = ? WHERE id = ?;
+
+-- The files that Grabs (not Upgrades) filled a Version with in a window, one row per episode of a Series file and one for a Movie file.
+-- name: ListGrabFilled :many
+SELECT f.version_id, f.imported_at, CAST(coalesce(fe.episode_id, 0) AS INTEGER) AS episode_id
+FROM files f JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_episodes fe ON fe.file_id = f.id
+WHERE g.is_upgrade = 0 AND f.imported_at >= sqlc.arg(from_at) AND f.imported_at < sqlc.arg(to_at);

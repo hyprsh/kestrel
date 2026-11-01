@@ -100,6 +100,8 @@ type Acquirer interface {
 type ImportSource interface {
 	DueImports(ctx context.Context) ([]acquire.ImportJob, error)
 	RecordImport(ctx context.Context, grabID int64, canRemove bool, o acquire.ImportOutcome) error
+	// NoteChecking records how many downloaded files a Grab's Import is checking.
+	NoteChecking(ctx context.Context, grabID int64, files int) error
 }
 
 // Importer is the imports module.
@@ -321,11 +323,12 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 				res := d.Importer.Import(ctx, imports.Grab{
 					ID: j.ID, TitleID: j.TitleID, VersionID: j.VersionID, ReleaseName: j.ReleaseName,
 					Parsed: []byte(j.Parsed), SourcePath: j.OutputPath, CanRemove: j.CanRemove, Overridden: j.Overridden,
+					Checking: func(files int) { _ = d.ImportSource.NoteChecking(ctx, j.ID, files) },
 				})
 				if ctx.Err() != nil {
 					continue // shutting down: the Grab stays importing and is redone
 				}
-				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason, Path: res.Path, Inconclusive: res.Inconclusive}
+				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason, Path: res.Path, Inconclusive: res.Inconclusive, Replaced: res.Replaced}
 				for _, e := range res.Episodes {
 					out.Episodes = append(out.Episodes, acquire.EpisodeOutcome{
 						EpisodeID: e.EpisodeID, Season: e.Season, Number: e.Number, Status: acquire.ImportStatus(e.Status),
@@ -362,6 +365,7 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 	}
 	t := r.search
 	t.begin(now, missing)
+	ctx = acquire.WithObserver(ctx, t)
 	defer func() { t.end(d.Clock()) }()
 	var fresh, due []library.Due
 	for _, m := range missing {
@@ -381,6 +385,7 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 		var upgrades []library.Due
 		if upgrades, err = d.Library.DueUpgrades(ctx, now, 0); err == nil {
 			t.upgradesDue(upgrades)
+			t.upgradesPlanned(min(len(upgrades), UpgradesPerPass))
 			err = sweep(ctx, r, upgrades[:min(len(upgrades), UpgradesPerPass)], d.Acquire.SearchUpgrades, d.Library.MarkUpgradeSearched, now, true, &grabbed)
 		}
 	}

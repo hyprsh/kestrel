@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { components } from '../api/schema.gen'
+import { lastPassOf, passOf } from '../test/search'
 import { SearchSummary } from './SearchSummary'
 
 type SearchStatus = components['schemas']['SearchStatus']
@@ -36,28 +37,33 @@ function card(s: SearchStatus) {
 }
 
 describe('the search summary in the Searching stage of Activity', () => {
-  it('shows what waits, how far the pass has got, the episodes and the Upgrade searches', () => {
-    const c = card(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, pass: { started_at: new Date().toISOString(), done: 15, total: 40 } }))
+  it('shows what waits, the pass, the episodes and the Upgrade searches', () => {
+    const c = card(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, pass: passOf({ done: 15, total: 40 }) }))
 
-    expect(c).toHaveTextContent('120 Wanted waiting · searching 15 of 40')
+    expect(c).toHaveTextContent('120 Wanted waiting')
+    expect(c).toHaveTextContent('15 of 40 Wanted')
     expect(c).toHaveTextContent('340 Wanted episodes in the Series among them')
     expect(c).toHaveTextContent('8 Versions due an Upgrade search · 5 Upgrade searches per pass')
   })
 
-  it('lays the summary out as terms and values', () => {
-    const c = card(status({ due: { versions: 120, episodes: 340, upgrades: 8 }, last_pass: { finished_at: new Date().toISOString(), searched: 40, grabbed: 3 } }))
+  it('lays the episodes and Upgrades out as terms and values', () => {
+    const c = card(status({ due: { versions: 120, episodes: 340, upgrades: 8 } }))
 
-    const term = within(c).getByText('Last Pass')
-    expect(term.closest('dl')).toHaveTextContent(/searched 40 Wanted Versions/)
-    expect(within(c).getByText('Waiting').closest('dl')).toHaveTextContent('120 Wanted waiting')
+    expect(within(c).getByText('Episodes').closest('dl')).toHaveTextContent('340 Wanted episodes')
+    expect(within(c).getByText('Upgrades').closest('dl')).toHaveTextContent('8 Versions due an Upgrade search')
   })
 
   it('says when the next pass starts and how the last one went', () => {
     const finished = new Date(Date.now() - 2 * 60_000).toISOString()
-    const c = card(status({ next_pass_at: new Date(Date.now() + 3 * 60_000).toISOString(), last_pass: { finished_at: finished, searched: 40, grabbed: 3 } }))
+    const c = card(
+      status({
+        next_pass_at: new Date(Date.now() + 3 * 60_000).toISOString(),
+        last_pass: lastPassOf({ finished_at: finished, searched: 40, grabbed: 3, releases_seen: 418, duration_ms: 3 * 60_000 }),
+      }),
+    )
 
     expect(c).toHaveTextContent('Nothing waiting · next pass in 3 min')
-    expect(c).toHaveTextContent(/Last pass at \d{1,2}:\d{2}.*searched 40 Wanted Versions and made 3 Grabs/)
+    expect(c).toHaveTextContent(/Last pass \d{1,2}:\d{2}.*: 40 searched · 418 releases checked · 3 Grabs · took 3 min/)
   })
 
   it('names an indexer that holds the sweeps back, and until when', () => {

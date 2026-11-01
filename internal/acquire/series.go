@@ -94,7 +94,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		}
 		title := scoring.Title{
 			Name: d.Title, Year: d.Year, OriginalLanguage: release.LanguageByISO(d.OriginalLanguage),
-			EpisodeTitles: episodeTitles(parsed, episodes),
+			EpisodeTitles: episodeTitles(parsed, episodes), SeasonEpisodes: packEpisodes(parsed, episodes),
 		}
 		e, err := s.entryFor(ctx, sub, r, parsed, title, now)
 		if err != nil {
@@ -102,6 +102,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		}
 		out = append(out, e)
 	}
+	s.markFit(ctx, sub, res, out)
 	s.cache.put(now, out)
 	return out, res.Failures, nil
 }
@@ -109,10 +110,22 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 // coveredBy are the episodes a Series Release holds that the library knows,
 // and whether the Version in slot already has a file for any of them.
 func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids []int64, upgrade bool) {
+	for _, ep := range episodesOf(p, eps) {
+		ids = append(ids, ep.ID)
+		if c := ep.Cells[slot]; c != nil && c.State == library.Filled {
+			upgrade = true
+		}
+	}
+	return ids, upgrade
+}
+
+// episodesOf are the episodes a Series Release holds that the library knows; nil for a Movie.
+func episodesOf(p release.ParsedRelease, eps []library.Episode) []library.Episode {
 	s := p.Series
 	if s == nil {
-		return nil, false
+		return nil
 	}
+	var out []library.Episode
 	for _, ep := range eps {
 		in := false
 		switch {
@@ -124,15 +137,72 @@ func coveredBy(p release.ParsedRelease, eps []library.Episode, slot Slot) (ids [
 		default:
 			in = slices.Contains(s.Episodes, ep.Number)
 		}
-		if !in {
-			continue
-		}
-		ids = append(ids, ep.ID)
-		if c := ep.Cells[slot]; c != nil && c.State == library.Filled {
-			upgrade = true
+		if in {
+			out = append(out, ep)
 		}
 	}
-	return ids, upgrade
+	return out
+}
+
+// coversOf says what a Release covers for the Version in slot: each episode it holds that the library knows
+// (the Movie itself for a Movie) with that Version's state for it and the Score of the file there.
+func coversOf(d library.Detail, p release.ParsedRelease, eps []library.Episode, slot Slot) []Cover {
+	stateOf := func(st library.State) CoverState {
+		switch st {
+		case library.Wanted:
+			return CoverWanted
+		case library.Filled:
+			return CoverFilled
+		}
+		return CoverOther
+	}
+	if d.Kind != library.Series {
+		for _, v := range d.Versions {
+			if v.Slot != slot {
+				continue
+			}
+			c := Cover{Whole: true, State: stateOf(v.State)}
+			if v.File != nil {
+				c.FileScore = v.File.Score
+			}
+			return []Cover{c}
+		}
+		return nil
+	}
+	var out []Cover
+	for _, ep := range episodesOf(p, eps) {
+		c := Cover{Season: ep.Season, Episode: ep.Number, State: CoverOther}
+		if cell := ep.Cells[slot]; cell != nil {
+			c.State, c.FileScore = stateOf(cell.State), cell.Score
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// wantedIn counts the Units the Version in slot Wants within scope: its Wanted episodes, or 1 for a Wanted Movie.
+func wantedIn(d library.Detail, eps []library.Episode, slot Slot, scope library.Scope) int {
+	if d.Kind != library.Series {
+		for _, v := range d.Versions {
+			if v.Slot == slot && v.State == library.Wanted {
+				return 1
+			}
+		}
+		return 0
+	}
+	n := 0
+	for _, ep := range eps {
+		if scope.Season != nil && *scope.Season != ep.Season {
+			continue
+		}
+		if len(scope.EpisodeIDs) > 0 && !slices.Contains(scope.EpisodeIDs, ep.ID) {
+			continue
+		}
+		if c := ep.Cells[slot]; c != nil && c.State == library.Wanted {
+			n++
+		}
+	}
+	return n
 }
 
 // inSeason is the scope's search of one season: the season, with the scope's
@@ -175,6 +245,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	var in Input
 	in.SeasonsFinished = seasonsFinished(episodes, now)
 	versionOf := map[Slot]int64{}
+	searchedEpisodes := map[int64][]int64{}
 	wantedSeasons := map[int]bool{}
 	for _, v := range d.Versions {
 		if !slices.Contains(versionIDs, v.ID) || v.State != want {
@@ -188,9 +259,13 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
 			if upgrade {
-				u.Held = cellHeld(cell)
+				u.Held = cellHeld(cell, sub.versions[v.Slot])
+				if u.Held.Done {
+					continue // at its Profile's cutoff: no Upgrade is searched for
+				}
 			}
 			ver.Units = append(ver.Units, u)
+			searchedEpisodes[v.ID] = append(searchedEpisodes[v.ID], ep.ID)
 			if ep.Season != 0 || scope.Narrow() {
 				wantedSeasons[ep.Season] = true
 			}
@@ -201,6 +276,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			in.Versions = append(in.Versions, ver)
 		}
 	}
+	out.scoped, out.episodes, out.library = scope.Narrow(), searchedEpisodes, episodes
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
@@ -210,6 +286,9 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		seasons = append(seasons, n)
 	}
 	slices.Sort(seasons)
+	obs := ObserverOf(ctx)
+	obs.Searching(targetOf(d, in))
+	out.asked = true
 	entries := map[string]*entry{}
 	add := func(found []*entry) {
 		for _, e := range found {
@@ -228,6 +307,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	}
 	if usable {
 		add(cached)
+		obs.Releases(len(cached))
 	} else {
 		for _, n := range seasons {
 			n := n
@@ -236,10 +316,16 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 				return out, err
 			}
 			out.Failures = append(out.Failures, failures...)
+			obs.Releases(len(found))
 			add(found)
 		}
 	}
 
+	all := make([]*entry, 0, len(entries))
+	for _, e := range entries {
+		all = append(all, e)
+	}
+	out.found(all)
 	if !upgrade {
 		planUnlisted(&in, d, episodes, now, scope)
 	}
@@ -260,7 +346,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		ids = onlyPlanned(ids, plan.Covers, episodes)
 		g, err := s.send(ctx, outgoing{
 			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Series,
-			episodes: ids, upgrade: plan.Upgrade,
+			episodes: ids, upgrade: plan.Upgrade, by: GrabbedBySearch,
 		})
 		if err != nil {
 			errs = append(errs, err)
@@ -281,4 +367,13 @@ func onlyPlanned(ids []int64, covers []EpisodeRef, eps []library.Episode) []int6
 		}
 	}
 	return out
+}
+
+// packEpisodes is how many episodes a season pack holds as far as the library knows them, for judging its size per
+// episode; 0 for anything else.
+func packEpisodes(p release.ParsedRelease, eps []library.Episode) int {
+	if p.Series == nil || !p.Series.FullSeason || p.Series.MultiSeason {
+		return 0
+	}
+	return len(episodesOf(p, eps))
 }

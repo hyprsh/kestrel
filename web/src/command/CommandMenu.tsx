@@ -169,7 +169,9 @@ export function CommandMenu({
       keepOpen: true,
       run: () => setMode('add'),
     }
-    return [...groups.flatMap((g) => g.map((h) => h.item)), add]
+    // With nothing matching, adding is the likely intent, so it leads.
+    const rows = groups.flatMap((g) => g.map((h) => h.item))
+    return rows.length === 0 ? [add, ...rows] : [...rows, add]
   }, [mode, query, lookup.data, actions, places, titles.data, onGo, onOpenTitle, onClose])
 
   const onKeyDown = (e: CommandMenuKeyEvent) => {

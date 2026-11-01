@@ -12,6 +12,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
+	"github.com/hyprsh/kestrel/internal/scoring"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -88,15 +89,40 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 	if err != nil {
 		return nil, seriesProblem(err)
 	}
+	formats, err := s.imports.FileFormats(ctx, r.Id)
+	if err != nil {
+		return nil, err
+	}
+	searches, err := s.acquire.LastEpisodeSearches(ctx, r.Id)
+	if err != nil {
+		return nil, err
+	}
 	out := oapi.EpisodeList{Items: make([]oapi.Episode, 0, len(eps))}
-	cell := func(c *library.EpisodeCell) *oapi.EpisodeCell {
+	var episodeID int64
+	versionOf := map[slot.Slot]int64{}
+	if d, err := s.library.Get(ctx, r.Id, view); err == nil {
+		for _, v := range d.Versions {
+			versionOf[v.Slot] = v.ID
+		}
+	}
+	cell := func(c *library.EpisodeCell, sl slot.Slot) *oapi.EpisodeCell {
 		if c == nil {
 			return nil
 		}
 		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
+		if ls, ok := searches[[2]int64{versionOf[sl], episodeID}]; ok {
+			l := lastSearchToAPI(ls)
+			out.LastSearch = &l
+		}
 		if f := c.File; f != nil {
-			quality, _ := imports.Facts(f.ParsedRelease, "")
-			out.File = &oapi.EpisodeFile{Id: f.ID, Path: f.Path, Size: f.Size, Quality: strPtr(quality), EpisodeIds: f.EpisodeIDs}
+			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
+			media := imports.MediaFacts(f.ParsedRelease, f.Probe, f.ReleaseName)
+			out.File = &oapi.EpisodeFile{
+				VideoCodec: strPtr(media.VideoCodec), Hdr: strPtr(media.HDR), AudioCodec: strPtr(media.AudioCodec), AudioChannels: strPtr(media.AudioChannels),
+				Id: f.ID, Path: f.Path, Size: f.Size, Quality: strPtr(quality), EpisodeIds: f.EpisodeIDs,
+				ReleaseName: f.ReleaseName, Languages: languages, ImportedAt: f.ImportedAt,
+				ReleaseGroup: strPtr(imports.ReleaseGroup(f.ParsedRelease)), CustomFormats: formatsToAPI(formats[f.ID]),
+			}
 		}
 		return out
 	}
@@ -108,7 +134,8 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		if e.AirDate != nil {
 			oe.AirDate = &openapi_types.Date{Time: *e.AirDate}
 		}
-		oe.Cells.Standard, oe.Cells.N4k = cell(e.Cells[slot.Standard]), cell(e.Cells[slot.FourK])
+		episodeID = e.ID
+		oe.Cells.Standard, oe.Cells.N4k = cell(e.Cells[slot.Standard], slot.Standard), cell(e.Cells[slot.FourK], slot.FourK)
 		out.Items = append(out.Items, oe)
 	}
 	return oapi.ListEpisodes200JSONResponse(out), nil
@@ -170,6 +197,11 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 			return nil, seriesProblem(err)
 		}
 	}
+	if r.Body.MonitorNewSeasons != nil || r.Body.MonitorSpecials != nil {
+		if err := s.library.SetSeriesMonitorOptions(ctx, r.Id, r.Body.MonitorNewSeasons, r.Body.MonitorSpecials); err != nil {
+			return nil, seriesProblem(err)
+		}
+	}
 	view, err := s.view(ctx)
 	if err != nil {
 		return nil, err
@@ -178,12 +210,24 @@ func (s *server) PatchTitle(ctx context.Context, r oapi.PatchTitleRequestObject)
 	if err != nil {
 		return nil, seriesProblem(err)
 	}
-	out := detailToAPI(d, view.Country)
+	out := detailToAPI(d, view.Country, nil)
 	if err := s.origins(ctx, &out); err != nil {
 		return nil, err
 	}
 	if err := s.withOffers(ctx, &out); err != nil {
 		return nil, err
 	}
+	if err := s.withSearches(ctx, &out); err != nil {
+		return nil, err
+	}
 	return oapi.PatchTitle200JSONResponse(out), nil
+}
+
+// formatsToAPI lists the matched Custom Formats with their points; never nil.
+func formatsToAPI(m []scoring.MatchedFormat) []oapi.CustomFormatMatch {
+	out := make([]oapi.CustomFormatMatch, 0, len(m))
+	for _, f := range m {
+		out = append(out, oapi.CustomFormatMatch{Name: f.Name, Points: f.Score})
+	}
+	return out
 }

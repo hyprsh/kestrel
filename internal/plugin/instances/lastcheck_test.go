@@ -44,3 +44,40 @@ func TestRecordCheckKeepsTheLatestOutcomeOfEachInstance(t *testing.T) {
 		t.Errorf("unknown instance: %v", err)
 	}
 }
+
+func TestTestOfTheSavedConnectionKeepsItsLatencyAcrossLaterCalls(t *testing.T) {
+	s := newService(t)
+	in, _ := s.Create(ctx, instances.New{PluginID: "fake", Name: "SAB", Config: map[string]any{"api_key": "k"}})
+	p, conn, err := s.Resolve(ctx, "fake", in.ID, nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A Test of edits is of the form: nothing is stored.
+	if _, err := s.Test(ctx, p, conn, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Get(ctx, in.ID); got.LastCheck != nil {
+		t.Fatalf("a form test stores nothing: %+v", got.LastCheck)
+	}
+
+	if _, err := s.Test(ctx, p, conn, true); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.Get(ctx, in.ID)
+	if got.LastCheck == nil || !got.LastCheck.OK || got.LastCheck.LatencyMS <= 0 {
+		t.Fatalf("a good check records its latency: %+v", got.LastCheck)
+	}
+	kept := got.LastCheck.LatencyMS
+
+	// A real call (Observe) moves the outcome but keeps the latency, failed or not.
+	s.Observe(ctx, in.ID, plugin.Errorf(plugin.CodeUnavailable, "down"))
+	got, _ = s.Get(ctx, in.ID)
+	if got.LastCheck.OK || got.LastCheck.LatencyMS != kept {
+		t.Fatalf("after a failed Observe: %+v, want latency %d", got.LastCheck, kept)
+	}
+	s.Observe(ctx, in.ID, nil)
+	if got, _ = s.Get(ctx, in.ID); !got.LastCheck.OK || got.LastCheck.LatencyMS != kept {
+		t.Fatalf("after a good Observe: %+v, want latency %d", got.LastCheck, kept)
+	}
+}

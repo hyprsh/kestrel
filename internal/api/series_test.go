@@ -23,14 +23,17 @@ type seriesLookupJSON struct {
 }
 
 type seriesTitleJSON struct {
-	ID            int64   `json:"id"`
-	Kind          string  `json:"kind"`
-	TVDBID        *int    `json:"tvdb_id"`
-	Title         string  `json:"title"`
-	PrimaryTitle  string  `json:"primary_title"`
-	SeriesMonitor *string `json:"series_monitor"`
-	Certification *string `json:"certification"`
-	Seasons       []struct {
+	ID                int64   `json:"id"`
+	Kind              string  `json:"kind"`
+	TVDBID            *int    `json:"tvdb_id"`
+	Title             string  `json:"title"`
+	PrimaryTitle      string  `json:"primary_title"`
+	SeriesMonitor     *string `json:"series_monitor"`
+	MonitorNewSeasons *bool   `json:"monitor_new_seasons"`
+	MonitorSpecials   *bool   `json:"monitor_specials"`
+	Certification     *string `json:"certification"`
+	SeriesStatus      *string `json:"series_status"`
+	Seasons           []struct {
 		Number    int  `json:"number"`
 		Monitored bool `json:"monitored"`
 	} `json:"seasons"`
@@ -49,6 +52,19 @@ type cellJSON struct {
 		Size       int64   `json:"size"`
 		Quality    *string `json:"quality"`
 		EpisodeIDs []int64 `json:"episode_ids"`
+
+		ReleaseName   string   `json:"release_name"`
+		Languages     []string `json:"languages"`
+		ReleaseGroup  *string  `json:"release_group"`
+		VideoCodec    *string  `json:"video_codec"`
+		HDR           *string  `json:"hdr"`
+		AudioCodec    *string  `json:"audio_codec"`
+		AudioChannels *string  `json:"audio_channels"`
+		ImportedAt    string   `json:"imported_at"`
+		CustomFormats []struct {
+			Name   string `json:"name"`
+			Points int    `json:"points"`
+		} `json:"custom_formats"`
 	} `json:"file"`
 }
 
@@ -100,6 +116,9 @@ func TestASeriesIsAddedAgainstTMDBAndTVDBFixturesAndReadBack(t *testing.T) {
 	}
 	if got.Certification == nil || *got.Certification != "TV-MA" {
 		t.Errorf("certification = %v", got.Certification)
+	}
+	if got.SeriesStatus == nil || *got.SeriesStatus != "ended" {
+		t.Errorf("series status = %v, want TheTVDB's ended", got.SeriesStatus)
 	}
 	if len(got.Seasons) != 4 || got.Seasons[0].Number != 0 || got.Seasons[0].Monitored || got.Seasons[1].Monitored || !got.Seasons[2].Monitored || !got.Seasons[3].Monitored {
 		t.Errorf("seasons = %+v", got.Seasons)

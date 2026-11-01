@@ -3,6 +3,7 @@ package api_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/jobs"
 )
@@ -205,5 +206,88 @@ func TestRemovingABlocklistEntryLetsTheReleaseBeGrabbedAgain(t *testing.T) {
 	}
 	if r := s.valid("DELETE", fmt.Sprintf("/blocklist/%d", list.Items[0].ID), ""); r.Status != 404 {
 		t.Errorf("second delete = %d, want 404", r.Status)
+	}
+}
+
+func TestTheLogSummaryCountsEventsByKindIncludingRoutineOnes(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	for _, row := range []string{
+		`('2026-10-17T12:00:00Z', 'health_raised', 0, 'a')`,
+		`('2026-10-17T13:00:00Z', 'health_raised', 0, 'b')`,
+		`('2026-10-17T14:00:00Z', 'search', 1, 'c')`,
+	} {
+		if _, err := s.in.st.Write().Exec(`INSERT INTO events (at, kind, routine, message) VALUES ` + row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := s.valid("GET", "/events/summary", "")
+	if r.Status != 200 {
+		t.Fatalf("GET /events/summary = %d %s", r.Status, r.Body)
+	}
+	got := decode[struct {
+		Counts []struct {
+			Kind    string `json:"kind"`
+			Count   int64  `json:"count"`
+			Routine bool   `json:"routine"`
+		} `json:"counts"`
+		Oldest      *string `json:"oldest"`
+		RoutineDays int     `json:"routine_days"`
+	}](t, r)
+	n := map[string]int64{}
+	for _, c := range got.Counts {
+		n[c.Kind] = c.Count
+		if c.Routine != (c.Kind == "search") {
+			t.Errorf("%s routine = %v", c.Kind, c.Routine)
+		}
+	}
+	if n["health_raised"] != 2 || n["search"] != 1 {
+		t.Errorf("counts = %v, want 2 health_raised and 1 search (routine included)", got.Counts)
+	}
+	if got.Oldest == nil || *got.Oldest != "2026-10-17T12:00:00Z" || got.RoutineDays != 30 {
+		t.Errorf("oldest = %v, routine_days = %d", got.Oldest, got.RoutineDays)
+	}
+}
+
+func TestTheLogHistogramCountsRecentEventsPerBucketBySeverity(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	// The tests' clock stands at noon on 2026-10-17.
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	at := now.Add(-time.Hour).Format(time.RFC3339)
+	old := now.Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	for _, row := range [][2]string{{at, "grab"}, {at, "search"}, {at, "grab_failed"}, {at, "health_raised"}, {old, "grab_failed"}} {
+		if _, err := s.in.st.Write().Exec(`INSERT INTO events (at, kind, routine, message) VALUES (?, ?, 0, 'x')`, row[0], row[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := s.valid("GET", "/events/histogram?bucket=1h&days=2", "")
+	if r.Status != 200 {
+		t.Fatalf("GET /events/histogram = %d %s", r.Status, r.Body)
+	}
+	got := decode[struct {
+		Bucket  string `json:"bucket"`
+		Buckets []struct {
+			At       string `json:"at"`
+			Events   int64  `json:"events"`
+			Warnings int64  `json:"warnings"`
+			Errors   int64  `json:"errors"`
+		} `json:"buckets"`
+	}](t, r)
+	var events, warnings, errs int64
+	for _, b := range got.Buckets {
+		events, warnings, errs = events+b.Events, warnings+b.Warnings, errs+b.Errors
+	}
+	if got.Bucket != "1h" || len(got.Buckets) < 48 || len(got.Buckets) > 50 {
+		t.Errorf("bucket = %q with %d buckets, want 1h and about 49", got.Bucket, len(got.Buckets))
+	}
+	if events != 2 || warnings != 1 || errs != 1 {
+		t.Errorf("totals = %d events, %d warnings, %d errors; want 2, 1 and 1 (the month-old failure is out of range)", events, warnings, errs)
+	}
+
+	for _, bad := range []string{"bucket=2h", "days=0", "days=91"} {
+		if r := s.valid("GET", "/events/histogram?"+bad, ""); r.Status != 422 && r.Status != 400 {
+			t.Errorf("GET /events/histogram?%s = %d, want a validation error", bad, r.Status)
+		}
 	}
 }

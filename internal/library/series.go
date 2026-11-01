@@ -57,8 +57,12 @@ type EpisodeFile struct {
 	ID   int64
 	Path string
 	Size int64
-	// ParsedRelease is the JSON snapshot Imports wrote; "" when none.
+	// ReleaseName is the name of the Release the file came from.
+	ReleaseName string
+	// ParsedRelease and Probe are the JSON snapshots Imports wrote; "" when none.
 	ParsedRelease string
+	Probe         string
+	ImportedAt    time.Time
 	// EpisodeIDs are every episode the file holds, in aired order.
 	EpisodeIDs []int64
 	// Original marks an Original (see File).
@@ -348,6 +352,14 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		return nil, err
 	}
 	released := releasedOf(eps, filed, airClockOf(t))
+	gs, err := q.ListGrabbingEpisodesOfTitle(ctx, sql.NullInt64{Int64: titleID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	grabbing := map[[2]int64]bool{} // Version, then episode
+	for _, g := range gs {
+		grabbing[[2]int64{g.VersionID.Int64, g.EpisodeID}] = true
+	}
 	all, err := q.ListAllFileEpisodesOfTitle(ctx, titleID)
 	if err != nil {
 		return nil, err
@@ -362,7 +374,7 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 	for _, r := range all {
 		f := files[r.FileID]
 		if f == nil {
-			f = &EpisodeFile{ID: r.FileID, Path: r.Path, Size: r.Size, ParsedRelease: r.ParsedRelease.String}
+			f = &EpisodeFile{ID: r.FileID, Path: r.Path, Size: r.Size, ReleaseName: r.ReleaseName, ParsedRelease: r.ParsedRelease.String, Probe: r.Probe.String, ImportedAt: parseTime(r.ImportedAt)}
 			files[r.FileID] = f
 		}
 		f.EpisodeIDs = append(f.EpisodeIDs, r.EpisodeID)
@@ -386,6 +398,9 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		for _, v := range versions {
 			score, has := heldBy[v.ID][e.ID]
 			st, _ := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.Released, AddedAt: parseTime(v.AddedAt)}, view.Now)
+			if st == Wanted && grabbing[[2]int64{v.ID, e.ID}] {
+				st = Downloading // a Grab in flight is filling it
+			}
 			f := fileOf[[2]int64{v.ID, e.ID}]
 			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: f != nil, File: f}
 		}
@@ -443,6 +458,39 @@ func (s *Service) SetSeriesMonitor(ctx context.Context, id int64, mode Monitor) 
 // applySeriesMode sets a Series' mode and applies it to every episode, and
 // reports whether that changed anything. The caller refreshes the seasons.
 func applySeriesMode(ctx context.Context, q *db.Queries, id int64, mode Monitor, now time.Time) (bool, error) {
+	return applySeries(ctx, q, id, mode, nil, now)
+}
+
+func optionsOf(t db.Title) MonitorOptions {
+	return MonitorOptions{NewSeasons: t.MonitorNewSeasons == 1, Specials: t.MonitorSpecials == 1}
+}
+
+// SetSeriesMonitorOptions sets a Series' two switches (nil leaves one as it is). Turning Specials on or off
+// applies the mode to season 0 now; new seasons only matters for seasons that come later.
+func (s *Service) SetSeriesMonitorOptions(ctx context.Context, id int64, newSeasons, specials *bool) error {
+	return s.writeSeries(ctx, id, func(q *db.Queries) error {
+		t, err := q.GetTitle(ctx, id)
+		if err != nil {
+			return err
+		}
+		o := optionsOf(t)
+		if newSeasons != nil {
+			o.NewSeasons = *newSeasons
+		}
+		if specials != nil {
+			o.Specials = *specials
+		}
+		if err := q.SetSeriesMonitorOptions(ctx, db.SetSeriesMonitorOptionsParams{MonitorNewSeasons: boolInt(o.NewSeasons), MonitorSpecials: boolInt(o.Specials), ID: id}); err != nil {
+			return err
+		}
+		_, err = applySeries(ctx, q, id, Monitor(t.SeriesMonitor.String), &o, s.clock())
+		return err
+	})
+}
+
+// applySeries applies the mode to every episode with the Series' options (opts nil: the stored ones). A change
+// of options only touches Specials, since the other seasons already follow the mode.
+func applySeries(ctx context.Context, q *db.Queries, id int64, mode Monitor, opts *MonitorOptions, now time.Time) (bool, error) {
 	t, err := q.GetTitle(ctx, id)
 	if err != nil {
 		return false, err
@@ -453,12 +501,16 @@ func applySeriesMode(ctx context.Context, q *db.Queries, id int64, mode Monitor,
 			return false, err
 		}
 	}
+	o := optionsOf(t)
+	if opts != nil {
+		o = *opts
+	}
 	eps, err := q.ListEpisodesOfTitle(ctx, id)
 	if err != nil {
 		return false, err
 	}
 	for _, e := range eps {
-		on := boolInt(mode.MonitorsEpisode(int(e.Season), parseDate(e.AirDate), now))
+		on := boolInt(mode.Monitors(o, int(e.Season), parseDate(e.AirDate), now, false))
 		if on == e.Monitored {
 			continue
 		}

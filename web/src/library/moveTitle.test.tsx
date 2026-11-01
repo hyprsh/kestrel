@@ -7,6 +7,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row, type Sent } from '../test/library'
 import { server } from '../test/server'
+import { chooseTitleItem } from '../test/titleHeader'
 import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -50,8 +51,7 @@ function fakeMovie(refuse?: Refusal) {
 
 async function openPicker() {
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  await userEvent.click(await screen.findByRole('button', { name: 'More Title actions' }))
-  await userEvent.click(screen.getByRole('menuitem', { name: 'Move' }))
+  await chooseTitleItem(document.body, 'Move…')
   return screen.findByRole('dialog', { name: 'Move Title' })
 }
 

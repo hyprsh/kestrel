@@ -140,6 +140,11 @@ func (c *Client) SetPhase(clientID string, phase downloadclient.Phase, bytesLeft
 	return c.update(clientID, func(it *downloadclient.Item) { it.Phase, it.BytesLeft = phase, bytesLeft })
 }
 
+// SetSpeed sets what the job reports as its download speed, for host tests.
+func (c *Client) SetSpeed(clientID string, bytesPerSecond int64) error {
+	return c.update(clientID, func(it *downloadclient.Item) { it.BytesPerSecond = bytesPerSecond })
+}
+
 func (c *Client) update(clientID string, f func(*downloadclient.Item)) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

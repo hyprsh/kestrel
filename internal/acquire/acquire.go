@@ -1,6 +1,7 @@
 package acquire
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -87,6 +88,10 @@ type Indexers interface {
 	GrabsPaused(indexerID int64) bool
 	// CanSweep says whether a sweep could ask any indexer now (the 80 % stop, pauses).
 	CanSweep(ctx context.Context) bool
+	// Enabled is how many indexers a search asks.
+	Enabled(ctx context.Context) int
+	// MarkFit records which indexers' lanes of a Search returned a Release that fit a Slot.
+	MarkFit(ctx context.Context, searches map[int64]int64, fitting map[int64]bool)
 }
 
 // Downloads is the downloads host.
@@ -221,6 +226,38 @@ type Found struct {
 	Season   int
 	Episodes []int
 	Pack     bool
+	// VideoCodec, HDR, AudioCodec and AudioChannels are what the release name states; empty when it does not say.
+	VideoCodec, HDR, AudioCodec, AudioChannels string
+	// Group is the release group, as the indexer says or else as the name ends; empty when it has none.
+	Group string
+	// InfoURL is the indexer's page for the Release, and Grabs how often the indexer says it was grabbed; empty and 0 when it does not say.
+	InfoURL string
+	Grabs   int
+	// Covers says, for each episode a Series Release holds that the library knows (or for the Movie itself),
+	// whether this Version Wants it, already has a file for it, or neither, and the Score of that file.
+	Covers []Cover
+	// SizeLimit is the size limit the Version's Profile puts on this kind of Release, per Movie or (PerEpisode)
+	// per episode of a Series; zero for none.
+	SizeLimit  scoring.SizeLimit
+	PerEpisode bool
+}
+
+// CoverState is where one thing a Release covers stands for the Version searched.
+type CoverState string
+
+const (
+	CoverWanted CoverState = "wanted"
+	CoverFilled CoverState = "filled"
+	CoverOther  CoverState = "other" // not monitored, not out yet, or already downloading
+)
+
+// Cover is one episode a Release holds, or the Movie itself (Whole).
+type Cover struct {
+	Season, Episode int
+	Whole           bool
+	State           CoverState
+	// FileScore is the Score of the file the Version holds for it, when there is one.
+	FileScore *int
 }
 
 // SearchResult is the outcome of a manual search.
@@ -230,6 +267,11 @@ type SearchResult struct {
 	Items []Found
 	// Failures are the indexers that could not answer fully.
 	Failures []indexers.Failure
+	// SearchedAt is when the search ran and Indexers how many indexers it asked.
+	SearchedAt time.Time
+	Indexers   int
+	// Wanted is how many Units of the scope the Version searched Wants: the Wanted episodes, or 1 for a Wanted Movie.
+	Wanted int
 }
 
 // entry is a Release in the candidate cache: the indexer's answer and its
@@ -394,8 +436,26 @@ func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope) 
 	if err := s.releaseSeen(ctx, d, len(out)); err != nil {
 		return nil, nil, err
 	}
+	s.markFit(ctx, sub, res, out)
 	s.cache.put(now, out)
 	return out, res.Failures, nil
+}
+
+// markFit tells the indexers host which of the lanes of a Search returned a Release that fits one of the
+// subject's Slots, for the Overview's Hit column.
+func (s *Service) markFit(ctx context.Context, sub subject, res indexers.Result, out []*entry) {
+	if len(res.Searches) == 0 {
+		return
+	}
+	fitting := map[int64]bool{}
+	for _, e := range out {
+		for slot := range sub.versions {
+			if e.fits(slot) == FitsThisSlot {
+				fitting[e.raw.IndexerID] = true
+			}
+		}
+	}
+	s.idx.MarkFit(ctx, res.Searches, fitting)
 }
 
 // entryFor scores a parsed Release under the Profile of every Version of the subject.
@@ -491,15 +551,23 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 	if err != nil {
 		return SearchResult{}, err
 	}
-	out := SearchResult{Failures: failures}
+	out := SearchResult{Failures: failures, SearchedAt: s.clock(), Indexers: s.idx.Enabled(ctx), Wanted: wantedIn(sub.detail, eps, slot, scope)}
 	for _, e := range entries {
 		v := e.cand.Verdicts[slot]
 		f := Found{
 			ID: e.id, GUID: e.raw.GUID, Name: e.raw.Title, Indexer: e.raw.IndexerName, IndexerID: e.raw.IndexerID, Size: e.raw.Size,
 			PublishedAt: e.raw.PublishDate, Quality: e.cand.Parsed.Quality.Quality.Name, Formats: v.Matched, Score: v.Score, Fits: e.fits(slot),
 		}
+		pa := e.cand.Parsed
+		f.VideoCodec, f.HDR, f.AudioCodec, f.AudioChannels = pa.VideoCodec, pa.HDR, pa.AudioCodec, pa.AudioChannels
+		f.Group, f.InfoURL, f.Grabs = cmp.Or(e.raw.Group, e.cand.Parsed.ReleaseGroup), e.raw.InfoURL, e.raw.Grabs
 		if sr := e.cand.Parsed.Series; sr != nil {
 			f.Season, f.Episodes, f.Pack = sr.Season, slices.Clone(sr.Episodes), sr.FullSeason
+		}
+		f.Covers = coversOf(sub.detail, e.cand.Parsed, eps, slot)
+		if p := sub.versions[slot]; p != nil {
+			f.PerEpisode = e.cand.Parsed.Kind != release.KindMovie
+			f.SizeLimit = p.SizeLimit(e.cand.Parsed.Kind)
 		}
 		for _, l := range v.Languages {
 			f.Languages = append(f.Languages, l.Name)
@@ -558,14 +626,31 @@ type Grab struct {
 	CreatedAt time.Time
 	// UpdatedAt is when the state last changed; for a finished Grab, when it finished.
 	UpdatedAt time.Time
+	// DownloadStartedAt and DownloadDoneAt are when the download client first reported the Grab downloading and
+	// finished; nil until it did.
+	DownloadStartedAt, DownloadDoneAt *time.Time
+	// Why is how the Grab was chosen: the Wanted it covers, the files it replaces and the Score gain. Nil on a Grab
+	// from before it was recorded.
+	Why *Why
+	// ImportChecking is how many downloaded files the running Import is checking; nil when it has not said.
+	ImportChecking *int
+	// ImportReplaced is how many library files the finished Import replaced; nil before it finished (or on a Grab
+	// from before it was recorded).
+	ImportReplaced *int
 }
 
 func grabOf(r db.Grab) Grab {
-	return Grab{
+	g := Grab{
 		ID: r.ID, TitleID: r.TitleID.Int64, VersionID: r.VersionID.Int64, ReleaseName: r.ReleaseName, IndexerName: r.IndexerName,
 		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String,
 		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt), UpdatedAt: parseTime(r.UpdatedAt),
 	}
+	g.DownloadStartedAt, g.DownloadDoneAt = optTime(r.DownloadStartedAt), optTime(r.DownloadDoneAt)
+	if r.CoversWanted.Valid && r.ReplacesFiles.Valid {
+		g.Why = &Why{CoversWanted: int(r.CoversWanted.Int64), ReplacesFiles: int(r.ReplacesFiles.Int64), ScoreDelta: int(r.ScoreDelta.Int64)}
+	}
+	g.ImportChecking, g.ImportReplaced = optInt(r.ImportChecking), optInt(r.ImportReplaced)
+	return g
 }
 
 // GetGrab returns a Grab, or sql.ErrNoRows wrapped in library.ErrNotFound's
@@ -593,11 +678,15 @@ var ErrGrabNotFound = errors.New("grab not found")
 // their Placeholder Episodes, so the Grab covers them.
 func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
 	defer s.snap.Hold()()
-	return s.grab(ctx, versionID, releaseID, override)
+	return s.grabBy(ctx, versionID, releaseID, override, GrabbedByHand)
 }
 
-// grab is Grab for callers that already hold the snapshot gate.
+// grab is Grab for the search pass, which already holds the snapshot gate.
 func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
+	return s.grabBy(ctx, versionID, releaseID, override, GrabbedBySearch)
+}
+
+func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string, override bool, by string) (Grab, error) {
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
 		return Grab{}, err
@@ -629,7 +718,7 @@ func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, o
 		return Grab{}, rej
 	}
 
-	o := outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, overridden: len(reasons) > 0}
+	o := outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, overridden: len(reasons) > 0, by: by}
 	if sub.detail.Kind == library.Series {
 		eps, err := s.placeholdersNamed(ctx, titleID, e.cand.Parsed, eps)
 		if err != nil {
@@ -657,7 +746,16 @@ type outgoing struct {
 	episodes   []int64
 	upgrade    bool
 	overridden bool
+	// by is who chose the Release: grabBy* below. It rides on the Grab's event, not on the Grab.
+	by string
 }
+
+// Who grabbed a Release, as the Grab's `grab` event records it.
+const (
+	GrabbedByHand   = "by_hand"
+	GrabbedBySearch = "by_search"
+	GrabbedByRSS    = "by_rss"
+)
 
 // send fetches the NZB, adds it to the download client and records the Grab.
 func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
@@ -675,6 +773,7 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 	}
 
 	verdict := e.cand.Verdicts[o.slot]
+	why, hasWhy := s.whyOf(ctx, o, verdict.Score)
 	parsed, _ := json.Marshal(e.cand.Parsed)
 	vjson, _ := json.Marshal(verdict)
 	now := ts(s.clock())
@@ -698,12 +797,22 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 			return Grab{}, err
 		}
 	}
+	if hasWhy {
+		if err := q.SetGrabWhy(ctx, db.SetGrabWhyParams{
+			CoversWanted: sql.NullInt64{Int64: int64(why.CoversWanted), Valid: true}, ReplacesFiles: sql.NullInt64{Int64: int64(why.ReplacesFiles), Valid: true},
+			ScoreDelta: sql.NullInt64{Int64: int64(why.ScoreDelta), Valid: true}, ID: row.ID,
+		}); err != nil {
+			return Grab{}, err
+		}
+		row.CoversWanted, row.ReplacesFiles, row.ScoreDelta = sql.NullInt64{Int64: int64(why.CoversWanted), Valid: true}, sql.NullInt64{Int64: int64(why.ReplacesFiles), Valid: true}, sql.NullInt64{Int64: int64(why.ScoreDelta), Valid: true}
+	}
 	if err := tx.Commit(); err != nil {
 		return Grab{}, err
 	}
 	g := grabOf(row)
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
+		Data: grabSentData(o.by),
 	})
 	return g, nil
 }
@@ -745,4 +854,13 @@ func (s *Service) decide(ctx context.Context, in Input) ([]GrabPlan, error) {
 	}
 	in.Candidates = cands
 	return Decide(in), nil
+}
+
+// grabSentData is the `grab` event's payload: who chose the Release. Grabs from before it was recorded have none.
+func grabSentData(by string) json.RawMessage {
+	if by == "" {
+		return nil
+	}
+	b, _ := json.Marshal(map[string]string{"by": by})
+	return b
 }

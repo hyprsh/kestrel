@@ -38,3 +38,13 @@ ON CONFLICT (ip) DO UPDATE SET value = excluded.value, count = count + 1, last_s
 
 -- name: ListUntrustedProxyHeaders :many
 SELECT ip, value, count, last_seen FROM untrusted_proxy_headers ORDER BY last_seen DESC, ip LIMIT 50;
+
+-- Grabs made per indexer instance since a time (RFC3339, UTC; created_at is stored the same way).
+-- name: CountGrabsByIndexerSince :many
+SELECT indexer_id, COUNT(*) AS grabs FROM grabs WHERE created_at >= ? GROUP BY indexer_id;
+
+-- Per Profile: the Titles with a Version under it and the files in those Versions.
+-- name: ProfileUsage :many
+SELECT v.profile_key, COUNT(DISTINCT v.title_id) AS titles, COUNT(f.id) AS files
+FROM versions v LEFT JOIN files f ON f.version_id = v.id
+GROUP BY v.profile_key;

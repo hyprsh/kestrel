@@ -55,7 +55,7 @@ const url = () => location.pathname + location.search
 beforeEach(() => history.replaceState(null, '', '/'))
 
 describe('Recently added', () => {
-  it('is up to five rows with the poster, the name and the Slot and age, the week count in the heading', async () => {
+  it('is up to three rows with the poster, the name and the Slot and age, the week count in the heading', async () => {
     fakeRecent(
       many(10, (n) => recent(n)),
       14,
@@ -64,9 +64,10 @@ describe('Recently added', () => {
 
     const section = await screen.findByRole('region', { name: 'Recently added · 14' })
     const posters = await within(section).findAllByRole('listitem')
-    expect(posters).toHaveLength(5)
+    expect(posters).toHaveLength(3)
     expect(posters[0]).toHaveTextContent('Imported 1')
-    expect(posters[0]).toHaveTextContent('Standard · 3 h ago')
+    expect(posters[0]).toHaveTextContent('3 h ago')
+    expect(within(posters[0]).getByRole('img', { name: 'Standard: Have' })).toBeInTheDocument()
     expect(posters[1].querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/42/poster'))
     expect(posters[0].querySelector('[data-poster]')).toBeInTheDocument()
     expect(posters[0].querySelector('img')).not.toBeInTheDocument()
@@ -88,7 +89,7 @@ describe('Recently added', () => {
     renderApp()
 
     const section = await screen.findByRole('region', { name: /^Recently added/ })
-    await userEvent.click(await within(section).findByRole('button', { name: 'Library →' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Open Library' }))
 
     expect(url()).toBe('/library')
   })
@@ -102,16 +103,27 @@ describe('Recently added', () => {
 })
 
 describe('Coming this week', () => {
-  it('is up to five rows with the poster, the name and the day', async () => {
+  it('is up to three rows with the poster, the name and the day', async () => {
     fakeUpcoming(many(10, (n) => upcoming(n)))
     renderApp()
 
     const section = await screen.findByRole('region', { name: 'Coming this week · 10' })
     const posters = await within(section).findAllByRole('listitem')
-    expect(posters).toHaveLength(5)
+    expect(posters).toHaveLength(3)
     expect(posters[0]).toHaveTextContent('Movie 1')
     expect(posters[0]).toHaveTextContent(dayLabel(dayString(1)))
     expect(posters[0].querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/21/poster'))
+  })
+
+  it('draws Slot chips only for an entry that is already out', async () => {
+    const slot = (state: 'not_out' | 'wanted' | 'imported') => ({ slot: 'standard' as const, version_id: 1, state, wanted_since: null, long_missing: false, quality: null })
+    fakeUpcoming([upcoming(1, { title: 'Soon', slots: [slot('not_out')] }), upcoming(2, { title: 'Out', slots: [slot('wanted')] })])
+    renderApp()
+
+    const [soon, out] = await within(await screen.findByRole('region', { name: /^Coming this week/ })).findAllByRole('listitem')
+    expect(soon).toHaveTextContent('Soon')
+    expect(within(soon).queryByRole('img', { name: /^Standard:/ })).not.toBeInTheDocument()
+    expect(within(out).getByRole('img', { name: 'Standard: Wanted' })).toBeInTheDocument()
   })
 
   it('names the episode of a Series', async () => {
@@ -128,7 +140,7 @@ describe('Coming this week', () => {
     renderApp()
 
     const section = await screen.findByRole('region', { name: /^Coming this week/ })
-    await userEvent.click(await within(section).findByRole('button', { name: 'Upcoming →' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Open Upcoming' }))
 
     expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
     expect(location.pathname).toBe('/upcoming')

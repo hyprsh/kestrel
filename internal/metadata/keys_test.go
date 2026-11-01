@@ -119,3 +119,34 @@ func TestOverridesAreWrittenAndClearedAndNeverReadBack(t *testing.T) {
 		t.Errorf("after clearing TMDB = %+v", set)
 	}
 }
+
+func TestOriginsSayWhoseKeyEachProviderUses(t *testing.T) {
+	ctx := context.Background()
+	str := func(v string) *string { return &v }
+	s := newSettings(t)
+
+	// Only the build's keys: the project's.
+	keys := metadata.Keys{Settings: s, Embedded: "built-in", TVDBEmbedded: "built-in"}
+	if o, err := keys.Origins(ctx); err != nil || o.TMDB != metadata.OriginProject || o.TVDB != metadata.OriginProject {
+		t.Fatalf("embedded only = %+v, %v", o, err)
+	}
+	// An environment key is the user's own, and so is one set in Settings; the other provider stays the project's.
+	keys.Env = "env-key"
+	if err := keys.SetOverrides(ctx, nil, str("ui-tvdb")); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := keys.Origins(ctx); o.TMDB != metadata.OriginOwn || o.TVDB != metadata.OriginOwn {
+		t.Errorf("env and override = %+v", o)
+	}
+	// Clearing the override hands TheTVDB back to the project's key.
+	if err := keys.SetOverrides(ctx, nil, str("")); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := keys.Origins(ctx); o.TMDB != metadata.OriginOwn || o.TVDB != metadata.OriginProject {
+		t.Errorf("after clearing = %+v", o)
+	}
+	// No key anywhere is no origin.
+	if o, _ := (metadata.Keys{Settings: s}).Origins(ctx); o.TMDB != metadata.OriginNone || o.TVDB != metadata.OriginNone {
+		t.Errorf("no keys = %+v", o)
+	}
+}

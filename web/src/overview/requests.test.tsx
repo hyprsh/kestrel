@@ -13,7 +13,7 @@ const section = () => screen.findByRole('region', { name: /^Recent requests/ })
 const rows = async () => within(await section()).findAllByRole('listitem')
 
 describe('Recent requests on the Overview', () => {
-  it('shows the newest five, how many there are in all and a way to the rest', async () => {
+  it('shows the newest three, how many there are in all and a way to the rest', async () => {
     const queries = fakeRequests(
       Array.from({ length: 5 }, (_, i) => request({ id: 10 - i, title: `Movie ${i + 1}` })),
       12,
@@ -25,10 +25,10 @@ describe('Recent requests on the Overview', () => {
       within(s)
         .getAllByRole('listitem')
         .map((r) => r.textContent),
-    ).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Movie ${n}`)))
+    ).toEqual([1, 2, 3].map((n) => expect.stringContaining(`Movie ${n}`)))
     expect(queries[0].get('limit')).toBe('5')
 
-    await userEvent.click(within(s).getByRole('button', { name: 'All requests →' }))
+    await userEvent.click(within(s).getByRole('button', { name: 'Open Requests' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Requests' })).toHaveValue('')
   })
 
@@ -60,10 +60,10 @@ describe('Recent requests on the Overview', () => {
     renderApp()
 
     const [unreleased, downloading, searching] = await rows()
-    expect(unreleased).toHaveTextContent('Standard · Not released yet')
-    expect(unreleased).toHaveTextContent('4K · Completed')
-    expect(downloading).toHaveTextContent('Standard · Downloading 43%')
-    expect(searching).toHaveTextContent('Standard · Searching')
+    expect(unreleased).toHaveTextContent('Standard: Not released yet')
+    expect(unreleased).toHaveTextContent('4K: Completed')
+    expect(downloading).toHaveTextContent('Downloading 43%')
+    expect(searching).toHaveTextContent('Searching')
   })
 
   it('follows a download from the live queue', async () => {
@@ -72,7 +72,7 @@ describe('Recent requests on the Overview', () => {
     renderApp()
 
     const [item] = await rows()
-    expect(await within(item).findByText('Standard · Downloading 75%')).toBeInTheDocument()
+    expect(await within(item).findByRole('img', { name: 'Standard: Downloading 75%' })).toBeInTheDocument()
   })
 
   it('names a rejected Request by what was asked for and says why in words', async () => {

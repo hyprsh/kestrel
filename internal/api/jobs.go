@@ -38,6 +38,14 @@ func (s *server) jobList(ctx context.Context) oapi.JobList {
 				row.LastRun.Error = &p.Err
 			}
 		}
+		row.RecentRuns = make([]oapi.JobRun, 0, len(j.Recent))
+		for _, p := range j.Recent {
+			run := oapi.JobRun{StartedAt: p.StartedAt, FinishedAt: p.FinishedAt, DurationMs: p.Took.Milliseconds()}
+			if p.Err != "" {
+				run.Error = &p.Err
+			}
+			row.RecentRuns = append(row.RecentRuns, run)
+		}
 		if p := j.Progress; p != nil {
 			row.Progress = &oapi.JobProgress{Done: p.Done, Total: p.Total}
 		}

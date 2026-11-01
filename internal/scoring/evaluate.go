@@ -34,6 +34,10 @@ const (
 	// it is never grabbed on its own, but Accept or "Grab anyway" may take it,
 	// and an Import lets it in.
 	RejectOriginalOnly Rejection = "original_only"
+	// RejectSize is a Release whose size per Movie, or per episode of a
+	// Series, lies outside the Profile's size limit. Like the other codes
+	// except blocklisted it is overridable in manual search.
+	RejectSize Rejection = "size"
 )
 
 // Release is a candidate to score: the parsed name plus what only the
@@ -65,6 +69,10 @@ type Title struct {
 	// Sonarr discounts a language named in an episode title; the Series' own
 	// name plays no part there.
 	EpisodeTitles []string
+	// SeasonEpisodes is how many episodes a season pack holds, as far as the
+	// Library knows them: the divisor for the pack's size per episode. 0 when
+	// not known.
+	SeasonEpisodes int
 }
 
 // MatchedFormat is a Custom Format a Release matched and its score under the
@@ -167,6 +175,9 @@ func rejections(rel Release, title Title, p *Profile, v Verdict) []Rejection {
 
 	if v.Score < v.MinScore {
 		out = append(out, RejectBelowMinScore)
+	}
+	if sizeRejected(rel, title, p) {
+		out = append(out, RejectSize)
 	}
 	if rel.Blocklisted {
 		out = append(out, RejectBlocklisted)

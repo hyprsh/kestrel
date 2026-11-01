@@ -153,8 +153,8 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
 
   return (
     <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
-      <div className={embedded ? '' : 'mx-auto max-w-4xl p-6 max-sm:p-4'}>
-        {!embedded && <h1 className="heading-16">Adopt existing library</h1>}
+      <div className={embedded ? '' : 'max-w-4xl p-4 sm:px-8 sm:py-6'}>
+        {!embedded && <h1 className="heading-20">Adopt existing library</h1>}
         <p className="copy-14 mt-1 text-gray-900">
           Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes until you adopt the plan.
         </p>

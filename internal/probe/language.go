@@ -8,6 +8,8 @@ type AudioTrack struct {
 	Index    int
 	Codec    string
 	Channels int
+	// Profile is ffprobe's codec profile ("DTS-HD MA", "Dolby TrueHD + Dolby Atmos"); "" when it names none.
+	Profile  string
 	Language string
 	Title    string
 	Default  bool

@@ -114,6 +114,10 @@ type SlotState struct {
 	LongMissing bool
 	// WantedSince is set while the Version is Wanted.
 	WantedSince *time.Time
+	// EpisodesHave and EpisodesAired count a Series Version's episodes that hold a file and that have aired; nil for a Movie.
+	EpisodesHave, EpisodesAired *int
+	// File is a Movie Version's file (nil for a Series Version and for a Version with none); only what the list needs of it is read.
+	File *File
 }
 
 // Row is a compact Library row.
@@ -137,6 +141,8 @@ type Row struct {
 	SearchedAt *time.Time
 	// WantedEpisodes counts a Series' Wanted episodes; nil for a Movie.
 	WantedEpisodes *WantedEpisodes
+	// Monitored is a Movie's flag, or for a Series whether its mode is not none.
+	Monitored bool
 }
 
 // WantedEpisodes is how many of a Series' episodes are Wanted in any of its
@@ -261,13 +267,17 @@ type Detail struct {
 	Folder           string
 	AddedAt          time.Time
 	RefreshedAt      time.Time
-	Rating           metadata.AudienceRating // TMDB's audience rating, as of the last refresh
-	ReleaseDates     metadata.ReleaseDates
-	ReleaseSeenAt    *time.Time // when a Release for a Movie was first seen; nil if never
-	Aliases          []Alias
-	Versions         []Version // in Slot order
+	// SeriesStatus is TheTVDB's status of a Series ("continuing", "ended", "upcoming") as of the
+	// last refresh; "" for a Movie and until a refresh has read it.
+	SeriesStatus  string
+	Rating        metadata.AudienceRating // TMDB's audience rating, as of the last refresh
+	ReleaseDates  metadata.ReleaseDates
+	ReleaseSeenAt *time.Time // when a Release for a Movie was first seen; nil if never
+	Aliases       []Alias
+	Versions      []Version // in Slot order
 	// SeriesMonitor and Seasons are set for a Series.
 	SeriesMonitor Monitor
+	MonitorOpts   MonitorOptions
 	Seasons       []Season
 }
 
@@ -499,9 +509,13 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 	}
 	hasFile := map[int64]bool{}
 	versionSize := map[int64]int64{}
+	fileOfVersion := map[int64]File{}
 	for _, fl := range files {
 		hasFile[fl.VersionID] = hasFile[fl.VersionID] || !misfits[fl.ID]
 		versionSize[fl.VersionID] += fl.Size
+		if !misfits[fl.ID] {
+			fileOfVersion[fl.VersionID] = fileOf(fl)
+		}
 	}
 	byTitle := map[int64][]db.Version{}
 	for _, v := range versions {
@@ -530,7 +544,8 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			continue
 		}
 		rel := releaseDatesOf(datesOf[t.ID])
-		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt)}
+		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt),
+			Monitored: titleMonitored(t)}
 		var released map[int64]*time.Time
 		var wantedEps map[int64]bool // Wanted episodes, true when Long Missing in any Version
 		if row.Kind == Series {
@@ -544,14 +559,28 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			}
 			var st State
 			var since *time.Time
+			var have, aired *int
 			if row.Kind == Series {
 				units := unitsOf(epsOf[t.ID], released, heldBy[v.ID], parseTime(v.AddedAt))
 				st, since = SeriesState(units, view.Now)
+				have, aired = new(int), new(int)
+				for _, u := range units {
+					if u.HasFile {
+						*have++
+					}
+					if u.HasFile || (u.Released != nil && !u.Released.After(view.Now)) {
+						*aired++
+					}
+				}
 				countWanted(wantedEps, epsOf[t.ID], units, view.Now)
 			} else {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
-			row.Slots[slotOf(v.Slot)] = &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since}
+			state := &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since, EpisodesHave: have, EpisodesAired: aired}
+			if f, ok := fileOfVersion[v.ID]; ok && row.Kind == Movie {
+				state.File = &f
+			}
+			row.Slots[slotOf(v.Slot)] = state
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
 			}
@@ -653,6 +682,9 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		Monitored: t.Monitored == 1, MetadataFrozen: t.MetadataFrozen == 1, RootFolder: t.RootFolder, Folder: t.Folder.String,
 		AddedAt: parseTime(t.AddedAt), RefreshedAt: parseTime(t.RefreshedAt), Rating: ratingOf(t),
 	}
+	if t.Kind == string(Series) {
+		d.SeriesStatus = t.TvdbStatus
+	}
 	d.ReleaseDates = releaseDatesOf(dates)
 	d.ReleaseSeenAt = optTime(t.ReleaseSeenAt)
 	for _, a := range aliases {
@@ -681,6 +713,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	grabbing := map[int64]map[int64]bool{} // Version, then episode
 	if d.Kind == Series {
 		d.SeriesMonitor = Monitor(t.SeriesMonitor.String)
+		d.MonitorOpts = optionsOf(t)
 		seasons, err := q.ListSeasonsOfTitle(ctx, id)
 		if err != nil {
 			return Detail{}, err
@@ -739,4 +772,12 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	}
 	sort.SliceStable(d.Versions, func(i, j int) bool { return d.Versions[i].Slot < d.Versions[j].Slot })
 	return d, nil
+}
+
+// titleMonitored is whether a Title is monitored: a Movie by its flag, a Series by its mode not being none.
+func titleMonitored(t db.Title) bool {
+	if Kind(t.Kind) == Series {
+		return Monitor(t.SeriesMonitor.String) != MonitorNone
+	}
+	return t.Monitored == 1
 }

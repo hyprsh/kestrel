@@ -164,6 +164,7 @@ var apiHints = map[string][]hint{
 	"AcceptOriginalOffer":   {hintOf(resGrab, 0), hintOf(resQueue, 0), hintOf(resTitle, 0), hintOf(resAttention, 0)},
 	"DismissOriginalOffer":  {hintOf(resTitle, 0), hintOf(resAttention, 0)},
 	"DeleteBlocklistEntry":  {hintOf(resBlocklist, 0)},
+	"CreateBlocklistEntry":  {hintOf(resBlocklist, 0)},
 }
 
 // emitHints is a strict-server middleware that publishes an operation's hints

@@ -1,12 +1,12 @@
 -- name: ListInstances :many
-SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message FROM plugin_instances
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message, check_latency_ms FROM plugin_instances
 ORDER BY contract, priority, id;
 
 -- name: GetInstance :one
-SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message FROM plugin_instances WHERE id = ?;
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message, check_latency_ms FROM plugin_instances WHERE id = ?;
 
 -- name: ListEnabledInstances :many
-SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message FROM plugin_instances
+SELECT id, contract, plugin_id, name, enabled, priority, config, declared, checked_at, check_ok, check_code, check_message, check_latency_ms FROM plugin_instances
 WHERE contract = ? AND enabled = 1
 ORDER BY priority, id;
 
@@ -31,4 +31,7 @@ UPDATE plugin_instances SET declared = 0 WHERE declared = 1;
 DELETE FROM plugin_instances WHERE id = ?;
 
 -- name: RecordCheck :exec
-UPDATE plugin_instances SET checked_at = ?, check_ok = ?, check_code = ?, check_message = ? WHERE id = ?;
+-- A new latency of 0 (a call that did not measure one) keeps the one from the last Test.
+UPDATE plugin_instances SET checked_at = ?, check_ok = ?, check_code = ?, check_message = ?,
+    check_latency_ms = COALESCE(NULLIF(CAST(sqlc.arg(latency_ms) AS INTEGER), 0), check_latency_ms)
+WHERE id = sqlc.arg(id);

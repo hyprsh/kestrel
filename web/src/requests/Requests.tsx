@@ -3,11 +3,14 @@
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".
 import { EmptyState, LoadMoreButton, Note, parseQuery } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
+import { usePhone } from '../responsive'
 import { useMemo, useState } from 'react'
 import { useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
+import { FacetFilterButton } from '../layout/FilterButton'
 import { FilterStrip } from '../layout/FilterStrip'
+import { SidePanel } from '../layout/SidePanel'
 import { useKey, useListNav } from '../keys'
 import { SkeletonRows } from '../loading'
 import { requestFilter, requestQualifiers } from './filter'
@@ -27,6 +30,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
   const sources = [...new Set([...seen.sources, ...loaded.map((r) => r.source)])]
   if (requesters.length !== seen.requesters.length || sources.length !== seen.sources.length) setSeen({ requesters, sources })
 
+  const phone = usePhone()
   const shown = useMemo(() => loaded.filter((r) => matchText(parsed.text, [r.title ?? '', r.requester.name, r.source])), [loaded, parsed.text])
   const open = (i: number) => {
     const id = shown[i]?.title_id
@@ -38,12 +42,34 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
     document.getElementById('requests-filter')?.focus()
   })
 
+  const filter = (
+    <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} menus={false} />
+  )
+  const menu = <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+  const total = list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <FilterStrip>
-        <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
-        {list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>}
-      </FilterStrip>
+      {phone ? (
+        <SidePanel
+          title="Requests"
+          filter={filter}
+          controls={
+            <>
+              {menu}
+              {total}
+            </>
+          }
+        />
+      ) : (
+        <>
+          <h1 className="heading-20 px-4 pt-6 pb-2">Requests</h1>
+          <FilterStrip>
+            {filter}
+            {menu}
+            {total}
+          </FilterStrip>
+        </>
+      )}
       <div className="min-h-0 flex-1 overflow-auto">
         {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
         <div className="p-4">

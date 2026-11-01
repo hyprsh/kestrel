@@ -3,7 +3,8 @@
 // The database runs in WAL mode with one write connection and a pool of read
 // connections. Migrations are goose files embedded in the binary. Before an
 // upgrade of an existing database the file is copied with VACUUM INTO into
-// backups/, keeping the newest five. Kestrel never downgrades: a database
+// backups/, keeping the newest five. Backup takes the same copy on a schedule,
+// kept apart from the upgrade ones. Kestrel never downgrades: a database
 // whose schema is newer than the binary knows is refused.
 package store
 
@@ -51,6 +52,7 @@ type Options struct {
 type Store struct {
 	write *sql.DB
 	read  *sql.DB
+	dir   string
 }
 
 // Open creates the config dir if needed, migrates the database (backing it up
@@ -84,7 +86,7 @@ func Open(ctx context.Context, opts Options) (*Store, error) {
 		return nil, fmt.Errorf("store: open read pool: %w", err)
 	}
 	read.SetMaxOpenConns(readPool)
-	return &Store{write: write, read: read}, nil
+	return &Store{write: write, read: read, dir: opts.Dir}, nil
 }
 
 // Write is the single write connection.
@@ -152,16 +154,104 @@ func backup(ctx context.Context, db *sql.DB, dir string, from int64) error {
 	if err := os.MkdirAll(bdir, 0o755); err != nil {
 		return fmt.Errorf("store: create backup dir: %w", err)
 	}
-	name := fmt.Sprintf("kestrel-%d-%s.db", from, time.Now().UTC().Format("20060102T150405.000000"))
-	target := filepath.Join(bdir, name)
-	if _, err := db.ExecContext(ctx, "VACUUM INTO '"+strings.ReplaceAll(target, "'", "''")+"'"); err != nil {
+	name := fmt.Sprintf("kestrel-%d-%s.db", from, time.Now().UTC().Format(stampLayout))
+	if err := vacuumInto(ctx, db, filepath.Join(bdir, name)); err != nil {
 		return fmt.Errorf("store: backup before migration: %w", err)
 	}
-	old := listBackups(dir)
-	for i := keepBackups; i < len(old); i++ {
-		_ = os.Remove(filepath.Join(bdir, old[i]))
-	}
+	pruneBackups(dir, false, keepBackups)
 	return nil
+}
+
+// stampLayout is the fixed-width timestamp that ends a backup's name.
+const stampLayout = "20060102T150405.000000"
+
+// ScheduledBackups is how many scheduled (daily) backups are kept: a week's.
+const ScheduledBackups = 7
+
+// scheduledLabel stands where an upgrade backup has its schema number.
+const scheduledLabel = "daily"
+
+func vacuumInto(ctx context.Context, db *sql.DB, target string) error {
+	_, err := db.ExecContext(ctx, "VACUUM INTO '"+strings.ReplaceAll(target, "'", "''")+"'")
+	return err
+}
+
+// pruneBackups deletes all but the newest keep of the scheduled or the upgrade backups.
+func pruneBackups(dir string, scheduled bool, keep int) {
+	n := 0
+	for _, f := range Backups(dir) {
+		if f.Scheduled != scheduled {
+			continue
+		}
+		if n++; n > keep {
+			_ = os.Remove(filepath.Join(dir, backupDir, f.Name))
+		}
+	}
+}
+
+// BackupFile is one backup in backups/.
+type BackupFile struct {
+	Name string
+	// At is when it was taken, from its name (UTC).
+	At    time.Time
+	Bytes int64
+	// Scheduled is true for the daily backup and false for the copy taken before an upgrade.
+	Scheduled bool
+}
+
+// Backups lists the backups in dir's backups/, newest first: the copies taken before an upgrade and the scheduled ones.
+func Backups(dir string) []BackupFile {
+	var out []BackupFile
+	for _, n := range listBackups(dir) {
+		f := BackupFile{Name: n}
+		parts := strings.Split(strings.TrimSuffix(n, ".db"), "-")
+		if len(parts) == 3 {
+			f.Scheduled = parts[1] == scheduledLabel
+			f.At, _ = time.Parse(stampLayout, parts[2])
+		}
+		if fi, err := os.Stat(filepath.Join(dir, backupDir, n)); err == nil {
+			f.Bytes = fi.Size()
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// Backup copies the database to backups/kestrel-daily-<timestamp>.db with VACUUM INTO, the copy an upgrade
+// takes, and deletes all but the newest keep scheduled backups. The copies taken before an upgrade are not
+// counted and not deleted here.
+func (s *Store) Backup(ctx context.Context, keep int) (BackupFile, error) {
+	bdir := filepath.Join(s.dir, backupDir)
+	if err := os.MkdirAll(bdir, 0o755); err != nil {
+		return BackupFile{}, fmt.Errorf("store: create backup dir: %w", err)
+	}
+	at := time.Now().UTC()
+	name := fmt.Sprintf("kestrel-%s-%s.db", scheduledLabel, at.Format(stampLayout))
+	target := filepath.Join(bdir, name)
+	if err := vacuumInto(ctx, s.write, target); err != nil {
+		_ = os.Remove(target)
+		return BackupFile{}, fmt.Errorf("store: scheduled backup: %w", err)
+	}
+	pruneBackups(s.dir, true, max(keep, 1))
+	f := BackupFile{Name: name, At: at, Scheduled: true}
+	if fi, err := os.Stat(target); err == nil {
+		f.Bytes = fi.Size()
+	}
+	return f, nil
+}
+
+// Backups lists this database's backups, newest first.
+func (s *Store) Backups() []BackupFile { return Backups(s.dir) }
+
+// Size is the database's size on disk: the file and its write-ahead log.
+func (s *Store) Size() int64 {
+	var n int64
+	for _, suffix := range []string{"", "-wal"} {
+		if fi, err := os.Stat(filepath.Join(s.dir, dbFile+suffix)); err == nil {
+			n += fi.Size()
+		}
+	}
+	return n
 }
 
 // listBackups returns backup file names, newest first. The timestamp is fixed

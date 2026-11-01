@@ -72,6 +72,8 @@ type PluginInstances interface {
 	Delete(ctx context.Context, id int64) error
 	Create(ctx context.Context, in instances.New) (instances.Instance, error)
 	Test(ctx context.Context, p plugin.Plugin, conn plugin.Connection, check bool) (plugin.TestResult, error)
+	// Observe records the outcome of a call to an instance as its last check.
+	Observe(ctx context.Context, id int64, err error)
 }
 
 // Profiles is the household's language settings and the Profiles.
@@ -79,6 +81,10 @@ type Profiles interface {
 	Region(ctx context.Context) (profiles.Region, bool, error)
 	List(ctx context.Context) ([]profiles.Profile, error)
 	Patch(ctx context.Context, key string, p profiles.Patch) (profiles.Profile, error)
+	Create(ctx context.Context, name, copyKey string) (profiles.Profile, error)
+	Delete(ctx context.Context, key string) error
+	Versions(ctx context.Context, key string) ([]profiles.Version, error)
+	BelowCutoff(ctx context.Context) (profiles.Cutoffs, error)
 }
 
 // RootFolders reads the Root folders.
@@ -126,8 +132,10 @@ type Library interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	InLibrary(ctx context.Context, kind library.Kind, tmdbIDs []int) (map[int]int64, error)
 	GetVersion(ctx context.Context, id int64) (library.VersionRef, error)
+	Names(ctx context.Context) ([]library.Named, error)
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 	SetSeriesMonitor(ctx context.Context, id int64, mode library.Monitor) error
+	SetSeriesMonitorOptions(ctx context.Context, id int64, newSeasons, specials *bool) error
 	SetMovieMonitored(ctx context.Context, id int64, monitored bool) error
 	SetMonitored(ctx context.Context, ids []int64, monitored bool, mode library.Monitor) ([]library.MonitorResult, error)
 	SetSeasonMonitored(ctx context.Context, id int64, season int, monitored bool) error
@@ -136,9 +144,12 @@ type Library interface {
 	SearchAfterPause(ctx context.Context, since time.Time) error
 	SearchWanted(ctx context.Context, titleIDs []int64) (map[int64]int, error)
 	RequestSearch(ctx context.Context, versionID int64) error
+	// NextSearches is when each of a Title's Versions is next searched on its own.
+	NextSearches(ctx context.Context, titleID int64) (map[int64]library.NextSearch, error)
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
-	Upcoming(ctx context.Context, view library.View, from, to time.Time) (library.Agenda, error)
+	UpcomingWith(ctx context.Context, view library.View, from, to time.Time, opts library.UpcomingOptions) (library.Agenda, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
+	FillTimes(ctx context.Context, view library.View, from, to time.Time) ([]library.Fill, error)
 	CountRecentImports(ctx context.Context, now time.Time) (int, error)
 	List(ctx context.Context, view library.View, f library.Filter) ([]library.Row, error)
 	AddVersion(ctx context.Context, titleID int64, v library.VersionSpec) (int64, error)
@@ -151,14 +162,20 @@ type Acquire interface {
 	Cancel(ctx context.Context, id int64, blocklist bool) (acquire.Grab, error)
 	Active(ctx context.Context) ([]acquire.Active, error)
 	Unblock(ctx context.Context, id int64) error
+	BlockRelease(ctx context.Context, versionID int64, releaseID, reason string) error
 	Stalled(ctx context.Context) ([]acquire.StalledImport, error)
 	SearchScope(ctx context.Context, versionID int64, scope library.Scope) (acquire.SearchResult, error)
 	RetryStalled(ctx context.Context, reason string) (int, error)
 	RetryImport(ctx context.Context, grabID int64) error
 	LastFailures(ctx context.Context) (map[int64]string, error)
 	GrabEpisodes(ctx context.Context, grabID int64) ([]int64, error)
+	// LastSearches is what the last search of each of the Versions found.
+	LastSearches(ctx context.Context, versionIDs []int64) (map[int64]acquire.LastSearch, error)
+	// LastEpisodeSearches is what the last search of each episode of the Title's Versions found, per Version and episode.
+	LastEpisodeSearches(ctx context.Context, titleID int64) (map[[2]int64]acquire.LastSearch, error)
 	Grab(ctx context.Context, versionID int64, releaseID string, override bool) (acquire.Grab, error)
 	GetGrab(ctx context.Context, id int64) (acquire.Grab, error)
+	GrabFormats(ctx context.Context, grabID int64) ([]scoring.MatchedFormat, error)
 	// Grabs lists Grabs newest first, for GET /grabs.
 	Grabs(ctx context.Context, f acquire.GrabFilter) ([]acquire.Record, error)
 	DiscardStalled(ctx context.Context, reason string) (int, error)
@@ -217,9 +234,12 @@ type Remover interface {
 	DeleteTitle(ctx context.Context, titleID int64, deleteFiles bool) error
 }
 
-// Rescorer moves a Version to another Profile and re-scores its stored file.
+// Rescorer moves a Version to another Profile and re-scores its stored file, and
+// names the Custom Formats each file of a Title matches under its Profile.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
+	Rescore(ctx context.Context, titleID, versionID int64) error
+	FileFormats(ctx context.Context, titleID int64) (map[int64][]scoring.MatchedFormat, error)
 }
 
 // TitleFiles moves a Title's files to another Root folder and deletes a
@@ -262,6 +282,9 @@ type Health interface {
 	Dismiss(ctx context.Context, id int64) error
 	Disks(ctx context.Context) ([]health.Disk, error)
 	ClientState() health.State
+	Services(ctx context.Context) ([]health.ServiceState, error)
+	// Clock is the last comparison of the server's clock with a time source; ok is false before the first.
+	Clock() (health.ClockSample, bool)
 	AddCheck(name string, c health.Check)
 	ObserveMediaServer(ctx context.Context, ref health.Ref, f *health.Failure)
 	ObserveDownloadClient(ctx context.Context, ref health.Ref, f *health.Failure)
@@ -275,6 +298,8 @@ type History interface {
 	List(ctx context.Context, f history.Filter) ([]history.Event, error)
 	Last(ctx context.Context) (int64, error)
 	After(ctx context.Context, id int64, limit int) ([]history.Event, error)
+	Summary(ctx context.Context) (history.Summary, error)
+	Histogram(ctx context.Context, bucket time.Duration, days int) ([]history.Bucket, error)
 }
 
 // Scoring is the live TRaSH snapshot.
@@ -297,6 +322,8 @@ type Trash interface {
 // ProviderKeys is the UI's metadata provider key overrides.
 type ProviderKeys interface {
 	OverridesSet(ctx context.Context) (metadata.OverridesSet, error)
+	// Origins says whether each provider runs on the user's own key or the project's.
+	Origins(ctx context.Context) (metadata.Origins, error)
 	SetOverrides(ctx context.Context, tmdb, tvdb *string) error
 }
 

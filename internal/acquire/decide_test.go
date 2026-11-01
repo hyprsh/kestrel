@@ -308,3 +308,35 @@ func TestMultiEpisodeReleaseFollowsPackRule(t *testing.T) {
 	v := seasonVersion(1, map[int]*Held{1: {Fits: true, Score: 10}, 2: {Fits: true, Score: 200}}, 2)
 	wantGUIDs(t, Decide(Input{Versions: []Version{v}, Candidates: []Candidate{epCand("multi", 100, 1, []int{1, 2})}}))
 }
+
+func TestDecideLeavesAFileAtItsCutoffAloneWhateverTheReleaseScores(t *testing.T) {
+	done := &Held{Fits: true, Score: 100, Done: true}
+	open := &Held{Fits: true, Score: 100}
+	plans := Decide(Input{Versions: []Version{movieVersion(done)}, Candidates: []Candidate{movieCand("a", 5000)}})
+	wantGUIDs(t, plans)
+	plans = Decide(Input{Versions: []Version{movieVersion(open)}, Candidates: []Candidate{movieCand("a", 5000)}})
+	wantGUIDs(t, plans, "a")
+}
+
+func TestDecideStillReplacesAnOriginalOrAMisfitAtTheCutoff(t *testing.T) {
+	original := &Held{Fits: true, Score: 100, Original: true, Done: true}
+	wantGUIDs(t, Decide(Input{Versions: []Version{movieVersion(original)}, Candidates: []Candidate{movieCand("a", 1)}}), "a")
+	misfit := &Held{Fits: false, Done: true}
+	wantGUIDs(t, Decide(Input{Versions: []Version{movieVersion(misfit)}, Candidates: []Candidate{movieCand("a", 1)}}), "a")
+}
+
+func TestDecideAPackSkipsTheEpisodesAtTheCutoffButFillsTheMissingOnes(t *testing.T) {
+	units := []Unit{
+		{Ref: EpisodeRef{1, 1}, Held: &Held{Fits: true, Score: 10, Done: true}},
+		{Ref: EpisodeRef{1, 2}},
+	}
+	in := Input{
+		Versions:        []Version{{Slot: slot.Standard, Units: units}},
+		Candidates:      []Candidate{packCand("pack", 5000, 1)},
+		SeasonsFinished: map[int]bool{1: true},
+	}
+	plans := Decide(in)
+	if len(plans) != 1 || len(plans[0].Covers) != 1 || plans[0].Covers[0] != (EpisodeRef{1, 2}) {
+		t.Fatalf("plans = %+v, want only the missing episode", plans)
+	}
+}

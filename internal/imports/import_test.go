@@ -411,6 +411,31 @@ func TestAnImportThatBeatsTheCurrentFileReplacesItAndItsSubtitles(t *testing.T) 
 	}
 }
 
+func TestAnImportSaysHowManyFilesItChecksAndHowManyItReplaces(t *testing.T) {
+	r := newRig(t)
+	r.held(t, "old.mkv", -100000)
+	g := r.job(t, 1, map[string]string{"paddington.mkv": "video"})
+	r.prober.info["paddington.mkv"] = good()
+	checking := -1
+	g.Checking = func(n int) { checking = n }
+
+	res := r.svc.Import(context.Background(), g)
+
+	if res.Status != imports.Imported || res.Replaced != 1 || checking != 1 {
+		t.Errorf("result = %+v, checking %d; want 1 file checked and 1 replaced", res, checking)
+	}
+}
+
+func TestAFirstImportReplacesNothing(t *testing.T) {
+	r := newRig(t)
+	g := r.job(t, 1, map[string]string{"paddington.mkv": "video"})
+	r.prober.info["paddington.mkv"] = good()
+
+	if res := r.svc.Import(context.Background(), g); res.Status != imports.Imported || res.Replaced != 0 {
+		t.Errorf("result = %+v, want imported with nothing replaced", res)
+	}
+}
+
 func TestACrashBetweenThePartialFileAndTheRenameIsFinishedByTheRerun(t *testing.T) {
 	for _, crashAt := range []string{"partial", "committed"} {
 		t.Run(crashAt, func(t *testing.T) {

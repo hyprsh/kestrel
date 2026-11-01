@@ -8,7 +8,7 @@ import { kindQualifier, type Facet } from '../filter/qualifiers'
 import { slotKeys, slotLabel } from './bits'
 import { parseCode, splitCode } from './episodeCode'
 
-type Version = NonNullable<TitleRow['slots']['standard']>
+type Version = TitleRow['slot_states'][number]
 
 /** A Profile as the filter needs it: Versions name it by key, people by name. */
 type Profile = { key: string; name: string }
@@ -47,8 +47,19 @@ const sortLabel = (s: Sort) => sortKeys[s.key][s.dir]
 /** The order a parsed filter asks for. */
 const sortOfQuery = (q: Query): Sort => sortOf(q.terms.find((t) => t.name === 'sort')?.values[0])
 
+/** A Slot the filter offers: its key and its name. */
+export type SlotChoice = { key: string; label: string }
+
+/** The Slots the rows have Versions in, Standard and 4K first, then the rest in the order they come. */
+export function slotsPresent(rows: readonly Pick<TitleRow, 'slot_states'>[]): SlotChoice[] {
+  const seen = new Map<string, string>()
+  for (const r of rows) for (const s of r.slot_states) if (!seen.has(s.slot)) seen.set(s.slot, s.label)
+  const known = slotKeys.filter((k) => seen.has(k))
+  return [...known, ...[...seen.keys()].filter((k) => !(known as string[]).includes(k))].map((key) => ({ key, label: seen.get(key) as string }))
+}
+
 /** The Library's qualifiers, given the Profiles to offer. `is:` has no menu: the state tabs set it. */
-export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {
+export function libraryQualifiers(profiles: readonly ProfileChoice[], slots: readonly SlotChoice[] = slotKeys.map((k) => ({ key: k, label: slotLabel[k] }))): Facet[] {
   return [
     { ...kindQualifier(true), label: 'Kind', options: { movie: { label: 'Movies' }, series: { label: 'Series' } } },
     {
@@ -60,7 +71,7 @@ export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {
         wanted: { label: 'Wanted', description: 'No file, or one that no longer fits its Profile' },
         filled: { label: 'Filled', description: 'Has a file' },
         downloading: { label: 'Downloading', description: 'A Grab is on its way' },
-        unmonitored: { label: 'Unmonitored', description: 'Not searched for' },
+        unmonitored: { label: 'Not monitored', description: 'Not searched for' },
         unreleased: { label: 'Unreleased', description: 'Not out yet' },
         long_missing: { label: 'Long Missing', description: 'Wanted for more than 90 days' },
       },
@@ -69,9 +80,9 @@ export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {
       name: 'slot',
       label: 'Slot',
       help: 'Titles with a Version in that Slot',
-      values: slotKeys,
+      values: slots.map((x) => x.key),
       excludable: true,
-      options: Object.fromEntries(slotKeys.map((k) => [k, { label: slotLabel[k] }])),
+      options: Object.fromEntries(slots.map((x) => [x.key, { label: x.label }])),
     },
     {
       name: 'profile',
@@ -99,7 +110,7 @@ export const stateTabs = [
   { value: 'long_missing', label: 'Long Missing' },
   { value: 'downloading', label: 'Downloading' },
   { value: 'unreleased', label: 'Unreleased' },
-  { value: 'unmonitored', label: 'Unmonitored' },
+  { value: 'unmonitored', label: 'Not monitored' },
 ] as const
 
 export type StateTab = (typeof stateTabs)[number]['value']
@@ -124,7 +135,7 @@ export function withTab(text: string, tab: StateTab, qualifiers: readonly Facet[
   return tab === 'all' ? out : withValue(out, 'is', tab, qualifiers)
 }
 
-const versions = (r: TitleRow) => [r.slots.standard, r.slots['4k']].filter((s): s is Version => s !== null)
+const versions = (r: TitleRow): Version[] => r.slot_states
 
 /** Whether a Title has one value of a qualifier. A `profile:` value is a name or a key, in any case. `grabbing` holds the Titles with a Grab on its way. */
 function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[], grabbing: ReadonlySet<number>): boolean {
@@ -133,9 +144,10 @@ function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[],
       return r.kind === v
     case 'is':
       if (v === 'downloading' && grabbing.has(r.id)) return true
+      if (v === 'unmonitored') return !r.monitored // the Title's flag, whatever its files say
       return versions(r).some((s) => (v === 'long_missing' ? s.long_missing : s.state === v))
     case 'slot':
-      return r.slots[v as keyof TitleRow['slots']] !== null
+      return r.slot_states.some((s) => s.slot === v)
     case 'profile': {
       const lower = v.toLowerCase()
       const keys = profiles.filter((p) => p.name.toLowerCase() === lower).map((p) => p.key)

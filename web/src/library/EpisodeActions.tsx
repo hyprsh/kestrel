@@ -1,18 +1,22 @@
-// What the episode table can do beyond showing states: Search now and Manual search for an episode, a season or
-// the ticked episodes, from visible buttons on each row, above the table and in the bar for ticked episodes;
-// monitoring; and Delete files (DeleteFiles.tsx) in the ⋯ menus and the bar.
-import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuItem } from '@hyprsh/design'
-import { X } from 'lucide-react'
+// What the episode list can do beyond showing states: Search now for an episode (a button on its row, shown on hover), a
+// season (its ⋯ menu) or the ticked episodes (the bar); monitoring by the bookmark toggles and the bar's Monitor and Stop
+// Monitoring; Manual search, Show in Log and Delete files (DeleteFiles.tsx) in the ⋯ menus of an opened row, the season and the bar.
+import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem, termText } from '@hyprsh/design'
+import { ArrowUpCircle, ListFilter, ScrollText, Search, X, type LucideIcon } from 'lucide-react'
 import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useMonitorEpisodes, usePatchSeason, useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
 import { FloatingBar } from '../layout/FloatingBar'
+import { placePath, useOpenPlace } from '../place'
 import { useSelection, type Selection } from '../selection'
 import { useReport } from '../toasts'
-import { slotLabel, type SlotKey } from './bits'
+import type { SlotKey } from './bits'
 import { DeleteMenuItems, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } from './episodes'
+import { IconAction } from './IconAction'
+import { cellOf, slotName } from './slots'
 import { TickBox } from './TickBox'
+import { scopeCode } from './ManualSearchRoute'
 import type { ManualSearchTarget } from './TitleDetail'
 
 const episodeName = (e: Episode) => `Season ${e.season} episode ${e.number}`
@@ -24,30 +28,32 @@ export type EpisodeActions = {
   selection: Selection
   /** The Series' Versions in the table's Slot order. */
   versions: EpisodeVersion[]
-  /** Search now in every Slot where one of `eps` is Wanted; `scope` builds each body from that Slot's Wanted ids. */
-  search: (eps: Episode[], label: string, scope: (wanted: number[]) => EpisodeScope) => void
+  /** Search now in every Slot where one of `eps` is Wanted (or only in the Slot `only` names); `scope` builds each body from that Slot's Wanted ids. */
+  search: (eps: Episode[], label: string, scope: (wanted: number[]) => EpisodeScope, only?: string) => void
   /** Opens Manual search for one Version, narrowed to `body` and named `label`. */
   manual: (v: EpisodeVersion, body: EpisodeScope, label: string) => void
   /** Monitors or unmonitors episodes. */
   monitor: (eps: Episode[], monitored: boolean) => void
   /** Monitors or unmonitors a whole season. */
   monitorSeason: (season: number, monitored: boolean) => void
+  /** Opens the Log on this Series. */
+  showInLog: () => void
   /** Delete files of an episode, a season or the ticked episodes, after a confirmation. */
   deletes: EpisodeDeletes
   /**
-   * The table's keys for actions: x ticks (X a range), s searches and m opens Manual search for the episode under the cursor
-   * (in the Slot of its column, else the first), Shift+F10 or the menu key opens the row's menu, Escape clears the ticks.
+   * The list's keys for actions: x ticks (X a range), s searches and m opens Manual search for the episode under the cursor
+   * (in its first Wanted Slot), Shift+F10 or the menu key opens the menu of a row, Escape clears the ticks.
    * True when handled.
    */
-  onKey: (e: KeyboardEvent, episode: Episode | null, slot: SlotKey | null) => boolean
+  onKey: (e: KeyboardEvent, episode: Episode | null) => boolean
 }
 
 /** The Series' Versions in the table's Slot order, each with its Profile's name. */
-export function versionsOf(title: TitleDetail, slots: SlotKey[], profiles: readonly { key: string; name: string }[] | undefined): EpisodeVersion[] {
+export function versionsOf(title: TitleDetail, slots: readonly string[], profiles: readonly { key: string; name: string }[] | undefined): EpisodeVersion[] {
   const names = new Map((profiles ?? []).map((p) => [p.key, p.name]))
   return slots.flatMap((slot) => {
     const v = title.versions.find((x) => x.slot === slot)
-    return v ? [{ id: v.id, slot, profileName: names.get(v.profile) ?? v.profile }] : []
+    return v ? [{ id: v.id, slot: slot as SlotKey, profileName: names.get(v.profile) ?? v.profile }] : []
   })
 }
 
@@ -55,35 +61,40 @@ export function versionsOf(title: TitleDetail, slots: SlotKey[], profiles: reado
 export function useEpisodeSearch() {
   const searchNow = useSearchNow()
   const report = useReport()
-  return (versions: EpisodeVersion[], eps: Episode[], label: string, scope: (wanted: number[]) => EpisodeScope) => {
-    const runs = versions.flatMap((v) => {
-      const wanted = eps.filter((e) => e.cells[v.slot]?.state === 'wanted').map((e) => e.id)
-      return wanted.length > 0 ? [{ v, scope: scope(wanted) }] : []
-    })
+  return (versions: EpisodeVersion[], eps: Episode[], label: string, scope: (wanted: number[]) => EpisodeScope, only?: string) => {
+    const runs = versions
+      .filter((v) => only === undefined || v.slot === only)
+      .flatMap((v) => {
+        const wanted = eps.filter((e) => cellOf(e, v.slot)?.state === 'wanted').map((e) => e.id)
+        return wanted.length > 0 ? [{ v, scope: scope(wanted) }] : []
+      })
     if (runs.length === 0) return
-    const where = runs.map((r) => slotLabel[r.v.slot]).join(' and ')
+    const where = runs.map((r) => slotName(r.v.slot)).join(' and ')
     void report(Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))), { started: `Search started for ${label} in ${where}`, failed: `Could not search ${label}` })
   }
 }
 
 /** The actions of one Series' episode table, with the selection of ticked episodes. Only the episodes of the open season can be ticked: another season's ticks drop, as the Library drops the ticks a filter hides. */
-export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown: Episode[], slots: SlotKey[], onManualSearch?: (t: ManualSearchTarget) => void): EpisodeActions {
+export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown: Episode[], slots: readonly string[], onManualSearch?: (t: ManualSearchTarget) => void): EpisodeActions {
   const ids = useMemo(() => shown.map((e) => e.id), [shown])
   const selection = useSelection(ids)
   const profiles = useProfiles()
   const deletes = useEpisodeDeletes(episodes)
   const monitorEpisodes = useMonitorEpisodes(title.id)
   const patchSeason = usePatchSeason(title.id)
+  const openPlace = useOpenPlace()
 
   const versions = versionsOf(title, slots, profiles.data)
   const searchEpisodes = useEpisodeSearch()
-  const search: EpisodeActions['search'] = (eps, label, scope) => searchEpisodes(versions, eps, label, scope)
+  const search: EpisodeActions['search'] = (eps, label, scope, only) => searchEpisodes(versions, eps, label, scope, only)
 
-  const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
+  const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label, code: scopeCode(body, episodes) } })
   const monitor: EpisodeActions['monitor'] = (eps, monitored) => monitorEpisodes.mutate({ ids: eps.map((e) => e.id), monitored })
   const monitorSeason: EpisodeActions['monitorSeason'] = (season, monitored) => patchSeason.mutate({ season, monitored })
 
-  const onKey: EpisodeActions['onKey'] = (e, episode, slot) => {
+  const showInLog = () => openPlace(placePath('log', termText({ name: 'title', values: [title.title], excluded: false })))
+
+  const onKey: EpisodeActions['onKey'] = (e, episode) => {
     const stop = () => {
       e.preventDefault()
       e.stopPropagation()
@@ -107,7 +118,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
       return stop()
     }
     if (e.key === 'm' && episode) {
-      const v = versions.find((x) => x.slot === slot) ?? versions.find((x) => episode.cells[x.slot]?.state === 'wanted') ?? versions[0]
+      const v = versions.find((x) => cellOf(episode, x.slot)?.state === 'wanted') ?? versions[0]
       if (v) manual(v, { season: episode.season, episode_ids: [episode.id] }, episodeCode(episode))
       return stop()
     }
@@ -118,15 +129,15 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
     return false
   }
 
-  return { shown, selection, versions, search, manual, monitor, monitorSeason, deletes, onKey }
+  return { shown, selection, versions, search, manual, monitor, monitorSeason, showInLog, deletes, onKey }
 }
 
 const nothingWanted = 'Nothing here is Wanted'
-export const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => e.cells[v.slot]?.state === 'wanted'))
-const filledIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.filter((v) => eps.some((e) => e.cells[v.slot]?.file))
+export const wantedIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.some((v) => eps.some((e) => cellOf(e, v.slot)?.state === 'wanted'))
+const filledIn = (eps: Episode[], versions: EpisodeVersion[]) => versions.filter((v) => eps.some((e) => cellOf(e, v.slot)?.file))
 
-/** The table keeps one tab stop per row: a row's buttons and menu stay out of the Tab order and pass focus on to the row's cell, where the keyboard was. */
-const toRowCell = (e: FocusEvent<HTMLElement>) => e.currentTarget.closest('tr')?.querySelector<HTMLElement>('[data-cell][tabindex="0"]')?.focus()
+/** The list keeps one tab stop per row: a row's buttons and menu stay out of the Tab order and pass focus on to the row itself. */
+const toRowCell = (e: FocusEvent<HTMLElement>) => e.currentTarget.closest<HTMLElement>('tr[data-row]')?.focus()
 
 /** "Manual…": a button that opens Manual search for the one Version, or a menu of the Slots to choose from when there are two. */
 export function ManualButton({
@@ -137,6 +148,7 @@ export function ManualButton({
   keyboard = true,
   variant = 'secondary',
   size = 'small',
+  icon: Icon,
 }: {
   versions: EpisodeVersion[]
   text: string
@@ -147,8 +159,12 @@ export function ManualButton({
   keyboard?: boolean
   variant?: 'secondary' | 'tertiary'
   size?: 'tiny' | 'small'
+  /** Shows this icon instead of `text`; `name` is then the tooltip and the only name. */
+  icon?: LucideIcon
 }) {
   const tab = keyboard ? undefined : -1
+  if (Icon && versions.length === 1)
+    return <IconAction icon={Icon} label={name} size={size} variant={variant} tabIndex={tab} onFocus={keyboard ? undefined : toRowCell} onClick={() => onPick(versions[0])} />
   if (versions.length === 1) {
     return (
       <Button variant={variant} size={size} aria-label={name} tabIndex={tab} onFocus={keyboard ? undefined : toRowCell} onClick={() => onPick(versions[0])}>
@@ -158,13 +174,23 @@ export function ManualButton({
   }
   return (
     <MenuContainer>
-      <MenuButton variant={variant} size={size} aria-label={name} showChevron={false} tabIndex={tab} onFocus={keyboard ? undefined : toRowCell} disabled={versions.length === 0}>
-        {text}
+      <MenuButton
+        variant={variant}
+        size={size}
+        aria-label={name}
+        svgOnly={Icon !== undefined}
+        title={Icon ? name : undefined}
+        showChevron={false}
+        tabIndex={tab}
+        onFocus={keyboard ? undefined : toRowCell}
+        disabled={versions.length === 0}
+      >
+        {Icon ? <Icon aria-hidden className="size-3.5" /> : text}
       </MenuButton>
       <Menu>
         {versions.map((v) => (
           <MenuItem key={v.slot} onSelect={() => onPick(v)}>
-            {slotLabel[v.slot]}
+            {slotName(v.slot)}
           </MenuItem>
         ))}
       </Menu>
@@ -186,110 +212,167 @@ export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions,
   return (
     <span className="flex items-center justify-end gap-1">
       {wanted || files.length === 0 ? (
-        <Button
-          variant="secondary"
-          size="tiny"
-          aria-label={`Search ${code}`}
+        <IconAction
+          icon={Search}
+          label={`Search ${code}`}
           tabIndex={-1}
           onFocus={toRowCell}
           disabled={!wanted}
-          title={wanted ? undefined : nothingWanted}
+          reason={wanted ? undefined : nothingWanted}
           onClick={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}
-        >
-          Search
-        </Button>
+        />
       ) : (
-        <ManualButton versions={files} text="Upgrade" name={`Upgrade ${code}`} keyboard={false} size="tiny" onPick={(v) => actions.manual(v, scope, code)} />
+        <ManualButton versions={files} text="Upgrade" name={`Upgrade ${code}`} icon={ArrowUpCircle} keyboard={false} size="tiny" variant="tertiary" onPick={(v) => actions.manual(v, scope, code)} />
       )}
-      <ManualButton versions={versions} text="Manual…" name={`Manual search ${code}`} keyboard={false} size="tiny" onPick={(v) => actions.manual(v, scope, code)} />
+      <ManualButton
+        versions={versions}
+        text="Manual…"
+        name={`Manual search ${code}`}
+        icon={ListFilter}
+        keyboard={false}
+        size="tiny"
+        variant="tertiary"
+        onPick={(v) => actions.manual(v, scope, code)}
+      />
     </span>
   )
 }
 
-/** The ⋯ menu of one episode row. `onOpenChange` tells the row the menu belongs to when it opens and closes, so the row can show whose menu it is. */
-export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: EpisodeActions; episode: Episode; onOpenChange?: (open: boolean) => void }) {
-  const { selection, versions } = actions
+/** The "Manual Search…" items of a menu: one for a single Version, one per Slot when the Series has both ("Manual Search 4K…"). */
+function ManualItems({ versions, text = 'Manual Search', onPick }: { versions: EpisodeVersion[]; text?: string; onPick: (v: EpisodeVersion) => void }) {
+  return versions.map((v) => (
+    <MenuItem key={v.slot} prefix={<ListFilter aria-hidden className="size-4" />} onSelect={() => onPick(v)}>
+      {versions.length > 1 ? `${text} ${slotName(v.slot)}…` : `${text}…`}
+    </MenuItem>
+  ))
+}
+
+/** The search button of an episode row, shown on hover: Search now for what is Wanted in it. Upgrades are asked from a file's popover. */
+export function RowSearch({ actions, episode }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; episode: Episode }) {
   const code = episodeCode(episode)
-  const wanted = wantedIn([episode], versions)
+  const wanted = wantedIn([episode], actions.versions)
   return (
-    <DotsMenu aria-label={`Actions for ${episodeName(episode)}`} size="tiny" iconSize={12} tabIndex={-1} onFocus={toRowCell} onOpenChange={onOpenChange}>
-      <MenuItem disabled={!wanted} description={wanted ? undefined : nothingWanted} onSelect={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}>
-        Search
+    <IconAction
+      icon={Search}
+      label={`Search ${code}`}
+      tabIndex={-1}
+      onFocus={toRowCell}
+      disabled={!wanted}
+      reason={wanted ? undefined : nothingWanted}
+      onClick={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}
+    />
+  )
+}
+
+/** The ⋯ menu of an episode row: Show in Log and Delete Files. Monitoring is the row's bookmark, a Slot's search and files are its chip's popover. */
+export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: EpisodeActions; episode: Episode; onOpenChange?: (open: boolean) => void }) {
+  const { versions } = actions
+  const code = episodeCode(episode)
+  const withFiles = filledIn([episode], versions).length > 0
+  return (
+    <DotsMenu aria-label={`Actions for ${episodeName(episode)}`} size="tiny" iconSize={12} tabIndex={-1} onFocus={toRowCell} onOpenChange={onOpenChange} width={240}>
+      <MenuItem prefix={<ScrollText aria-hidden className="size-4" />} onSelect={actions.showInLog}>
+        Show in Log
       </MenuItem>
-      {versions.map((v) => (
-        <MenuItem key={v.slot} onSelect={() => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)}>
-          {versions.length > 1 ? `Manual search ${slotLabel[v.slot]}` : 'Manual search'}
-        </MenuItem>
-      ))}
-      <MenuItem onSelect={() => actions.monitor([episode], !episode.monitored)}>{episode.monitored ? 'Unmonitor' : 'Monitor'}</MenuItem>
+      {withFiles && <MenuDivider />}
       <DeleteMenuItems
         deletes={actions.deletes}
         versions={versions}
         episodes={[episode]}
         label={code}
         scope={{ season: episode.season, episode_ids: [episode.id] }}
-        text="Delete file"
+        text="Files"
         at={episodeRow(episode.id)}
       />
-      <MenuItem onSelect={() => selection.toggle(episode.id)}>{selection.has(episode.id) ? 'Untick' : 'Tick'}</MenuItem>
     </DotsMenu>
   )
 }
 
-/** The buttons above the table for the open season: Search Season (its Wanted episodes), Manual Search Season… and the season's ⋯ menu. */
-export function SeasonButtons({ actions, season, episodes }: { actions: EpisodeActions; season: number; episodes: Episode[] }) {
-  const { versions } = actions
-  const name = seasonName(season)
-  const wanted = wantedIn(episodes, versions)
-  const monitored = episodes.some((e) => e.monitored)
+/** Search season: the button of an open season's tools, Search now for what is Wanted in it. */
+export function SeasonSearchButton({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; season: number; episodes: Episode[] }) {
+  const wanted = wantedIn(episodes, actions.versions)
   return (
-    <>
-      <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, name, () => ({ season }))}>
-        Search Season
-      </Button>
-      <ManualButton versions={versions} text="Manual Search Season…" name={`Manual search ${name}`} onPick={(v) => actions.manual(v, { season }, name)} />
-      <DotsMenu aria-label={`Actions for ${name}`} size="small">
-        <MenuItem onSelect={() => actions.monitorSeason(season, !monitored)}>{monitored ? 'Unmonitor season' : 'Monitor season'}</MenuItem>
-        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Delete season's files" at={seasonRow(season)} />
-      </DotsMenu>
-    </>
+    <Button variant="default" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, seasonName(season), () => ({ season }))}>
+      Search season
+    </Button>
   )
 }
 
-/** The confirmation of deleting a season's files, under the season's buttons. */
-export function SeasonDeleteConfirm({ actions, season }: { actions: EpisodeActions; season: number }) {
-  return <EpisodeDeleteConfirm deletes={actions.deletes} at={seasonRow(season)} />
+/**
+ * The ⋯ menu of a season row: Search Season (its Wanted episodes), Manual Search Season… and Delete the season's files
+ * (monitoring is the season's bookmark). `onOpenChange` tells the row when the menu opens and closes, so the row can show whose menu it is.
+ */
+export function SeasonMenu({
+  actions,
+  season,
+  episodes,
+  onOpenChange,
+  label,
+}: {
+  actions: EpisodeActions
+  season: number
+  episodes: Episode[]
+  onOpenChange?: (open: boolean) => void
+  /** The open season's header names the menu "Season actions" and draws it at the toolbar's size, not the row's. */
+  label?: string
+}) {
+  const { versions } = actions
+  const name = seasonName(season)
+  const wanted = wantedIn(episodes, versions)
+  return (
+    <DotsMenu aria-label={label ?? `Actions for ${name}`} size={label ? 'small' : 'tiny'} iconSize={label ? undefined : 12} onOpenChange={onOpenChange} width={260}>
+      <MenuItem
+        prefix={<Search aria-hidden className="size-4" />}
+        disabled={!wanted}
+        description={wanted ? undefined : nothingWanted}
+        onSelect={() => actions.search(episodes, name, () => ({ season }))}
+      >
+        Search Season
+      </MenuItem>
+      <ManualItems versions={versions} text="Manual Search Season" onPick={(v) => actions.manual(v, { season }, name)} />
+      <MenuDivider />
+      <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Season's Files" at={seasonRow(season)} />
+    </DotsMenu>
+  )
 }
 
 /** A row's tick box. */
-export function EpisodeTick({ actions, episode, tabIndex, onFocus, cell }: { actions: EpisodeActions; episode: Episode; tabIndex: number; onFocus: () => void; cell: string }) {
-  return <TickBox selection={actions.selection} id={episode.id} name={episodeName(episode)} cell={cell} tabIndex={tabIndex} onFocus={onFocus} />
+export function EpisodeTick({ actions, episode, tabIndex, onFocus }: { actions: EpisodeActions; episode: Episode; tabIndex: number; onFocus: () => void }) {
+  return <TickBox selection={actions.selection} id={episode.id} name={episodeName(episode)} tabIndex={tabIndex} onFocus={onFocus} />
 }
 
-/** The floating bar for the ticked episodes: Search Now, Manual Search…, Unmonitor, a menu with Delete files and Clear; a deletion's confirmation shows above it. */
+/**
+ * The floating bar for the ticked episodes: "N ticked", Monitor, Stop Monitoring, Search, a ⋯ menu (Manual Search…, Delete
+ * Files…) and Clear ticks; a deletion's confirmation shows above it.
+ */
 export function TickedBar({ actions }: { actions: EpisodeActions }) {
   const { selection, shown, versions } = actions
   const ticked = shown.filter((e) => selection.has(e.id))
   if (ticked.length === 0 && actions.deletes.pending?.at !== null) return null
   const wanted = wantedIn(ticked, versions)
   const label = ticked.length === 1 ? episodeCode(ticked[0]) : `${ticked.length} episodes`
-  const monitored = ticked.some((e) => e.monitored)
   const season = ticked[0]?.season
   return (
     <FloatingBar label={`${label} ticked`} placement="sticky">
       <EpisodeDeleteConfirm deletes={actions.deletes} />
-      <span className="label-13 mr-1.5">{selection.count} ticked</span>
+      <span className="label-13 mr-1.5 ml-1">{selection.count} ticked</span>
+      <Button variant="secondary" size="small" disabled={ticked.every((e) => e.monitored)} onClick={() => actions.monitor(ticked, true)}>
+        Monitor
+      </Button>
+      <Button variant="secondary" size="small" disabled={ticked.every((e) => !e.monitored)} onClick={() => actions.monitor(ticked, false)}>
+        Stop Monitoring
+      </Button>
       <Button variant="primary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>
-        Search Now
+        Search
       </Button>
-      <ManualButton versions={versions} text="Manual Search…" name={`Manual search ${label}`} onPick={(v) => actions.manual(v, { season, episode_ids: ticked.map((e) => e.id) }, label)} />
-      <Button variant="secondary" size="small" onClick={() => actions.monitor(ticked, !monitored)}>
-        {monitored ? 'Unmonitor' : 'Monitor'}
-      </Button>
-      <DotsMenu aria-label="More actions for the ticked episodes" size="small">
-        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={ticked} label={label} scope={{ episode_ids: ticked.map((e) => e.id) }} text="Delete files" at={null} />
+      <DotsMenu aria-label="More actions for the ticked episodes" size="small" position="top-end" width={240}>
+        <ManualItems versions={versions} onPick={(v) => actions.manual(v, { season, episode_ids: ticked.map((e) => e.id) }, label)} />
+        <MenuDivider />
+        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={ticked} label={label} scope={{ episode_ids: ticked.map((e) => e.id) }} text="Files" at={null} />
       </DotsMenu>
-      <Button variant="tertiary" size="small" aria-label="Clear ticks" prefix={<X aria-hidden className="size-4" />} onClick={selection.clear} />
+      <Button variant="tertiary" size="small" svgOnly aria-label="Clear ticks" title="Clear ticks" onClick={selection.clear}>
+        <X aria-hidden className="size-4" />
+      </Button>
     </FloatingBar>
   )
 }

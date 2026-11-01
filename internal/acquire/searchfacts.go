@@ -1,0 +1,205 @@
+package acquire
+
+import (
+	"context"
+	"encoding/json"
+	"slices"
+	"time"
+
+	"github.com/hyprsh/kestrel/internal/acquire/db"
+	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/scoring"
+)
+
+// SearchEnd is how a search of a Version ended.
+type SearchEnd string
+
+const (
+	// SearchGrabbed: it grabbed a Release for the Version.
+	SearchGrabbed SearchEnd = "grabbed"
+	// SearchNothingFit: the indexers answered and no Release was fit to grab (none came back, none fit the Profile,
+	// or none beat what the Version holds).
+	SearchNothingFit SearchEnd = "nothing_fit"
+	// SearchNoIndexer: no indexer is enabled, so nothing was asked.
+	SearchNoIndexer SearchEnd = "no_indexer"
+	// SearchError: the search failed, or every indexer failed to answer.
+	SearchError SearchEnd = "error"
+)
+
+// ReasonCount is how many of the Releases a search returned one rejection code applied to.
+type ReasonCount struct {
+	Code scoring.Rejection `json:"code"`
+	// Detail narrows a language rejection to the one language those Releases are in ("German"); empty otherwise.
+	Detail string `json:"detail,omitempty"`
+	Count  int    `json:"count"`
+}
+
+// LastSearch is what the last search of a Version found. Only searches that asked the indexers leave one: a
+// Version that was not due, or whose Grab is still running, is not searched.
+type LastSearch struct {
+	VersionID int64
+	At        time.Time
+	// Releases is how many Releases the indexers returned for the Title.
+	Releases int
+	Outcome  SearchEnd
+	// Reasons counts the Version's rejections of those Releases, the most common first.
+	Reasons []ReasonCount
+	// Upgrade is true for an Upgrade search, which looks for better than the file the Version holds.
+	Upgrade bool
+}
+
+// LastSearches returns the last search of each of the Versions that was ever searched.
+func (s *Service) LastSearches(ctx context.Context, versionIDs []int64) (map[int64]LastSearch, error) {
+	out := map[int64]LastSearch{}
+	if len(versionIDs) == 0 {
+		return out, nil
+	}
+	ids, _ := json.Marshal(versionIDs)
+	rows, err := db.New(s.st.Read()).ListVersionSearches(ctx, string(ids))
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		ls := LastSearch{VersionID: r.VersionID, At: parseTime(r.At), Releases: int(r.Releases), Outcome: SearchEnd(r.Outcome), Upgrade: r.Upgrade == 1}
+		_ = json.Unmarshal([]byte(r.Reasons), &ls.Reasons)
+		out[r.VersionID] = ls
+	}
+	return out, nil
+}
+
+// LastEpisodeSearches returns the last search of each episode of the Title's Versions that was ever searched, per
+// Version and episode.
+func (s *Service) LastEpisodeSearches(ctx context.Context, titleID int64) (map[[2]int64]LastSearch, error) {
+	rows, err := db.New(s.st.Read()).ListEpisodeSearches(ctx, titleID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[[2]int64]LastSearch, len(rows))
+	for _, r := range rows {
+		ls := LastSearch{VersionID: r.VersionID, At: parseTime(r.At), Releases: int(r.Releases), Outcome: SearchEnd(r.Outcome), Upgrade: r.Upgrade == 1}
+		_ = json.Unmarshal([]byte(r.Reasons), &ls.Reasons)
+		out[[2]int64{r.VersionID, r.EpisodeID}] = ls
+	}
+	return out, nil
+}
+
+// found keeps what a search saw, for noteSearched.
+func (o *Outcome) found(entries []*entry) {
+	o.Releases = len(entries)
+	o.entries = entries
+}
+
+// noteSearched records, for each Version a search asked the indexers for, what it found. A search cut short by
+// shutdown is not recorded.
+func (s *Service) noteSearched(ctx context.Context, titleID int64, upgrade bool, out Outcome, err error) {
+	if len(out.Searched) == 0 || ctx.Err() != nil {
+		return
+	}
+	d, derr := s.lib.Get(ctx, titleID, library.View{Now: s.clock()})
+	if derr != nil {
+		return
+	}
+	slots := map[int64]Slot{}
+	for _, v := range d.Versions {
+		slots[v.ID] = v.Slot
+	}
+	q := db.New(s.st.Write())
+	now := ts(s.clock())
+	for _, vid := range out.Searched {
+		slot, ok := slots[vid]
+		if !ok {
+			continue
+		}
+		end := string(s.endOf(ctx, out, vid, err))
+		// A search narrowed to a season or episodes of a Series saw only part of the Version: it leaves the
+		// Version's own record alone and writes the episodes' records.
+		if !out.scoped {
+			reasons, _ := json.Marshal(reasonCounts(out.entries, slot))
+			_ = q.UpsertVersionSearch(ctx, db.UpsertVersionSearchParams{
+				VersionID: vid, At: now, Releases: int64(out.Releases), Outcome: end, Reasons: string(reasons), Upgrade: b2i(upgrade),
+			})
+		}
+		if len(out.episodes[vid]) == 0 {
+			continue
+		}
+		perEpisode := entriesByEpisode(out.entries, out.library)
+		for _, eid := range out.episodes[vid] {
+			found := perEpisode[eid]
+			reasons, _ := json.Marshal(reasonCounts(found, slot))
+			_ = q.UpsertEpisodeSearch(ctx, db.UpsertEpisodeSearchParams{
+				VersionID: vid, EpisodeID: eid, At: now, Releases: int64(len(found)), Outcome: end, Reasons: string(reasons), Upgrade: b2i(upgrade),
+			})
+		}
+	}
+}
+
+// entriesByEpisode groups the Releases a search saw by the episodes each names; a season pack names every episode it
+// holds.
+func entriesByEpisode(entries []*entry, eps []library.Episode) map[int64][]*entry {
+	out := map[int64][]*entry{}
+	for _, e := range entries {
+		for _, ep := range episodesOf(e.cand.Parsed, eps) {
+			out[ep.ID] = append(out[ep.ID], e)
+		}
+	}
+	return out
+}
+
+// endOf says how the search of one Version ended: grabbed when a Grab was made for it, else an error when the search
+// failed or no indexer could answer, else nothing fit.
+func (s *Service) endOf(ctx context.Context, out Outcome, versionID int64, err error) SearchEnd {
+	for _, g := range out.Grabbed {
+		if g.VersionID == versionID {
+			return SearchGrabbed
+		}
+	}
+	switch {
+	case err != nil:
+		return SearchError
+	case s.idx.Enabled(ctx) == 0:
+		return SearchNoIndexer
+	case len(out.Failures) > 0 && out.Releases == 0:
+		return SearchError
+	}
+	return SearchNothingFit
+}
+
+// reasonCounts counts, per rejection code, the Releases the Version in slot rejects; the most common come first. A
+// language rejection is counted per language when a Release has exactly one ("23 German only").
+func reasonCounts(entries []*entry, slot Slot) []ReasonCount {
+	type key struct {
+		code   scoring.Rejection
+		detail string
+	}
+	counts := map[key]int{}
+	for _, e := range entries {
+		for _, code := range reasonsFor(e, slot) {
+			k := key{code: code}
+			if langs := e.cand.Verdicts[slot].Languages; code == scoring.RejectLanguage && len(langs) == 1 {
+				k.detail = langs[0].Name
+			}
+			counts[k]++
+		}
+	}
+	out := make([]ReasonCount, 0, len(counts))
+	for k, n := range counts {
+		out = append(out, ReasonCount{Code: k.code, Detail: k.detail, Count: n})
+	}
+	slices.SortFunc(out, func(a, b ReasonCount) int {
+		if a.Count != b.Count {
+			return b.Count - a.Count
+		}
+		return cmpString(string(a.Code)+"\x00"+a.Detail, string(b.Code)+"\x00"+b.Detail)
+	})
+	return out
+}
+
+func cmpString(a, b string) int {
+	switch {
+	case a < b:
+		return -1
+	case a > b:
+		return 1
+	}
+	return 0
+}

@@ -203,6 +203,43 @@ func TestASearchScoresEveryReleaseAgainstTheVersionsProfile(t *testing.T) {
 	}
 }
 
+func TestASearchReadsTheCodecsAndAudioOffAReleaseName(t *testing.T) {
+	r := newRig(t)
+	if err := r.idx.Publish(indexer.Release{
+		Title: betterEnglish, IMDBID: "tt1109624", TMDBID: 116149, Size: 8 << 30, PublishDate: r.clock.now.Add(-time.Hour), Categories: []int{2040},
+	}, []byte("<nzb>x</nzb>")); err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := r.found(t, res, betterEnglish)
+	if f.VideoCodec != "H.264" || f.HDR != "" || f.AudioCodec != "DDP" || f.AudioChannels != "5.1" {
+		t.Errorf("media = %q %q %q %q, want H.264, none, DDP, 5.1", f.VideoCodec, f.HDR, f.AudioCodec, f.AudioChannels)
+	}
+}
+
+func TestASearchPassesOnWhatTheIndexerSaysAboutARelease(t *testing.T) {
+	r := newRig(t)
+	err := r.idx.Publish(indexer.Release{
+		Title: hd1080, IMDBID: "tt1109624", TMDBID: 116149, Size: 8 << 30, PublishDate: r.clock.now.Add(-time.Hour), Categories: []int{2040},
+		InfoURL: "https://alpha.example/details/1", Grabs: 412, Group: "NTb",
+	}, []byte("<nzb>x</nzb>"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f := r.found(t, res, hd1080); f.InfoURL == "" || f.Grabs != 412 || f.Group != "NTb" {
+		t.Errorf("info = %q, grabs = %d, group = %q, want the indexer's", f.InfoURL, f.Grabs, f.Group)
+	}
+}
+
 func TestATextHitIsKeptOnlyWhenItIsTheSameTitle(t *testing.T) {
 	r := newRig(t)
 	for _, name := range []string{hd1080, "Paddington.Brown.2014.1080p.BluRay.x264-GRP"} {
@@ -453,5 +490,33 @@ func TestAReleaseFromAnotherTitlesSearchCannotBeGrabbedForThisVersion(t *testing
 
 	if _, err := r.svc.Grab(ctx, 999, f.ID, false); !errors.Is(err, library.ErrNotFound) {
 		t.Errorf("err = %v, want library.ErrNotFound", err)
+	}
+}
+
+func fitOfSearches(t *testing.T, r *rig) (rows int, fit int) {
+	t.Helper()
+	if err := r.deps.Store.Read().QueryRow(`SELECT COUNT(*), COALESCE(SUM(fit), 0) FROM indexer_searches`).Scan(&rows, &fit); err != nil {
+		t.Fatal(err)
+	}
+	return rows, fit
+}
+
+func TestASearchMarksTheIndexerFitWhenItReturnedAReleaseForAVersionsSlot(t *testing.T) {
+	r := newRig(t)
+	r.publish(t, uhd, time.Hour) // a 2160p release: no Standard Version fits it
+
+	if _, err := r.svc.Search(context.Background(), r.versions[slot.Standard]); err != nil {
+		t.Fatal(err)
+	}
+	if rows, fit := fitOfSearches(t, r); rows != 1 || fit != 0 {
+		t.Fatalf("after a search that found only 2160p: %d searches, %d fit", rows, fit)
+	}
+
+	r.publish(t, hd1080, time.Hour)
+	if _, err := r.svc.Search(context.Background(), r.versions[slot.Standard]); err != nil {
+		t.Fatal(err)
+	}
+	if rows, fit := fitOfSearches(t, r); rows != 2 || fit != 1 {
+		t.Errorf("after a search that found a 1080p one: %d searches, %d fit, want 2 and 1", rows, fit)
 	}
 }

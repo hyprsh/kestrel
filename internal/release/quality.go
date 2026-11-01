@@ -216,3 +216,19 @@ func (t qualityTable) unknown() Quality {
 	}
 	return Quality{}
 }
+
+// Qualities lists the qualities a kind knows, in its table's order, without the
+// Unknown one and without the pre-release ones that have no resolution.
+func Qualities(kind Kind) []Quality {
+	table := sonarrQualities
+	if kind == KindMovie {
+		table = radarrQualities
+	}
+	var out []Quality
+	for _, q := range table {
+		if q.ID != 0 && q.Source != SourceCAM && q.Source != SourceTelesync && q.Source != SourceTelecine && q.Source != SourceWorkprint {
+			out = append(out, q)
+		}
+	}
+	return out
+}

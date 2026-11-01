@@ -110,10 +110,13 @@ describe('the command menu', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     await userEvent.keyboard('{Control>}k{/Control}')
-    await screen.findByRole('dialog')
-    await userEvent.keyboard('upcom{Enter}') // first match is Go to > Upcoming
+    const again = await screen.findByRole('dialog')
+    await userEvent.keyboard('upcom')
+    // Enter picks the first row, so wait for the list to have settled on Upcoming before pressing it.
+    await within(again).findByRole('option', { name: /^Upcoming/ })
+    await userEvent.keyboard('{Enter}') // first match is Go to > Upcoming
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('banner')).toHaveTextContent('Upcoming')
+    expect(await screen.findByRole('heading', { name: 'Upcoming', level: 1 })).toBeInTheDocument()
   })
 
   it('has no footer of key hints', async () => {
@@ -152,8 +155,17 @@ describe('the command menu', () => {
     await userEvent.keyboard('zod')
     await userEvent.click(await within(menu).findByRole('option', { name: /zodiac/i }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
+  })
+
+  it('leads with Add when no Library Title matches the query', async () => {
+    fakeLibrary([row(1, 'Heat', 'Heat')])
+    renderApp()
+    const menu = await openMenu()
+    await userEvent.keyboard('qqzxv')
+    const options = await within(menu).findAllByRole('option')
+    expect(options[0]).toHaveTextContent('Add "qqzxv"…')
   })
 
   it('finds Titles fuzzily, best match first', async () => {
@@ -264,7 +276,7 @@ describe('the command menu', () => {
     await waitFor(() => expect(f.sent).toHaveLength(1))
     expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'standard', profile: 'hd-primary' }] })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /paddington/i, selected: true })).toBeInTheDocument()
   })
 
@@ -330,7 +342,7 @@ describe('the command menu', () => {
 
     expect(f.sent).toHaveLength(0)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /paddington returns/i, selected: true })).toBeInTheDocument()
   })
 

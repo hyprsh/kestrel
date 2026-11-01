@@ -50,7 +50,7 @@ describe('ProjectBanner for a Blocking row', () => {
     expect(await screen.findByRole('complementary', { name: 'Error' })).toHaveTextContent('SABnzbd is unreachable')
 
     await user.click(screen.getByRole('button', { name: 'Open in Settings' }))
-    expect(await screen.findByRole('heading', { name: /download client/i })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Download client' })).toBeInTheDocument()
 
     state.rows = []
     await user.click(screen.getByRole('button', { name: /^Overview/ }))
@@ -68,13 +68,13 @@ describe('ProjectBanner for a Blocking row', () => {
     expect(banner).not.toHaveTextContent('No indexer can search')
     await user.click(screen.getByRole('button', { name: 'Library' }))
     await user.click(screen.getByRole('button', { name: /and 2 more/ }))
-    expect(await screen.findByRole('region', { name: /happening now/i })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: /needs attention/i })).toBeInTheDocument()
   })
 
   it('shows no banner for a Warning row', async () => {
     serve({ rows: [warning()] })
     renderApp()
-    await screen.findByRole('region', { name: /happening now/i })
+    await screen.findByRole('region', { name: /needs attention/i })
     expect(screen.queryByRole('complementary', { name: 'Error' })).not.toBeInTheDocument()
   })
 

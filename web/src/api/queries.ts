@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import type { components } from './schema.gen'
 
@@ -319,7 +319,36 @@ export function usePatchProfile() {
       if (!data) throw failure(error, response)
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+    onSuccess: () => invalidateProfiles(qc),
+  })
+}
+
+/** A Profile changed, was made or went: the list, the details with their counts, and the Overview's cutoff count. */
+const invalidateProfiles = (qc: QueryClient) =>
+  Promise.all([qc.invalidateQueries({ queryKey: ['profiles'] }), qc.invalidateQueries({ queryKey: ['profile-details'] }), qc.invalidateQueries({ queryKey: ['stats'] })])
+
+/** Makes a custom Profile as a copy of another. */
+export function useCreateProfile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { name: string; copy_from: string }) => {
+      const { data, error, response } = await api.POST('/profiles', { body: v })
+      if (!data) throw failure(error, response)
+      return data
+    },
+    onSuccess: () => invalidateProfiles(qc),
+  })
+}
+
+/** Deletes a custom Profile that no Version uses. */
+export function useDeleteProfile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (key: string) => {
+      const { error, response } = await api.DELETE('/profiles/{key}', { params: { path: { key: key as components['parameters']['ProfileKey'] } } })
+      if (!response.ok) throw failure(error, response)
+    },
+    onSuccess: () => invalidateProfiles(qc),
   })
 }
 

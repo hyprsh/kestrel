@@ -6,6 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { chooseTitleItem } from '../test/titleHeader'
 import { fakeLibrary, row } from '../test/library'
 
 type Preview = components['schemas']['CleanupPreview']
@@ -100,8 +101,7 @@ describe('Clean up', () => {
     expect(previews).toEqual([{}])
 
     await user.click(screen.getByRole('button', { name: 'Library' }))
-    await user.click(await screen.findByRole('button', { name: 'More Title actions' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Clean up this Title' }))
+    await chooseTitleItem(document.body, 'Clean up…')
     await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
     expect(previews).toEqual([{}, { title_ids: [7] }])
   })

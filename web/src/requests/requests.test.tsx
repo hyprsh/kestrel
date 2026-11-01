@@ -11,7 +11,7 @@ import { server } from '../test/server'
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
 const openRequests = async () => {
-  await userEvent.click(await screen.findByRole('button', { name: 'All requests →' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Open Requests' }))
   return screen.findByRole('combobox', { name: 'Filter Requests' })
 }
 
@@ -27,7 +27,8 @@ describe('the Requests screen', () => {
     expect(rows).toHaveLength(7)
     expect(rows[0]).toHaveTextContent('Movie 1')
     expect(rows[0]).toHaveTextContent('Anna via Silo · 2 h ago')
-    expect(rows[0]).toHaveTextContent('Standard · Searching')
+    expect(within(rows[0]).getByRole('img', { name: 'Standard: Searching' })).toBeInTheDocument()
+    expect(rows[0]).toHaveTextContent('2 h ago · Searching')
     expect(location.pathname).toBe('/requests')
   })
 

@@ -103,7 +103,7 @@ An indexer is the site that lists what's on usenet. Kestrel searches it and fetc
 | **API requests per day**      | Your indexer's daily limit, or a little under it. Kestrel pauses searches to stay below it. Leave it empty for no limit. |
 | **Grabs per day**             | The same for downloads, if your indexer limits them.                                                                     |
 
-Choose **Test connection**, then **Save**. You can add more indexers later in Settings > Indexers.
+Choose **Test connection**, then **Save**. You can add more indexers later in Settings > Downloads.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/03-setup-indexer-dark.png">
@@ -159,12 +159,12 @@ You don't need to do anything else. Kestrel does this on its own:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/04-series-dark.png">
-  <img alt="A Series page with a Standard and a 4K Version, each showing how many episodes are filled and how many are Wanted" src="images/04-series-light.png">
+  <img alt="A Series page with a Standard and a 4K Version, each row showing a bar of how many episodes are filled and how many are Wanted" src="images/04-series-light.png">
 </picture>
 
-The Title page shows each Version and what it still lacks. **Search now** searches straight away, and **Manual search** lists every Release, so you can choose one yourself.
+The Title page shows each Version as a row with a bar and a line of counts (a Series' filled, Wanted and not monitored episodes, or a Movie's file or state), with its episodes below, one season at a time: pick the season from the menu next to the Episodes heading. **Search now** searches straight away, and **Manual search** lists every Release, so you can choose one yourself.
 
-**Upcoming** is the timeline of what is airing or being released, from the last two weeks to the next two months, and where each one stands.
+**Upcoming** is the timeline of what is airing or being released, from the last two weeks to the next two months, and where each one stands. Narrow it with the filter field (press `/`) or the Filter button: free text matches the Title and the episode's name, `kind:movie` or `kind:series` picks a kind, `is:wanted` and `is:imported` pick what is still to find or already in the Library, and a minus excludes (`-is:imported`). `?q=` in the address holds the filter, and a new session starts from the defaults in Settings > General > Display. On every screen with a filter field, the × in the field, Escape in it, or **Clear all** at the top of the Filter menu empties the whole filter.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/06-upcoming-dark.png">
@@ -173,14 +173,18 @@ The Title page shows each Version and what it still lacks. **Search now** search
 
 ## The Overview and Activity
 
-The **Overview** is the home screen. The **Health** button (a heart-pulse icon with a status dot, in the side bar and on a phone in the top bar) is green when all checks are OK, amber with Warnings and red with Blocking issues; hover it for "Health · 1 Blocking, 2 Warnings". It opens the Health screen and reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. Below it, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
+The **Overview** is the home screen. The rail down the left (a tab bar on a phone, with the rest under **More**) holds the Overview (the Kestrel mark, with a badge counting what needs attention), **Search or add** (`Ctrl K` or `Cmd K`, which also adds Movies and Series), Library, Upcoming, Activity, Log and Settings. The **Health** button (a heart-pulse icon with a status dot, at the bottom of the rail and on a phone in the top bar next to the **+** that adds a Title) is green when all checks are OK, amber with Warnings and red with Blocking issues; hover it for "Health · 1 Blocking, 2 Warnings". It opens the Health screen and reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. When something runs, an indicator above it says what and opens Health's Background jobs. **Log Out** and **Log Out Everywhere** are in Settings > Account (and under **More** on a phone), and **About**, with the version and the keyboard shortcuts, is the last page of Settings. A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. The figures for the range you pick (Grabs, Indexers, the download client, Quality, Storage, Release groups and Requests) sit above and below it. At the bottom, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
 
-**Activity** has two views, each with its own address. The menu at the start of the top bar (it shows the current view, such as "Grabs") switches between them:
+**Activity** (`/activity`) shows every Grab from Searching to Done, in stage order: Searching, Queued, Downloading, Post-processing, Importing, Stalled, Done and Failed. The side panel's Views (Everything, In progress, Imported, Failed) narrow it to some of them, and a Grab opens to show its steps. While a search pass runs, the Searching stage shows it like a download: what is being searched now, a progress bar with how many Wanted Versions are done and the time left, and how many releases have been checked and Grabs made so far. Between passes it says what waits, when the next pass starts and how the last one went. Narrow it further with the filter field or the Filter button (`stage:` takes the stage names).
 
-- **Grabs** (`/activity`) shows every Grab from Searching to Done, grouped by stage. Narrow it with the filter field or the Filter button, which lists the stages with how many Grabs each holds.
-- **Background Jobs** (`/activity/jobs`) shows what Kestrel is running now and when each periodic job last ran and runs next.
+**Health** (`/health`) is a screen of its own, opened by the Health button; it is not in the side bar's list of screens. It opens with the verdict in words, then has three sections, chosen in the side panel and each with its own address:
 
-**Health** (`/health`) is a screen of its own, opened by the Health button; it is not in the side bar's list of screens. It shows every check: the download client, each indexer, each disk and the rest, failing ones first. It counts problems, warnings and OK checks. The old `/activity/health` address still works and opens it.
+- **Running now** (`/health/running`) lists what Kestrel is running at this moment.
+
+- **Checks** (`/health/checks`) shows every check in groups: the download client, each indexer, each disk and the rest, failing ones first. It counts problems, warnings and OK checks.
+- **Background jobs** (`/health/jobs`) shows what Kestrel is running now and when each periodic job last ran and runs next. The indicator above the Health button that says what is running opens it. Its Search job shows the same progress as Activity's Searching stage and has a **Search all Wanted** button, the same as the command menu's, which is off while a search pass is running or nothing is Wanted. A search you start from there, from the command menu or with **Run now** shows one Toast that follows the pass live and ends with a summary; passes Kestrel starts on its own show none.
+
+The old `/activity/health`, `/activity/jobs` and `/activity/running` addresses still work and open the same places.
 
 ## Where to go next
 

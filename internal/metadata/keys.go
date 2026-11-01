@@ -91,6 +91,44 @@ func (k Keys) OverridesSet(ctx context.Context) (OverridesSet, error) {
 	return OverridesSet{TMDB: tmdb != "", TVDB: tvdb != ""}, err
 }
 
+// Origin says whose key a provider call uses.
+type Origin string
+
+const (
+	// OriginOwn is a key the user supplied: set in Settings, or in KESTREL_TMDB_API_KEY / KESTREL_TVDB_API_KEY.
+	OriginOwn Origin = "own"
+	// OriginProject is the project's key built into the release.
+	OriginProject Origin = "project"
+	// OriginNone: no source has a key.
+	OriginNone Origin = ""
+)
+
+// Origins is whose key each provider uses.
+type Origins struct{ TMDB, TVDB Origin }
+
+// Origins reports, by the same precedence as TMDB and TVDB, whether each provider runs on the user's own key
+// or on the project's.
+func (k Keys) Origins(ctx context.Context) (Origins, error) {
+	of := func(field, env, embedded string) (Origin, error) {
+		v, err := k.override(ctx, field)
+		switch {
+		case err != nil:
+			return OriginNone, err
+		case v != "", env != "":
+			return OriginOwn, nil
+		case embedded != "":
+			return OriginProject, nil
+		}
+		return OriginNone, nil
+	}
+	tmdb, err := of("tmdb_api_key", k.Env, k.Embedded)
+	if err != nil {
+		return Origins{}, err
+	}
+	tvdb, err := of("tvdb_api_key", k.TVDBEnv, k.TVDBEmbedded)
+	return Origins{TMDB: tmdb, TVDB: tvdb}, err
+}
+
 // SetOverrides saves the UI's key overrides: nil leaves a key as it is, an
 // empty string clears it so the next source in the precedence applies.
 func (k Keys) SetOverrides(ctx context.Context, tmdb, tvdb *string) error {

@@ -5,9 +5,11 @@
 // download's progress moves without the Library being fetched again.
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
-import { percent } from '../format'
+import { percent, plural } from '../format'
 import { ago, clockTime, span } from '../time'
-import { size as bytes, slotKeys, slotLabel, type SlotKey } from './bits'
+import { expandCodes } from './cellDetail'
+import { size as bytes } from './bits'
+import { slotName } from './slots'
 
 export type Tone = 'error' | 'warning' | 'info' | 'quiet'
 
@@ -62,10 +64,8 @@ function episodes(g: QueueItem): string {
   return e.length <= 1 ? (e[0] ?? 'Episodes') : `${e[0]}–${e[e.length - 1]}`
 }
 
-type Slot = NonNullable<TitleRow['slots']['standard']>
-
-/** The Title's Versions with their Slots, Standard first. */
-const kept = (r: TitleRow) => slotKeys.flatMap((k) => (r.slots[k] ? [{ slot: k, v: r.slots[k] as Slot }] : []))
+/** The Title's Versions with their Slots, in Slot order. */
+const kept = (r: TitleRow) => r.slot_states.map((v) => ({ slot: v.slot as string, v }))
 
 /** Whether a Grab fills a Version that has nothing yet (or a misfit), rather than Upgrading a file. */
 const filling = (g: QueueItem) => !g.is_upgrade
@@ -80,29 +80,38 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
   const vs = kept(r)
   const two = vs.length > 1
   const w = r.wanted_episodes
-  const downloading = new Set(grabs.filter(filling).flatMap((g) => g.episodes)).size
   if (r.kind === 'series' && w && w.wanted > 0) {
+    // A season pack that also holds filled episodes counts as an Upgrade, so any Grab counts here; the Wanted ones are all that can be downloading.
+    const downloading = Math.min(w.wanted, new Set(grabs.flatMap((g) => expandCodes(g.episodes))).size)
     const text = `${seasons(w.seasons)}: ${w.wanted} Wanted${downloading > 0 ? `, ${downloading} downloading` : ''}`
     return w.long_missing > 0 ? { text: `Long Missing · ${text}`, tone: 'error' } : { text, tone: 'warning' }
   }
   const [g] = grabs
   if (g) {
     const verb = g.is_upgrade ? 'upgrading' : 'downloading'
-    const what = r.kind === 'series' ? episodes(g) : two && g.slot ? slotLabel[g.slot] : null
+    const what = r.kind === 'series' ? episodes(g) : two && g.slot ? slotName(g.slot) : null
     const lead = what ? `${what} ${verb}` : verb[0].toUpperCase() + verb.slice(1)
     return { text: `${lead} · ${progress(g)}`, tone: 'info' }
   }
+  if (!r.monitored) return { text: 'Not monitored', tone: 'quiet' }
   const long = vs.filter((x) => x.v.long_missing)
   const wanted = vs.filter((x) => x.v.state === 'wanted')
   // A Slot is named when only some of the Title's Versions are in the state.
-  const which = (some: typeof vs) => (two && some.length < vs.length ? `${slotLabel[some[0].slot]} ` : '')
+  const which = (some: typeof vs) => (two && some.length < vs.length ? `${slotName(some[0].slot)} ` : '')
   if (long.length > 0) return { text: `Long Missing · ${which(long)}Wanted for ${days(now - Date.parse(r.wanted_since ?? r.added_at))}`, tone: 'error' }
   if (wanted.length > 0) {
     const since = r.wanted_since ? `Wanted for ${days(now - Date.parse(r.wanted_since))}` : 'Wanted'
     return { text: `${which(wanted)}${since} · ${searched(r.searched_at, now)}`, tone: 'warning' }
   }
-  if (vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored')) return { text: 'Unmonitored', tone: 'quiet' }
+  if (vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored')) return { text: 'Not monitored', tone: 'quiet' }
   if (vs.some((x) => x.v.state === 'unreleased') && !vs.some((x) => x.v.state === 'filled')) return { text: 'Not out yet', tone: 'quiet' }
+  const upgrading = vs.filter((x) => x.v.upgrade_wanted)
+  if (upgrading.length > 0) {
+    // Series: how many episodes sit below the Profile's cutoff; a Movie names the Slot when only some of its Versions do.
+    const episodes = upgrading.reduce((n, x) => n + (x.v.episodes_upgrade ?? 0), 0)
+    const text = r.kind === 'series' && episodes > 0 ? `Upgrade wanted \u00b7 ${plural(episodes, 'episode')} below cutoff` : `${which(upgrading)}Upgrade wanted \u00b7 below cutoff`.trim()
+    return { text: text[0].toUpperCase() + text.slice(1), tone: 'warning' }
+  }
   return { text: holding(r, vs, now, opts.size ?? false), tone: 'quiet' }
 }
 
@@ -111,7 +120,7 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
  * keeps two), its size, and when it was added if lately; "Filled" when none of that says anything.
  */
 function holding(r: TitleRow, vs: ReturnType<typeof kept>, now: number, withSize: boolean): string {
-  const filled = vs.filter((x) => x.v.state === 'filled').map((x) => slotLabel[x.slot])
+  const filled = vs.filter((x) => x.v.state === 'filled').map((x) => slotName(x.slot))
   const slots = vs.length > 1 && filled.length > 0 ? (filled.length === vs.length ? filled.join(' & ') : `${filled.join(' & ')} filled`) : null
   const added = now - Date.parse(r.added_at) < 7 * DAY ? `added ${ago(r.added_at, now)}` : null
   const parts = [r.primary_title !== r.title ? r.primary_title : null, slots, withSize && r.size > 0 ? bytes(r.size) : null, added]
@@ -119,15 +128,12 @@ function holding(r: TitleRow, vs: ReturnType<typeof kept>, now: number, withSize
   return text ? text[0].toUpperCase() + text.slice(1) : 'Filled'
 }
 
-/** The Slots as the dots show them: a Wanted Version a Grab is filling is downloading. */
-export function shownSlots(r: TitleRow, grabs: readonly QueueItem[]): TitleRow['slots'] {
-  const out = { ...r.slots }
-  for (const g of grabs) {
-    const k = g.slot as SlotKey | null
-    const v = k ? out[k] : null
-    if (k && v && filling(g) && v.state === 'wanted') out[k] = { ...v, state: 'downloading' }
-  }
-  return out
+/** Whether a Title is monitored, as GET /titles says: a Movie's flag, a Series' mode not being Not monitored. */
+export const isMonitoredRow = (r: TitleRow) => r.monitored
+
+/** The Slots as the chips show them, in Slot order: a Wanted Version a Grab is filling is downloading. */
+export function shownSlots(r: TitleRow, grabs: readonly QueueItem[]): TitleRow['slot_states'] {
+  return r.slot_states.map((v) => (v.state === 'wanted' && grabs.some((g) => g.slot === v.slot && filling(g)) ? { ...v, state: 'downloading' } : v))
 }
 
 /** The grid's poster badge: Long Missing, or how far a Grab has got. */

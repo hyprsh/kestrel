@@ -52,7 +52,7 @@ function fakePlugins(opts: { fresh?: boolean; saved?: boolean; declared?: boolea
     http.post('/plugin-instances/{id}/test', async ({ request, response }) => {
       const body = (await request.json()) as { config: Record<string, unknown> }
       sent.push({ path: 'test saved', body })
-      return response(200).json(result(body.config))
+      return response(200).json(result(body.config ?? {}))
     }),
     http.post('/plugins/{plugin_id}/options/{field}', async ({ request, params, response }) => {
       sent.push({ path: `options ${params.field}`, body: await request.json() })
@@ -142,106 +142,114 @@ describe('the wizard SABnzbd section', () => {
 })
 
 describe('Settings download client', () => {
+  type Live = { state: 'ok' | 'failing'; message?: string | null; version?: string | null; downloading?: number | null; queued?: number | null; free_bytes?: number | null }
+  const serveLive = (live: Live | null) =>
+    server.use(
+      http.get('/settings/downloads', ({ response }) =>
+        response(200).json({
+          download_client: live && {
+            instance_id: 7,
+            name: 'SABnzbd',
+            state: live.state,
+            message: live.message ?? null,
+            version: live.version ?? null,
+            checked_at: new Date().toISOString(),
+            downloading: live.downloading ?? null,
+            queued: live.queued ?? null,
+            free_bytes: live.free_bytes ?? null,
+          },
+          indexers: [],
+        }),
+      ),
+    )
   const open = async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Downloads' }))
     return within(await screen.findByRole('region', { name: 'Download client' }))
   }
   const edit = async () => {
     const section = await open()
-    await userEvent.click(await section.findByRole('button', { name: 'Edit SABnzbd' }))
-    return section
+    await userEvent.click(await section.findByRole('button', { name: 'Edit…' }))
+    return within(await screen.findByRole('dialog', { name: 'SABnzbd' }))
   }
 
-  it('shows one compact row, with the connection form closed until Edit', async () => {
+  it('shows the client with its status, version and when it was checked, and the strip of facts', async () => {
     fakePlugins({ saved: true })
+    serveLive({ state: 'ok', version: '4.3.2', downloading: 2, queued: 1, free_bytes: 1.1 * 1024 ** 4 })
     const section = await open()
-    expect(await section.findByRole('listitem')).toHaveTextContent(/^SABnzbdSABnzbdEdit$/)
-    expect(section.getByLabelText('SABnzbd enabled')).toBeChecked()
-    expect(section.queryByLabelText('URL')).not.toBeInTheDocument()
-    expect(section.queryByRole('button', { name: 'Add download client' })).not.toBeInTheDocument() // v1 runs one
+    expect(await section.findByText('SABnzbd')).toBeInTheDocument()
+    expect(await section.findByText('Connected · version 4.3.2 · checked just now')).toBeInTheDocument()
+    expect(section.getByText('sab:8080')).toBeInTheDocument()
+    expect(section.getByText('movies · tv')).toBeInTheDocument()
+    expect(section.getByText('2 downloading, 1 waiting')).toBeInTheDocument()
+    expect(section.getByText('1.1 TB')).toBeInTheDocument()
+    expect(section.queryByLabelText('URL')).not.toBeInTheDocument() // the form is closed until Edit…
+  })
+
+  it('shows the error in red when the client does not answer, and Unknown for what it could not read', async () => {
+    fakePlugins({ saved: true })
+    serveLive({ state: 'failing', message: 'cannot reach SABnzbd: connection refused' })
+    const section = await open()
+    expect(await section.findByText('Failing · cannot reach SABnzbd: connection refused')).toBeInTheDocument()
+    expect(section.getAllByText('Unknown')).toHaveLength(2)
+  })
+
+  it('tests the saved connection from the card and tells the result', async () => {
+    const sent = fakePlugins({ saved: true })
+    serveLive({ state: 'ok', version: '4.3.2' })
+    const section = await open()
+    await userEvent.click(await section.findByRole('button', { name: 'Test' }))
+    expect(await findToast('SABnzbd: SABnzbd 4.5.1')).toBeInTheDocument()
+    expect(sent.at(-1)).toEqual({ path: 'test saved', body: {} })
   })
 
   it('offers to add one while there is none', async () => {
     fakePlugins()
+    serveLive(null)
     const section = await open()
-    await userEvent.click(await section.findByRole('button', { name: 'Add download client' }))
-    expect(await section.findByLabelText('URL')).toHaveValue('')
-  })
-
-  it('switches it off from the row, sending only enabled', async () => {
-    const sent = fakePlugins({ saved: true })
-    const section = await open()
-    await userEvent.click(await section.findByLabelText('SABnzbd enabled'))
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'patch', body: { enabled: false } }))
-    expect(await findToast('SABnzbd disabled')).toBeInTheDocument()
-  })
-
-  it('shows why the switch could not be saved, and says nothing was switched', async () => {
-    fakePlugins({ saved: true })
-    server.use(
-      http.patch('/plugin-instances/{id}', ({ response }) =>
-        response('default').json({ ...problem(422, 'validation'), detail: 'only 1 download_client.v1 instance can be enabled at a time' }, { status: 422 }),
-      ),
-    )
-    const section = await open()
-    await userEvent.click(await section.findByLabelText('SABnzbd enabled'))
-    expect(await section.findByRole('alert')).toHaveTextContent(/only 1 download_client.v1 instance/)
-    expect(screen.queryByText('SABnzbd disabled')).not.toBeInTheDocument()
+    await userEvent.click(await section.findByRole('button', { name: 'Add download client…' }))
+    expect(await screen.findByLabelText('URL')).toHaveValue('')
   })
 
   it('never shows the saved API key and keeps it unless a new one is typed', async () => {
     const sent = fakePlugins({ saved: true })
-    const section = await edit()
+    serveLive({ state: 'ok' })
+    const form = await edit()
 
-    const key = await section.findByLabelText('API key', { selector: 'input' })
+    const key = await form.findByLabelText('API key', { selector: 'input' })
     expect(key).toHaveValue('')
     expect(key).toHaveAttribute('placeholder', expect.stringMatching(/saved/i))
-    expect(section.getByLabelText('URL')).toHaveValue('http://sab:8080')
+    expect(form.getByLabelText('URL')).toHaveValue('http://sab:8080')
 
-    await userEvent.click(section.getByRole('button', { name: 'Test connection' }))
-    expect(await section.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
+    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    expect(await form.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
     expect(sent.find((s) => s.path === 'test saved')?.body).toEqual({
       config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' }, // no api_key: the server uses the stored one
     })
 
-    await userEvent.click(section.getByRole('button', { name: 'Save' }))
-    await section.findByRole('button', { name: 'Edit SABnzbd' }) // folded back into its row
-    expect(sent.at(-1)).toEqual({ path: 'patch', body: { config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' } } })
-
-    await userEvent.click(section.getByRole('button', { name: 'Edit SABnzbd' }))
-    await userEvent.type(await section.findByLabelText('API key', { selector: 'input' }), 'good-key')
-    await userEvent.click(section.getByRole('button', { name: 'Save' }))
-    await section.findByRole('button', { name: 'Edit SABnzbd' })
-    expect(sent.at(-1)).toMatchObject({ path: 'patch', body: { config: { api_key: 'good-key' } } })
+    await userEvent.click(form.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'SABnzbd' })).not.toBeInTheDocument()) // the sheet closes
+    expect(sent.at(-1)).toMatchObject({ path: 'patch', body: { config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' } } })
   })
 
   it('shows an instance the Config File declares as read-only, and still tests it', async () => {
     fakePlugins({ saved: true, declared: true, enabledDeclared: true })
-    const section = await open()
-    expect(await section.findByText('Declared')).toBeInTheDocument()
-    expect(section.getByLabelText('SABnzbd enabled')).toBeDisabled()
-    await userEvent.click(section.getByRole('button', { name: 'Edit SABnzbd' }))
+    serveLive({ state: 'ok' })
+    const form = await edit()
+    expect(await form.findByLabelText('URL')).toBeDisabled()
+    expect(form.getByLabelText('API key', { selector: 'input' })).toBeDisabled()
+    expect(form.getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(form.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    expect(form.getByText(/Config File declares this instance/)).toBeInTheDocument()
 
-    expect(await section.findByLabelText('URL')).toBeDisabled()
-    expect(section.getByLabelText('API key', { selector: 'input' })).toBeDisabled()
-    expect(section.getByRole('button', { name: 'Save' })).toBeDisabled()
-    expect(section.getByRole('button', { name: 'Remove' })).toBeDisabled()
-    expect(section.getByText(/Config File declares this instance/)).toBeInTheDocument()
-
-    await userEvent.click(section.getByRole('button', { name: 'Test connection' }))
-    expect(await section.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
-  })
-
-  it('lets the row switch a declared instance whose enabled the Config File leaves out', async () => {
-    fakePlugins({ saved: true, declared: true })
-    const section = await open()
-    expect(await section.findByText('Declared')).toBeInTheDocument()
-    expect(section.getByLabelText('SABnzbd enabled')).toBeEnabled()
+    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    expect(await form.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
   })
 
   it('removes the instance', async () => {
     fakePlugins({ saved: true })
+    serveLive({ state: 'ok' })
     let deleted = false
     server.use(
       http.delete('/plugin-instances/{id}', ({ response }) => {
@@ -249,8 +257,8 @@ describe('Settings download client', () => {
         return response(204).empty()
       }),
     )
-    const section = await edit()
-    await userEvent.click(await section.findByRole('button', { name: 'Remove' }))
+    const form = await edit()
+    await userEvent.click(await form.findByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(deleted).toBe(true))
   })
 })

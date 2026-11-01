@@ -47,6 +47,8 @@ type ImportOutcome struct {
 	Inconclusive bool
 	// Episodes are the per-episode results of a Series Import; each goes to the Log.
 	Episodes []EpisodeOutcome
+	// Replaced is how many files in the library the Import replaced.
+	Replaced int
 }
 
 // EpisodeOutcome is what an Import did for one episode.
@@ -61,6 +63,12 @@ type EpisodeOutcome struct {
 	// File is the downloaded file; Path the imported one.
 	File string
 	Path string
+}
+
+// NoteChecking records how many downloaded files the running Import of a Grab is checking, for Activity's
+// "Importing · checking 2 files". A Grab that is not importing is left alone.
+func (s *Service) NoteChecking(ctx context.Context, grabID int64, files int) error {
+	return db.New(s.st.Write()).SetImportChecking(ctx, db.SetImportCheckingParams{ImportChecking: sql.NullInt64{Int64: int64(files), Valid: true}, ID: grabID})
 }
 
 // stallBackoff is the retry wait of a stalled Import by how long it has stalled:
@@ -156,14 +164,23 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		if err := q.FinishGrab(ctx, db.FinishGrabParams{State: state, Failure: failure, UpdatedAt: ts(now), ID: grabID}); err != nil {
 			return err
 		}
+		if o.Status == ImportDone {
+			if err := q.SetImportReplaced(ctx, db.SetImportReplacedParams{ImportReplaced: sql.NullInt64{Int64: int64(o.Replaced), Valid: true}, ID: grabID}); err != nil {
+				return err
+			}
+		}
 		s.live.drop(grabID)
 		ev := history.Event{
 			Kind: history.ImportDone, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
 			Message: "Imported " + row.ReleaseName + " as " + o.Path,
 		}
-		if o.Status == ImportDone && o.Inconclusive {
-			ev.Message += " (probe inconclusive: the parsed languages stand)"
-			ev.Data = json.RawMessage(`{"probe_inconclusive":true}`)
+		if o.Status == ImportDone {
+			data := map[string]any{"path": o.Path}
+			if o.Inconclusive {
+				ev.Message += " (probe inconclusive: the parsed languages stand)"
+				data["probe_inconclusive"] = true
+			}
+			ev.Data, _ = json.Marshal(data)
 		}
 		if o.Status == ImportRejected {
 			ev.Kind, ev.Message = history.ImportRejected, "Import of "+row.ReleaseName+" rejected: "+o.Reason

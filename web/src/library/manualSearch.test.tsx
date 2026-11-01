@@ -8,6 +8,10 @@ import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { serveDisplay } from '../test/serveDisplay'
 import { server } from '../test/server'
+import { chooseSearchItem } from '../test/titleHeader'
+import { findToast, toastRegion } from '../test/toasts'
+import { fakeQueue, queueItem } from '../test/queue'
+import { releaseList } from '../test/grabs'
 
 type Release = components['schemas']['Release']
 
@@ -47,18 +51,24 @@ const releases = () => [
 
 type Posted = { path: string; body: unknown }
 
-function fakeSearch(items: Release[], opts: { grabStatus?: number; hold?: Promise<void> } = {}) {
+function fakeSearch(items: Release[], opts: { grabStatus?: number; hold?: Promise<void>; wanted?: number } = {}) {
   const state = { searches: 0, grabs: [] as Posted[], items }
   fakeLibrary([row(1, 'Paddington', 'Paddington')])
   server.use(
     http.post('/versions/{id}/releases', ({ response }) => {
       state.searches++
-      return response(200).json({ items: state.items, indexer_errors: [] })
+      return response(200).json(releaseList({ items: state.items, wanted: opts.wanted ?? 0 }))
     }),
     http.post('/grabs', async ({ request, response }) => {
       const body = await request.clone().json()
       state.grabs.push({ path: '/grabs', body })
       await opts.hold
+      if (opts.grabStatus === 502 && state.grabs.length === 1) {
+        return response('default').json(
+          { type: 'about:blank', title: 'bad gateway', status: 502, code: 'upstream_unavailable', detail: 'SABnzbd refused it: the NZB is no longer on the indexer.' },
+          { status: 502 },
+        )
+      }
       if (opts.grabStatus === 409) {
         return response('default').json(
           { type: 'about:blank', title: 'conflict', status: 409, code: 'release_expired', detail: 'That Release is no longer in the search results; search again' },
@@ -85,163 +95,426 @@ function fakeSearch(items: Release[], opts: { grabStatus?: number; hold?: Promis
   return state
 }
 
-/** Opens manual search; most tests look at rejected Releases too, so Show rejected is turned on unless `rejected` is false. */
-async function openManualSearch({ rejected = true } = {}) {
+/** Opens manual search on the Title page of Paddington; `phone` opens it from the list. */
+async function openManualSearch() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
-  const actions = await within(pane).findByRole('group', { name: 'Title actions' })
-  await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
-  const table = await screen.findByRole('table', { name: /releases/i })
-  if (rejected) await userEvent.click(await screen.findByRole('checkbox', { name: /show rejected/i }))
-  return table
+  await chooseSearchItem(pane, /manual search/i)
+  return screen.findByRole('table', { name: /releases/i })
 }
 
 const selected = () => screen.getByRole('row', { selected: true })
+const bestFit = () => screen.getByRole('region', { name: 'Best fit' })
+const rowOf = (name: RegExp) => screen.getByRole('row', { name })
+
+const gb = 1024 ** 3
+const seriesReleases = () => [
+  release('pack', 'Show.S05.2160p.WEB-DL-NTb', {
+    score: 2350,
+    quality: 'WEBDL-2160p',
+    video_codec: 'H.265',
+    hdr: 'HDR10',
+    audio_codec: 'DDP',
+    audio_channels: '5.1',
+    size: 38 * gb,
+    season: 5,
+    pack: true,
+    episodes: [],
+    group: 'NTb',
+    grabs: 412,
+    info_url: 'https://alpha.example/details/1',
+    custom_formats: [
+      { name: 'WEB Tier 01', points: 1700 },
+      { name: 'x265 (HD)', points: -150 },
+    ],
+    covers: [
+      { season: 5, episode: 1, state: 'filled', file_score: 2100 },
+      { season: 5, episode: 2, state: 'filled', file_score: 2100 },
+      { season: 5, episode: 5, state: 'wanted' },
+      { season: 5, episode: 6, state: 'wanted' },
+    ],
+  }),
+  release('e5', 'Show.S05E05.2160p.WEB-DL-NTb', {
+    score: 2050,
+    video_codec: 'H.265',
+    hdr: 'HDR10',
+    audio_codec: 'DDP',
+    audio_channels: '5.1',
+    season: 5,
+    episodes: [5],
+    episode_titles: ['Dead Freight'],
+    group: 'NTb',
+    grabs: 412,
+    info_url: 'https://alpha.example/details/2',
+    covers: [{ season: 5, episode: 5, state: 'wanted' }],
+    custom_formats: [
+      { name: 'WEB Tier 01', points: 1700 },
+      { name: 'HDR', points: 500 },
+      { name: 'x265 (HD)', points: -150 },
+    ],
+  }),
+  release('e6', 'Show.S05E06.2160p.WEB-DL-NTb', { score: 1850, season: 5, episodes: [6], covers: [{ season: 5, episode: 6, state: 'wanted' }] }),
+  release('de', 'Show.S05.GERMAN.2160p.WEB-GRP', {
+    score: 1800,
+    languages: ['German'],
+    season: 5,
+    pack: true,
+    rejections: [{ code: 'language', message: 'Not in the language the Profile requires', overridable: true }],
+  }),
+  release('de2', 'Show.S04.GERMAN.2160p.WEB-GRP', {
+    score: 1700,
+    languages: ['German'],
+    season: 4,
+    pack: true,
+    rejections: [{ code: 'language', message: 'Not in the language the Profile requires', overridable: true }],
+  }),
+  release('bl', 'Show.S05E07.2160p.WEB-BAD', { score: 100, season: 5, episodes: [7], rejections: [{ code: 'blocklisted', message: 'On the Blocklist', overridable: false }] }),
+]
 
 describe('manual search', () => {
-  it('lists every Release with its Score, Custom Formats and rejections', async () => {
-    fakeSearch(releases())
-    const table = await openManualSearch()
+  beforeEach(() => sessionStorage.clear())
 
-    const rows = within(table).getAllByRole('row').slice(1)
-    expect(rows).toHaveLength(4)
-    expect(rows[0]).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
-    expect(rows[0]).toHaveTextContent('1,750')
-    expect(rows[0]).toHaveTextContent('Remux Tier 1')
-    expect(rows[0]).toHaveTextContent('Bluray-1080p')
-    expect(rows[0]).toHaveTextContent('Alpha')
-    expect(rows[1]).toHaveTextContent('Not in the language the Profile requires')
-    expect(rows[2]).toHaveTextContent('Fits another Slot')
-    expect(rows[3]).toHaveTextContent('On the Blocklist')
+  it('shows the Best fit with its why, facts, Custom Formats, Score and one Grab', async () => {
+    fakeSearch(seriesReleases(), { wanted: 4 })
+    await openManualSearch()
+
+    const card = await screen.findByRole('region', { name: 'Best fit' })
+    expect(card).toHaveTextContent('Best fit')
+    expect(card).toHaveTextContent('Season pack · covers 2 of 4 Wanted · replaces 2 files')
+    expect(card).toHaveTextContent('Show.S05.2160p.WEB-DL-NTb')
+    for (const fact of ['WEB-DL 2160p', 'HDR10', 'DDP 5.1', 'English', '38.0 GB', 'Alpha']) expect(within(card).getByText(fact)).toBeInTheDocument()
+    expect(card).toHaveTextContent('WEB Tier 01 +1,700')
+    expect(card).toHaveTextContent('x265 (HD) −150')
+    expect(card).toHaveTextContent('2,350')
+    expect(within(card).getAllByRole('button')).toHaveLength(1)
   })
 
-  it('labels Series Releases as a pack or by their episodes', async () => {
-    fakeSearch([release('p', 'Show.S01.1080p.WEB-DL-GRP', { season: 1, pack: true, episodes: [] }), release('e', 'Show.S01E03E04.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [3, 4] })])
-    const table = await openManualSearch()
-
-    const rows = within(table).getAllByRole('row').slice(1)
-    expect(rows[0]).toHaveTextContent('Season 1 pack')
-    expect(rows[1]).toHaveTextContent('S01E03-E04')
+  it('has no Best fit card when nothing fits', async () => {
+    fakeSearch(releases().slice(1))
+    await openManualSearch()
+    await screen.findByText('No Release fits the Profile.')
+    expect(screen.queryByRole('region', { name: 'Best fit' })).not.toBeInTheDocument()
   })
 
-  it('shows only the accepted Releases at first, says how many rejected ones are hidden, and brings them back on request', async () => {
+  it('puts the status in a line under the heading: indexers, releases, how many fit, and a failed indexer with a retry', async () => {
+    const state = fakeSearch(releases())
+    server.use(
+      http.post('/versions/{id}/releases', ({ response }) => {
+        state.searches++
+        return response(200).json(
+          releaseList({
+            items: releases(),
+            indexers_searched: 4,
+            wanted: 1,
+            indexer_errors: [{ indexer_id: 1, indexer: 'Alpha', code: 'rate_limited', message: 'Request limit reached', retry_after: 90 }],
+          }),
+        )
+      }),
+    )
+    await openManualSearch()
+
+    expect(screen.getByRole('heading', { name: 'Manual search' })).toBeInTheDocument()
+    const line = await screen.findByText(/4 indexers searched/)
+    expect(line).toHaveTextContent('0 s ago · 4 releases · 1 fit the Profile · Alpha: Request limit reached (retry in 90 s), retry')
+    expect(screen.getByText('Standard · HD')).toBeInTheDocument()
+    expect(screen.getByText('1 Wanted')).toBeInTheDocument()
+
+    await userEvent.click(within(line).getByRole('button', { name: 'retry' }))
+    await waitFor(() => expect(state.searches).toBe(2))
+  })
+
+  it('searches again from the refresh button', async () => {
+    const state = fakeSearch(releases())
+    await openManualSearch()
+    await userEvent.click(screen.getByRole('button', { name: 'Search again' }))
+    await waitFor(() => expect(state.searches).toBe(2))
+  })
+
+  it('filters by Fits, Season packs, Episodes and Rejected for a Series, and only Fits and Rejected for a Movie', async () => {
     fakeSearch(releases())
-    const table = await openManualSearch({ rejected: false })
+    await openManualSearch()
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Fits 1', 'Rejected 3'])
+    cleanup()
+    history.replaceState(null, '', '/')
 
-    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(1)
-    expect(screen.getByText(/1 Releases · 3 rejected hidden/)).toBeInTheDocument()
+    fakeSearch(seriesReleases())
+    const table = await openManualSearch()
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Fits 3', 'Season packs 1', 'Episodes 2', 'Rejected 3'])
+    // The Best fit sits on its card, not in the list.
+    expect(within(table).queryByText('Show.S05.2160p.WEB-DL-NTb')).not.toBeInTheDocument()
+    expect(within(table).getByText('Show.S05E05.2160p.WEB-DL-NTb')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
-    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(4)
-    expect(screen.queryByText(/rejected hidden/)).not.toBeInTheDocument()
-    expect(within(table).getAllByRole('row')[4]).toHaveTextContent('On the Blocklist')
+    await userEvent.click(screen.getByRole('tab', { name: /episodes/i }))
+    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(2)
+    await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(3)
+    expect(within(table).getAllByText('Not in the language the Profile requires')).toHaveLength(2)
+  })
 
-    await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
-    expect(within(table).getAllByRole('row').slice(1)).toHaveLength(1)
+  it('shows a row as name, facts line, size and age, with episode titles', async () => {
+    fakeSearch(seriesReleases())
+    await openManualSearch()
+    const row = rowOf(/Show.S05E05/)
+    expect(row).toHaveTextContent('E05 · Dead Freight · BluRay 1080p · HDR10 · English · Alpha')
+    expect(row).toHaveTextContent('8.0 GB')
+    expect(row).toHaveTextContent('2,050')
+  })
+
+  it('folds the rejected Releases into one line grouped by why, and Show lists them', async () => {
+    fakeSearch(seriesReleases())
+    const table = await openManualSearch()
+
+    const summary = within(table).getByRole('button', { name: /3 rejected/ })
+    expect(summary).toHaveTextContent('3 rejected · 2 German only · 1 blocklisted')
+    expect(within(table).queryByText('Show.S05.GERMAN.2160p.WEB-GRP')).not.toBeInTheDocument()
+
+    await userEvent.click(summary)
+    expect(within(table).getByText('Show.S05.GERMAN.2160p.WEB-GRP')).toBeInTheDocument()
+    expect(within(table).getByText('Show.S05E07.2160p.WEB-BAD')).toBeInTheDocument()
+    await userEvent.click(within(table).getByRole('button', { name: /3 rejected/ }))
+    expect(within(table).queryByText('Show.S05.GERMAN.2160p.WEB-GRP')).not.toBeInTheDocument()
   })
 
   it('offers Show rejected when every Release is rejected', async () => {
     fakeSearch(releases().slice(1))
-    const table = await openManualSearch({ rejected: false })
-
-    expect(within(table).queryAllByRole('row').slice(1)).toHaveLength(0)
-    expect(screen.getByText('Every Release is rejected.')).toBeInTheDocument()
+    const table = await openManualSearch()
+    expect(screen.getByText('No Release fits the Profile.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Show rejected' }))
-
     expect(within(table).getAllByRole('row').slice(1)).toHaveLength(3)
-    expect(screen.queryByText('Every Release is rejected.')).not.toBeInTheDocument()
   })
 
-  describe('paging', () => {
-    const many = () => Array.from({ length: 120 }, (_, i) => release(`r${i}`, `Paddington.${String(i).padStart(3, '0')}.1080p-GRP`, { score: 1000 - i }))
-    const names = (table: HTMLElement) =>
-      within(table)
-        .getAllByRole('row')
-        .slice(1)
-        .map((r) => r.textContent ?? '')
+  describe('an opened row', () => {
+    it('opens in place with Enter or a click, one at a time, and says why it scores what it does', async () => {
+      fakeSearch(seriesReleases(), { wanted: 4 })
+      const table = await openManualSearch()
 
-    it('pages 50 Releases at a time, keeps the page in the address bar and goes back to page 1 on a sort or Show rejected', async () => {
-      fakeSearch(many())
-      const table = await openManualSearch({ rejected: false })
-      expect(names(table)).toHaveLength(50)
-      expect(screen.getByText('1–50 of 120')).toBeInTheDocument()
+      await userEvent.keyboard('{Enter}')
+      const detail = within(table).getByText('Why it scores 2,050').closest('tr') as HTMLElement
+      expect(detail).toHaveTextContent('Covers')
+      expect(detail).toHaveTextContent('S05E05 · Wanted')
+      expect(detail).toHaveTextContent('QualityBluRay 1080p · H.265 · HDR10')
+      expect(detail).toHaveTextContent('AudioDDP 5.1 · English')
+      expect(detail).toHaveTextContent('Size')
+      expect(detail).toHaveTextContent('Published')
+      expect(detail).toHaveTextContent('Fits HD. The best fit scores 2,350.')
+      expect(within(detail).getByRole('button', { name: 'Grab' })).toBeInTheDocument()
+      expect(within(detail).getByRole('button', { name: 'Blocklist' })).toBeInTheDocument()
+      expect(within(detail).getByRole('button', { name: 'Copy Link' })).toBeEnabled()
 
-      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
-      expect(location.search).toContain('page=2')
-      expect(names(table)[0]).toContain('Paddington.050')
-      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
-      expect(names(table)).toHaveLength(20)
+      await userEvent.click(within(table).getByText('Show.S05E06.2160p.WEB-DL-NTb'))
+      expect(within(table).queryByText('Why it scores 2,050')).not.toBeInTheDocument()
+      expect(within(table).getByText('Why it scores 1,850')).toBeInTheDocument()
+      await userEvent.keyboard('{Enter}')
+      expect(within(table).queryByText(/Why it scores/)).not.toBeInTheDocument()
+    })
 
-      await userEvent.click(within(table).getByRole('button', { name: 'Size' }))
-      expect(location.search).not.toContain('page=')
-      expect(location.search).toContain('sort=size%3Aasc')
-      expect(names(table)).toHaveLength(50)
+    it('says the size is within the Profile’s limit, and what a Release over it was rejected for', async () => {
+      const limit = { per_episode: true, min: 1 * gb, max: 10 * gb }
+      const items = [
+        release('top', 'Show.S05E04.1080p.WEB-DL-TOP', { score: 500, season: 5, episodes: [4] }),
+        release('ep', 'Show.S05E05.1080p.WEB-DL-NTb', { score: 100, size: 6.3 * gb, season: 5, episodes: [5], size_limit: limit }),
+        release('big', 'Show.S05E06.1080p.WEB-DL-FAT', {
+          score: 90,
+          size: 14 * gb,
+          season: 5,
+          episodes: [6],
+          size_limit: limit,
+          rejections: [{ code: 'size', message: 'Over the size limit', overridable: true }],
+        }),
+        release('tiny', 'Show.S05E07.1080p.WEB-DL-TINY', {
+          score: 80,
+          size: 0.2 * gb,
+          season: 5,
+          episodes: [7],
+          size_limit: limit,
+          rejections: [{ code: 'size', message: 'Under the size limit', overridable: true }],
+        }),
+      ]
+      fakeSearch(items)
+      const table = await openManualSearch()
+      await userEvent.click(within(table).getByText('Show.S05E05.1080p.WEB-DL-NTb'))
+      expect(await screen.findByText('6.3 GB · within 1 – 10 GB per episode')).toBeInTheDocument()
+      expect(within(table).getByRole('button', { name: /2 rejected/ })).toHaveTextContent('2 rejected · 1 over the size limit · 1 under the size limit')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
-      await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
-      expect(location.search).not.toContain('page=')
-      expect(screen.getByText('1–50 of 120')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+      await userEvent.click(within(table).getByText('Show.S05E06.1080p.WEB-DL-FAT'))
+      const open = screen.getByText(/^Rejected: Over the size limit/)
+      expect(open).toHaveTextContent('Its size is 14.0 GB, and the Profile takes 1 – 10 GB per episode. You can still grab it')
+      expect(screen.getByRole('button', { name: 'Grab Anyway…' })).toBeInTheDocument()
+    })
+
+    it('lists each Custom Format with its points that add up to the Score, the group and the indexer grabs', async () => {
+      fakeSearch(seriesReleases())
+      await openManualSearch()
+      await userEvent.keyboard('{Enter}')
+
+      const why = screen.getByText('Why it scores 2,050').parentElement as HTMLElement
+      expect(within(why).getByText('WEB Tier 01').nextSibling).toHaveTextContent('+1,700')
+      expect(within(why).getByText('HDR').nextSibling).toHaveTextContent('+500')
+      expect(within(why).getByText('x265 (HD)').nextSibling).toHaveTextContent('−150')
+      expect(within(why).getByText('Score').nextSibling).toHaveTextContent('2,050')
+      const detail = why.closest('tr') as HTMLElement
+      expect(detail).toHaveTextContent('Alpha · 412 grabs')
+      expect(detail).toHaveTextContent('NTb')
+      expect(within(detail).getByRole('button', { name: 'Copy Link' })).toBeEnabled()
+    })
+
+    it('shows the rejections of a rejected row with Grab Anyway, and no Grab for one that can never be grabbed', async () => {
+      fakeSearch(seriesReleases())
+      const table = await openManualSearch()
+      await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+
+      await userEvent.click(within(table).getByText('Show.S05.GERMAN.2160p.WEB-GRP'))
+      const open = screen.getByText(/^Rejected: Not in the language/)
+      expect(open).toHaveTextContent('You can still grab it')
+      expect(screen.getByRole('button', { name: 'Grab Anyway…' })).toBeInTheDocument()
+
+      await userEvent.click(within(table).getByText('Show.S05E07.2160p.WEB-BAD'))
+      const blocked = screen.getByText(/^Rejected: On the Blocklist/)
+      expect(blocked).toHaveTextContent('never grabs')
+      expect(within(blocked.closest('tr') as HTMLElement).queryByRole('button', { name: /^Grab/ })).not.toBeInTheDocument()
+    })
+
+    it('blocklists a Release for the Version and moves it to the rejected ones', async () => {
+      fakeSearch(seriesReleases())
+      const posted: unknown[] = []
+      server.use(
+        http.post('/blocklist', async ({ request, response }) => {
+          posted.push(await request.clone().json())
+          return response(204).empty()
+        }),
+      )
+      const table = await openManualSearch()
+      await userEvent.keyboard('{Enter}')
+      await userEvent.click(screen.getByRole('button', { name: 'Blocklist' }))
+
+      await waitFor(() => expect(posted).toEqual([{ version_id: 11, release_id: 'e5' }]))
+      await screen.findByRole('button', { name: /4 rejected/ })
+      expect(within(table).queryByText('Show.S05E05.2160p.WEB-DL-NTb')).not.toBeInTheDocument()
     })
   })
 
-  it('is driven by j and k, and Enter grabs the selected Release', async () => {
-    const state = fakeSearch(releases())
-    await openManualSearch()
-    expect(selected()).toHaveTextContent('1080p.BluRay.x264-GRP')
+  describe('grabbing', () => {
+    it('sends a Release that fits and replaces nothing at once, without a dialog, and the row follows the download', async () => {
+      const state = fakeSearch(seriesReleases(), { wanted: 2 })
+      fakeQueue([queueItem({ grab_id: 7, bytes_total: 100, bytes_left: 88, eta: 1320 })])
+      const table = await openManualSearch()
+      expect(screen.getByText('2 Wanted')).toBeInTheDocument()
 
+      await userEvent.click(within(table).getByRole('button', { name: /^Grab Show.S05E05/ }))
+
+      expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'e5', override: false } }])
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      const row = await screen.findByRole('row', { name: /Show.S05E05/ })
+      expect(await within(row).findByText('Downloading · 12% · 22 min')).toBeInTheDocument()
+      expect(within(row).getByRole('progressbar')).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: 'View in Activity' })).toBeInTheDocument()
+      expect(await screen.findByText('1 downloading')).toBeInTheDocument()
+      expect(screen.getByText('1 Wanted')).toBeInTheDocument()
+      expect(await findToast('Grabbed for Standard · S05E05')).toBeInTheDocument()
+      expect(within(await toastRegion()).getByRole('button', { name: 'Back to Paddington' })).toBeInTheDocument()
+      // The other rows stay grabbable.
+      expect(within(table).getByRole('button', { name: /^Grab Show.S05E06/ })).toBeEnabled()
+    })
+
+    it('grabs the selected Release with g', async () => {
+      const state = fakeSearch(seriesReleases())
+      fakeQueue([])
+      await openManualSearch()
+      await userEvent.keyboard('j')
+      await userEvent.keyboard('g')
+      await waitFor(() => expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'e6', override: false } }]))
+    })
+
+    it('asks first when the pack would replace files, and sends it on Grab and Replace', async () => {
+      const state = fakeSearch(seriesReleases(), { wanted: 4 })
+      fakeQueue([])
+      await openManualSearch()
+
+      await userEvent.click(within(bestFit()).getByRole('button', { name: 'Grab' }))
+
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog).toHaveTextContent('Replace 2 files?')
+      expect(dialog).toHaveTextContent('S05E01 – E02')
+      expect(dialog).toHaveTextContent('Score 2,100')
+      expect(dialog).toHaveTextContent('Fills')
+      expect(dialog).toHaveTextContent('+250 each')
+      expect(dialog).toHaveTextContent('38.0 GB')
+      expect(state.grabs).toEqual([])
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(state.grabs).toEqual([])
+
+      await userEvent.click(within(bestFit()).getByRole('button', { name: 'Grab' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Grab and Replace' }))
+      await waitFor(() => expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'pack', override: false } }]))
+      expect(await within(bestFit()).findByRole('button', { name: 'View in Activity' })).toBeInTheDocument()
+    })
+
+    it('asks before "Grab Anyway" on a rejected Release and sends the override', async () => {
+      const state = fakeSearch(seriesReleases())
+      fakeQueue([])
+      const table = await openManualSearch()
+      await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+
+      await userEvent.click(within(table).getByRole('button', { name: /^Grab anyway Show.S05.GERMAN/ }))
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog).toHaveTextContent('Grab anyway?')
+      expect(dialog).toHaveTextContent('Not in the language the Profile requires')
+      expect(state.grabs).toEqual([])
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Grab Anyway' }))
+      await waitFor(() => expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'de', override: true } }]))
+    })
+
+    it('never offers to grab a Release for another Slot or a blocklisted one', async () => {
+      const state = fakeSearch(releases())
+      const table = await openManualSearch()
+      await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+
+      expect(within(table).getByRole('button', { name: /^Grab Paddington.2014.2160p/ })).toBeDisabled()
+      expect(within(table).getByRole('button', { name: /^Grab Paddington.2014.1080p.BluRay.x264-BAD/ })).toBeDisabled()
+      expect(state.grabs).toEqual([])
+    })
+
+    it('tints a failed grab red with the reason, and offers Retry and Grab Next Best', async () => {
+      const state = fakeSearch(seriesReleases(), { grabStatus: 502 })
+      const table = await openManualSearch()
+
+      await userEvent.click(within(table).getByRole('button', { name: /^Grab Show.S05E05/ }))
+
+      const row = await screen.findByRole('row', { name: /Show.S05E05/ })
+      expect(await within(row).findByText('SABnzbd refused it: the NZB is no longer on the indexer.')).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+      await userEvent.click(within(row).getByRole('button', { name: 'Grab Next Best (2,350)' }))
+      // The next best is the pack, which replaces two files: it asks first.
+      expect(await screen.findByRole('dialog')).toHaveTextContent('Replace 2 files?')
+      expect(state.grabs).toHaveLength(1)
+    })
+
+    it('searches again when the Release has expired', async () => {
+      const state = fakeSearch(releases(), { grabStatus: 409 })
+      await openManualSearch()
+      expect(state.searches).toBe(1)
+
+      await userEvent.click(within(bestFit()).getByRole('button', { name: 'Grab' }))
+
+      expect(await within(bestFit()).findByText(/no longer in the search results/i)).toBeInTheDocument()
+      await waitFor(() => expect(state.searches).toBe(2))
+    })
+  })
+
+  it('moves with j and k and goes back to the Title with Escape', async () => {
+    fakeSearch(seriesReleases())
+    await openManualSearch()
+    expect(selected()).toHaveTextContent('E05')
     await userEvent.keyboard('j')
-    expect(selected()).toHaveTextContent('FRENCH')
+    expect(selected()).toHaveTextContent('E06')
     await userEvent.keyboard('k')
-    expect(selected()).toHaveTextContent('1080p.BluRay.x264-GRP')
-
-    await userEvent.keyboard('{Enter}')
-    expect(await screen.findByText(/sent to the download client/i)).toBeInTheDocument()
-    expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'a', override: false } }])
-  })
-
-  it('offers "Grab anyway" for an overridable rejection and sends the override', async () => {
-    const state = fakeSearch(releases())
-    await openManualSearch()
-    await userEvent.keyboard('j')
-
-    const grab = screen.getByRole('button', { name: 'Grab anyway' })
-    expect(grab).toBeEnabled()
-    await userEvent.click(grab)
-
-    expect(await screen.findByText(/sent to the download client/i)).toBeInTheDocument()
-    expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'b', override: true } }])
-  })
-
-  it('never offers to grab a Release for another Slot or a blocklisted one', async () => {
-    const state = fakeSearch(releases())
-    await openManualSearch()
-
-    await userEvent.keyboard('jj') // the other-Slot Release
-    expect(screen.getByRole('button', { name: 'Grab' })).toBeDisabled()
-    await userEvent.keyboard('{Enter}')
-    await userEvent.keyboard('j') // the blocklisted one
-    expect(screen.getByRole('button', { name: 'Grab' })).toBeDisabled()
-    await userEvent.keyboard('{Enter}')
-
-    expect(state.grabs).toEqual([])
-  })
-
-  it('searches again when the Release has expired', async () => {
-    const state = fakeSearch(releases(), { grabStatus: 409 })
-    await openManualSearch()
-    expect(state.searches).toBe(1)
-
-    await userEvent.keyboard('{Enter}')
-
-    expect(await screen.findByText(/no longer in the search results/i)).toBeInTheDocument()
-    await screen.findByRole('table', { name: /releases/i })
-    expect(state.searches).toBe(2)
-  })
-
-  it('goes back to the Title with Escape', async () => {
-    fakeSearch(releases())
-    await openManualSearch()
+    expect(selected()).toHaveTextContent('E05')
+    expect(screen.getByText('j k move · ↵ open · g grab · esc back')).toBeInTheDocument()
 
     await userEvent.keyboard('{Escape}')
 
@@ -256,266 +529,84 @@ describe('manual search', () => {
     server.use(
       http.post('/versions/{id}/releases', async ({ response }) => {
         await gate
-        return response(200).json({ items: releases(), indexer_errors: [] })
+        return response(200).json(releaseList({ items: releases() }))
       }),
     )
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    const actions = await within(pane).findByRole('group', { name: 'Title actions' })
-    await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
+    await chooseSearchItem(pane, /manual search/i)
 
     const table = await screen.findByRole('table', { name: /releases/i })
     expect(table).toHaveAttribute('aria-busy', 'true')
     expect(within(table).getByRole('columnheader', { name: /release/i })).toBeInTheDocument()
 
     release()
-    await screen.findByRole('row', { name: /Paddington.2014.1080p.BluRay.x264-GRP/ })
+    await screen.findByRole('region', { name: 'Best fit' })
     expect(screen.getByRole('table', { name: /releases/i })).not.toHaveAttribute('aria-busy', 'true')
   })
 
-  it('says when an indexer could not answer', async () => {
-    fakeSearch([])
-    server.use(
-      http.post('/versions/{id}/releases', ({ response }) =>
-        response(200).json({ items: [], indexer_errors: [{ indexer_id: 1, indexer: 'Alpha', code: 'rate_limited', message: 'Request limit reached', retry_after: 90 }] }),
-      ),
-    )
-    await openManualSearch()
+  describe('paging', () => {
+    const many = () => Array.from({ length: 120 }, (_, i) => release(`r${i}`, `Paddington.${String(i).padStart(3, '0')}.1080p-GRP`, { score: 1000 - i }))
 
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Alpha: Request limit reached')
-    expect(alert).toHaveTextContent('retry in 90 s')
-  })
-
-  describe('episode titles', () => {
-    it('shows the Primary Language title next to the episode badge, TBA for an unlisted episode and none for a pack', async () => {
-      fakeSearch([
-        release('p', 'Show.S01.1080p.WEB-DL-GRP', { season: 1, pack: true, episodes: [] }),
-        release('e', 'Show.S01E03.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [3], episode_titles: ['Der Einstieg'] }),
-        release('t', 'Show.S01E09.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [9], episode_titles: [''] }),
-        release('m', 'Show.S01E01E02E03E04.1080p.WEB-DL-GRP', { season: 1, pack: false, episodes: [1, 2, 3, 4], episode_titles: ['A', 'B', 'C', 'D'] }),
-      ])
+    it('pages 50 Releases at a time, keeps the page in the address bar and goes back to page 1 on a sort', async () => {
+      fakeSearch(many())
       const table = await openManualSearch()
+      // 119 on the list: the Best fit is on its card.
+      expect(within(table).getAllByRole('row').slice(1)).toHaveLength(50)
+      expect(screen.getByText('1–50 of 119')).toBeInTheDocument()
 
-      const rows = within(table).getAllByRole('row').slice(1)
-      expect(rows[0]).toHaveTextContent('Season 1 pack')
-      expect(rows[0]).not.toHaveTextContent('·')
-      expect(rows[1]).toHaveTextContent('S01E03· Der Einstieg')
-      expect(rows[2]).toHaveTextContent('S01E09· TBA')
-      expect(within(rows[2]).getByTitle('TBA')).toBeInTheDocument()
-      expect(rows[3]).toHaveTextContent('S01E01-E04· A / B / +2 more')
-      expect(within(rows[3]).getByTitle('A · B · C · D')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
+      expect(location.search).toContain('page=2')
+      await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
+      expect(within(table).getAllByRole('row').slice(1)).toHaveLength(19)
+
+      await userEvent.click(screen.getByRole('button', { name: /^Sort releases/ }))
+      await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Smallest first' }))
+      expect(location.search).not.toContain('page=')
+      expect(location.search).toContain('sort=size%3Aasc')
+      expect(within(table).getAllByRole('row').slice(1)).toHaveLength(50)
     })
   })
 
   describe('sorting', () => {
-    const named = (id: string, over: Partial<Release>) => release(id, `Rel.${id}`, over)
-    const sortable = () => [
-      named('mid', {
-        score: 500,
-        quality: 'Bluray-1080p',
-        languages: ['German'],
-        size: 5 * 1024 ** 3,
-        published_at: '2026-10-10T12:00:00Z',
-        indexer: 'Beta',
-        custom_formats: [
-          { name: 'HDR', points: 100 },
-          { name: 'Atmos', points: 50 },
-        ],
-      }),
-      named('big', {
-        score: 900,
-        quality: 'Remux-1080p',
-        languages: ['English'],
-        size: 30 * 1024 ** 3,
-        published_at: '2026-10-15T12:00:00Z',
-        indexer: 'Alpha',
-        custom_formats: [{ name: 'Atmos', points: 50 }],
-      }),
-      named('old', {
-        score: 100,
-        quality: 'HDTV-720p',
-        languages: ['French'],
-        size: 1 * 1024 ** 3,
-        published_at: '2026-09-01T12:00:00Z',
-        indexer: 'Gamma',
-        custom_formats: [
-          { name: 'HDR', points: 100 },
-          { name: 'DV', points: 200 },
-        ],
-      }),
-      named('bad', { score: 9999, size: 99 * 1024 ** 3, rejections: [{ code: 'language', message: 'Not in the language the Profile requires', overridable: true }] }),
+    const sized = () => [
+      release('a', 'Paddington.A.1080p-GRP', { score: 900, size: 9 * gb }),
+      release('b', 'Paddington.B.1080p-GRP', { score: 800, size: 2 * gb }),
+      release('c', 'Paddington.C.1080p-GRP', { score: 700, size: 5 * gb }),
+      release('d', 'Paddington.D.1080p-GRP', { score: 100, rejections: [{ code: 'language', message: 'Not in the language the Profile requires', overridable: true }] }),
     ]
-    const order = (table: HTMLElement) =>
+    const names = (table: HTMLElement) =>
       within(table)
         .getAllByRole('row')
         .slice(1)
-        .map((r) => /Rel\.(big|mid|old|bad)/.exec(r.textContent ?? '')?.[1])
-    const header = (name: string) => screen.getByRole('button', { name })
+        .map((r) => r.textContent ?? '')
 
-    it('is best first by default, with the Score header marked', async () => {
-      fakeSearch(sortable())
+    it('is best first by default and sorts from the Best first menu, keeping the choice for the next search', async () => {
+      fakeSearch(sized())
       const table = await openManualSearch()
+      expect(screen.getByRole('button', { name: 'Sort releases: Best first' })).toBeInTheDocument()
+      expect(names(table)[0]).toContain('Paddington.B')
 
-      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
-      expect(screen.getByRole('columnheader', { name: 'Score' })).toHaveAttribute('aria-sort', 'descending')
-      expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'none')
-    })
+      await userEvent.click(screen.getByRole('button', { name: 'Sort releases: Best first' }))
+      await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Smallest first' }))
+      expect(names(table)[0]).toContain('Paddington.B')
+      await userEvent.click(screen.getByRole('button', { name: 'Sort releases: Smallest first' }))
+      await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Largest first' }))
+      expect(names(table)[0]).toContain('Paddington.C')
 
-    it.each([
-      ['Score', ['old', 'mid', 'big', 'bad'], ['big', 'mid', 'old', 'bad']],
-      ['Release', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
-      ['Quality', ['mid', 'old', 'big', 'bad'], ['big', 'old', 'mid', 'bad']],
-      ['Languages', ['big', 'old', 'mid', 'bad'], ['mid', 'old', 'big', 'bad']],
-      ['Custom formats', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
-      ['Size', ['old', 'mid', 'big', 'bad'], ['big', 'mid', 'old', 'bad']],
-      ['Age', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
-      ['Indexer', ['big', 'mid', 'old', 'bad'], ['old', 'mid', 'big', 'bad']],
-    ] as const)('sorts by %s, ascending then descending, with the rejected Release always last', async (column, asc, desc) => {
-      fakeSearch(sortable())
-      const table = await openManualSearch()
-
-      await userEvent.click(header(column))
-      expect(screen.getByRole('columnheader', { name: column })).toHaveAttribute('aria-sort', 'ascending')
-      expect(order(table)).toEqual(asc)
-
-      await userEvent.click(header(column))
-      expect(screen.getByRole('columnheader', { name: column })).toHaveAttribute('aria-sort', 'descending')
-      expect(order(table)).toEqual(desc)
-    })
-
-    it('brings best first back with one click', async () => {
-      fakeSearch(sortable())
-      const table = await openManualSearch()
-      await userEvent.click(header('Size'))
-
-      await userEvent.click(screen.getByRole('button', { name: 'Best first' }))
-
-      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
-      expect(screen.queryByRole('button', { name: 'Best first' })).not.toBeInTheDocument()
-    })
-
-    it('pins the Releases with a Custom Format to the top, unpins on a second click, and keeps rejected ones last', async () => {
-      const items = sortable()
-      items[3] = { ...items[3], custom_formats: [{ name: 'HDR', points: 100 }] }
-      fakeSearch(items)
-      const table = await openManualSearch()
-      const chip = () => within(table).getAllByRole('button', { name: 'HDR' })[0]
-
-      await userEvent.click(chip())
-      expect(order(table)).toEqual(['mid', 'old', 'big', 'bad'])
-      expect(chip()).toHaveAttribute('aria-pressed', 'true')
-
-      await userEvent.click(chip())
-      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
-      expect(chip()).toHaveAttribute('aria-pressed', 'false')
-    })
-
-    it('remembers the sort and the pinned Custom Format for the next manual search', async () => {
-      fakeSearch(sortable())
-      let table = await openManualSearch()
-      await userEvent.click(header('Size'))
-      await userEvent.click(within(table).getAllByRole('button', { name: 'Atmos' })[0])
-      await userEvent.keyboard('{Escape}')
-      await screen.findByRole('listitem', { name: 'Standard' })
-
-      const pane = await screen.findByRole('region', { name: /paddington/i })
-      const actions = await within(pane).findByRole('group', { name: 'Title actions' })
-      await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
-      table = await screen.findByRole('table', { name: /releases/i })
-      await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
-
-      expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
-      expect(order(table)).toEqual(['mid', 'big', 'old', 'bad'])
-    })
-
-    it('makes j, k and Enter follow the sorted order', async () => {
-      const state = fakeSearch(sortable())
+      cleanup()
+      history.replaceState(null, '', '/')
+      fakeSearch(sized())
       await openManualSearch()
-      await userEvent.click(header('Size')) // old, mid, big, bad
-
-      expect(selected()).toHaveTextContent('Rel.old')
-      await userEvent.keyboard('j')
-      expect(selected()).toHaveTextContent('Rel.mid')
-      await userEvent.keyboard('{Enter}')
-
-      expect(await screen.findByText(/sent to the download client/i)).toBeInTheDocument()
-      expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'mid', override: false } }])
+      expect(screen.getByRole('button', { name: 'Sort releases: Largest first' })).toBeInTheDocument()
     })
 
-    it('sorts from the keyboard: the headers are buttons', async () => {
-      fakeSearch(sortable())
-      const table = await openManualSearch()
-
-      header('Indexer').focus()
-      await userEvent.keyboard('{Enter}')
-
-      expect(order(table)).toEqual(['big', 'mid', 'old', 'bad'])
-      expect(screen.getByRole('columnheader', { name: 'Indexer' })).toHaveAttribute('aria-sort', 'ascending')
-    })
-  })
-
-  describe('feedback on a Grab', () => {
-    const grabbed = (name: string) =>
-      within(screen.getByRole('table', { name: /releases/i }))
-        .getAllByRole('row')
-        .find((r) => r.textContent?.includes(name))!
-
-    it('shows "Grabbing…" with a spinner from the trigger until the request settles', async () => {
-      let release!: () => void
-      const state = fakeSearch(releases(), { hold: new Promise<void>((r) => (release = r)) })
+    it("starts on the household's default sort", async () => {
+      fakeSearch(sized())
+      serveDisplay({ manual_search_sort: 'size_asc' })
       await openManualSearch()
-
-      await userEvent.keyboard('{Enter}')
-      const button = await screen.findByRole('button', { name: /grabbing/i })
-      expect(button).toBeDisabled()
-      expect(button).toHaveTextContent('Grabbing…')
-      await userEvent.keyboard('{Enter}') // a second trigger does nothing
-      expect(state.grabs).toHaveLength(1)
-
-      release()
-      expect(await screen.findByRole('button', { name: 'Grab' })).toBeEnabled()
-    })
-
-    it('confirms the Release in a live region with a link to Activity, and keeps it when the selection moves', async () => {
-      fakeSearch(releases())
-      await openManualSearch()
-      await userEvent.keyboard('{Enter}')
-
-      const confirmation = (await screen.findByText(/sent to the download client/i)).closest('[aria-live]') as HTMLElement
-      expect(confirmation).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
-
-      await userEvent.keyboard('j')
-      expect(screen.getByText(/sent to the download client/i)).toBeInTheDocument()
-      expect(confirmation).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
-
-      await userEvent.click(within(confirmation).getByRole('button', { name: 'View in Activity' }))
-      expect(location.pathname + location.search).toBe('/activity?q=grab%3A7')
-    })
-
-    it('marks the grabbed Release, through selection changes and a sort change', async () => {
-      fakeSearch(releases())
-      await openManualSearch()
-      expect(screen.queryByText('Grabbed')).not.toBeInTheDocument()
-      await userEvent.keyboard('{Enter}')
-      await screen.findByText(/sent to the download client/i)
-      expect(within(grabbed('Paddington.2014.1080p.BluRay.x264-GRP')).getByText('Grabbed')).toBeInTheDocument()
-
-      await userEvent.keyboard('jj')
-      await userEvent.click(screen.getByRole('columnheader', { name: /^size/i }))
-      expect(screen.getAllByText('Grabbed')).toHaveLength(1)
-      expect(within(grabbed('Paddington.2014.1080p.BluRay.x264-GRP')).getByText('Grabbed')).toBeInTheDocument()
-    })
-
-    it('shows the error and marks nothing when the Grab fails', async () => {
-      fakeSearch(releases(), { grabStatus: 409 })
-      await openManualSearch()
-      await userEvent.keyboard('{Enter}')
-
-      expect(await screen.findByText(/no longer in the search results/i)).toBeInTheDocument()
-      expect(screen.queryByText('Grabbed')).not.toBeInTheDocument()
-      expect(screen.queryByText(/sent to the download client/i)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Sort releases: Smallest first' })).toBeInTheDocument()
     })
   })
 })
@@ -527,173 +618,41 @@ describe('manual search on a phone', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  async function openPhoneSearch({ rejected = true } = {}) {
+  async function openPhoneSearch() {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await within(await screen.findByRole('listbox', { name: /library/i })).findByRole('option', { name: /paddington/i }))
-    const actions = await screen.findByRole('group', { name: 'Title actions' })
-    await userEvent.click(within(actions).getByRole('button', { name: /manual search/i }))
-    const list = await screen.findByRole('list', { name: /releases/i })
-    if (rejected) await userEvent.click(await screen.findByRole('checkbox', { name: /show rejected/i }))
-    return list
+    await chooseSearchItem(document.body, /manual search/i)
+    return screen.findByRole('list', { name: /releases/i })
   }
 
-  it('stacks each Release: name and Score, then Quality, Size, Age and Indexer as Pills, and why it was rejected', async () => {
-    fakeSearch(releases())
+  it('has a header with back, title and options, the Best fit with a full-width Grab, filter chips and a Grab button per row', async () => {
+    const state = fakeSearch(seriesReleases())
+    fakeQueue([])
     const list = await openPhoneSearch()
 
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    const rows = within(list).getAllByRole('listitem')
-    expect(rows).toHaveLength(4)
-    expect(rows[0]).toHaveTextContent('Paddington.2014.1080p.BluRay.x264-GRP')
-    expect(rows[0]).toHaveTextContent('1,750')
-    expect(rows[0]).toHaveTextContent('Bluray-1080p')
-    expect(rows[0]).toHaveTextContent('8.0 GB')
-    expect(rows[0]).toHaveTextContent('Alpha')
-    expect(rows[0]).toHaveTextContent('Remux Tier 1')
-    expect(rows[1]).toHaveTextContent('Not in the language the Profile requires')
-    expect(rows[2]).toHaveTextContent('Fits another Slot')
-    expect(rows[3]).toHaveTextContent('On the Blocklist')
+    expect(screen.getByRole('heading', { name: 'Manual search' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to Paddington' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Manual search options' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Fits 3', 'Packs 1', 'Episodes 2', 'Rejected 3'])
+    expect(within(await screen.findByRole('region', { name: 'Best fit' })).getByRole('button', { name: 'Grab' })).toBeInTheDocument()
+
+    await userEvent.click(within(list).getByRole('button', { name: /^Grab Show.S05E06/ }))
+    await waitFor(() => expect(state.grabs).toHaveLength(1))
   })
 
-  it('puts Back on its own line above the title', async () => {
-    fakeSearch(releases())
+  it('opens a row when it is tapped, with its score breakdown', async () => {
+    fakeSearch(seriesReleases())
+    const list = await openPhoneSearch()
+    await userEvent.click(within(list).getByText('Show.S05E05.2160p.WEB-DL-NTb'))
+    expect(await screen.findByText('Why it scores 2,050')).toBeInTheDocument()
+  })
+
+  it('sorts from the options menu', async () => {
+    fakeSearch(seriesReleases())
     await openPhoneSearch()
-
-    const section = screen.getByRole('region', { name: 'Manual search' })
-    expect(within(section).getByRole('button', { name: /paddington/i })).toBeInTheDocument()
-    expect(within(section).getByText(/Profile .* · 4 Releases · best first/)).toBeInTheDocument()
-  })
-
-  it('names each sort in plain words', async () => {
-    fakeSearch(releases())
-    await openPhoneSearch()
-
-    const options = within(screen.getByRole('combobox', { name: /sort/i })).getAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual([
-      'Best first',
-      'Worst first',
-      'Release A to Z',
-      'Release Z to A',
-      'Quality A to Z',
-      'Quality Z to A',
-      'Languages A to Z',
-      'Languages Z to A',
-      'Custom formats: fewest points first',
-      'Custom formats: most points first',
-      'Smallest first',
-      'Largest first',
-      'Newest first',
-      'Oldest first',
-      'Indexer A to Z',
-      'Indexer Z to A',
-    ])
-  })
-
-  it('shows only the accepted Releases at first and brings the rejected ones back with Show rejected', async () => {
-    fakeSearch(releases())
-    const list = await openPhoneSearch({ rejected: false })
-
-    expect(within(list).getAllByRole('listitem')).toHaveLength(1)
-    expect(screen.getByText(/3 rejected hidden/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('checkbox', { name: /show rejected/i }))
-
-    expect(within(list).getAllByRole('listitem')).toHaveLength(4)
-  })
-
-  it('sorts with a Select, keeps rejected rows last, and remembers the sort', async () => {
-    fakeSearch([
-      release('small', 'Rel.small', { score: 500, size: 1 * 1024 ** 3 }),
-      release('big', 'Rel.big', { score: 100, size: 20 * 1024 ** 3 }),
-      release('bad', 'Rel.bad', { score: 9999, size: 0.5 * 1024 ** 3, rejections: [{ code: 'language', message: 'Nope', overridable: true }] }),
-    ])
-    const list = await openPhoneSearch()
-    const names = () =>
-      within(list)
-        .getAllByRole('listitem')
-        .map((r) => /Rel\.(small|big|bad)/.exec(r.textContent ?? '')?.[1])
-    expect(names()).toEqual(['small', 'big', 'bad'])
-
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /sort/i }), 'size:desc')
-
-    expect(names()).toEqual(['big', 'small', 'bad'])
-    expect(JSON.parse(sessionStorage.getItem('kestrel.manualSearchView') ?? 'null').sort).toEqual({ key: 'size', dir: 'desc' })
-    expect(screen.getByText(/Profile .* · 3 Releases · largest first/)).toBeInTheDocument()
-  })
-
-  it("starts a new session on the household's default sort, which the Select shows, and a pick still wins", async () => {
-    serveDisplay({ manual_search_sort: 'size_desc' })
-    fakeSearch([release('small', 'Rel.small', { score: 500, size: 1 * 1024 ** 3 }), release('big', 'Rel.big', { score: 100, size: 20 * 1024 ** 3 })])
-    const list = await openPhoneSearch()
-    const names = () =>
-      within(list)
-        .getAllByRole('listitem')
-        .map((r) => /Rel\.(small|big)/.exec(r.textContent ?? '')?.[1])
-    await waitFor(() => expect(screen.getByRole('combobox', { name: /sort/i })).toHaveValue('size:desc'))
-    expect(names()).toEqual(['big', 'small'])
-    expect(screen.getByText(/Profile .* · 2 Releases · largest first/)).toBeInTheDocument()
-
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /sort/i }), 'score:desc')
-    expect(names()).toEqual(['small', 'big'])
-    expect(screen.getByText(/best first/)).toBeInTheDocument()
-  })
-
-  it('grabs the selected Release from the bottom bar', async () => {
-    const state = fakeSearch(releases())
-    const list = await openPhoneSearch()
-    await userEvent.click(within(list).getByText('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP'))
-
-    const bar = screen.getByRole('contentinfo')
-    expect(bar).toHaveTextContent('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP')
-    await userEvent.click(within(bar).getByRole('button', { name: 'Grab anyway' }))
-
-    expect(await screen.findByText(/sent to the download client/i)).toBeInTheDocument()
-    expect(state.grabs).toEqual([{ path: '/grabs', body: { version_id: 11, release_id: 'b', override: true } }])
-  })
-
-  it("selects a Release when its row's padding is tapped, not only its content", async () => {
-    fakeSearch(releases())
-    const list = await openPhoneSearch()
-    const row = within(list).getAllByRole('listitem')[1]
-
-    await userEvent.click(row)
-
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP')
-  })
-
-  it('marks the grabbed Release on its stacked row', async () => {
-    fakeSearch(releases())
-    const list = await openPhoneSearch()
-    await userEvent.click(within(list).getByText('Paddington.2014.FRENCH.1080p.BluRay.x264-GRP'))
-    await userEvent.click(within(screen.getByRole('contentinfo')).getByRole('button', { name: 'Grab anyway' }))
-
-    await screen.findByText(/sent to the download client/i)
-    const [row] = within(list).getAllByText('Grabbed')
-    expect(row.closest('li')).toHaveTextContent('FRENCH')
-  })
-})
-
-describe('manual search default sort', () => {
-  beforeEach(() => sessionStorage.clear())
-
-  it("starts on the household's default column and direction", async () => {
-    serveDisplay({ manual_search_sort: 'age_asc' })
-    fakeSearch(releases())
-    await openManualSearch()
-    await waitFor(() => expect(screen.getByRole('columnheader', { name: 'Age' })).toHaveAttribute('aria-sort', 'ascending'))
-    expect(screen.getByRole('columnheader', { name: 'Score' })).toHaveAttribute('aria-sort', 'none')
-  })
-
-  it('keeps a sort picked in the session over the default, for the next search of the session', async () => {
-    serveDisplay({ manual_search_sort: 'age_asc' })
-    fakeSearch(releases())
-    await openManualSearch()
-    await userEvent.click(screen.getByRole('button', { name: 'Size' }))
-    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
-    cleanup()
-
-    await openManualSearch()
-    expect(screen.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
-    expect(screen.getByRole('columnheader', { name: 'Age' })).toHaveAttribute('aria-sort', 'none')
+    await userEvent.click(screen.getByRole('button', { name: 'Manual search options' }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Smallest first' }))
+    expect(location.search).toContain('sort=size%3Aasc')
   })
 })

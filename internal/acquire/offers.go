@@ -459,7 +459,7 @@ func (s *Service) acceptRelease(ctx context.Context, o Offer, rel OfferedRelease
 		GUID: r.ReleaseGuid, IndexerID: strconv.FormatInt(r.IndexerID, 10), Parsed: parsed, Verdicts: map[Slot]scoring.Verdict{o.Slot: verdict},
 		PublishDate: raw.PublishDate, Size: r.Size,
 	}}
-	out := outgoing{titleID: o.TitleID, versionID: o.VersionID, e: e, slot: o.Slot, media: downloads.Movie, upgrade: rel.upgrade, overridden: true}
+	out := outgoing{titleID: o.TitleID, versionID: o.VersionID, e: e, slot: o.Slot, media: downloads.Movie, upgrade: rel.upgrade, overridden: true, by: GrabbedByHand}
 	if rel.series {
 		out.media, out.episodes = downloads.Series, rel.episodeIDs
 	}

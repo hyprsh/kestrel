@@ -18,6 +18,7 @@ const grab = (over: Partial<QueueItem> = {}): QueueItem => ({
   kind: 'movie',
   slot: 'standard',
   episodes: [],
+  episode_ids: [],
   release_name: 'X.1080p-GRP',
   indexer: 'Fake',
   size: 100,
@@ -50,10 +51,10 @@ describe('the state line of a Library row', () => {
     const r = row(1, 'Orbit', 'Orbit', { slots: { standard: slot('filled'), '4k': slot('wanted') } })
     const g = [grab({ slot: '4k' })]
     expect(stateLine(r, g, now)).toEqual({ text: '4K downloading · 64% · 6 min left', tone: 'info' })
-    expect(shownSlots(r, g)['4k']?.state).toBe('downloading')
+    expect(shownSlots(r, g).find((v) => v.slot === '4k')?.state).toBe('downloading')
     expect(posterBadge(r, g)).toEqual({ label: '64%', tone: 'info' })
     // An Upgrade leaves a filled dot filled.
-    expect(shownSlots(r, [grab({ is_upgrade: true })]).standard?.state).toBe('filled')
+    expect(shownSlots(r, [grab({ is_upgrade: true })]).find((v) => v.slot === 'standard')?.state).toBe('filled')
   })
 
   it("counts a Series' Wanted episodes by season, with those downloading", () => {
@@ -62,6 +63,14 @@ describe('the state line of a Library row', () => {
     expect(stateLine(r, g, now)).toEqual({ text: 'S02: 3 Wanted, 1 downloading', tone: 'warning' })
     const long = row(2, 'Lantern', 'Lantern', { kind: 'series', wanted_episodes: { wanted: 6, long_missing: 2, seasons: [1, 2, 3, 4] } })
     expect(stateLine(long, [], now)).toEqual({ text: 'Long Missing · 4 seasons: 6 Wanted', tone: 'error' })
+  })
+
+  it("counts the episodes of a season pack's run as downloading, but never more than are Wanted", () => {
+    const r = row(1, 'Harbour', 'Harbour', { kind: 'series', wanted_episodes: { wanted: 6, long_missing: 0, seasons: [5] } })
+    const pack = [grab({ kind: 'series', episodes: ['S05E01-E16'], is_upgrade: true })]
+    expect(stateLine(r, pack, now)).toEqual({ text: 'S05: 6 Wanted, 6 downloading', tone: 'warning' })
+    const run = [grab({ kind: 'series', episodes: ['S05E09-E10'] })]
+    expect(stateLine(r, run, now)).toEqual({ text: 'S05: 6 Wanted, 2 downloading', tone: 'warning' })
   })
 
   it('names the episodes a Series Grab brings when nothing else is Wanted', () => {
@@ -75,6 +84,6 @@ describe('the state line of a Library row', () => {
     const translated = row(2, 'Salt and Iron', 'Sel et fer', { slots: { standard: slot('filled'), '4k': null }, wanted_since: null, added_at: '2026-10-16T12:00:00Z' })
     expect(stateLine(translated, [], now)).toEqual({ text: 'Sel et fer · added 1 d ago', tone: 'quiet' })
     expect(stateLine(row(3, 'Glass', 'Glass', { slots: { standard: slot('unreleased'), '4k': null }, wanted_since: null }), [], now).text).toBe('Not out yet')
-    expect(stateLine(row(4, 'Wren', 'Wren', { slots: { standard: slot('unmonitored'), '4k': null }, wanted_since: null }), [], now).text).toBe('Unmonitored')
+    expect(stateLine(row(4, 'Wren', 'Wren', { slots: { standard: slot('unmonitored'), '4k': null }, wanted_since: null }), [], now).text).toBe('Not monitored')
   })
 })

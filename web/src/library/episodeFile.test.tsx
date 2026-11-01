@@ -6,10 +6,27 @@ import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
-import { cell, episode, fakeSeries } from '../test/series'
+import { cell, episode, episodeFile, fakeSeries, pickSeason } from '../test/series'
 
 const pilotPath = '/media/tv/Breaking Bad (2008) {tvdb-81189}/Season 01/Breaking Bad (2008) - S01E01-E02 - [Standard][WEBDL-1080p].mkv'
-const pilotFile = { id: 70, path: pilotPath, size: 2 * 1024 ** 3, quality: 'WEBDL-1080p', episode_ids: [2, 3] }
+const pilotFile = episodeFile({
+  id: 70,
+  path: pilotPath,
+  size: 2 * 1024 ** 3,
+  quality: 'WEBDL-1080p',
+  video_codec: 'H.264',
+  audio_codec: 'DD',
+  audio_channels: '5.1',
+  episode_ids: [2, 3],
+  release_name: 'Breaking.Bad.S01E01-E02.1080p.WEB-DL.DD5.1.H.264-NTb',
+  languages: ['English', 'German'],
+  release_group: 'NTb',
+  imported_at: '2020-10-20T12:00:00Z',
+  custom_formats: [
+    { name: 'WEB Tier 02', points: 1650 },
+    { name: 'x265', points: -10 },
+  ],
+})
 
 async function openSeries() {
   const state = fakeSeries()
@@ -17,14 +34,21 @@ async function openSeries() {
     episode(1, 0, 1, 'Good Cop Bad Cop'),
     episode(2, 1, 1, 'Pilot', { primary_name: 'Der Einstieg', cells: { standard: cell('filled', 120, pilotFile), '4k': cell('wanted') } }),
     episode(3, 1, 2, "Cat's in the Bag...", { cells: { standard: cell('filled', 120, pilotFile), '4k': cell('wanted') } }),
-    episode(4, 1, 3, '', { air_date: null, placeholder: true, cells: { standard: cell('wanted'), '4k': cell('wanted') } }),
+    episode(4, 1, 3, '', {
+      air_date: null,
+      placeholder: true,
+      cells: {
+        standard: cell('wanted'),
+        '4k': cell('wanted', null, null, { at: new Date(Date.now() - 2 * 3_600_000).toISOString(), releases: 14, outcome: 'nothing_fit', reasons: [], upgrade: false }),
+      },
+    }),
     episode(5, 2, 1, '', { air_date: null }),
   ]
   const user = userEvent.setup()
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await user.click(await screen.findByRole('button', { name: 'Library' }))
   const grid = await screen.findByRole('grid', { name: 'Episodes' })
-  await user.click(screen.getByRole('tab', { name: /^Season 1/ })) // Season 2, the latest, opens first
+  await pickSeason('Season 1') // Season 2, the latest, opens first
   return { user, grid, state }
 }
 
@@ -53,9 +77,9 @@ describe('episode titles', () => {
   })
 
   it('shows a listed episode without a title as TBA with no tooltip', async () => {
-    const { user, grid } = await openSeries()
-    await user.click(screen.getByRole('tab', { name: /^Season 2/ }))
-    expect(within(rowOf(grid, 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
+    await openSeries()
+    await pickSeason('Season 2')
+    expect(within(rowOf(screen.getByRole('grid', { name: 'Episodes' }), 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
   })
 })
 
@@ -78,27 +102,50 @@ describe('the episodes loading Skeleton', () => {
   })
 })
 
-describe('the file of an episode cell', () => {
-  it('names the path, Score, quality and size in the tooltip', async () => {
+/** One Slot's chip of an episode (S01E01): a button whose popover is that Slot. */
+const chipOf = (grid: HTMLElement, code: string, slot: string) => within(within(grid).getByRole('group', { name: `${code} Slots` })).getByRole('button', { name: new RegExp(`^${slot}:`) })
+
+describe('the file of an episode Slot, in the opened row', () => {
+  it('names the Slot and its state in the chip tooltips, and the chip of a filled Slot is a green dot in plain text', async () => {
     const { grid } = await openSeries()
-    const tip = within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).getAttribute('title')
-    expect(tip).toContain('Score 120')
-    expect(tip).toContain('WEBDL-1080p')
-    expect(tip).toContain('2.0 GB')
-    expect(tip).toContain(pilotPath)
-    expect(within(grid).getByRole('button', { name: 'Season 1 episode 3 Standard: Wanted' }).getAttribute('title')).toBe('Standard: Wanted')
+    const row = within(grid).getByRole('row', { name: /Pilot/ })
+    const standard = within(row).getByTitle('Standard: 1080p \u00b7 2.0 GB')
+    expect(standard).toHaveAttribute('data-state', 'filled')
+    expect(standard.querySelector('[data-state="filled"]')).not.toBeNull()
+    expect(within(row).getByTitle(/^4K: Wanted \d+ d$/)).toHaveAttribute('data-state', 'wanted')
+    const placeholder = within(grid).getByRole('row', { name: /TBA/ })
+    expect(within(placeholder).getByTitle('Standard: Wanted')).toBeInTheDocument()
   })
 
-  it('opens a popover on click whose Copy button copies the path', async () => {
+  it('opens the popover of a Wanted Slot with when it was last searched, how many releases named it and how it ended, and Search and Manual Search', async () => {
     const { user, grid } = await openSeries()
-    await user.click(within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }))
+    await user.click(chipOf(grid, 'S01E03', '4K'))
+    const pop = await screen.findByRole('dialog', { name: 'S01E03 4K' })
+    expect(within(pop).getByText('S01E03 \u00b7 4K')).toBeInTheDocument()
+    expect(pop).toHaveTextContent('Last searched 2 h ago \u00b7 14 releases \u00b7 none fit the Profile')
+    expect(within(pop).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    expect(within(pop).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
+  })
 
-    const pop = await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })
-    expect(within(pop).getByText(pilotPath)).toBeInTheDocument()
+  it('opens a popover on click laid out like the mockup, whose Copy Path button copies the path', async () => {
+    const { user, grid } = await openSeries()
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
+    expect(within(pop).getByText('S01E01 · Standard')).toBeInTheDocument()
+    expect(within(pop).getByText('Breaking.Bad.S01E01-E02.1080p.WEB-DL.DD5.1.H.264-NTb')).toBeInTheDocument()
+    expect(within(pop).getByText('WEB-DL 1080p · H.264')).toBeInTheDocument()
+    expect(within(pop).getByText('DD 5.1 · English, German')).toBeInTheDocument()
+    expect(within(pop).getByText('2.0 GB')).toBeInTheDocument()
+    expect(within(pop).getByText('Oct 20, 2020, from NTb')).toBeInTheDocument()
     expect(within(pop).getByText(/holds 2 episodes/)).toBeInTheDocument()
-    await user.click(within(pop).getByRole('button', { name: 'Copy to Clipboard' }))
+    // The path is one line that is cut at its start, with the whole of it as the tooltip.
+    const path = within(pop).getByText(pilotPath)
+    expect(path.closest('[dir="rtl"]')).toHaveAttribute('title', pilotPath)
+    expect(within(pop).getByRole('button', { name: 'Upgrade Search' })).toBeInTheDocument()
+    await user.click(within(pop).getByRole('button', { name: 'Copy Path' }))
     expect(await navigator.clipboard.readText()).toBe(pilotPath)
-    expect(within(pop).getByText('Copied to clipboard')).toBeInTheDocument()
+    expect(await within(pop).findByRole('button', { name: 'Copied' })).toBeInTheDocument()
 
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -106,32 +153,83 @@ describe('the file of an episode cell', () => {
     expect(screen.getByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
   })
 
-  it('opens the popover from the keyboard and tells the user to copy by hand when the clipboard fails', async () => {
+  it('shows the Score with each matched Custom Format and its signed points', async () => {
+    const { user, grid } = await openSeries()
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
+    expect(within(pop).getByText('120')).toBeInTheDocument()
+    const formats = within(within(pop).getByRole('list', { name: 'Custom Formats' })).getAllByRole('listitem')
+    expect(formats.map((f) => f.textContent)).toEqual(['WEB Tier 02 +1650', 'x265 \u221210'])
+  })
+
+  it('leaves out the rows the file has no facts for, and the formats of a file that matched none', async () => {
+    const state = fakeSeries()
+    const bare = episodeFile({ id: 71, path: '/tv/S01E01.mkv', size: 1024 ** 3, quality: null, episode_ids: [2], release_name: '', imported_at: 'not a date' })
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', null, bare), '4k': cell('wanted') } })]
+    const user = userEvent.setup()
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await user.click(await screen.findByRole('button', { name: 'Library' }))
+    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await pickSeason('Season 1')
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
+    expect(within(pop).getByText('Size')).toBeInTheDocument()
+    for (const row of ['Quality', 'Audio', 'Imported', 'Score']) expect(within(pop).queryByText(row)).not.toBeInTheDocument()
+    expect(within(pop).queryByRole('list', { name: 'Custom Formats' })).not.toBeInTheDocument()
+    expect(within(pop).getByRole('button', { name: 'Copy Path' })).toBeInTheDocument()
+  })
+
+  it('shows a Score of a file that matched no Custom Format without a list of them', async () => {
+    const state = fakeSeries()
+    const plain = episodeFile({ id: 72, path: '/tv/S01E01.mkv', size: 1024 ** 3, quality: 'WEBDL-720p', episode_ids: [2] })
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 0, plain), '4k': cell('wanted') } })]
+    const user = userEvent.setup()
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await user.click(await screen.findByRole('button', { name: 'Library' }))
+    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await pickSeason('Season 1')
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
+    expect(within(pop).getByText('Score')).toBeInTheDocument()
+    expect(within(pop).queryByRole('list', { name: 'Custom Formats' })).not.toBeInTheDocument()
+    // A file the parse knows no codec or audio format of says only its quality; nothing is invented.
+    expect(within(pop).getByText('WEB-DL 720p')).toBeInTheDocument()
+    expect(within(pop).queryByText('Audio')).not.toBeInTheDocument()
+  })
+
+  it('opens the popover from the keyboard and tells the user to copy by hand when the clipboard and its fallback fail', async () => {
     const { user, grid } = await openSeries()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
-    const cell = within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' })
-    cell.focus()
+    document.execCommand = vi.fn(() => false)
+    chipOf(grid, 'S01E01', 'Standard').focus()
     await user.keyboard('{Enter}')
 
-    const pop = await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })
-    await user.click(within(pop).getByRole('button', { name: 'Copy to Clipboard' }))
-    expect(await within(pop).findByText(/copy it manually/)).toBeInTheDocument()
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
+    await user.click(within(pop).getByRole('button', { name: 'Copy Path' }))
+    expect((await within(pop).findAllByText(/copy it manually/)).length).toBeGreaterThan(0)
   })
 
-  it("toggles the row's monitoring on Space and does not open the popover", async () => {
-    const { user, grid, state } = await openSeries()
-    within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }).focus()
-    await user.keyboard(' ')
-    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } }]))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('closes the popover on a click elsewhere and opens none for a cell without a file', async () => {
+  it('copies through the textarea fallback when the Clipboard API refuses', async () => {
     const { user, grid } = await openSeries()
-    await user.click(within(grid).getByRole('button', { name: 'Season 1 episode 2 Standard: Filled' }))
-    expect(await screen.findByRole('dialog', { name: 'Season 1 episode 2 Standard file' })).toBeInTheDocument()
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+    document.execCommand = vi.fn(() => true)
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
+    await user.click(within(pop).getByRole('button', { name: 'Copy Path' }))
+    expect(await within(pop).findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    expect(document.execCommand).toHaveBeenCalledWith('copy')
+  })
 
-    await user.click(within(grid).getByRole('button', { name: 'Season 1 episode 3 Standard: Wanted' }))
+  it('closes the popover on a click elsewhere, and a Slot popover is only that Slot', async () => {
+    const { user, grid } = await openSeries()
+    await user.click(chipOf(grid, 'S01E02', 'Standard'))
+    expect(await screen.findByRole('dialog', { name: 'S01E02 Standard file' })).toBeInTheDocument()
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+
+    await user.click(within(grid).getByText('Name'))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })

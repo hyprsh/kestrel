@@ -56,6 +56,16 @@ type Episode struct {
 	Overview      string
 }
 
+type EpisodeSearch struct {
+	VersionID int64
+	EpisodeID int64
+	At        string
+	Releases  int64
+	Outcome   string
+	Reasons   string
+	Upgrade   int64
+}
+
 type Event struct {
 	ID        int64
 	At        string
@@ -110,30 +120,37 @@ type FolderChange struct {
 }
 
 type Grab struct {
-	ID               int64
-	TitleID          sql.NullInt64
-	VersionID        sql.NullInt64
-	ReleaseGuid      string
-	ReleaseName      string
-	IndexerID        int64
-	IndexerName      string
-	Protocol         string
-	Size             int64
-	PublishedAt      string
-	Score            int64
-	Parsed           string
-	Verdict          string
-	Overridden       int64
-	IsUpgrade        int64
-	ClientInstanceID int64
-	ClientID         string
-	State            string
-	Failure          sql.NullString
-	StalledReason    sql.NullString
-	StalledSince     sql.NullString
-	NextImportAt     sql.NullString
-	CreatedAt        string
-	UpdatedAt        string
+	ID                int64
+	TitleID           sql.NullInt64
+	VersionID         sql.NullInt64
+	ReleaseGuid       string
+	ReleaseName       string
+	IndexerID         int64
+	IndexerName       string
+	Protocol          string
+	Size              int64
+	PublishedAt       string
+	Score             int64
+	Parsed            string
+	Verdict           string
+	Overridden        int64
+	IsUpgrade         int64
+	ClientInstanceID  int64
+	ClientID          string
+	State             string
+	Failure           sql.NullString
+	StalledReason     sql.NullString
+	StalledSince      sql.NullString
+	NextImportAt      sql.NullString
+	CreatedAt         string
+	UpdatedAt         string
+	DownloadStartedAt sql.NullString
+	DownloadDoneAt    sql.NullString
+	CoversWanted      sql.NullInt64
+	ReplacesFiles     sql.NullInt64
+	ScoreDelta        sql.NullInt64
+	ImportChecking    sql.NullInt64
+	ImportReplaced    sql.NullInt64
 }
 
 type GrabEpisode struct {
@@ -159,6 +176,26 @@ type IndexerGrabCount struct {
 	IndexerID int64
 	Day       int64
 	Grabs     int64
+}
+
+type IndexerSearch struct {
+	ID          int64
+	IndexerID   int64
+	IndexerName string
+	At          string
+	Ok          int64
+	Releases    int64
+	Fit         int64
+	DurationMs  int64
+}
+
+type JobRun struct {
+	ID         int64
+	Name       string
+	StartedAt  string
+	FinishedAt string
+	TookMs     int64
+	Err        string
 }
 
 type OriginalOffer struct {
@@ -207,18 +244,19 @@ type PlexShow struct {
 }
 
 type PluginInstance struct {
-	ID           int64
-	Contract     string
-	PluginID     string
-	Name         string
-	Enabled      int64
-	Priority     int64
-	Config       string
-	Declared     int64
-	CheckedAt    string
-	CheckOk      int64
-	CheckCode    string
-	CheckMessage string
+	ID             int64
+	Contract       string
+	PluginID       string
+	Name           string
+	Enabled        int64
+	Priority       int64
+	Config         string
+	Declared       int64
+	CheckedAt      string
+	CheckOk        int64
+	CheckCode      string
+	CheckMessage   string
+	CheckLatencyMs int64
 }
 
 type Profile struct {
@@ -237,6 +275,17 @@ type Profile struct {
 	TrashProfileMovies string
 	TrashProfileSeries string
 	OriginalLanguage   string
+	Custom             int64
+	SeriesQualities    sql.NullString
+	MovieQualities     sql.NullString
+	SeriesCutoff       sql.NullString
+	MovieCutoff        sql.NullString
+	UpgradeUntil       sql.NullInt64
+	MinScore           sql.NullInt64
+	MovieMinSize       sql.NullInt64
+	MovieMaxSize       sql.NullInt64
+	EpisodeMinSize     sql.NullInt64
+	EpisodeMaxSize     sql.NullInt64
 }
 
 type Request struct {
@@ -304,33 +353,35 @@ type Setting struct {
 }
 
 type Title struct {
-	ID               int64
-	Kind             string
-	TmdbID           sql.NullInt64
-	TvdbID           sql.NullInt64
-	ImdbID           sql.NullString
-	Title            string
-	OriginalTitle    string
-	PrimaryTitle     string
-	Year             sql.NullInt64
-	OriginalLanguage string
-	Overview         string
-	Runtime          sql.NullInt64
-	PosterPath       sql.NullString
-	Monitored        int64
-	SeriesMonitor    sql.NullString
-	MetadataFrozen   int64
-	RootFolder       string
-	Folder           sql.NullString
-	AddedAt          string
-	RefreshedAt      string
-	TmdbVoteAverage  sql.NullFloat64
-	TmdbVoteCount    sql.NullInt64
-	ReleaseSeenAt    sql.NullString
-	Network          string
-	TvdbStatus       string
-	AirTime          string
-	AirTimezone      string
+	ID                int64
+	Kind              string
+	TmdbID            sql.NullInt64
+	TvdbID            sql.NullInt64
+	ImdbID            sql.NullString
+	Title             string
+	OriginalTitle     string
+	PrimaryTitle      string
+	Year              sql.NullInt64
+	OriginalLanguage  string
+	Overview          string
+	Runtime           sql.NullInt64
+	PosterPath        sql.NullString
+	Monitored         int64
+	SeriesMonitor     sql.NullString
+	MetadataFrozen    int64
+	RootFolder        string
+	Folder            sql.NullString
+	AddedAt           string
+	RefreshedAt       string
+	TmdbVoteAverage   sql.NullFloat64
+	TmdbVoteCount     sql.NullInt64
+	ReleaseSeenAt     sql.NullString
+	Network           string
+	TvdbStatus        string
+	AirTime           string
+	AirTimezone       string
+	MonitorNewSeasons int64
+	MonitorSpecials   int64
 }
 
 type TitleAlias struct {
@@ -363,6 +414,15 @@ type Version struct {
 	Slot       string
 	ProfileKey string
 	AddedAt    string
+}
+
+type VersionSearch struct {
+	VersionID int64
+	At        string
+	Releases  int64
+	Outcome   string
+	Reasons   string
+	Upgrade   int64
 }
 
 type WatchAheadPlay struct {

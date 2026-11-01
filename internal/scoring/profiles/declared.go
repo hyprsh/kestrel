@@ -92,6 +92,9 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State) error {
 			if err != nil {
 				return err
 			}
+			if cur.Custom {
+				continue // a Config File declares the builtin Profiles only
+			}
 			if w := want[cur.Key]; w != (State{cur.Enabled, cur.OriginalChoice, cur.DefaultMovies, cur.DefaultSeries}) {
 				changed = append(changed, cur)
 			}

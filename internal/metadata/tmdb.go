@@ -39,14 +39,18 @@ type TMDBOptions struct {
 	// HTTP defaults to a client with a 20 s timeout.
 	HTTP *http.Client
 	Keys KeySource
+	// OnClock, when set, hears what TMDB's clock said at every answer: see ClockOf. The health
+	// module compares it with the server's own.
+	OnClock func(reference, local time.Time)
 }
 
 // TMDB is the TMDB v3 client. It sends the key as `api_key`.
 type TMDB struct {
-	base   string
-	images string
-	http   *http.Client
-	keys   KeySource
+	base    string
+	images  string
+	http    *http.Client
+	keys    KeySource
+	onClock func(reference, local time.Time)
 }
 
 // NewTMDB returns a client.
@@ -60,7 +64,7 @@ func NewTMDB(o TMDBOptions) *TMDB {
 	if o.HTTP == nil {
 		o.HTTP = &http.Client{Timeout: 20 * time.Second}
 	}
-	return &TMDB{base: strings.TrimRight(o.BaseURL, "/"), images: strings.TrimRight(o.ImageBase, "/"), http: o.HTTP, keys: o.Keys}
+	return &TMDB{base: strings.TrimRight(o.BaseURL, "/"), images: strings.TrimRight(o.ImageBase, "/"), http: o.HTTP, keys: o.Keys, onClock: o.OnClock}
 }
 
 // Provider is what callers need of TMDB; *TMDB satisfies it and tests can swap it.
@@ -107,6 +111,7 @@ func (c *TMDB) get(ctx context.Context, path string, q url.Values, into any) err
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
+	sent := time.Now()
 	res, err := c.http.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -115,6 +120,12 @@ func (c *TMDB) get(ctx context.Context, path string, q url.Values, into any) err
 		return &Error{Code: CodeUnavailable, Message: err.Error()}
 	}
 	defer res.Body.Close()
+	if c.onClock != nil {
+		// Any answer carries the time, a refusal or a miss as well as a good one.
+		if ref, local, ok := ClockOf(res.Header, sent, time.Now()); ok {
+			c.onClock(ref, local)
+		}
+	}
 	switch {
 	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
 		return &Error{Code: CodeAuth, Message: "TMDB refused the API key"}
@@ -351,4 +362,18 @@ func (c *TMDB) Changes(ctx context.Context, kind Kind, since time.Time) ([]int, 
 		}
 	}
 	return ids, nil
+}
+
+// ClockOf reads the time a server's answer says it is, from its Date header (whole seconds) plus Age when a cache
+// served it, and the local time that matches: halfway between sending the request and getting the answer, so the
+// trip there and back does not count as drift. ok is false when the header is missing or unreadable.
+func ClockOf(h http.Header, sent, received time.Time) (reference, local time.Time, ok bool) {
+	date, err := http.ParseTime(h.Get("Date"))
+	if err != nil {
+		return time.Time{}, time.Time{}, false
+	}
+	if age, err := strconv.Atoi(strings.TrimSpace(h.Get("Age"))); err == nil && age > 0 {
+		date = date.Add(time.Duration(age) * time.Second)
+	}
+	return date, sent.Add(received.Sub(sent) / 2), true
 }

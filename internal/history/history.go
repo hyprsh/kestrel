@@ -84,6 +84,29 @@ var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, Adoption
 // IsRoutine reports whether events of this kind are pruned after 30 days.
 func IsRoutine(k Kind) bool { return routine[k] }
 
+// Severity is how much an event's kind matters to the Log's strip and its Errors and Warnings views.
+type Severity int
+
+const (
+	// Plain: nothing went wrong.
+	Plain Severity = iota
+	// Warning: something wants a look (an Import stalled, a Needs attention row, an Original Offer).
+	Warning
+	// Failure: something went wrong (a Grab failed, an Import was rejected, a Release was blocklisted).
+	Failure
+)
+
+// SeverityOf is the severity of a kind. It matches the web Log's Errors and Warnings views.
+func SeverityOf(k Kind) Severity {
+	switch k {
+	case GrabFailed, ImportRejected, Blocklisted:
+		return Failure
+	case ImportStalled, HealthRaised, OriginalOffered:
+		return Warning
+	}
+	return Plain
+}
+
 // RoutineLife is how long routine events are kept.
 const RoutineLife = 30 * 24 * time.Hour
 
@@ -181,6 +204,8 @@ type Filter struct {
 	// or Version stays.
 	ExcludeTitleIDs []int64
 	ExcludeSlots    []string
+	// GrabID keeps only the events about that Grab; zero is every Grab.
+	GrabID int64
 	// Routine includes routine events, which the Log hides by default.
 	Routine bool
 	// Before returns only events with a smaller id, for paging.
@@ -200,6 +225,9 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Event, error) {
 	if f.Before != 0 {
 		p.Before = f.Before
 	}
+	if f.GrabID != 0 {
+		p.GrabID = f.GrabID
+	}
 	rows, err := db.New(s.st.Read()).ListEvents(ctx, p)
 	if err != nil {
 		return nil, err
@@ -210,6 +238,79 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Event, error) {
 // Last is the id of the newest event, 0 when the log is empty.
 func (s *Service) Last(ctx context.Context) (int64, error) {
 	return db.New(s.st.Read()).LastEventID(ctx)
+}
+
+// Summary is what the Log holds: events per kind (routine included) and when the oldest happened (zero when empty).
+type Summary struct {
+	Counts map[Kind]int64
+	Oldest time.Time
+}
+
+// Summary counts the events by kind and finds the oldest.
+func (s *Service) Summary(ctx context.Context) (Summary, error) {
+	q := db.New(s.st.Read())
+	rows, err := q.EventKindCounts(ctx)
+	if err != nil {
+		return Summary{}, err
+	}
+	out := Summary{Counts: map[Kind]int64{}}
+	for _, r := range rows {
+		out.Counts[Kind(r.Kind)] = r.N
+	}
+	oldest, err := q.OldestEventAt(ctx)
+	if err != nil {
+		return Summary{}, err
+	}
+	if oldest != "" {
+		if out.Oldest, err = time.Parse(time.RFC3339, oldest); err != nil {
+			return Summary{}, err
+		}
+	}
+	return out, nil
+}
+
+// Bucket is the events of one stretch of time, by severity.
+type Bucket struct {
+	Start    time.Time
+	Events   int64
+	Warnings int64
+	Errors   int64
+}
+
+// Histogram counts the events of the last days days in buckets of the given length, oldest first, empty buckets
+// included. Buckets start at multiples of their length from the epoch (midnight UTC for a day or an hour), and the
+// last one is the one now falls in.
+func (s *Service) Histogram(ctx context.Context, bucket time.Duration, days int) ([]Bucket, error) {
+	secs := int64(bucket / time.Second)
+	if secs <= 0 || days <= 0 {
+		return nil, nil
+	}
+	now := s.clock().UTC()
+	first := (now.Add(-time.Duration(days)*24*time.Hour).Unix() / secs)
+	last := now.Unix() / secs
+	rows, err := db.New(s.st.Read()).EventBuckets(ctx, db.EventBucketsParams{BucketSecs: secs, Since: time.Unix(first*secs, 0).UTC().Format(time.RFC3339)})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Bucket, last-first+1)
+	for i := range out {
+		out[i].Start = time.Unix((first+int64(i))*secs, 0).UTC()
+	}
+	for _, r := range rows {
+		i := r.Bucket - first
+		if i < 0 || i >= int64(len(out)) {
+			continue
+		}
+		switch SeverityOf(Kind(r.Kind)) {
+		case Failure:
+			out[i].Errors += r.N
+		case Warning:
+			out[i].Warnings += r.N
+		default:
+			out[i].Events += r.N
+		}
+	}
+	return out, nil
 }
 
 // Prune deletes routine events older than RoutineLife and reports how many.

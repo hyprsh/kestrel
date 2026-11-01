@@ -1,0 +1,117 @@
+import { QueryClient } from '@tanstack/react-query'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it } from 'vitest'
+import { App } from '../App'
+import { http } from '../test/handlers'
+import { detail, fakeLibrary, row } from '../test/library'
+import { fakeQueue, queueItem } from '../test/queue'
+import { server } from '../test/server'
+
+async function openPaddington() {
+  render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+  await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+  const pane = await screen.findByRole('region', { name: /paddington/i })
+  await within(pane).findByRole('button', { name: 'Title actions' })
+  return pane
+}
+
+const file = {
+  path: '/data/media/movies/Paddington (2014)/Paddington (2014) - [Standard][WEBDL-1080p].mkv',
+  size: 1.6 * 1024 ** 3,
+  release_name: 'Paddington.2014.1080p.WEB-DL',
+  score: 100,
+  quality: 'WEBDL-1080p',
+  languages: ['English'],
+  imported_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+}
+
+const asFilled = (r: ReturnType<typeof row>) =>
+  server.use(
+    http.get('/titles/{id}', ({ response }) => {
+      const d = detail(r)
+      return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'filled', file })) })
+    }),
+  )
+
+describe("a Movie's Versions on its Title page", () => {
+  it('has a row per Slot in an accordion, closed rows saying the Slot, its state, its file and its size', async () => {
+    const r = row(1, 'Paddington', 'Paddington')
+    fakeLibrary([r])
+    asFilled(r)
+    const pane = await openPaddington()
+
+    const versions = await within(pane).findByRole('region', { name: 'Versions' })
+    expect(within(versions).getByRole('heading', { name: 'Versions' })).toBeInTheDocument()
+    const row_ = within(versions).getByRole('button', { name: 'Standard: Have · WEB-DL 1080p' })
+    const item = row_.closest('[role=listitem]') as HTMLElement
+    expect(item).toHaveTextContent('Standard')
+    expect(item).toHaveTextContent('Have · WEB-DL 1080p')
+    expect(within(item).getByText('Paddington (2014) - [Standard][WEBDL-1080p].mkv').closest('[title]')).toHaveAttribute('title', file.path)
+    expect(item).toHaveTextContent('1.6 GB')
+    expect(within(item).getByRole('img', { name: /^Standard: Have/ })).toHaveAttribute('data-state', 'filled')
+  })
+
+  it('opens a filled Slot to its facts, with Search for an Upgrade, Manual search and More', async () => {
+    const r = row(1, 'Paddington', 'Paddington')
+    fakeLibrary([r])
+    asFilled(r)
+    const pane = await openPaddington()
+
+    const row_ = await within(await within(pane).findByRole('region', { name: 'Versions' })).findByRole('button', { name: /^Standard: Have/ })
+    expect(row_).toHaveAttribute('aria-expanded', 'true') // the only Slot opens
+    const item = row_.closest('[role=listitem]') as HTMLElement
+    for (const k of ['Quality', 'Video', 'Audio', 'Custom Format Score', 'Size', 'Imported', 'Path']) expect(within(item).getByText(k)).toBeInTheDocument()
+    expect(within(item).getByText('+100')).toBeInTheDocument()
+    expect(within(item).getByRole('button', { name: 'Search for an Upgrade' })).toBeEnabled()
+    expect(within(item).getByRole('button', { name: 'Manual search' })).toBeInTheDocument()
+    await userEvent.click(within(item).getByRole('button', { name: 'Standard Version actions' }))
+    expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Delete files/ })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(row_)
+    expect(row_).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('opens a Wanted Slot to why it has no file, with Search now', async () => {
+    const r = row(1, 'Paddington', 'Paddington')
+    fakeLibrary([r])
+    server.use(
+      http.get('/titles/{id}', ({ response }) => {
+        const d = detail(r)
+        return response(200).json({ ...d, versions: d.versions.map((v) => ({ ...v, state: 'wanted', file: null, wanted_since: new Date(Date.now() - 12 * 86_400_000).toISOString() })) })
+      }),
+    )
+    const pane = await openPaddington()
+
+    const row_ = await within(await within(pane).findByRole('region', { name: 'Versions' })).findByRole('button', { name: /^Standard: Wanted 12 days/ })
+    const item = row_.closest('[role=listitem]') as HTMLElement
+    expect(within(item).getByText('No file yet')).toBeInTheDocument()
+    expect(row_).toHaveAttribute('aria-expanded', 'true') // a Slot that needs a look opens by itself
+    expect(within(item).getByText('Wanted since')).toBeInTheDocument()
+    expect(within(item).getByText('not searched yet')).toBeInTheDocument()
+    expect(within(item).getByRole('button', { name: 'Search now' })).toBeEnabled()
+    expect(within(item).queryByRole('button', { name: 'Search for an Upgrade' })).toBeNull()
+    expect(within(item).getByRole('img', { name: /^Standard: Wanted 12 days/ })).toHaveAttribute('data-state', 'wanted')
+  })
+
+  it('opens a downloading Slot to its progress, with Open in Activity and Cancel and block', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    fakeQueue([queueItem({ grab_id: 1, title_id: 1, slot: 'standard' })])
+    const pane = await openPaddington()
+
+    const row_ = await within(await within(pane).findByRole('region', { name: 'Versions' })).findByRole('button', { name: /^Standard: Downloading 75%/ })
+    const item = row_.closest('[role=listitem]') as HTMLElement
+    expect(item).toHaveTextContent('Downloading 75% · 2 min left')
+    expect(within(item).getByRole('progressbar', { name: 'Standard download progress' })).toBeInTheDocument()
+    for (const k of ['Release', 'From', 'Why', 'Replaces']) expect(within(item).getByText(k)).toBeInTheDocument()
+    expect(within(item).getByRole('button', { name: 'Open in Activity' })).toBeInTheDocument()
+    expect(within(item).getByRole('button', { name: 'Cancel and block' })).toBeEnabled()
+  })
+
+  it('offers Add a Slot while the Movie has a free Slot', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    const pane = await openPaddington()
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Add a Slot' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+})

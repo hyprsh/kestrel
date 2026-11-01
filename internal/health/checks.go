@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -160,15 +162,17 @@ func (s *Service) ObserveDownloadClient(ctx context.Context, ref Ref, f *Failure
 	s.mu.Lock()
 	w := &s.watches.downloadClient
 	if f == nil {
+		rec := Recovery{Attempts: w.attempts}
 		*w = watch{}
 		s.mu.Unlock()
 		// The row is stored and the watch is not: after a restart there is a row and no watch.
-		s.logErr(s.Clear(ctx, keyDownloadClient))
+		s.logErr(s.ClearRecovered(ctx, keyDownloadClient, rec))
 		return
 	}
 	if w.since.IsZero() {
 		w.since = s.clock()
 	}
+	w.attempts = noted(w.attempts, s.clock())
 	w.auth, w.message = f.Auth, f.Message
 	msg := failureMessage(ref.Name, f, "rejected Kestrel's credentials", "is unreachable")
 	raise := s.clock().Sub(w.since) >= downloadClientGrace && w.raised != msg
@@ -236,10 +240,14 @@ func (s *Service) ObserveIndexer(ctx context.Context, ref Ref, f *Failure) {
 	ws := s.watches.indexers
 	w, had := ws[ref.ID]
 	if f == nil {
+		var rec Recovery
+		if had {
+			rec.Attempts = w.attempts
+		}
 		delete(ws, ref.ID)
 		s.mu.Unlock()
 		// The row is stored and the watch is not: after a restart there is a row and no watch.
-		s.logErr(s.Clear(ctx, indexerKey(ref.ID)))
+		s.logErr(s.ClearRecovered(ctx, indexerKey(ref.ID), rec))
 		s.logErr(s.evaluateNoIndexer(ctx))
 		return
 	}
@@ -247,6 +255,7 @@ func (s *Service) ObserveIndexer(ctx context.Context, ref Ref, f *Failure) {
 		w = &indexerWatch{since: s.clock()}
 		ws[ref.ID] = w
 	}
+	w.attempts = noted(w.attempts, s.clock())
 	w.auth, w.message = f.Auth, f.Message
 	msg := failureMessage(ref.Name, f, "rejected its credentials", "keeps failing")
 	raise := (f.Auth || s.clock().Sub(w.since) >= indexerGrace) && w.raised != msg
@@ -429,6 +438,52 @@ func TestMediaServers(test func(ctx context.Context, ref Ref) *Failure) Check {
 		}
 		return nil
 	}
+}
+
+// ServiceState is the state of one metadata provider or media server, for the Health screen.
+type ServiceState struct {
+	// MediaServer is true for a media server and false for a metadata provider.
+	MediaServer bool
+	Name        string
+	// InstanceID is the media server's plugin instance; zero for a provider.
+	InstanceID int64
+	// Failing is true while the service's Needs attention row shows.
+	Failing bool
+	Message string
+	Since   time.Time
+}
+
+// Services lists the metadata providers (by name) and the enabled media
+// servers, each failing while its row shows.
+func (s *Service) Services(ctx context.Context) ([]ServiceState, error) {
+	rows, err := s.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byKey := map[string]Row{}
+	for _, r := range rows {
+		byKey[r.Key] = r
+	}
+	fill := func(st ServiceState, key string) ServiceState {
+		if r, ok := byKey[key]; ok {
+			st.Failing, st.Message, st.Since = true, r.Message, r.FirstAt
+		}
+		return st
+	}
+	var out []ServiceState
+	for _, name := range slices.Sorted(maps.Keys(s.deps.MetadataProbes)) {
+		out = append(out, fill(ServiceState{Name: name}, metadataKey(name)))
+	}
+	if s.deps.MediaServers != nil {
+		enabled, err := s.deps.MediaServers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, ref := range enabled {
+			out = append(out, fill(ServiceState{MediaServer: true, Name: ref.Name, InstanceID: ref.ID}, mediaServerKey(ref.ID)))
+		}
+	}
+	return out, nil
 }
 
 // ---- metadata providers ----
@@ -629,13 +684,16 @@ type watch struct {
 	auth    bool
 	message string
 	raised  string // the message of the row raised for this streak, "" if none
+	// attempts are the failed calls of this streak.
+	attempts []time.Time
 }
 
 type indexerWatch struct {
-	since   time.Time
-	auth    bool
-	message string
-	raised  string
+	since    time.Time
+	auth     bool
+	message  string
+	raised   string
+	attempts []time.Time
 }
 
 type mediaServerWatch struct {

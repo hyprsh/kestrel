@@ -18,6 +18,10 @@
 // - Loading: the data form's `loading` prop, or `<TableSkeletonRows>` (loading.tsx) in the parts form.
 // - A table that scrolls inside a pane has `stickyHeader`; the cursor is `Table.Row current`, a chosen
 //   row `selected`.
+// - Fill the card: a table in a page fills the width of the blocks around it. With no `truncate` column it is only as wide
+//   as its columns, so end the row with an empty `truncate` column (the episode table does) or make the Name one.
+// - Movable columns: see columnOrder.tsx (`useColumnOrder`, drag a head, one "Reset columns"
+//   for order and widths). The tick box and the column that names the row stay pinned.
 import { Button, type TableColumnWidths } from '@hyprsh/design'
 import { useCallback, useState } from 'react'
 

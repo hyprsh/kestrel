@@ -42,6 +42,8 @@ type Live struct {
 	BytesLeft  int64
 	// ETA is 0 when the client does not know.
 	ETA time.Duration
+	// BytesPerSecond is the client's speed for this job; 0 when it does not say.
+	BytesPerSecond int64
 	// Since is when the Grab entered Phase, as far as this process saw it.
 	Since time.Time
 	// ProgressAt is when BytesLeft last fell, or when this process first saw
@@ -264,6 +266,18 @@ type Outcome struct {
 	Grabbed []Grab
 	// Failures are the indexers that could not answer fully.
 	Failures []indexers.Failure
+	// Releases is how many Releases the indexers returned and were evaluated: all of the Title's, whatever the
+	// Versions searched.
+	Releases int
+	// entries are those Releases, for the record of what each Version's search found.
+	entries []*entry
+	// scoped is set for a Series search narrowed to a season or to episodes; episodes are the episodes of the
+	// library, library its list, for the per-episode record of what each Version's search found.
+	// asked is set once the indexers were asked (or the cache read) for the search.
+	asked    bool
+	scoped   bool
+	episodes map[int64][]int64
+	library  []library.Episode
 }
 
 // SearchWanted is the automatic search for what a Title's Versions are
@@ -278,14 +292,14 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil // nothing was searched: the Versions stay due
 	}
-	return s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, false)
+	return s.searchAutomatic(ctx, titleID, versionIDs, false)
 }
 
 // SearchNew is the search on add: the first search of a new Version (added by
 // hand or by a Request). It does what SearchWanted does but is not a sweep, so
 // the 80 % budget stop does not apply to it.
 func (s *Service) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
-	return s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, false)
+	return s.searchAutomatic(ctx, titleID, versionIDs, false)
 }
 
 // SearchUpgrades is the Upgrade sweep's search: the same as SearchWanted for
@@ -297,12 +311,26 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil
 	}
-	return s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, true)
+	return s.searchAutomatic(ctx, titleID, versionIDs, true)
+}
+
+// searchAutomatic is searchTitle for the searches Kestrel starts on its own, which also say in the Log what they found.
+func (s *Service) searchAutomatic(ctx context.Context, titleID int64, versionIDs []int64, upgrade bool) (Outcome, error) {
+	out, err := s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, upgrade)
+	s.noteAutomatic(ctx, titleID, upgrade, out, err)
+	return out, err
 }
 
 // searchTitle searches a Title for its Wanted Versions, or with upgrade for its
-// Filled ones. A Series is searched within scope; a Movie ignores it.
+// Filled ones, and records what each Version's search found (LastSearch). A
+// Series is searched within scope; a Movie ignores it.
 func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {
+	out, err := s.runSearch(ctx, titleID, versionIDs, scope, fromCache, upgrade)
+	s.noteSearched(ctx, titleID, upgrade, out, err)
+	return out, err
+}
+
+func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {
 	defer s.snap.Hold()()
 	sub, err := s.subjectOf(ctx, titleID)
 	if err != nil {
@@ -327,20 +355,28 @@ func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []i
 			continue
 		}
 		out.Searched = append(out.Searched, v.ID)
-		slotVersion[v.Slot] = v.ID
 		u := Unit{}
 		if upgrade && v.File != nil {
-			u.Held = fileHeld(v.File)
+			u.Held = fileHeld(v.File, sub.versions[v.Slot])
 		}
+		if u.Held != nil && u.Held.Done {
+			continue // at its Profile's cutoff: marked searched, but no indexer is asked for an Upgrade
+		}
+		slotVersion[v.Slot] = v.ID
 		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{u}})
 	}
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
+	obs := ObserverOf(ctx)
+	obs.Searching(targetOf(sub.detail, in))
+	out.asked = true
 	entries, failures, err := s.candidates(ctx, sub, library.Scope{}, fromCache)
 	if err != nil {
 		return out, err
 	}
+	obs.Releases(len(entries))
+	out.found(entries)
 	out.Failures = failures
 	byRelease := map[string]*entry{}
 	for _, e := range entries {

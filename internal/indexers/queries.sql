@@ -15,3 +15,12 @@ UPDATE indexer_grab_counts SET grabs = MAX(grabs - 1, 0) WHERE indexer_id = ? AN
 
 -- name: PruneGrabCounts :exec
 DELETE FROM indexer_grab_counts WHERE indexer_id = ? AND day < ?;
+
+-- name: InsertSearch :one
+INSERT INTO indexer_searches (indexer_id, indexer_name, at, ok, releases, duration_ms) VALUES (?, ?, ?, ?, ?, ?) RETURNING id;
+
+-- name: MarkSearchesFit :exec
+UPDATE indexer_searches SET fit = 1 WHERE id IN (SELECT value FROM json_each(?));
+
+-- name: PruneSearches :exec
+DELETE FROM indexer_searches WHERE at < ?;

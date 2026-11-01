@@ -10,6 +10,79 @@ import (
 	"database/sql"
 )
 
+const eventBuckets = `-- name: EventBuckets :many
+SELECT CAST(CAST(strftime('%s', at) AS INTEGER) / CAST(?1 AS INTEGER) AS INTEGER) AS bucket, kind, COUNT(*) AS n
+FROM events WHERE at >= ?2
+GROUP BY 1, kind
+`
+
+type EventBucketsParams struct {
+	BucketSecs int64
+	Since      string
+}
+
+type EventBucketsRow struct {
+	Bucket int64
+	Kind   string
+	N      int64
+}
+
+// The events since a time, counted per kind and per bucket of bucket_secs seconds from the epoch.
+func (q *Queries) EventBuckets(ctx context.Context, arg EventBucketsParams) ([]EventBucketsRow, error) {
+	rows, err := q.db.QueryContext(ctx, eventBuckets, arg.BucketSecs, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EventBucketsRow
+	for rows.Next() {
+		var i EventBucketsRow
+		if err := rows.Scan(&i.Bucket, &i.Kind, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const eventKindCounts = `-- name: EventKindCounts :many
+SELECT kind, COUNT(*) AS n FROM events GROUP BY kind ORDER BY kind
+`
+
+type EventKindCountsRow struct {
+	Kind string
+	N    int64
+}
+
+func (q *Queries) EventKindCounts(ctx context.Context) ([]EventKindCountsRow, error) {
+	rows, err := q.db.QueryContext(ctx, eventKindCounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EventKindCountsRow
+	for rows.Next() {
+		var i EventKindCountsRow
+		if err := rows.Scan(&i.Kind, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const eventsAfter = `-- name: EventsAfter :many
 SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data FROM events WHERE id > ? ORDER BY id LIMIT ?
 `
@@ -110,10 +183,11 @@ WHERE (?1 IS NULL OR kind IN (SELECT value FROM json_each(?1)))
   AND (?4 IS NULL OR title_id IS NULL OR title_id NOT IN (SELECT value FROM json_each(?4)))
   AND (?5 IS NULL OR version_id IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(?5))))
   AND (?6 IS NULL OR version_id IS NULL OR version_id NOT IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(?6))))
-  AND (?7 = 1 OR routine = 0)
-  AND (?8 IS NULL OR id < ?8)
+  AND (?7 IS NULL OR grab_id = ?7)
+  AND (?8 = 1 OR routine = 0)
+  AND (?9 IS NULL OR id < ?9)
 ORDER BY id DESC
-LIMIT ?9
+LIMIT ?10
 `
 
 type ListEventsParams struct {
@@ -123,6 +197,7 @@ type ListEventsParams struct {
 	ExcludeTitleIds interface{}
 	Slots           interface{}
 	ExcludeSlots    interface{}
+	GrabID          interface{}
 	WithRoutine     interface{}
 	Before          interface{}
 	MaxRows         int64
@@ -138,6 +213,7 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event
 		arg.ExcludeTitleIds,
 		arg.Slots,
 		arg.ExcludeSlots,
+		arg.GrabID,
 		arg.WithRoutine,
 		arg.Before,
 		arg.MaxRows,
@@ -173,6 +249,17 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event
 		return nil, err
 	}
 	return items, nil
+}
+
+const oldestEventAt = `-- name: OldestEventAt :one
+SELECT CAST(COALESCE(MIN(at), '') AS TEXT) FROM events
+`
+
+func (q *Queries) OldestEventAt(ctx context.Context) (string, error) {
+	row := q.db.QueryRowContext(ctx, oldestEventAt)
+	var column_1 string
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const pruneRoutineEvents = `-- name: PruneRoutineEvents :execrows

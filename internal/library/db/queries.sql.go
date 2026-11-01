@@ -252,7 +252,7 @@ func (q *Queries) GetFileOfVersionEpisode(ctx context.Context, arg GetFileOfVers
 }
 
 const getTitle = `-- name: GetTitle :one
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone FROM titles WHERE id = ?
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone, monitor_new_seasons, monitor_specials FROM titles WHERE id = ?
 `
 
 func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
@@ -286,6 +286,8 @@ func (q *Queries) GetTitle(ctx context.Context, id int64) (Title, error) {
 		&i.TvdbStatus,
 		&i.AirTime,
 		&i.AirTimezone,
+		&i.MonitorNewSeasons,
+		&i.MonitorSpecials,
 	)
 	return i, err
 }
@@ -649,7 +651,7 @@ func (q *Queries) ListAliasesOfTitle(ctx context.Context, titleID int64) ([]List
 }
 
 const listAllFileEpisodesOfTitle = `-- name: ListAllFileEpisodesOfTitle :many
-SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.parsed_release
+SELECT f.version_id, fe.episode_id, f.id AS file_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.imported_at
 FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id WHERE v.title_id = ?
 `
 
@@ -659,7 +661,10 @@ type ListAllFileEpisodesOfTitleRow struct {
 	FileID        int64
 	Path          string
 	Size          int64
+	ReleaseName   string
 	ParsedRelease sql.NullString
+	Probe         sql.NullString
+	ImportedAt    string
 }
 
 func (q *Queries) ListAllFileEpisodesOfTitle(ctx context.Context, titleID int64) ([]ListAllFileEpisodesOfTitleRow, error) {
@@ -677,7 +682,10 @@ func (q *Queries) ListAllFileEpisodesOfTitle(ctx context.Context, titleID int64)
 			&i.FileID,
 			&i.Path,
 			&i.Size,
+			&i.ReleaseName,
 			&i.ParsedRelease,
+			&i.Probe,
+			&i.ImportedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1271,6 +1279,47 @@ func (q *Queries) ListFirstFiledOfTitle(ctx context.Context, titleID int64) ([]L
 	return items, nil
 }
 
+const listGrabFilled = `-- name: ListGrabFilled :many
+SELECT f.version_id, f.imported_at, CAST(coalesce(fe.episode_id, 0) AS INTEGER) AS episode_id
+FROM files f JOIN grabs g ON g.id = f.grab_id LEFT JOIN file_episodes fe ON fe.file_id = f.id
+WHERE g.is_upgrade = 0 AND f.imported_at >= ?1 AND f.imported_at < ?2
+`
+
+type ListGrabFilledParams struct {
+	FromAt string
+	ToAt   string
+}
+
+type ListGrabFilledRow struct {
+	VersionID  int64
+	ImportedAt string
+	EpisodeID  int64
+}
+
+// The files that Grabs (not Upgrades) filled a Version with in a window, one row per episode of a Series file and one for a Movie file.
+func (q *Queries) ListGrabFilled(ctx context.Context, arg ListGrabFilledParams) ([]ListGrabFilledRow, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabFilled, arg.FromAt, arg.ToAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrabFilledRow
+	for rows.Next() {
+		var i ListGrabFilledRow
+		if err := rows.Scan(&i.VersionID, &i.ImportedAt, &i.EpisodeID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGrabbingEpisodesOfTitle = `-- name: ListGrabbingEpisodesOfTitle :many
 SELECT DISTINCT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
@@ -1524,6 +1573,43 @@ func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
 	return items, nil
 }
 
+const listSearchStatesOfTitle = `-- name: ListSearchStatesOfTitle :many
+SELECT ss.id, ss.version_id, ss.season, ss.next_missing_at, ss.last_missing_at, ss.next_upgrade_at, ss.last_upgrade_at, ss.fresh FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id
+`
+
+// A Title's search_state rows.
+func (q *Queries) ListSearchStatesOfTitle(ctx context.Context, titleID int64) ([]SearchState, error) {
+	rows, err := q.db.QueryContext(ctx, listSearchStatesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchState
+	for rows.Next() {
+		var i SearchState
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Season,
+			&i.NextMissingAt,
+			&i.LastMissingAt,
+			&i.NextUpgradeAt,
+			&i.LastUpgradeAt,
+			&i.Fresh,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasonNumbers = `-- name: ListSeasonNumbers :many
 SELECT number FROM seasons WHERE title_id = ?
 `
@@ -1579,7 +1665,7 @@ func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Seas
 }
 
 const listTitles = `-- name: ListTitles :many
-SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone FROM titles ORDER BY added_at DESC, id DESC
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone, monitor_new_seasons, monitor_specials FROM titles ORDER BY added_at DESC, id DESC
 `
 
 func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
@@ -1619,6 +1705,8 @@ func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 			&i.TvdbStatus,
 			&i.AirTime,
 			&i.AirTimezone,
+			&i.MonitorNewSeasons,
+			&i.MonitorSpecials,
 		); err != nil {
 			return nil, err
 		}
@@ -2008,6 +2096,21 @@ type SetSeriesMonitorParams struct {
 
 func (q *Queries) SetSeriesMonitor(ctx context.Context, arg SetSeriesMonitorParams) error {
 	_, err := q.db.ExecContext(ctx, setSeriesMonitor, arg.SeriesMonitor, arg.ID)
+	return err
+}
+
+const setSeriesMonitorOptions = `-- name: SetSeriesMonitorOptions :exec
+UPDATE titles SET monitor_new_seasons = ?, monitor_specials = ? WHERE id = ? AND kind = 'series'
+`
+
+type SetSeriesMonitorOptionsParams struct {
+	MonitorNewSeasons int64
+	MonitorSpecials   int64
+	ID                int64
+}
+
+func (q *Queries) SetSeriesMonitorOptions(ctx context.Context, arg SetSeriesMonitorOptionsParams) error {
+	_, err := q.db.ExecContext(ctx, setSeriesMonitorOptions, arg.MonitorNewSeasons, arg.MonitorSpecials, arg.ID)
 	return err
 }
 

@@ -66,6 +66,9 @@ type UpcomingEntry struct {
 	Year      int // 0 when unknown
 	HasPoster bool
 	Network   string // a Series' network; "" when unknown
+	// Monitored says whether the entry's episode (or Movie) is monitored. Only an Agenda
+	// asked for the unmonitored ones lists entries where it is false.
+	Monitored bool
 	// Overview is the episode's synopsis, else the Title's; "" when none.
 	Overview string
 	// Slots has one entry per Version of the Title, Standard first.
@@ -141,6 +144,18 @@ var movieReleases = []struct {
 // Oldest first. Undated lists the monitored Titles with something expected but
 // no date yet.
 func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (Agenda, error) {
+	return s.UpcomingWith(ctx, view, from, to, UpcomingOptions{})
+}
+
+// UpcomingOptions widens what Upcoming lists.
+type UpcomingOptions struct {
+	// Unmonitored also lists the unmonitored episodes and Movies (a Series or Movie that is not monitored, and the
+	// unmonitored episodes of one that is) in the window, each marked Monitored false. They never reach Undated.
+	Unmonitored bool
+}
+
+// UpcomingWith is Upcoming with the options.
+func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Time, opts UpcomingOptions) (Agenda, error) {
 	from, to = dayOf(from), dayOf(to)
 	today := dayOf(view.Now)
 	q := db.New(s.st.Read())
@@ -227,11 +242,13 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 
 	var out Agenda
 	for _, t := range titles {
-		if t.Monitored != 1 {
+		titleMonitored := t.Monitored == 1
+		if !titleMonitored && !opts.Unmonitored {
 			continue
 		}
 		base := UpcomingEntry{
-			Kind: Kind(t.Kind), TitleID: t.ID, Title: t.Title, Year: int(t.Year.Int64),
+			Monitored: titleMonitored,
+			Kind:      Kind(t.Kind), TitleID: t.ID, Title: t.Title, Year: int(t.Year.Int64),
 			HasPoster: t.PosterPath.String != "", Network: t.Network, Overview: t.Overview,
 		}
 		undated := UndatedEntry{
@@ -243,7 +260,7 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 			movieSlots := func() []EntrySlot {
 				var slots []EntrySlot
 				for _, v := range vs {
-					st, since := StateAt(Unit{Monitored: true, HasFile: hasFile[v.ID], AddedAt: parseTime(v.AddedAt), Released: movieReleased(rel, view.Country, t.ReleaseSeenAt)}, view.Now)
+					st, since := StateAt(Unit{Monitored: titleMonitored, HasFile: hasFile[v.ID], AddedAt: parseTime(v.AddedAt), Released: movieReleased(rel, view.Country, t.ReleaseSeenAt)}, view.Now)
 					slots = append(slots, slotOfState(v, st, since, movieFile[v.ID]))
 				}
 				return slots
@@ -253,6 +270,9 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 				unfilled = unfilled || !hasFile[v.ID]
 			}
 			if _, dated := rel.Released(""); !dated && unfilled {
+				if !titleMonitored {
+					continue
+				}
 				undated.Reason, undated.Slots = NoReleaseDate, movieSlots()
 				out.Undated = append(out.Undated, undated)
 				continue
@@ -300,12 +320,13 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 		markers := markersOf(eps)
 		var noDate []db.Episode
 		for _, e := range eps {
-			if e.Monitored != 1 {
+			monitored := titleMonitored && e.Monitored == 1
+			if !monitored && !opts.Unmonitored {
 				continue
 			}
 			day := parseDate(e.AirDate)
 			if day == nil {
-				if e.Season > 0 && !e.PlaceholderAt.Valid {
+				if monitored && e.Season > 0 && !e.PlaceholderAt.Valid {
 					noDate = append(noDate, e)
 				}
 				continue
@@ -314,6 +335,7 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 				continue
 			}
 			ent := base
+			ent.Monitored = monitored
 			ent.Date, ent.Released = *day, true
 			ent.EpisodeID, ent.Season, ent.Episode, ent.EpisodeName = e.ID, int(e.Season), int(e.Number), e.Name
 			if e.Overview != "" {
@@ -326,10 +348,13 @@ func (s *Service) Upcoming(ctx context.Context, view View, from, to time.Time) (
 			ent.Markers = markers[e.ID]
 			for _, v := range vs {
 				_, held := heldBy[v.ID][e.ID]
-				st, since := StateAt(Unit{Monitored: true, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]}, view.Now)
+				st, since := StateAt(Unit{Monitored: monitored, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]}, view.Now)
 				ent.Slots = append(ent.Slots, slotOfState(v, st, since, parsedOf[[2]int64{v.ID, e.ID}]))
 			}
 			out.Entries = append(out.Entries, ent)
+		}
+		if !titleMonitored {
+			continue
 		}
 		switch {
 		case len(noDate) > 0:

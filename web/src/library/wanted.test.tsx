@@ -46,6 +46,7 @@ const grab = (titleId: number, slot: 'standard' | '4k', pct: number): components
   kind: 'movie',
   slot,
   episodes: [],
+  episode_ids: [],
   release_name: 'Some.Film.2014.1080p-GRP',
   indexer: 'Fake',
   size: 100,
@@ -76,7 +77,7 @@ describe('the Library filter, typed', () => {
     expect(await status('All')).toHaveTextContent(/^All3$/)
     expect(await status('Wanted')).toHaveTextContent(/^Wanted2$/)
     expect(await status('Long Missing')).toHaveTextContent(/^Long Missing1$/)
-    expect(await status('Unmonitored')).toHaveTextContent(/^Unmonitored0$/)
+    expect(await status('Not monitored')).toHaveTextContent(/^Not monitored0$/)
     await userEvent.keyboard('{Escape}')
 
     await userEvent.type(filter(), 'pad is:wanted ')
@@ -124,7 +125,7 @@ describe('the Library filter, typed', () => {
     expect(names(list)).toEqual(['Recent Film'])
     const recent = within(list).getByRole('option', { name: /recent film/i })
     expect(recent).toHaveTextContent('Downloading · 40%')
-    expect(within(recent).getByRole('img', { name: 'Standard: Downloading, 4K: no Version' })).toBeInTheDocument()
+    expect(within(recent).getByRole('button', { name: 'Standard: Downloading 40%' })).toBeInTheDocument()
   })
 
   it('sorts by Wanted since, the longest Wanted first and Titles that are not Wanted last', async () => {

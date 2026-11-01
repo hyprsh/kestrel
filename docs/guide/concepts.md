@@ -47,7 +47,7 @@ A **Custom Format** is a named trait a Release can have, such as being from a tr
 
 A Release's **Score** is the sum of the points of every Custom Format it matches under that Profile. The higher Score wins a Grab or an Upgrade.
 
-Example: for the HD Profile, a 1080p Release from a top release group matches a Custom Format worth many points. An otherwise identical one from an unknown group matches none, scores lower, and loses. You don't edit Scores in Kestrel. They come from TRaSH, and Kestrel refreshes them daily (Settings > TRaSH).
+Example: for the HD Profile, a 1080p Release from a top release group matches a Custom Format worth many points. An otherwise identical one from an unknown group matches none, scores lower, and loses. You don't edit Scores in Kestrel. They come from TRaSH, and Kestrel refreshes them daily (Settings > Profiles > TRaSH).
 
 ## Wanted
 

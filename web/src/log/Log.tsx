@@ -1,94 +1,251 @@
-// The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
-// routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
-// where an entry can be removed.
-import { Badge, Button, DotsMenu, EmptyState, Entity, Link, MenuItem, Note, Pager, Table, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
-import { useMemo, useState, type ReactNode } from 'react'
-import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
+// The Log: what Kestrel did, as a strip of the last days over one card of events as sentences, filtered by one field of
+// qualifiers (kind:, slot:, title:, routine:) and free text; and the Blocklist view, where an entry can be removed.
+import { Button, DotsMenu, EmptyState, Entity, MenuDivider, MenuItem, MenuSection, Note, Pager, Table, Toggle, parseQuery, withValue } from '@hyprsh/design'
+import { ArrowDownToLine, CircleAlert, FileCheck, FolderInput, List, Search, TriangleAlert } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useBlocklist, useEventsHistogram, useEventsSummary, useSameKind, useUnblock, type EventsSummary, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
-import { FacetFilterButton } from '../layout/FilterButton'
-import { ScreenBar, ViewSwitcher } from '../layout/ScreenBar'
+import { filterChips } from '../filter/chips'
+import type { Facet } from '../filter/qualifiers'
+import { FacetFilterButton, SortButton } from '../layout/FilterButton'
+import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
 import { PagerStrip } from '../layout/PagerStrip'
 import { useKey, useListNav } from '../keys'
-import { useColumnWidths } from '../layout/columnWidths'
-import { SkeletonRow, SkeletonRows, TableSkeletonRows } from '../loading'
+import { SkeletonRows, TableSkeletonRows } from '../loading'
 import { usePageParam } from '../place'
+import { plural } from '../format'
 import { usePhone } from '../responsive'
+import { useNow } from '../time'
 import { useReport } from '../toasts'
-import { logFilter, logQualifiers } from './filter'
-
-type Tone = NonNullable<BadgeProps['variant']>
-
-const kinds: Record<string, { label: string; tone: Tone }> = {
-  grab: { label: 'Grabbed', tone: 'blue' },
-  grab_failed: { label: 'Failed', tone: 'red' },
-  grab_canceled: { label: 'Canceled', tone: 'gray' },
-  grab_downloading: { label: 'Downloading', tone: 'gray' },
-  grab_completed: { label: 'Downloaded', tone: 'gray' },
-  import: { label: 'Imported', tone: 'green' },
-  import_episode: { label: 'Episode', tone: 'green' },
-  import_rejected: { label: 'Import rejected', tone: 'red' },
-  import_stalled: { label: 'Import stalled', tone: 'amber' },
-  blocklist: { label: 'Blocklisted', tone: 'red' },
-  request: { label: 'Requested', tone: 'teal' },
-  request_ended: { label: 'Request ended', tone: 'gray' },
-  watch_ahead: { label: 'Watch-ahead', tone: 'teal' },
-  rename: { label: 'Renamed', tone: 'gray' },
-  move: { label: 'Moved', tone: 'gray' },
-  delete: { label: 'Deleted', tone: 'gray' },
-  title_refreshed: { label: 'Refreshed', tone: 'gray' },
-  search: { label: 'Searched', tone: 'gray' },
-  adoption: { label: 'Adopted', tone: 'teal' },
-  adoption_scanned: { label: 'Scanned', tone: 'gray' },
-  cleanup: { label: 'Cleaned up', tone: 'gray' },
-  health_raised: { label: 'Warning', tone: 'amber' },
-  health_cleared: { label: 'Cleared', tone: 'green' },
-  original_offered: { label: 'Original offered', tone: 'amber' },
-}
-
-const kindLabels = Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, v.label]))
+import { EventList } from './EventList'
+import { useFeed, useFollowLive } from './feed'
+import { currentView, logFilter, logQualifiers, logViews, oldestFirst, refinements, viewCount, viewQuery } from './filter'
+import { foldRows, type Row } from './rows'
+import { recoveriesByKey, recoveryAfter } from './sentence'
+import { Strip, stripTotals } from './Strip'
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-/** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
-export function Log({ query, onQuery }: { query: string; onQuery: (query: string) => void }) {
-  const phone = usePhone()
-  const [view, setView] = useState<'log' | 'blocklist'>('log')
-  const [, setPage] = usePageParam()
-  const widths = useColumnWidths('log')
-  const switcher = (
-    <ViewSwitcher
-      label="Log"
-      current={view}
-      onChange={(v) => {
-        setView(v)
-        setPage(1)
-      }}
-      views={[
-        { value: 'log', label: 'Log' },
-        { value: 'blocklist', label: 'Blocklist' },
-      ]}
-    />
-  )
-  // A phone shows no table, so there are no column widths to reset.
-  const menu =
-    view === 'log' && !phone ? (
-      <DotsMenu aria-label="Log actions" width={200}>
-        <MenuItem disabled={widths.isDefault} onSelect={widths.reset}>
-          Reset column widths
-        </MenuItem>
-      </DotsMenu>
-    ) : undefined
-  return view === 'log' ? <Events query={query} onQuery={onQuery} widths={widths} view={switcher} menu={menu} /> : <Blocklist view={switcher} menu={menu} />
+const viewIcons: Record<string, ReactNode> = {
+  everything: <List />,
+  errors: <CircleAlert />,
+  warnings: <TriangleAlert />,
+  grabs: <ArrowDownToLine />,
+  imports: <FileCheck />,
+  adoption: <FolderInput />,
+  searches: <Search />,
 }
 
-/** What a skeleton row sizes its cells by: the Log's three columns. */
-const eventColumns = [
-  { key: 'when', header: 'When' },
-  { key: 'kind', header: 'Kind' },
-  { key: 'event', header: 'Event' },
-]
+/** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
+export function Log({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
+  const [blocklist, setBlocklist] = useState(false)
+  const [, setPage] = usePageParam()
+  // The Blocklist is a page of its own, reached from the "…" menu; any view of the panel goes back to the Log.
+  const showBlocklist = (on: boolean) => {
+    setBlocklist(on)
+    setPage(1)
+  }
+  return blocklist ? (
+    <Blocklist
+      query={query}
+      onQuery={onQuery}
+      onBack={() => showBlocklist(false)}
+      onView={(q) => {
+        onQuery(q)
+        showBlocklist(false)
+      }}
+    />
+  ) : (
+    <Events query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} onBlocklist={() => showBlocklist(true)} />
+  )
+}
+
+/** The footer line: how far back the Log goes, and how long routine events are kept; what is not known is left out. */
+function retention(summary: EventsSummary | undefined, now: number): string | null {
+  if (!summary) return null
+  const parts = []
+  if (summary.oldest) {
+    const days = Math.max(1, Math.ceil((now - new Date(summary.oldest).getTime()) / 86_400_000))
+    parts.push(days === 1 ? 'Today' : `Last ${days} days`)
+  }
+  if (summary.routine_days > 0) parts.push(`routine kept ${summary.routine_days} days`)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
+/** The strip's days: the time range the Log covers, up to a week. */
+function stripDays(summary: EventsSummary | undefined, now: number): number {
+  if (!summary?.oldest) return 7
+  return Math.min(7, Math.max(1, Math.ceil((now - new Date(summary.oldest).getTime()) / 86_400_000)))
+}
+
+/** The histogram behind the strip and a phone's week line. */
+function useStrip() {
+  const now = useNow()
+  const days = stripDays(useEventsSummary().data, now)
+  return { days, now, histogram: useEventsHistogram(days) }
+}
+
+/** A phone's week line: "874 events this week · 3 errors · 12 warnings", the errors in red. */
+function WeekLine() {
+  const { days, histogram } = useStrip()
+  if (!histogram.data) return null
+  const t = stripTotals(histogram.data.buckets)
+  const span = days >= 7 ? 'this week' : days <= 1 ? 'today' : `in the last ${days} days`
+  return (
+    <span className="label-12 text-gray-900">
+      {plural(t.events, 'event')} {span} · <span className={t.errors > 0 ? 'text-red-900' : undefined}>{plural(t.errors, 'error')}</span> · {plural(t.warnings, 'warning')}
+    </span>
+  )
+}
+
+/**
+ * The Log's side panel, shared by its two pages: the name with the "…" menu, the filter, Filter and Sort, the chips, the
+ * Views and the footer with the Follow live switch. The Blocklist shows only the name, the menu and the Views, since its list is not filtered.
+ * On a phone the Views are in the filter menu with the filter's own sections, and the sort and Follow live in the "…" menu,
+ * since the panel is only a header there.
+ */
+function LogPanel({
+  query,
+  onQuery,
+  onView,
+  qualifiers,
+  filtered,
+  onFilter,
+  blocklist,
+  onBlocklist,
+  follow,
+}: {
+  query: string
+  onQuery: (query: string) => void
+  /** Chooses a view: its filter, as the new query. */
+  onView: (query: string) => void
+  qualifiers: readonly Facet[]
+  /** Whether the list can be filtered (the Log, not the Blocklist). */
+  filtered: boolean
+  onFilter?: ReactNode
+  blocklist: { showing: boolean; onBack: () => void } | { showing: false; onBack?: undefined }
+  onBlocklist?: () => void
+  /** Follow live and how to set it; the Blocklist has none. */
+  follow?: [boolean, (on: boolean) => void]
+}) {
+  const phone = usePhone()
+  const summary = useEventsSummary()
+  const counts = summary.data?.counts
+  const chosen = blocklist.showing ? undefined : currentView(query, qualifiers)
+  const countOf = (v: (typeof logViews)[number]) => (counts ? viewCount(v, counts) : undefined)
+  const now = useNow()
+  const foot = retention(summary.data, now)
+  const sort = parseQuery(query, qualifiers).terms.some((t) => t.name === 'sort' && t.values[0] === 'oldest') ? 'oldest' : ''
+  const setSort = (value: string) => {
+    const terms = parseQuery(query, qualifiers).terms
+    let text = query
+    for (let i = terms.length - 1; i >= 0; i--) if (terms[i].name === 'sort') text = text.slice(0, terms[i].span[0]) + text.slice(terms[i].span[1])
+    text = text.replace(/\s+/g, ' ').trim()
+    onQuery(value ? withValue(text, 'sort', value, qualifiers) : text)
+  }
+  const viewItems = logViews.map((v) => (
+    <MenuItem key={v.key} role="radio" checked={chosen?.key === v.key} suffix={countOf(v)?.toLocaleString()} onSelect={() => onView(viewQuery(v, query, qualifiers))}>
+      {v.label}
+    </MenuItem>
+  ))
+  return (
+    <SidePanel
+      title="Log"
+      actions={
+        <DotsMenu aria-label="Log actions" width={220}>
+          {blocklist.showing ? <MenuItem onSelect={blocklist.onBack}>Back to the Log</MenuItem> : <MenuItem onSelect={() => onBlocklist?.()}>Blocklist</MenuItem>}
+          {phone && !blocklist.showing && (
+            <>
+              <MenuDivider />
+              <MenuSection title="Sort">
+                <MenuItem role="radio" checked={sort === ''} onSelect={() => setSort('')}>
+                  Newest first
+                </MenuItem>
+                <MenuItem role="radio" checked={sort === 'oldest'} onSelect={() => setSort('oldest')}>
+                  Oldest first
+                </MenuItem>
+              </MenuSection>
+              {follow && (
+                <>
+                  <MenuDivider />
+                  <MenuItem role="checkbox" checked={follow[0]} onSelect={() => follow[1](!follow[0])}>
+                    Follow live
+                  </MenuItem>
+                </>
+              )}
+            </>
+          )}
+          {phone && blocklist.showing && (
+            <>
+              <MenuDivider />
+              <MenuSection title="Views">{viewItems}</MenuSection>
+            </>
+          )}
+        </DotsMenu>
+      }
+      filter={filtered ? onFilter : undefined}
+      controls={
+        filtered ? (
+          phone ? (
+            <FacetFilterButton
+              query={query}
+              onQuery={onQuery}
+              qualifiers={qualifiers}
+              active={refinements(query, qualifiers)}
+              label="Views and filter"
+              lead={<MenuSection title="Views">{viewItems}</MenuSection>}
+            />
+          ) : (
+            <>
+              <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} active={refinements(query, qualifiers)} />
+              <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+            </>
+          )
+        ) : undefined
+      }
+      chips={
+        filtered ? (
+          <>
+            <FilterChips chips={filterChips(query, onQuery, qualifiers)} />
+            {phone && <WeekLine />}
+          </>
+        ) : undefined
+      }
+      views={
+        <SidePanelViews>
+          {logViews.map((v) => {
+            const n = countOf(v)
+            return (
+              <SidePanelView
+                key={v.key}
+                icon={viewIcons[v.key]}
+                current={chosen?.key === v.key}
+                count={n === undefined ? undefined : <span className={v.key === 'errors' && n > 0 ? 'text-red-900' : undefined}>{n.toLocaleString()}</span>}
+                onSelect={() => onView(viewQuery(v, query, qualifiers))}
+              >
+                {v.label}
+              </SidePanelView>
+            )
+          })}
+        </SidePanelViews>
+      }
+      footer={
+        follow || foot ? (
+          <div className="flex w-full flex-col gap-2">
+            {follow && (
+              <Toggle size="small" checked={follow[0]} onChange={follow[1]} labelCasing="normal" direction="switch-first">
+                Follow live
+              </Toggle>
+            )}
+            {foot && <span>{foot}</span>}
+          </div>
+        ) : undefined
+      }
+    />
+  )
+}
 
 /** Events per page. */
 const PAGE_SIZE = 50
@@ -104,191 +261,203 @@ function useTitleNames() {
   return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
 }
 
-function Events({ query, onQuery, widths, view, menu }: { query: string; onQuery: (query: string) => void; widths: ReturnType<typeof useColumnWidths>; view: ReactNode; menu: ReactNode }) {
+/** The Filter menu's names for the kinds. */
+const kindLabels: Record<string, string> = {
+  grab: 'Grabbed',
+  grab_failed: 'Failed',
+  grab_canceled: 'Canceled',
+  grab_downloading: 'Downloading',
+  grab_completed: 'Downloaded',
+  import: 'Imported',
+  import_episode: 'Episode',
+  import_rejected: 'Import rejected',
+  import_stalled: 'Import stalled',
+  blocklist: 'Blocklisted',
+  request: 'Requested',
+  request_ended: 'Request ended',
+  watch_ahead: 'Watch-ahead',
+  rename: 'Renamed',
+  move: 'Moved',
+  delete: 'Deleted',
+  title_refreshed: 'Refreshed',
+  search: 'Searched',
+  adoption: 'Adopted',
+  adoption_scanned: 'Scanned',
+  cleanup: 'Cleaned up',
+  health_raised: 'Warning',
+  health_cleared: 'Cleared',
+  original_offered: 'Original offered',
+}
+
+function Events({ query, onQuery, onOpenTitle, onBlocklist }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void; onBlocklist: () => void }) {
   const phone = usePhone()
   const [sel, setSel] = useState(0)
+  const [open, setOpen] = useState<number | null>(null)
+  const [folds, setFolds] = useState<ReadonlySet<number>>(new Set())
+  const [follow, setFollow] = useFollowLive()
   const { list: titles, names } = useTitleNames()
   const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))]), [titles])
   const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
   const byTitle = parsed.terms.some((t) => t.name === 'title')
   // A title: filter names Titles, so it waits for the Library to know which.
-  const events = useEvents(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined)
+  const feed = useFeed(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined, follow)
+  const strip = useStrip()
+  // A Needs attention row that closed again says how often Kestrel retried and when the connection came back; asked only when the Log shows one.
+  const cleared = useSameKind((feed.events ?? []).some((e) => e.kind === 'health_raised') ? 'health_cleared' : undefined)
+  const recoveries = useMemo(() => recoveriesByKey(cleared.data ?? []), [cleared.data])
+  const recovery = (e: LogEvent) => (e.kind === 'health_raised' ? recoveryAfter(e, recoveries) : null)
 
   const [page, setPage] = usePageParam()
-  const shown = useMemo(() => (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])), [events.data, parsed.text, names])
+  const oldest = oldestFirst(parsed)
+  const matching = useMemo(() => (feed.events ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])), [feed.events, parsed.text, names])
+  const rows = useMemo(() => foldRows(oldest ? [...matching].reverse() : matching), [matching, oldest])
 
   // A page past the last one (a filter that shrank the list, a stale address) shows the last page.
-  const shownPage = Math.min(page, Math.max(1, Math.ceil(shown.length / PAGE_SIZE)))
-  const pageRows = useMemo(() => shown.slice((shownPage - 1) * PAGE_SIZE, shownPage * PAGE_SIZE), [shown, shownPage])
+  const lastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const shownPage = Math.min(page, lastPage)
+  const pageRows = useMemo(() => rows.slice((shownPage - 1) * PAGE_SIZE, shownPage * PAGE_SIZE), [rows, shownPage])
   const toPage = (next: number) => {
     setPage(next)
     setSel(0)
+    setOpen(null)
   }
   // A new filter starts at the first page.
   const filterTo = (q: string) => {
     setPage(1)
     setSel(0)
+    setOpen(null)
     onQuery(q)
   }
 
-  useListNav('log', pageRows.length, Math.min(sel, Math.max(pageRows.length - 1, 0)), setSel)
+  // Reaching the last page loads the events before it (newest first only: the oldest-first order shows the loaded ones turned round).
+  useEffect(() => {
+    if (!oldest && feed.more && !feed.loadingOlder && rows.length > 0 && shownPage >= lastPage) feed.loadOlder()
+  }, [oldest, feed.more, feed.loadingOlder, feed.loadOlder, rows.length, shownPage, lastPage])
+
+  // A click on the strip: load back to the column's time if the list does not reach it yet, then show the page with the
+  // newest event before the end of that time and scroll to it.
+  const [jump, setJump] = useState<{ from: number; to: number } | null>(null)
+  const [scrollTo, setScrollTo] = useState<number | null>(null)
+  useEffect(() => {
+    if (!jump || !feed.events) return
+    const last = feed.events.at(-1)
+    if (last && Date.parse(last.at) > jump.from && feed.more) {
+      if (!feed.loadingOlder) feed.loadOlder()
+      return
+    }
+    const target = matching.find((e) => Date.parse(e.at) < jump.to)
+    const at = target ? rows.findIndex((r) => (r.type === 'event' ? r.id === target.id : r.events.some((x) => x.id === target.id))) : -1
+    setJump(null)
+    if (at < 0) return
+    setPage(Math.floor(at / PAGE_SIZE) + 1)
+    setSel(at % PAGE_SIZE)
+    setScrollTo(rows[at].id)
+  }, [jump, feed, matching, rows, setPage])
+  useEffect(() => {
+    if (scrollTo === null) return
+    const el = document.querySelector(`[data-row="${scrollTo}"]`)
+    if (!el) return
+    el.scrollIntoView?.({ block: 'start' })
+    setScrollTo(null)
+  }, [scrollTo, pageRows])
+
+  const toggleAt = (row: Row | undefined) => {
+    if (!row) return
+    if (row.type === 'event') setOpen(open === row.id ? null : row.id)
+    else {
+      const next = new Set(folds)
+      if (!next.delete(row.id)) next.add(row.id)
+      setFolds(next)
+    }
+  }
+  const at = Math.min(sel, Math.max(pageRows.length - 1, 0))
+  useListNav('log', pageRows.length, at, setSel, (i) => toggleAt(pageRows[i]))
   useKey('/', (e) => {
     e.preventDefault()
     document.getElementById('log-filter')?.focus()
   })
 
+  const showOnly = (e: { kind: string; title_id?: number | null }, by: 'kind' | 'title') => {
+    if (by === 'title') {
+      const name = names.get(e.title_id ?? -1)
+      if (name) filterTo(withValue(query, 'title', name, qualifiers))
+    } else filterTo(viewQuery({ key: 'kind', label: '', terms: `kind:${e.kind}`, kinds: null }, query, qualifiers))
+  }
+
+  const panel = (
+    <LogPanel
+      query={query}
+      onQuery={filterTo}
+      onView={filterTo}
+      qualifiers={qualifiers}
+      filtered
+      onFilter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:errors  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
+      blocklist={{ showing: false }}
+      onBlocklist={onBlocklist}
+      follow={[follow, setFollow]}
+    />
+  )
+  const fresh = feed.fresh.count > 0 && (
+    <div className="sticky top-2 z-10 flex justify-center">
+      <Button
+        variant="secondary"
+        size="small"
+        onClick={() => {
+          feed.showFresh()
+          toPage(1)
+          setScrollTo(null)
+          document.getElementById('log-events')?.scrollTo?.({ top: 0 })
+        }}
+      >
+        {`${feed.fresh.count}${feed.fresh.atLeast ? '+' : ''} new ${feed.fresh.count === 1 ? 'event' : 'events'}`}
+      </Button>
+    </div>
+  )
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ScreenBar
-        view={view}
-        menu={menu}
-        filter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter events, e.g. kind:failures  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
-        controls={<FacetFilterButton query={query} onQuery={filterTo} qualifiers={qualifiers} />}
-      />
-      <div className="min-h-0 flex-1 overflow-auto">
-        {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
-        {events.data && shown.length === 0 && (
-          <div className="p-4">
-            <EmptyState description="Nothing in the Log matches." />
+    <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
+      {panel}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div id="log-events" className="min-h-0 flex-1 overflow-auto">
+          <div className="flex flex-col gap-4 p-4 sm:px-8 sm:py-6">
+            {!phone && strip.histogram.data && strip.histogram.data.buckets.length > 0 && (
+              <Strip buckets={strip.histogram.data.buckets} days={strip.days} now={strip.now} onJump={(from, to) => setJump({ from: from.getTime(), to: to.getTime() })} />
+            )}
+            {fresh}
+            {feed.isError && <Note variant="error">The Log could not be loaded.</Note>}
+            {feed.events && rows.length === 0 && <EmptyState description="Nothing in the Log matches." />}
+            {!feed.events && !feed.isError && (
+              <div aria-busy>
+                <SkeletonRows count={6} label="Loading the Log" />
+              </div>
+            )}
+            {rows.length > 0 && (
+              <EventList
+                rows={pageRows}
+                now={strip.now}
+                sel={at}
+                onSelect={setSel}
+                open={open}
+                onOpen={setOpen}
+                folds={folds}
+                onFolds={setFolds}
+                phone={phone}
+                label="Events"
+                ctx={{ names, onOpenTitle, onShowOnly: showOnly, recovery }}
+              />
+            )}
           </div>
-        )}
-        {phone ? (
-          // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
-          <div className="p-4">
-            <Entity.List aria-label="Events" aria-busy={events.isPending || undefined}>
-              {events.isPending && [0, 1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} index={i} />)}
-              {pageRows.map((e, i) => (
-                <PhoneEvent
-                  key={e.id}
-                  e={e}
-                  index={i}
-                  sel={sel}
-                  onSelect={() => setSel(i)}
-                  title={names.get(e.title_id ?? -1)}
-                  onFilter={(name, value) => filterTo(withValue(query, name, value, qualifiers))}
-                />
-              ))}
-            </Entity.List>
-          </div>
-        ) : (
-          <Table.Root>
-            {/* The widths are measured from the first rows, so the loading table (skeleton rows) is a table of its own. */}
-            <Table
-              key={events.isPending ? 'loading' : 'ready'}
-              aria-label="Events"
-              aria-busy={events.isPending || undefined}
-              stickyHeader
-              columnWidths={widths.widths}
-              onColumnWidthsChange={widths.onChange}
-            >
-              <Table.Header>
-                <Table.Row>
-                  <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="when" width={176} minWidth={120} maxWidth={320}>
-                    When
-                  </Table.Head>
-                  <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="kind" width={128} minWidth={96} maxWidth={240}>
-                    Kind
-                  </Table.Head>
-                  {/* The message column takes the rest of the row, so When and Kind are what resize it; its text still wraps. */}
-                  <Table.Head className="label-12-strong" truncate>
-                    Event
-                  </Table.Head>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body bordered interactive>
-                {events.isPending && <TableSkeletonRows columns={eventColumns} />}
-                {pageRows.map((e, i) => (
-                  <EventRow
-                    key={e.id}
-                    e={e}
-                    index={i}
-                    selected={i === sel}
-                    title={names.get(e.title_id ?? -1)}
-                    onSelect={() => setSel(i)}
-                    onFilter={(name, value) => filterTo(withValue(query, name, value, qualifiers))}
-                  />
-                ))}
-              </Table.Body>
-            </Table>
-          </Table.Root>
+        </div>
+        {rows.length > PAGE_SIZE && (
+          <PagerStrip>
+            <Pager aria-label="Log pages" page={shownPage} pageSize={PAGE_SIZE} total={rows.length} onPageChange={toPage} />
+          </PagerStrip>
         )}
       </div>
-      {shown.length > PAGE_SIZE && (
-        <PagerStrip>
-          <Pager aria-label="Log pages" page={shownPage} pageSize={PAGE_SIZE} total={shown.length} onPageChange={toPage} />
-        </PagerStrip>
-      )}
     </div>
   )
 }
 
-/** The kind of an event as a plain label: the Kind filter menu is where the Log is filtered by it. */
-function KindLabel({ kind }: { kind: string }) {
-  return (
-    <Badge variant={kinds[kind]?.tone ?? 'gray'} contrast="low" size="sm">
-      {kinds[kind]?.label ?? kind}
-    </Badge>
-  )
-}
-
-/** A Title's name in an event, as the link that adds it to the filter. */
-function TitleLink({ title, onFilter }: { title: string; onFilter: (name: 'title', value: string) => void }) {
-  return (
-    <>
-      <Link as="button" aria-label={`Filter by ${termText({ name: 'title', values: [title], excluded: false })}`} onClick={() => onFilter('title', title)}>
-        {title}
-      </Link>{' '}
-    </>
-  )
-}
-
-function PhoneEvent({ e, index, sel, onSelect, title, onFilter }: { e: LogEvent; index: number; sel: number; onSelect: () => void; title?: string; onFilter: (name: 'title', value: string) => void }) {
-  return (
-    <Entity as="button" current={index === sel} data-nav={`log-${index}`} onClick={onSelect}>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center justify-between gap-2">
-          <KindLabel kind={e.kind} />
-          <span className="label-12 tabular text-gray-900">{when(e.at)}</span>
-        </div>
-        <div className="min-w-0 break-words">
-          {title && <TitleLink title={title} onFilter={onFilter} />}
-          <span className="text-gray-900">{e.message}</span>
-        </div>
-      </div>
-    </Entity>
-  )
-}
-
-function EventRow({
-  e,
-  index,
-  selected,
-  title,
-  onSelect,
-  onFilter,
-}: {
-  e: LogEvent
-  index: number
-  selected: boolean
-  title?: string
-  onSelect: () => void
-  onFilter: (name: 'title', value: string) => void
-}) {
-  return (
-    <Table.Row data-nav={`log-${index}`} current={selected} onClick={onSelect}>
-      <Table.Cell className="label-12 tabular">{when(e.at)}</Table.Cell>
-      <Table.Cell>
-        <KindLabel kind={e.kind} />
-      </Table.Cell>
-      <Table.Cell wrap className="break-words">
-        {title && <TitleLink title={title} onFilter={onFilter} />}
-        <span className="text-gray-900">{e.message}</span>
-      </Table.Cell>
-    </Table.Row>
-  )
-}
-
-function Blocklist({ view, menu }: { view: ReactNode; menu: ReactNode }) {
+function Blocklist({ query, onQuery, onBack, onView }: { query: string; onQuery: (query: string) => void; onBack: () => void; onView: (query: string) => void }) {
   const phone = usePhone()
   const list = useBlocklist()
   const unblock = useUnblock()
@@ -298,11 +467,13 @@ function Blocklist({ view, menu }: { view: ReactNode; menu: ReactNode }) {
   const [sel, setSel] = useState(0)
   const items = list.data ?? []
   useListNav('block', items.length, sel, setSel)
+  const { list: titles } = useTitleNames()
+  const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))]), [titles])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ScreenBar view={view} menu={menu} />
-      <div className="min-h-0 flex-1 overflow-auto">
+    <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
+      <LogPanel query={query} onQuery={onQuery} onView={onView} qualifiers={qualifiers} filtered={false} blocklist={{ showing: true, onBack }} />
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
         {list.data && items.length === 0 && (
           <div className="p-4">
             <EmptyState description="The Blocklist is empty." />

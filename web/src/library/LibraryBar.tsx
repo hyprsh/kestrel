@@ -1,12 +1,13 @@
-// The Library's Status section of the Filter menu (All, Wanted, Long Missing, Downloading, Unreleased, Unmonitored,
-// each with its count) and its view controls: the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
+// The Library's Status section of the Filter menu (All, Wanted, Long Missing, Downloading, Unreleased, Not monitored,
+// each with its count) and the panel's actions: the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
 // Add Title.
 import { Button, DotsMenu, MenuItem, MenuSection } from '@hyprsh/design'
-import { Plus } from 'lucide-react'
+import { Bookmark, Plus } from 'lucide-react'
+import { usePhone } from '../responsive'
 import { stateTabs, type StateTab } from './filter'
 
 /**
- * The Status section of the Filter menu: All, Wanted, Long Missing, Downloading, Unreleased and Unmonitored, each with
+ * The Status section of the Filter menu: All, Wanted, Long Missing, Downloading, Unreleased and Not monitored, each with
  * its count. A status is the filter's `is:` term (see ./filter.ts), so it is kept in the address bar like the rest; All
  * takes the term out. `selected` is '' when the filter's `is:` is no status of this list.
  */
@@ -20,6 +21,7 @@ export function StatusSection({ selected, counts, onSelect }: { selected: StateT
             key={t.value}
             role="radio"
             checked={selected === t.value}
+            prefix={t.value === 'unmonitored' ? <Bookmark aria-hidden className="size-4" /> : undefined}
             onSelect={() => onSelect(t.value)}
             suffix={n === undefined ? undefined : <span className={`tabular-nums ${t.value === 'long_missing' && n > 0 ? 'text-red-900' : 'text-gray-900'}`}>{n}</span>}
           >
@@ -46,10 +48,12 @@ export function LibraryMenu({ onAdopt, onCleanup, onTick }: { onAdopt: () => voi
   )
 }
 
+/** The panel's primary action: a "+" icon button named Add Title (a phone's is a touch size larger). */
 export function AddTitle({ onAdd }: { onAdd: () => void }) {
+  const phone = usePhone()
   return (
-    <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
-      Add Title
+    <Button variant="primary" size={phone ? 'medium' : 'small'} svgOnly aria-label="Add Title" onClick={onAdd}>
+      <Plus />
     </Button>
   )
 }

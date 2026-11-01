@@ -1,21 +1,22 @@
 import { Entity, Note, Skeleton } from '@hyprsh/design'
-import { forwardRef, useRef } from 'react'
+import { forwardRef, type ReactNode } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
-import { usePhone } from '../responsive'
+import { plural } from '../format'
 import { sourceName } from '../requests/source'
 import type { SlotKey } from './bits'
-import { ExternalIds } from './ExternalIds'
-import { Ratings } from './Ratings'
+import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
+import { MovieSection } from './MovieSection'
+import { TitleHistory } from './TitleHistory'
+import { MonitoringLine } from './MonitorButton'
 import { TitleActions } from './TitleActions'
-import { TitleDownloads } from './TitleDownloads'
-import { TitleStatus } from './TitleStatus'
+import { TitleBadges } from './TitleBadges'
 import { VersionRows } from './VersionRows'
 
 /**
- * The right pane of the Library: the selected Title's header, its status line, its actions row and its Version rows.
- * It takes the width it is given; a Series' Versions sit beside its episodes once there is room for both.
+ * The right pane of the Library: the selected Title's header with its search button and menu, its Versions, and a Series' episodes under them.
+ * It takes the width it is given.
  */
 export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: () => void; onManualSearch: (search: ManualSearchTarget) => void }>(function TitleDetail(
   { row, onEscape, onManualSearch },
@@ -33,7 +34,7 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
           onEscape()
         }
       }}
-      className="min-w-0 flex-1 overflow-auto p-6 outline-none max-sm:p-4"
+      className="min-w-0 flex-1 overflow-auto p-4 outline-none sm:px-8 sm:py-6"
     >
       {isError ? (
         <Note variant="error" size="small">
@@ -53,23 +54,18 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
   )
 })
 
-/** What the Title page will hold, sized like it: the header (poster, name, meta, status), the actions row and a card of Version rows. Silent: the page announces loading itself. */
+/** What the Title page will hold, sized like it: the header (poster, name, meta) and a card of Version rows. Silent: the page announces loading itself. */
 function TitleSkeleton() {
   return (
     <div className="@container">
       <div className="flex gap-5">
-        <Skeleton width={112} height={168} />
+        <Skeleton width={88} height={132} />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Skeleton width="40%" height={32} />
           <Skeleton width="25%" height={20} />
           <Skeleton width="50%" height={24} />
           <Skeleton height={60} />
         </div>
-      </div>
-      <div className="mt-4 flex gap-2">
-        <Skeleton width={96} height={32} />
-        <Skeleton width={120} height={32} />
-        <Skeleton width={120} height={32} />
       </div>
       <div className="mt-6">
         <Skeleton width={64} height={20} />
@@ -87,51 +83,68 @@ function TitleSkeleton() {
   )
 }
 
+/** TheTVDB's status as the meta line says it: "Ended", "Continuing", "Upcoming". */
+const statusWord = (status: string) => status.charAt(0).toUpperCase() + status.slice(1)
+
 /** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
-export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: EpisodeScope; label: string } }
+export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: EpisodeScope; label: string; code: string | null } }
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
-  const phone = usePhone()
-  const episodes = useRef<HTMLDivElement>(null)
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const profileName = (key: string) => names.get(key) ?? key
-  const meta = [title.year, title.runtime ? `${title.runtime} min` : null, title.certification, title.original_language ? `Original ${title.original_language.toUpperCase()}` : null].filter(Boolean)
+  const seasons = title.seasons.filter((s) => s.number > 0).length
+  const meta: ReactNode[] = [
+    title.year,
+    title.kind === 'series' ? (seasons > 0 ? plural(seasons, 'season') : null) : runtime(title.runtime),
+    title.kind === 'series' && title.series_status ? statusWord(title.series_status) : null,
+    title.certification,
+    rated(title.ratings) ? <Ratings ratings={title.ratings} compact /> : null,
+    title.kind === 'movie' && title.original_language ? `Original ${title.original_language.toUpperCase()}` : null,
+  ].filter((m) => m !== null && m !== '')
 
+  const muted = title.kind === 'movie' && !title.monitored
   return (
     <div className="@container">
-      <div className="flex gap-5">
-        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size={phone ? 'xl' : '2xl'} />
-        <div className="min-w-0">
-          <h2 className="heading-24">{title.title}</h2>
-          {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
-          <div className="copy-14 mt-1 text-gray-900">
-            {meta.join(' · ')}
-            <Ratings ratings={title.ratings} lead={meta.length > 0} />
+      <div className="flex gap-5 max-sm:gap-3">
+        <span data-muted={muted ? '' : undefined} className={`shrink-0 self-start ${muted ? 'opacity-70 grayscale' : ''}`}>
+          <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="title" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h2 className={`heading-32 min-w-0 flex-1 basis-48 max-sm:heading-24 ${muted ? 'text-gray-900' : ''}`}>{title.title}</h2>
+            <TitleActions title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
           </div>
-          <TitleStatus title={title} />
-          <ExternalIds title={title} />
+          {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
+          <div className="label-14 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-gray-900">
+            {meta.map((m, i) => (
+              <span key={i}>{i < meta.length - 1 ? <>{m}&nbsp;·</> : m}</span>
+            ))}
+          </div>
+          <MonitoringLine title={title} />
+          <TitleBadges title={title} profileName={profileName} onManualSearch={onManualSearch} />
           {title.requests.map((r) => (
-            <div key={r.id} className="copy-13 mt-1 text-gray-900">
+            <div key={r.id} className="copy-13 text-gray-900">
               Requested by {r.requester_name} via {sourceName(r.source)}
             </div>
           ))}
-          {title.overview && <p className="copy-14 mt-3 max-w-prose text-gray-900">{title.overview}</p>}
+          {title.overview && <p className="copy-14 line-clamp-2 max-w-prose text-gray-900">{title.overview}</p>}
         </div>
       </div>
-      <TitleActions title={title} profileName={profileName} onManualSearch={onManualSearch} />
-      <TitleDownloads titleId={title.id} />
 
-      {/* A Series' Versions sit beside its episodes once the pane is wide enough for both, and above them before. */}
-      <div className={title.kind === 'series' ? 'grid grid-cols-1 gap-x-8 @5xl:grid-cols-2' : undefined}>
-        <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onCoverage={() => episodes.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })} />
-
-        {title.kind === 'series' && (
-          <div ref={episodes} className="min-w-0 scroll-mt-4">
-            <SeriesSection title={title} onManualSearch={onManualSearch} />
-          </div>
-        )}
-      </div>
+      <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
+      {title.kind === 'series' ? (
+        <SeriesSection title={title} onManualSearch={onManualSearch} />
+      ) : (
+        <MovieSection title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
+      )}
+      <TitleHistory title={title} />
     </div>
   )
+}
+
+/** 106 minutes as "1 h 46 min". */
+function runtime(minutes: number | null): string | null {
+  if (!minutes) return null
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}` : `${minutes} min`
 }

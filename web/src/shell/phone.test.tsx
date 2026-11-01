@@ -21,12 +21,13 @@ afterEach(() => vi.unstubAllGlobals())
 const rows = () => [row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { year: 1995 })]
 
 describe('the shell on a phone', () => {
-  it('puts the Health button in the top bar, before Add Title, and none on the Overview', async () => {
+  it("puts the Health button in the Overview's header, after its title, and none in the content", async () => {
     renderApp()
-    const bar = await screen.findByRole('banner')
+    const title = await screen.findByRole('heading', { level: 1, name: 'Overview' })
+    const bar = title.closest('header')!
     const health = await within(bar).findByRole('button', { name: /^Health/ })
-    expect(health.compareDocumentPosition(within(bar).getByRole('button', { name: 'Add Title' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(title.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(screen.getByRole('main')).getAllByRole('button', { name: /^Health/ })).toHaveLength(1)
   })
 
   it('opens the Health screen from the top bar button, which is then the current page, and keeps it out of the tab bar and More', async () => {
@@ -39,7 +40,7 @@ describe('the shell on a phone', () => {
     expect(await screen.findByRole('region', { name: 'Health' })).toBeInTheDocument()
     expect(location.pathname).toBe('/health')
     expect(screen.getByRole('banner')).toHaveTextContent('Health')
-    expect(within(screen.getByRole('banner')).getByRole('button', { name: /^Health/ })).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: /^Health(?! actions)/ })).toHaveAttribute('aria-current', 'page')
   })
 
   it('replaces the icon rail with a bottom tab bar of Overview, Library, Upcoming, Activity and More', async () => {
@@ -50,7 +51,7 @@ describe('the shell on a phone', () => {
         .getAllByRole('button')
         .map((b) => b.textContent),
     ).toEqual(['Overview', 'Library', 'Upcoming', 'Activity', 'More', ''])
-    expect(within(tabs).getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument() // the accessory
+    expect(within(tabs).getByRole('button', { name: 'Search or add' })).toBeInTheDocument() // the accessory
     expect(within(tabs).getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('button', { name: 'Kestrel, go to Overview' })).not.toBeInTheDocument() // the rail is gone
 
@@ -59,15 +60,15 @@ describe('the shell on a phone', () => {
     expect(within(tabs).getByRole('button', { name: 'Upcoming' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('opens More with Settings, Log, About, the theme switch, the version and its status dot', async () => {
+  it('opens More with Settings, Log, the theme switch, the version and its status dot', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'More' }))
     const sheet = await screen.findByRole('dialog', { name: 'More' })
-    for (const name of ['Settings', 'Log', 'About']) expect(within(sheet).getByRole('button', { name })).toBeInTheDocument()
+    for (const name of ['Settings', 'Log']) expect(within(sheet).getByRole('button', { name })).toBeInTheDocument()
     expect(within(sheet).getByRole('radio', { name: /dark/i })).toBeInTheDocument()
     expect(await within(sheet).findByText(/Kestrel \d/)).toBeInTheDocument()
 
-    // Each row is a full-width button named by its screen, in order, ahead of Log out.
+    // Each row is a full-width button named by its screen, in order, ahead of Log Out.
     ;['Settings', 'Log', 'Requests'].forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Log' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Log')
@@ -77,12 +78,31 @@ describe('the shell on a phone', () => {
 
   it('has a search button that opens the command menu, with no keyboard shortcut needed', async () => {
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Search or run a command' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Search or add' }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 
-  it('has an Add Title button that opens the menu in Add mode', async () => {
+  it('has the Library screen header hold the name, Health, the actions and the filter with Filter and Sort', async () => {
+    fakeLibrary(rows())
     renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const header = await screen.findByRole('banner')
+    expect(within(header).getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    const order = [
+      await within(header).findByRole('button', { name: /^Health/ }),
+      within(header).getByRole('button', { name: 'Library actions' }),
+      within(header).getByRole('button', { name: 'Add Title' }),
+      within(header).getByRole('combobox', { name: 'Filter the Library' }),
+      within(header).getByRole('button', { name: 'Filter' }),
+      within(header).getByRole('button', { name: 'Sort: Newest added' }),
+    ]
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByRole('banner')).toHaveLength(1)
+  })
+
+  it("opens the command menu in Add mode from the Library header's Add Title button", async () => {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Add Title' }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
@@ -138,7 +158,7 @@ describe('the Library on a phone', () => {
     expect(screen.queryByText(/^1 of \d+/)).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter the Library' })).toHaveAttribute('placeholder', 'Filter titles')
     expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sort' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sort: Newest added' })).toBeInTheDocument()
   })
 
   it("shows tick boxes once asked, and the ticked Titles' actions on a bar over the list", async () => {

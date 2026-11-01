@@ -6,20 +6,23 @@ import { RowList } from '../layout/RowList'
 import { SkeletonRows } from '../loading'
 import type { UpcomingItem } from '../api/upcoming'
 import { localDay, useRecent, useUpcoming } from '../api/upcoming'
-import { slotLabel, type SlotKey } from '../library/bits'
+import type { ReactNode } from 'react'
+import { useQueue } from '../api/queue'
+import { SlotChips, SlotTag } from '../library/SlotChip'
 import { TitlePoster } from '../poster'
 import { ago, useNow } from '../time'
-import { airTime, dayLabel, episodeCode, upcomingKey } from '../upcoming/state'
+import { dayLabel, entryChips, episodeCode, releaseName, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'
-import { EmptyLine, firstFive, Section, ViewAll } from './Section'
+import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
 
+/** "S05E11 · Mon, Nov 2", or "Digital · Thu, Nov 5" for a Movie: the episode or the release, then the day. */
 const comingLine = (item: UpcomingItem) => {
-  const at = airTime(item)
-  const day = at ? `${dayLabel(localDay(item))} ${at}` : dayLabel(localDay(item))
-  return item.kind === 'series' && item.season != null && item.episode != null ? `${episodeCode(item.season, item.episode)} · ${day}` : day
+  const day = dayLabel(localDay(item))
+  if (item.kind === 'series' && item.season != null && item.episode != null) return `${episodeCode(item.season, item.episode)} · ${day}`
+  return item.release_type ? `${releaseName[item.release_type].split(' ')[0]} · ${day}` : day
 }
 
-type TitleRowItem = { key: string; titleId: number; hasPoster: boolean; name: string; line: string }
+type TitleRowItem = { key: string; titleId: number; hasPoster: boolean; name: string; line: string; right?: ReactNode }
 
 /** The rows of a section whose items are Titles: poster, name and one line. `nav.base` is the first row's place in the j/k list. */
 function TitleRows({ items, nav, onOpenTitle }: { items: TitleRowItem[]; nav: OverviewNav; onOpenTitle: (id: number) => void }) {
@@ -38,6 +41,7 @@ function TitleRows({ items, nav, onOpenTitle }: { items: TitleRowItem[]; nav: Ov
               onOpenTitle(item.titleId)
             }}
             left={<TitlePoster id={item.titleId} hasPoster={item.hasPoster} size="sm" />}
+            right={item.right}
           >
             <Entity.Content fill title={<span className="font-medium">{item.name}</span>} description={item.line} />
           </Entity>
@@ -50,10 +54,19 @@ function TitleRows({ items, nav, onOpenTitle }: { items: TitleRowItem[]; nav: Ov
 /** Its rows come last in the j/k selection, after "Recent requests". */
 export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const coming = useUpcoming(6)
+  const queue = useQueue().data ?? []
   const all = coming.data ?? []
-  const items = firstFive(all).map((item) => ({ key: upcomingKey(item), titleId: item.title_id, hasPoster: item.has_poster, name: item.title, line: comingLine(item) }))
+  const items = firstThree(all).map((item) => ({
+    key: upcomingKey(item),
+    titleId: item.title_id,
+    hasPoster: item.has_poster,
+    name: item.title,
+    line: comingLine(item),
+    // An entry that is not out yet has nothing to say in a chip: every Slot would be Not out yet.
+    right: item.slots.every((s) => s.state === 'not_out') ? undefined : <SlotChips chips={entryChips(item, queue)} max={3} label={`${item.title} Slots`} />,
+  }))
   return (
-    <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined}>
+    <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined} action={all.length > 0 ? <HeadingLink path="/upcoming" label="Upcoming" /> : undefined}>
       {coming.isPending ? (
         <SkeletonRows poster="sm" />
       ) : coming.data && all.length === 0 ? (
@@ -61,7 +74,6 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
       ) : (
         <TitleRows items={items} nav={nav} onOpenTitle={onOpenTitle} />
       )}
-      {all.length > 0 && <ViewAll path="/upcoming" label="Upcoming →" />}
     </Section>
   )
 }
@@ -71,15 +83,16 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
   const recent = useRecent()
   const now = useNow()
   const all = recent.data?.items ?? []
-  const items = firstFive(all).map((item) => ({
+  const items = firstThree(all).map((item) => ({
     key: `${item.title_id}-${item.slot}-${item.imported_at}`,
     titleId: item.title_id,
     hasPoster: item.has_poster,
     name: item.title,
-    line: `${slotLabel[item.slot as SlotKey]} · ${ago(item.imported_at, now)}`,
+    line: ago(item.imported_at, now),
+    right: <SlotTag slot={item.slot} state="filled" />,
   }))
   return (
-    <Section id="recently-added" title="Recently added" count={recent.data?.total}>
+    <Section id="recently-added" title="Recently added" count={recent.data?.total} action={all.length > 0 ? <HeadingLink path="/library" label="Library" /> : undefined}>
       {recent.isPending ? (
         <SkeletonRows poster="sm" />
       ) : recent.data && all.length === 0 ? (
@@ -87,7 +100,6 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
       ) : (
         <TitleRows items={items} nav={nav} onOpenTitle={onOpenTitle} />
       )}
-      {all.length > 0 && <ViewAll path="/library" label="Library →" />}
     </Section>
   )
 }

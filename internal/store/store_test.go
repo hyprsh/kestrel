@@ -156,3 +156,80 @@ func TestRefusesToStartOnANewerSchema(t *testing.T) {
 		t.Errorf("error should name the newest backup to restore: %v", err)
 	}
 }
+
+func TestScheduledBackupsKeepTheNewestNAndLeaveTheUpgradeOnesAlone(t *testing.T) {
+	dir := t.TempDir()
+	mustOpen(t, dir, 1).Close()
+	s := mustOpen(t, dir, 2) // one upgrade backup, from schema 1
+	if _, err := s.Write().Exec("INSERT INTO t1 DEFAULT VALUES"); err != nil {
+		t.Fatal(err)
+	}
+	var last store.BackupFile
+	for range 5 {
+		b, err := s.Backup(context.Background(), 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		last = b
+	}
+	var scheduled, upgrade int
+	for _, f := range s.Backups() {
+		if f.Scheduled {
+			scheduled++
+		} else {
+			upgrade++
+		}
+		if f.Bytes == 0 || f.At.IsZero() {
+			t.Errorf("%+v: a backup records its size and time", f)
+		}
+	}
+	if scheduled != 3 || upgrade != 1 {
+		t.Fatalf("%d scheduled and %d upgrade backups, want 3 and 1: %v", scheduled, upgrade, backups(t, dir))
+	}
+	if got := s.Backups()[0]; got.Name != last.Name || !got.Scheduled || got.Bytes != last.Bytes {
+		t.Errorf("newest backup = %+v, want the last one taken, %+v", got, last)
+	}
+	// The copy holds the rows.
+	copyDir := t.TempDir()
+	data, err := os.ReadFile(filepath.Join(dir, "backups", last.Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(copyDir, "kestrel.db"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := mustOpen(t, copyDir, 2).Read().QueryRow("SELECT count(*) FROM t1").Scan(&n); err != nil || n != 1 {
+		t.Fatalf("backup rows = %d, err = %v", n, err)
+	}
+}
+
+func TestUpgradeBackupsAreNotPushedOutByScheduledOnes(t *testing.T) {
+	dir := t.TempDir()
+	s := mustOpen(t, dir, 1)
+	for range 8 {
+		if _, err := s.Backup(context.Background(), 7); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.Close()
+	mustOpen(t, dir, 2).Close() // an upgrade takes its copy and prunes only its own kind
+	var scheduled, upgrade int
+	for _, f := range store.Backups(dir) {
+		if f.Scheduled {
+			scheduled++
+		} else {
+			upgrade++
+		}
+	}
+	if scheduled != 7 || upgrade != 1 {
+		t.Fatalf("%d scheduled and %d upgrade backups, want 7 and 1", scheduled, upgrade)
+	}
+}
+
+func TestSizeCountsTheDatabaseFile(t *testing.T) {
+	s := mustOpen(t, t.TempDir(), 1)
+	if s.Size() <= 0 {
+		t.Errorf("size = %d, want the database's bytes", s.Size())
+	}
+}

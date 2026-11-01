@@ -16,21 +16,47 @@ const slot = (profile: string, state: Schemas['SlotState'], id: number): Schemas
   long_missing: false,
 })
 
-export const row = (id: number, title: string, primary: string, over: Partial<TitleRow> = {}): TitleRow => ({
-  id,
-  kind: 'movie',
-  title,
-  primary_title: primary,
-  year: 2014,
-  has_poster: false,
-  slots: { standard: slot('hd-primary', 'wanted', id * 10 + 1), '4k': null },
-  wanted_since: '2026-10-17T12:00:00Z',
-  added_at: '2026-10-17T12:00:00Z',
-  size: 0,
-  searched_at: null,
-  wanted_episodes: null,
-  ...over,
-})
+/** The list form of a row's fixed Slots, as the server derives it. */
+const slotStates = (slots: TitleRow['slots']): TitleRow['slot_states'] =>
+  (['standard', '4k'] as const).flatMap((k) => {
+    const s = slots[k]
+    return s
+      ? [
+          {
+            slot: k,
+            label: k === '4k' ? '4K' : 'Standard',
+            version_id: s.version_id,
+            profile: s.profile,
+            state: s.state,
+            long_missing: s.long_missing,
+            upgrade_wanted: false,
+            last_search: s.last_search,
+            next_search_at: s.next_search_at,
+          },
+        ]
+      : []
+  })
+
+export const row = (id: number, title: string, primary: string, over: Partial<TitleRow> = {}): TitleRow => {
+  const slots = over.slots ?? { standard: slot('hd-primary', 'wanted', id * 10 + 1), '4k': null }
+  return {
+    id,
+    kind: 'movie',
+    title,
+    primary_title: primary,
+    year: 2014,
+    has_poster: false,
+    monitored: true,
+    slots,
+    slot_states: slotStates(slots),
+    wanted_since: '2026-10-17T12:00:00Z',
+    added_at: '2026-10-17T12:00:00Z',
+    size: 0,
+    searched_at: null,
+    wanted_episodes: null,
+    ...over,
+  }
+}
 
 export const detail = (r: TitleRow, over: Partial<TitleDetail> = {}): TitleDetail => ({
   id: r.id,

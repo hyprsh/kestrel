@@ -1,6 +1,6 @@
 // chrome: layout
 import { Button, Menu, MenuDivider, MenuItem, MenuSection, parseQuery, termText, withoutTerm, withoutValue, withValue, type Term } from '@hyprsh/design'
-import { ArrowUpDown, Funnel, Minus, MinusCircle } from 'lucide-react'
+import { ArrowUpDown, Minus, MinusCircle, SlidersHorizontal } from 'lucide-react'
 import { Fragment, useRef, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
 import type { Facet } from '../filter/qualifiers'
@@ -16,14 +16,14 @@ const filterText = (count: number) => (count > 0 ? `Filter · ${count}` : 'Filte
  * children say, so a screen without a text filter (Upcoming) puts its toggles in it; a screen with a filter field uses
  * FacetFilterButton, which holds that field's facets.
  */
-export function FilterButton({ count, children }: { count: number; children: ReactNode }) {
-  // A phone has one line for the bar, so the button is a funnel with the count as its badge; its name stays "Filter".
+export function FilterButton({ count, label = 'Filter', children }: { count: number; /** The phone button's name, when its menu holds more than the filter. */ label?: string; children: ReactNode }) {
+  // A phone has one line for the bar, so the button is the sliders icon with the count as its badge; its name stays "Filter".
   const phone = usePhone()
   return (
     <Menu.Container position="bottom-start">
       {phone ? (
-        <Menu.Button variant="secondary" size="small" svgOnly aria-label="Filter" badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
-          <Funnel />
+        <Menu.Button variant="secondary" size="medium" svgOnly aria-label={label} badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
+          <SlidersHorizontal />
         </Menu.Button>
       ) : (
         <Menu.Button variant="secondary" size="small" showChevron>
@@ -38,7 +38,7 @@ export function FilterButton({ count, children }: { count: number; children: Rea
 }
 
 /** The query with `value` taken out of the excluded `name:` terms (`-slot:4k`), which the design's withoutValue leaves alone. */
-function withoutExcluded(text: string, name: string, value: string, qualifiers: readonly Facet[]): string {
+export function withoutExcluded(text: string, name: string, value: string, qualifiers: readonly Facet[]): string {
   const terms = parseQuery(text, qualifiers).terms
   const i = terms.findIndex((t: Term) => t.name === name && t.excluded && t.values.includes(value))
   if (i < 0) return text
@@ -74,6 +74,8 @@ export function FacetFilterButton({
   suffix,
   lead,
   leadActive = 0,
+  active: activeCount,
+  label,
 }: {
   query: string
   onQuery: (query: string) => void
@@ -82,20 +84,25 @@ export function FacetFilterButton({
   /** Sections above the facets, such as the Library's Status, and how many of them are active. */
   lead?: ReactNode
   leadActive?: number
+  /** How many to badge instead of the facets with a term, for a screen whose Views set some terms the menu would otherwise count. */
+  active?: number
+  /** The phone button's name when `lead` adds more than filters (a Log's Views). */
+  label?: string
 }) {
   const facets = qualifiers.filter(isMenu)
   // A Shift-click or Shift+Enter excludes in the item's onClick, which the menu calls before onSelect: this tells onSelect it has been done.
   const excludedByKey = useRef(false)
   const parsed = parseQuery(query, qualifiers)
   const names = new Set(facets.map((f) => f.name))
-  const active = new Set(parsed.terms.filter((t) => names.has(t.name)).map((t) => t.name)).size
+  const active = activeCount ?? new Set(parsed.terms.filter((t) => names.has(t.name)).map((t) => t.name)).size
   return (
-    <FilterButton count={active + leadActive}>
+    <FilterButton count={active + leadActive} label={label}>
+      {active + leadActive > 0 && <MenuItem onSelect={() => onQuery('')}>Clear all</MenuItem>}
       {lead}
       {facets.map((f, i) => {
         const included = new Set(parsed.terms.filter((t) => t.name === f.name && !t.excluded).flatMap((t) => t.values))
         const excluded = new Set(parsed.terms.filter((t) => t.name === f.name && t.excluded).flatMap((t) => t.values))
-        const offered = [...(f.values ?? f.suggestions ?? [])]
+        const offered = [...(f.values ?? f.suggestions ?? [])].filter((v) => !f.unlisted?.includes(v))
         // A facet of suggestions lists the chosen ones first, then the start of the rest.
         const values = f.values ? offered : [...new Set([...included, ...excluded, ...offered])].slice(0, Math.max(SUGGESTED, included.size + excluded.size))
         return (
@@ -195,7 +202,7 @@ function sortChoice(query: string, onQuery: (query: string) => void, qualifiers:
   return { facet, rows, chosen, set }
 }
 
-/** The Sort button: "Sort: Newest added" with its rows as radio items; a phone's one line has an icon button named "Sort". */
+/** The Sort button: "Newest added" (named "Sort: Newest added") with its rows as radio items; a phone's one line has an icon button named "Sort". */
 export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { query: string; onQuery: (query: string) => void; qualifiers: readonly Facet[]; name?: string }) {
   const phone = usePhone()
   const choice = sortChoice(query, onQuery, qualifiers, name)
@@ -204,12 +211,13 @@ export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { quer
   return (
     <Menu.Container position="bottom-start">
       {phone ? (
-        <Menu.Button variant="secondary" size="small" svgOnly aria-label="Sort">
+        <Menu.Button variant="secondary" size="medium" svgOnly aria-label={`${facet.label}: ${chosen.label}`}>
           <ArrowUpDown />
         </Menu.Button>
       ) : (
-        <Menu.Button variant="secondary" size="small" showChevron>
-          {`${facet.label}: ${chosen.label}`}
+        // The chosen row names the button ("Newest added"); the name keeps the "Sort: " a screen reader needs to know what it is.
+        <Menu.Button variant="secondary" size="small" showChevron aria-label={`${facet.label}: ${chosen.label}`}>
+          {chosen.label}
         </Menu.Button>
       )}
       <Menu width={220} className="max-h-[min(32rem,70vh)] overflow-y-auto">

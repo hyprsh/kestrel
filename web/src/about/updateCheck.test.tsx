@@ -11,7 +11,8 @@ import { findToast, toastRegion } from '../test/toasts'
 async function openSwitch() {
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-  return screen.findByRole('checkbox', { name: 'Check GitHub for updates' })
+  await userEvent.click(await screen.findByRole('link', { name: 'General' }))
+  return screen.findByRole('switch', { name: 'Check GitHub daily' })
 }
 
 describe('the update-check switch', () => {

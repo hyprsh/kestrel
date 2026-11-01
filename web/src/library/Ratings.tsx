@@ -17,34 +17,36 @@ function shortCount(n: number): string {
 }
 
 /** One rating's label, or '' when the source has no rating yet. */
-function label(r: Rating): string {
+function label(r: Rating, withVotes = true): string {
   if (r.value === null) return ''
   const scale = r.scale !== null && r.scale !== 10 ? `/${r.scale}` : ''
-  const votes = r.votes ? ` (${shortCount(r.votes)})` : ''
+  const votes = withVotes && r.votes ? ` (${shortCount(r.votes)})` : ''
   return `${sourceNames[r.source] ?? r.source.toUpperCase()} ${r.value.toFixed(1)}${scale}${votes}`
 }
 
-const rated = (ratings: Rating[]) => ratings.filter((r) => label(r) !== '')
+export const rated = (ratings: Rating[]) => ratings.filter((r) => label(r) !== '')
 
 /** The ratings as one line of text ("TMDB 8.4 (21k)"), '' when there are none; for places that take a string. */
 export function ratingsText(ratings: Rating[]): string {
-  return rated(ratings).map(label).join(' · ')
+  return rated(ratings)
+    .map((r) => label(r))
+    .join(' · ')
 }
 
 /**
  * The ratings inline, each linking to the Title at its source in a new tab.
- * `lead` puts a " · " in front, to continue a metadata line.
+ * `lead` puts a " · " in front, to continue a metadata line; `compact` leaves out the vote count (the tooltip has it).
  */
-export function Ratings({ ratings, lead = false }: { ratings: Rating[]; lead?: boolean }) {
+export function Ratings({ ratings, lead = false, compact = false }: { ratings: Rating[]; lead?: boolean; compact?: boolean }) {
   return rated(ratings).map((r, i) => (
     <Fragment key={r.source}>
       {(lead || i > 0) && ' · '}
       {r.url ? (
         <Link href={r.url} target="_blank" rel="noopener noreferrer" title={tooltip(r)}>
-          {label(r)}
+          {label(r, !compact)}
         </Link>
       ) : (
-        <span title={tooltip(r)}>{label(r)}</span>
+        <span title={tooltip(r)}>{label(r, !compact)}</span>
       )}
     </Fragment>
   ))

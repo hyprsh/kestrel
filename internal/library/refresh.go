@@ -193,6 +193,7 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		return err
 	}
 	mode := Monitor(t.SeriesMonitor.String)
+	opts := optionsOf(t)
 	have, err := q.ListEpisodesOfTitle(ctx, id)
 	if err != nil {
 		return err
@@ -290,7 +291,7 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 		return err
 	}
 	for _, f := range added {
-		on := mode.Valid() && mode.MonitorsEpisode(f.Season, f.Aired, now)
+		on := mode.Valid() && mode.Monitors(opts, f.Season, f.Aired, now, !known[int64(f.Season)])
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(f.Season), Number: int64(f.Number), TvdbID: nullInt(f.ID), Name: f.Name, AirDate: airOf(f), Monitored: boolInt(on),
 			PrimaryName: f.PrimaryName, Overview: f.Overview,

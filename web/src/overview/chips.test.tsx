@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
+import { passOf } from '../test/search'
 import { server } from '../test/server'
 
 type Status = components['schemas']['SystemStatus']
@@ -16,6 +17,9 @@ const url = () => location.pathname + location.search
 const idle = { search_used: 0, search_max: null, grab_used: null, grab_max: null, search_paused_until: null, grabs_paused: false, grabs_paused_until: null }
 const GB = 2 ** 30
 const status = (over: Partial<Status> = {}): Status => ({
+  version: 'dev',
+  started_at: '2026-10-01T08:00:00Z',
+  services: [],
   download_client: { state: 'ok', name: 'SABnzbd', instance_id: 3, message: null },
   indexers: [
     { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle, search_used: 30, search_max: 100 },
@@ -63,13 +67,11 @@ const lowDiskAndBusySearch = () => {
   fakeSearch(
     searchStatus({
       due: { versions: 12, episodes: 0, upgrades: 0 },
-      pass: { started_at: new Date().toISOString(), done: 3, total: 12 },
+      pass: passOf({ done: 3, total: 12 }),
       next_pass_at: new Date(Date.now() + 14 * 60_000 + 5000).toISOString(),
     }),
   )
 }
-
-const topBar = () => screen.findByRole('banner')
 
 beforeEach(() => history.replaceState(null, '', '/'))
 
@@ -83,9 +85,10 @@ describe('the Overview on a desktop', () => {
     renderApp()
 
     await within(await rail()).findByRole('button', { name: /All checks OK/ })
-    expect(within(await topBar()).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument() // no top bar to hold a Health button
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /Searching/ })).not.toBeInTheDocument() // the Searching card of Happening now is a region, not a pill
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })
@@ -129,15 +132,16 @@ describe('the Overview on a phone', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows the Health button in the phone top bar, and none at the top of the Overview', async () => {
+  it('shows the Health button in the phone header, once', async () => {
     lowDiskAndBusySearch()
     fakeAttention([])
     renderApp()
 
-    expect(await within(await topBar()).findByRole('button', { name: /^Health · All checks OK/ })).toBeInTheDocument()
-    expect(within(screen.getByRole('main')).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    const main = await screen.findByRole('main')
+    expect(await within(main).findByRole('button', { name: /^Health · All checks OK/ })).toBeInTheDocument()
+    expect(within(main).getAllByRole('button', { name: /^Health/ })).toHaveLength(1) // in the header only, not the content
     expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Searching|Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Wanted waiting|Nothing waiting/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /indexers?\b/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /full$/ })).not.toBeInTheDocument()
   })

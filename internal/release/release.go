@@ -75,6 +75,14 @@ type ParsedRelease struct {
 	// Original (and English for ML) exactly as Radarr does.
 	Languages []Language `json:"languages"`
 
+	// VideoCodec ("H.264", "H.265", "AV1"), HDR ("HDR10", "Dolby Vision"),
+	// AudioCodec ("DDP", "TrueHD Atmos") and AudioChannels ("5.1") are what the
+	// name states, see ParseMedia; each is empty when it does not say.
+	VideoCodec    string `json:"videoCodec,omitempty"`
+	HDR           string `json:"hdr,omitempty"`
+	AudioCodec    string `json:"audioCodec,omitempty"`
+	AudioChannels string `json:"audioChannels,omitempty"`
+
 	ReleaseGroup  string `json:"releaseGroup,omitempty"`
 	ReleaseHash   string `json:"releaseHash,omitempty"`
 	HardcodedSubs string `json:"hardcodedSubs,omitempty"`
@@ -237,9 +245,17 @@ func ParseFolder(name string, kind Kind) (ParsedRelease, error) {
 func ParsePath(path string, kind Kind) (ParsedRelease, error) {
 	switch kind {
 	case KindMovie:
-		return parseMoviePath(path)
+		p, err := parseMoviePath(path)
+		if err != nil {
+			return p, err
+		}
+		return fillMedia(p, path), nil
 	case KindSeries:
-		return parseSeriesPath(path)
+		p, err := parseSeriesPath(path)
+		if err != nil {
+			return p, err
+		}
+		return fillMedia(p, path), nil
 	default:
 		return ParsedRelease{}, fmt.Errorf("%w: %q", ErrUnsupportedKind, kind)
 	}
@@ -249,12 +265,12 @@ func parse(name string, kind Kind, isDir bool) (ParsedRelease, error) {
 	switch kind {
 	case KindMovie:
 		if p, ok := parseMovieTitle(name, isDir); ok {
-			return p, nil
+			return fillMedia(p, name), nil
 		}
 		return ParsedRelease{}, ErrUnparseable
 	case KindSeries:
 		if p, ok := parseSeriesTitle(name); ok {
-			return p, nil
+			return fillMedia(p, name), nil
 		}
 		return ParsedRelease{}, ErrUnparseable
 	default:
