@@ -109,7 +109,7 @@ func New(opts Options, d Deps) http.Handler {
 	})
 	mux.Handle("/", newSPA(opts.Web, opts.BaseURL))
 
-	guarded := s.auth.guard(mux)
+	guarded := compressJSON(s.auth.guard(mux))
 	if opts.BaseURL == "" {
 		return guarded
 	}
