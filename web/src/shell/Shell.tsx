@@ -392,27 +392,27 @@ function Rail({
   const needs = attention?.count ?? 0
   return (
     <RailFrame>
-      <span className="mb-2 inline-flex">
-        <Button svgOnly variant="tertiary" aria-label="Kestrel, go to Overview" onClick={() => onSelect('overview')}>
-          <KestrelLogo />
-        </Button>
-      </span>
+      {/* The mark is the Overview link (home), with its attention badge, and active like the other screens. */}
+      <RailButton
+        label="Overview"
+        active={screen === 'overview'}
+        onClick={() => onSelect('overview')}
+        badge={needs > 0 ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) } : undefined}
+      >
+        <KestrelLogo />
+      </RailButton>
       {/* One entry point: the command menu searches the Library and, with "Add Title…", the Movies and Series to add. */}
       <RailButton label={`Search or add (${MOD} K)`} onClick={onSearch}>
         <Search />
       </RailButton>
       <Separator className="my-1 w-6" />
-      {screens.map((s) => (
-        <RailButton
-          key={s.key}
-          label={s.label}
-          active={screen === s.key}
-          onClick={() => onSelect(s.key)}
-          badge={s.key === 'overview' && needs > 0 ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) } : undefined}
-        >
-          {s.icon}
-        </RailButton>
-      ))}
+      {screens
+        .filter((s) => s.key !== 'overview')
+        .map((s) => (
+          <RailButton key={s.key} label={s.label} active={screen === s.key} onClick={() => onSelect(s.key)}>
+            {s.icon}
+          </RailButton>
+        ))}
       <RailSpacer />
       <RailRunning running={running} onOpen={onOpenRunning} />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}

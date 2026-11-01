@@ -32,11 +32,15 @@ describe('the empty shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
   })
 
-  it('goes back to the Overview when the Kestrel logo is clicked', async () => {
+  it('goes back to the Overview when the Kestrel logo, which is the Overview button, is clicked', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Kestrel, go to Overview' }))
+    const logo = screen.getByRole('button', { name: 'Overview' })
+    expect(logo).not.toHaveAttribute('aria-current')
+    await userEvent.click(logo)
     expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(logo).toHaveAttribute('aria-current', 'page')
+    expect(screen.getAllByRole('button', { name: 'Overview' })).toHaveLength(1) // the rail has no second Overview button
     expect(screen.getByRole('main')).toHaveTextContent(/happening now/i)
   })
 
