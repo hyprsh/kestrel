@@ -2,7 +2,8 @@
 // The Library's list: a cursor listbox of rich rows. A row has its tick box, the poster, the title and year, a line
 // saying why the Title is in its state (toned by it), a chip per Slot and the size on disk.
 import { Entity } from '@hyprsh/design'
-import { useEffect, useState, type ReactNode, type RefObject } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { useEffect, useLayoutEffect, useState, type ReactNode, type RefObject } from 'react'
 import type { TitleRow } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import { SkeletonRow } from '../loading'
@@ -15,22 +16,32 @@ import { SlotChips } from './SlotChip'
 import { MonitorMark } from './MonitorToggle'
 import { TickBox } from './TickBox'
 
-/** How many rows the first render draws, and how many more each idle slot adds. */
-const FIRST_ROWS = 40
-const MORE_ROWS = 60
+/** What a row is estimated to take until it is measured. */
+const ROW_ESTIMATE = { phone: 84, desktop: 102 }
+/** Rows drawn above and below what shows. */
+const OVERSCAN = 8
 
 /**
- * How many of `total` rows to draw: the first screens at once, the rest in slices while the browser is idle, so a Library of
- * hundreds of Titles shows its first rows (and answers a tap) before the last is built. `need` keeps the cursor's row drawn.
+ * The rows to draw: only those in or near the scroller's view, with the height of the rest as margin on the first and last
+ * so the scrollbar and the separators stay as they were. A scroller that cannot be measured (it has no height yet) draws all.
+ * `scrollTo` keeps the cursor's row in view: a row that is not drawn has nothing to scroll into view.
  */
-function useRowsDrawn(total: number, need: number): number {
-  const [drawn, setDrawn] = useState(FIRST_ROWS)
+function useWindowedRows(count: number, listRef: RefObject<HTMLDivElement | null>, index: number, phone: boolean, topOffset: number) {
+  const virtualizer = useVirtualizer({
+    count,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => (phone ? ROW_ESTIMATE.phone : ROW_ESTIMATE.desktop),
+    overscan: OVERSCAN,
+    scrollMargin: topOffset,
+  })
   useEffect(() => {
-    if (drawn >= total) return
-    const slot = typeof requestIdleCallback === 'function' ? requestIdleCallback(() => setDrawn((n) => n + MORE_ROWS), { timeout: 300 }) : window.setTimeout(() => setDrawn((n) => n + MORE_ROWS), 50)
-    return () => (typeof requestIdleCallback === 'function' ? cancelIdleCallback(slot) : clearTimeout(slot))
-  }, [drawn, total])
-  return Math.min(total, Math.max(drawn, need + 1))
+    if (index >= 0 && index < count) virtualizer.scrollToIndex(index, { align: 'auto' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index])
+  const measured = (virtualizer.scrollRect?.height ?? 0) > 0
+  const items = measured ? virtualizer.getVirtualItems() : null
+  const total = virtualizer.getTotalSize()
+  return { virtualizer, items, total, measured }
 }
 
 export function TitleRows({
@@ -76,7 +87,26 @@ export function TitleRows({
   /** Opens the Title at one of its Slots (a chip's popover and the "+N" list go there). */
   onOpenSlot?: (row: TitleRow, slot: string) => void
 }) {
-  const drawn = useRowsDrawn(rows.length, index)
+  // Where the Titles start in the scroller: below the Episode results (the `lead` rows) the filter finds.
+  const [topOffset, setTopOffset] = useState(0)
+  const { virtualizer, items, total } = useWindowedRows(rows.length, listRef, index, phone, topOffset)
+  useLayoutEffect(() => {
+    const scroller = listRef.current
+    const list = scroller?.querySelector<HTMLElement>('[role=listbox]')
+    if (!list || !scroller) return
+    // Rows are plain Entity rows that take no ref, so the virtualizer is handed each drawn one to measure (and watch).
+    list.querySelectorAll<HTMLElement>('[data-index]').forEach((el) => virtualizer.measureElement(el))
+    const lead = list.querySelectorAll(`[data-nav]:not([data-index])`)
+    let above = 0
+    lead.forEach((el) => (above += (el as HTMLElement).offsetHeight))
+    const top = list.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop + above
+    setTopOffset((t) => (Math.abs(t - top) > 1 ? top : t))
+  })
+  const drawn = items ? items.map((v) => v.index) : rows.map((_, i) => i)
+  const firstDrawn = drawn[0] ?? 0
+  const lastDrawn = drawn[drawn.length - 1] ?? -1
+  const startPad = items && items.length > 0 ? items[0].start - topOffset : 0
+  const endPad = items && items.length > 0 ? Math.max(0, total - items[items.length - 1].end) : 0
   return (
     // The floating bar of ticked Titles covers the foot of the list: room for it at the end.
     <div ref={listRef} className={`min-h-0 flex-1 overflow-auto p-1.5 ${selection.count > 0 ? 'pb-20' : ''}`}>
@@ -97,7 +127,8 @@ export function TitleRows({
       >
         {loading && Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} index={i} poster={phone ? 'md' : 'sm'} />)}
         {lead}
-        {rows.slice(0, drawn).map((r, i) => {
+        {drawn.map((i) => {
+          const r = rows[i]
           const g = grabs.get(r.id) ?? []
           const line = stateLine(r, g, now)
           const monitored = isMonitoredRow(r)
@@ -116,6 +147,8 @@ export function TitleRows({
           return (
             <Entity
               key={r.id}
+              data-index={i}
+              style={i === firstDrawn && startPad > 0 ? { marginTop: startPad } : i === lastDrawn && endPad > 0 ? { marginBottom: endPad } : undefined}
               as="li"
               id={`title-${r.id}`}
               // chrome-ok: a row of the cursor listbox above; Select and Combobox are pickers

@@ -19,6 +19,7 @@
   "dependencies": {
     "@hyprsh/design": "github:hyprsh/design#v0.16.0",
     "@tanstack/react-query": "^5.104.4",
+    "@tanstack/react-virtual": "^3.14.25",
     "lucide-react": "^1.59.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.1",
