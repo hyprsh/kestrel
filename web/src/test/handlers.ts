@@ -1,4 +1,5 @@
 import { displayDefaults, noDisplayDeclared } from '../test/display'
+import { emptyStats } from './statsData'
 import { createOpenApiHttp } from 'openapi-msw'
 import type { components, paths } from '../api/schema.gen'
 import { apiBaseUrl } from '../api/client'
@@ -86,6 +87,7 @@ export const handlers = [
   http.get('/events/summary', ({ response }) => response(200).json({ counts: [], oldest: null, routine_days: 30 })),
   http.get('/events/histogram', ({ response }) => response(200).json({ bucket: '4h', buckets: [] })),
   http.get('/blocklist', ({ response }) => response(200).json({ items: [] })),
+  http.get('/stats', ({ request, response }) => response(200).json(emptyStats((new URL(request.url).searchParams.get('range') ?? '30d') as '7d' | '30d' | '90d'))),
   http.get('/upcoming', ({ request, response }) => {
     const q = new URL(request.url).searchParams
     return response(200).json({ from: q.get('from') ?? '', to: q.get('to') ?? '', items: [] })
@@ -99,6 +101,9 @@ export const handlers = [
   http.get('/attention', ({ response }) => response(200).json({ count: 0, severity: null, rows: [], long_missing: { count: 0, items: [] }, originals: { count: 0, items: [] } })),
   http.get('/system/status', ({ response }) =>
     response(200).json({
+      version: 'dev',
+      started_at: '2026-10-01T08:00:00Z',
+      services: [],
       download_client: { state: 'none', name: null, instance_id: null, message: null },
       indexers: [],
       disks: [],

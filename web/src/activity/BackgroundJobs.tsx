@@ -1,24 +1,26 @@
-// Activity's Background jobs section: Kestrel's fixed set of loops (ADR 0007), each with what it
-// does, how often it runs, how its last pass went and when the next is due. The runner keeps this
-// in memory only, so after a restart a loop reads "Not run since start" until its first pass. A loop a
-// setting turns off says which one instead. It stays live through the stream's `jobs` frames.
-import { SkeletonRows } from '../loading'
-import { Badge, Button, Entity, type BadgeProps } from '@hyprsh/design'
+// chrome: domain-visual
+// Health's Background jobs section: Kestrel's fixed set of loops (ADR 0007) as rows of a table, each with a name and
+// what it does, how often it runs, how its last pass went, its last ten runs as bars and a Run Now where a loop may be
+// run by hand. The runner keeps this in memory only, so after a restart a loop reads "not run since start" and its bars
+// start empty. A loop a setting turns off says which one instead. It stays live through the stream's `jobs` frames. On a
+// phone one line says whether all ran fine in the last day and opens onto the list. No design component is a row with
+// columns and bars (Table is for plain cells), so the rows are laid out here.
+import { Button, StatusDot } from '@hyprsh/design'
+import { useState } from 'react'
+import { useActivity } from '../api/activity'
 import { useJobs, useRunJob, type Job } from '../api/jobs'
 import { useSearchStatus } from '../api/search'
-import { useReport } from '../toasts'
+import { RunBars } from '../health/RunBars'
+import { took } from '../health/runs'
 import { SectionBlock } from '../layout/SectionBlock'
-import { ago, span, until, useNow } from '../time'
+import { SkeletonRows } from '../loading'
+import { usePhone } from '../responsive'
+import { ago, span, useNow } from '../time'
+import { useReport } from '../toasts'
 import { jobWords } from './jobNames'
 import { SearchProgress } from './SearchProgress'
 import { useWatchSearch } from './searchToast'
 import { useSearchAll } from './useSearchAll'
-
-const statusBadge: Record<Job['status'], { tone: NonNullable<BadgeProps['variant']>; text: string }> = {
-  idle: { tone: 'gray', text: 'Idle' },
-  running: { tone: 'blue', text: 'Running now' },
-  disabled: { tone: 'amber', text: 'Disabled' },
-}
 
 /** Why a disabled loop does nothing: the switch that turns it off, and where that switch lives. */
 const offBecause: Record<NonNullable<Job['disabled_by']>, string> = {
@@ -27,131 +29,161 @@ const offBecause: Record<NonNullable<Job['disabled_by']>, string> = {
   plex_watchlist: 'Off while “Make Requests from Watchlists” is off in Settings › Security',
 }
 
-const hour = 3_600_000
-
-/** "every 5 min", "every minute", "hourly", "daily". */
-function often(ms: number): string {
-  if (ms === hour) return 'hourly'
-  if (ms === 24 * hour) return 'daily'
-  return ms === 60_000 ? 'every minute' : `every ${span(ms)}`
+/** How often it runs, short: "1 h", "1 min", "10 s – 5 min" while it has work, "1 d" for the daily loops that check hourly. */
+function every(s: Job['schedule']): string {
+  if (s.runs_every_ms) return span(s.runs_every_ms)
+  if (s.busy_every_ms) return `${span(s.busy_every_ms)} – ${span(s.every_ms)}`
+  return span(s.every_ms)
 }
 
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+type Last = { dot: 'success' | 'error' | 'pending' | 'neutral'; text: string; error: string | null }
 
-/** The server's schedule in words: "Every 15 min", "Every 10 s while downloading, else 5 min", "Checked hourly, runs daily". */
-function schedule(s: Job['schedule'], busy: string): string {
-  if (s.runs_every_ms) return `Checked ${often(s.every_ms)}, runs ${often(s.runs_every_ms)}`
-  if (s.busy_every_ms) return `${capital(often(s.busy_every_ms))} ${busy}, else ${span(s.every_ms)}`
-  return capital(often(s.every_ms))
-}
-
-/** "Last run 5 min ago, took 2 s" or "Last run failed 5 min ago: why". */
-function lastRun(j: Job, now: number): { text: string; failed: boolean } {
+/** The dot, the words and the failure of the last run. `since` is when the pass running now started, if the server said. */
+function lastRun(j: Job, now: number, since: string | undefined): Last {
+  if (j.status === 'running') return { dot: 'pending', text: since ? `running · started ${ago(since, now)}` : 'running', error: null }
   const r = j.last_run
-  if (!r) return { text: 'Not run since start', failed: false }
-  if (r.error) return { text: `Last run failed ${ago(r.finished_at, now)}: ${r.error}`, failed: true }
-  return { text: `Last run ${ago(r.finished_at, now)}, took ${span(r.duration_ms)}`, failed: false }
+  if (!r) return { dot: 'neutral', text: 'not run since start', error: null }
+  const when = ago(r.finished_at, now)
+  return r.error ? { dot: 'error', text: `failed · ${took(r.duration_ms)} · ${when}`, error: r.error } : { dot: 'success', text: `ok · ${took(r.duration_ms)} · ${when}`, error: null }
 }
 
-/** Queues every Wanted Version for a search now, the same action as the command menu's "Search all Wanted". */
 function SearchAllWanted() {
   const searchAll = useSearchAll()
   return (
     // A disabled button takes no hover, so the reason sits on the wrapper.
     <span title={searchAll.why}>
-      <Button variant="secondary" size="small" loading={searchAll.pending} disabled={searchAll.blocked} onClick={searchAll.run}>
+      <Button variant="secondary" size="tiny" loading={searchAll.pending} disabled={searchAll.blocked} onClick={searchAll.run}>
         Search all Wanted
       </Button>
     </span>
   )
 }
 
-export function BackgroundJobs({ onOpenTitle }: { onOpenTitle?: (id: number) => void }) {
-  const jobs = useJobs()
-  const items = jobs.data?.items ?? []
+const COLUMNS = 'sm:grid sm:grid-cols-[minmax(0,1.3fr)_88px_minmax(0,1fr)_110px_96px] sm:items-center sm:gap-x-3.5'
+
+function JobRow({ job: j, onOpenTitle }: { job: Job; onOpenTitle?: (id: number) => void }) {
   const run = useRunJob()
   const report = useReport()
   const watch = useWatchSearch()
   const search = useSearchStatus().data
+  const activity = useActivity()
   const now = useNow()
+  const about = jobWords(j.name)
+  const off = j.status === 'disabled'
+  const reason = (j.disabled_by && offBecause[j.disabled_by]) ?? 'Off while a setting turns it off'
+  const last: Last = off ? { dot: 'neutral', text: 'off', error: null } : lastRun(j, now, activity?.passes.find((p) => p.name === j.name)?.started_at)
+  // The Search loop also shows what waits and how the last pass went, and queues every Wanted Version.
+  const pipeline = j.name === 'search' ? search : undefined
+  const runNow = () =>
+    // A search started here is followed in one live Toast instead of a "started" one.
+    j.name === 'search'
+      ? void report(
+          run.mutateAsync(j.name).then(() => watch('Search started')),
+          { failed: `Could not run ${about.label}` },
+        )
+      : void report(run.mutateAsync(j.name), { started: `${about.label} started`, failed: `Could not run ${about.label}` })
+  return (
+    <li className="border-b border-gray-alpha-200 px-4 py-2.5 text-[13px] last:border-b-0">
+      <div className={`flex flex-col gap-1.5 ${COLUMNS}`}>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium">{about.label}</span>
+          <span className="label-12 truncate text-gray-900" title={off ? reason : about.does}>
+            {off ? reason : about.does}
+          </span>
+        </span>
+        <span className="text-gray-900">
+          <span className="sm:hidden">Every </span>
+          {every(j.schedule)}
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex items-center gap-1.5">
+            <StatusDot state={last.dot} label={false} title={last.text} />
+            <span className={last.dot === 'error' ? 'text-red-900' : undefined}>{last.text}</span>
+          </span>
+          {last.error && (
+            <span className="label-12 truncate text-red-900" title={last.error}>
+              {last.error}
+            </span>
+          )}
+        </span>
+        <RunBars name={about.label} runs={j.recent_runs} />
+        <span className="flex sm:justify-end">
+          {j.runnable && (
+            <Button variant="secondary" size="tiny" aria-label={`Run ${about.label} now`} disabled={j.status === 'running'} onClick={runNow}>
+              Run Now
+            </Button>
+          )}
+        </span>
+      </div>
+      {(j.progress || j.outcome) && !off && (
+        <div className="label-12 mt-1.5 flex flex-col gap-0.5 text-gray-900">
+          {j.progress && <span>{`Re-scoring: ${j.progress.done} of ${j.progress.total} Titles`}</span>}
+          {j.outcome && <span>{j.outcome.text}</span>}
+        </div>
+      )}
+      {pipeline && (
+        <div className="label-12 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-gray-900">
+          <SearchAllWanted />
+          {/* The pass running now is in Running now; here what waits and how the last pass went. */}
+          <SearchProgress status={{ ...pipeline, pass: null }} onOpenTitle={onOpenTitle} />
+        </div>
+      )}
+    </li>
+  )
+}
+
+const DAY = 24 * 3_600_000
+
+/** The names of the jobs with a failed run in the last day. */
+function failedInTheLastDay(items: Job[], now: number): string[] {
+  return items.filter((j) => j.recent_runs.some((r) => r.error != null && now - Date.parse(r.finished_at) < DAY)).map((j) => jobWords(j.name).label)
+}
+
+export function BackgroundJobs({ onOpenTitle }: { onOpenTitle?: (id: number) => void }) {
+  const jobs = useJobs()
+  const items = jobs.data?.items ?? []
+  const phone = usePhone()
+  const now = useNow()
+  const [open, setOpen] = useState(false)
+  const failed = failedInTheLastDay(items, now)
+  const list = (
+    <ul aria-label="Background jobs" className="rounded-lg border border-gray-alpha-400 max-sm:rounded-none max-sm:border-x-0">
+      {!phone && (
+        <li aria-hidden className={`label-12 hidden gap-x-3.5 rounded-t-lg bg-background-200 px-4 py-2 text-gray-900 ${COLUMNS}`}>
+          <span>Job</span>
+          <span>Every</span>
+          <span>Last run</span>
+          <span>Last 10</span>
+          <span />
+        </li>
+      )}
+      {items.map((j) => (
+        <JobRow key={j.name} job={j} onOpenTitle={onOpenTitle} />
+      ))}
+    </ul>
+  )
   // Rendered with or without data, so a place can scroll to it.
   return (
     <div>
       <SectionBlock title="Background jobs" count={jobs.data ? items.length : undefined}>
         {jobs.isPending && <SkeletonRows count={4} />}
-        <Entity.List aria-label="Background jobs">
-          {items.map((j) => {
-            const about = jobWords(j.name)
-            const last = lastRun(j, now)
-            const badge = statusBadge[j.status] ?? statusBadge.idle
-            const next = j.status === 'idle' && j.next_at ? `Next ${until(j.next_at, now)}` : null
-            // The Search loop also shows the search pipeline and queues every Wanted Version.
-            const pipeline = j.name === 'search' ? search : undefined
-            return (
-              <Entity
-                key={j.name}
-                // On a phone the Search row's buttons go under its progress instead of squeezing it.
-                className={pipeline ? 'max-sm:flex-wrap' : undefined}
-                rightClassName={pipeline ? 'max-sm:basis-full' : undefined}
-                right={
-                  (j.runnable || pipeline) && (
-                    <div className="flex gap-2">
-                      {pipeline && <SearchAllWanted />}
-                      {j.runnable && (
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          aria-label={`Run ${about.label} now`}
-                          disabled={j.status === 'running'}
-                          onClick={() =>
-                            // A search started here is followed in one live Toast instead of a "started" one.
-                            j.name === 'search'
-                              ? void report(
-                                  run.mutateAsync(j.name).then(() => watch('Search started')),
-                                  { failed: `Could not run ${about.label}` },
-                                )
-                              : void report(run.mutateAsync(j.name), { started: `${about.label} started`, failed: `Could not run ${about.label}` })
-                          }
-                        >
-                          Run now
-                        </Button>
-                      )}
-                    </div>
-                  )
-                }
-              >
-                <Entity.Content
-                  fill
-                  title={
-                    <span className="flex items-center gap-2">
-                      {about.label}
-                      <Badge variant={badge.tone} contrast="low" size="sm">
-                        {badge.text}
-                      </Badge>
-                    </span>
-                  }
-                  description={
-                    <>
-                      {about.does && <div>{about.does}</div>}
-                      {j.status === 'disabled' ? (
-                        // Its hourly check does nothing, so no schedule, next run or last run to promise.
-                        <div>{(j.disabled_by && offBecause[j.disabled_by]) ?? 'Off while a setting turns it off'}</div>
-                      ) : (
-                        <>
-                          <div>{[schedule(j.schedule, about.busy ?? 'while busy'), next].filter(Boolean).join(' · ')}</div>
-                          {j.progress && <div>{`Re-scoring: ${j.progress.done} of ${j.progress.total} Titles`}</div>}
-                          <div className={last.failed ? 'text-red-900' : undefined}>{last.text}</div>
-                          {j.outcome && <div>{j.outcome.text}</div>}
-                        </>
-                      )}
-                      {pipeline && <SearchProgress status={pipeline} onOpenTitle={onOpenTitle} />}
-                    </>
-                  }
-                />
-              </Entity>
-            )
-          })}
-        </Entity.List>
+        {phone ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2.5">
+              <StatusDot state={failed.length > 0 ? 'error' : 'success'} label={false} title={failed.length > 0 ? 'Some jobs failed' : 'All ran fine'} />
+              <span className="min-w-0 flex-1">{failed.length > 0 ? `${failed.join(', ')} failed in the last day` : 'All ran fine in the last day'}</span>
+              <Button variant="tertiary" size="small" aria-expanded={open} onClick={() => setOpen(!open)}>
+                {open ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+            {open && list}
+          </div>
+        ) : (
+          <>
+            {list}
+            <p className="label-12 mt-2 text-gray-900">Last 10: one bar per run, its height the duration; red runs failed.</p>
+          </>
+        )}
       </SectionBlock>
     </div>
   )

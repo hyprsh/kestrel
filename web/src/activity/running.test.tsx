@@ -151,6 +151,31 @@ describe('Running now', () => {
     ).toEqual(['Polling the download client', 'Updating the TRaSH snapshot'])
   })
 
+  it('shows the search pass as a compact row: what it is on, the releases checked, a Progress and "1 of 4"', async () => {
+    const current = { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: '4K', season: 5, episodes: [], releases_seen: 37 }
+    server.use(
+      http.get('/search/status', ({ response }) =>
+        response(200).json({
+          due: { versions: 4, episodes: 0, upgrades: 0 },
+          pass: passOf({ done: 1, total: 4, releases_seen: 37, current }),
+          next_pass_at: null,
+          last_pass: null,
+          upgrades_per_pass: 5,
+          indexers: [],
+        }),
+      ),
+    )
+    await withActivity({ running: ['search'] })
+    act(() => vi.advanceTimersByTime(1000))
+
+    await user().click(topBar().getByRole('button', { name: /^Searching/ }))
+
+    const row = runningNow().getByRole('listitem')
+    expect(row).toHaveTextContent('Searching for Wanted and Upgrades · now Breaking Bad · S05 · 4K · 37 releases · 37 releases checked')
+    expect(within(row).getByRole('progressbar', { name: 'Searching for Wanted and Upgrades progress' })).toHaveAttribute('aria-valuenow', '1')
+    expect(row).toHaveTextContent('1 of 4')
+  })
+
   it('leads from an Adoption scan to the Adoption screen', async () => {
     server.use(
       http.get('/adoption', ({ response }) =>
@@ -173,7 +198,8 @@ describe('Running now', () => {
     act(() => vi.advanceTimersByTime(1000))
     await user().click(topBar().getByRole('button', { name: /Scanning for files to adopt/ }))
 
-    expect(runningNow().getByRole('listitem')).toHaveTextContent('Scanning for files to adopt 120/450')
+    expect(runningNow().getByRole('listitem')).toHaveTextContent('Scanning for files to adopt120 of 450')
+    expect(runningNow().getByRole('progressbar', { name: 'Scanning for files to adopt progress' })).toBeInTheDocument()
     await user().click(runningNow().getByRole('button', { name: 'Scanning for files to adopt' }))
     expect(await screen.findByRole('heading', { name: 'Adopt existing library' })).toBeInTheDocument()
   })

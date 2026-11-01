@@ -17,6 +17,9 @@ const url = () => location.pathname + location.search
 const idle = { search_used: 0, search_max: null, grab_used: null, grab_max: null, search_paused_until: null, grabs_paused: false, grabs_paused_until: null }
 const GB = 2 ** 30
 const status = (over: Partial<Status> = {}): Status => ({
+  version: 'dev',
+  started_at: '2026-10-01T08:00:00Z',
+  services: [],
   download_client: { state: 'ok', name: 'SABnzbd', instance_id: 3, message: null },
   indexers: [
     { instance_id: 11, name: 'Alpha', state: 'ok', message: null, ...idle, search_used: 30, search_max: 100 },

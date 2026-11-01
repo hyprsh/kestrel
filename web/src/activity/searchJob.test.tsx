@@ -35,6 +35,7 @@ const searchJob: Job = {
   disabled_by: null,
   runnable: true,
   last_run: null,
+  recent_runs: [],
   next_at: null,
   schedule: { every_ms: 5 * 60_000, busy_every_ms: null, runs_every_ms: null },
   progress: null,
@@ -121,21 +122,18 @@ describe('the Search job row on Health', () => {
     expect(r).toHaveTextContent(/Last pass \d{1,2}:\d{2}.*: 40 searched · 418 releases checked · 3 Grabs · took 3 min/)
   })
 
-  it('shows a running pass like a download: what is searched, the bar, the counts and the Releases checked', async () => {
+  it('leaves a running pass to Running now and keeps its own lines to what waits and the last pass', async () => {
     search(12, {
       done: 4,
       total: 12,
       started_at: new Date(Date.now() - 4 * 60_000).toISOString(),
       releases_seen: 418,
-      grabbed: 1,
       current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [], releases_seen: 12 },
     })
     const r = await row()
 
-    expect(r).toHaveTextContent('Searching Wanted')
-    expect(r).toHaveTextContent('Now: Breaking Bad · S05 · Standard · 12 releases')
-    expect(within(r).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
-    expect(r).toHaveTextContent('4 of 12 Wanted · about 8 min left')
-    expect(r).toHaveTextContent('418 releases checked · 1 Grab so far')
+    expect(r).toHaveTextContent('12 Wanted waiting')
+    expect(r).not.toHaveTextContent('Searching Wanted')
+    expect(within(r).queryByRole('progressbar')).not.toBeInTheDocument()
   })
 })

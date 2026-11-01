@@ -1,60 +1,73 @@
-// The Health screen: every check from GET /system/status, grouped and failing first, with a summary
-// line above. A failing check shows the action of its Needs attention row (the server builds those).
+// The Health screen: the verdict first, in words, then what runs now, the checks in groups and the background jobs. The
+// side panel's Views jump between the three sections and its footer says the version, the uptime and how fresh the checks are.
 import { Button, DotsMenu, MenuItem, Note } from '@hyprsh/design'
 import { Clock, HeartPulse, Loader } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useAttention, useStatus, type AttentionRow } from '../api/attention'
+import { useEffect, useId, useRef, useState } from 'react'
+import { useAttention, useStatus } from '../api/attention'
+import { useJobs, useRunJob } from '../api/jobs'
 import { SkeletonRows } from '../loading'
-import { useAttentionAction } from '../overview/useAttentionAction'
-import { useJobs } from '../api/jobs'
-import { currentPlace, useOpenPlace } from '../place'
-import { clockTime } from '../time'
+import { currentPlace } from '../place'
+import { ago, span, useNow } from '../time'
+import { useReport } from '../toasts'
 import { BackgroundJobs } from '../activity/BackgroundJobs'
 import type { Running } from '../activity/running'
 import { RunningNow } from '../activity/RunningNow'
 import { useSearchAll } from '../activity/useSearchAll'
-import { SectionBlock } from '../layout/SectionBlock'
 import { PanelContent, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
 import { HealthGroups } from './HealthGroups'
-import type { TileData } from './HealthTile'
 import { healthOf } from './tiles'
+import { Verdict } from './Verdict'
+import { useVerdict } from './problems'
 
-/** The first action of the row, or all of them: a Test, an Open Settings. */
-function Actions({ row }: { row: AttentionRow }) {
-  const openPlace = useOpenPlace()
-  const { act, pending, error, dialog } = useAttentionAction(openPlace)
-  return (
-    <div className="mt-1.5 flex flex-wrap gap-2">
-      {row.actions.map((a) => (
-        <Button key={a.key} variant="secondary" size="small" disabled={pending} onClick={() => act(a)}>
-          {a.label}
-        </Button>
-      ))}
-      {error && <Note variant="error">{error.message}</Note>}
-      {dialog}
-    </div>
-  )
+/** Runs the Health loop, which checks everything again; when its pass ends the status and the rows are read again. */
+function useRunChecks() {
+  const status = useStatus()
+  const attention = useAttention()
+  const run = useRunJob()
+  const report = useReport()
+  const ran = useJobs().data?.items.find((j) => j.name === 'health')?.last_run?.finished_at
+  const seen = useRef(ran)
+  useEffect(() => {
+    if (ran === seen.current) return
+    seen.current = ran
+    void status.refetch()
+    void attention.refetch()
+    // Only a new pass of the loop reads again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ran])
+  return {
+    pending: run.isPending,
+    run: () => void report(run.mutateAsync('health'), { failed: 'Could not run the checks' }),
+  }
 }
 
+/** The Checks section: "10 ok · 1 failing" and Run Checks Again over the tiles in their groups. */
 function HealthChecks() {
   const status = useStatus()
-  const rows = useAttention().data?.rows ?? []
-  if (status.isPending) return <SkeletonRows count={4} />
-  if (!status.data) return <Note variant="error">Health could not be loaded.</Note>
-  const { groups, failing, warnings, ok } = healthOf(status.data)
-  const checked = clockTime(new Date(status.dataUpdatedAt).toISOString())
-  // A failing check's row is the one raised for its plugin instance.
-  const actions = (t: TileData) => {
-    const row = t.tone === 'failing' && t.instanceId != null ? rows.find((r) => r.subject.plugin_instance_id === t.instanceId && r.actions.length > 0) : undefined
-    return row && <Actions row={row} />
+  const checks = useRunChecks()
+  const title = useId()
+  let body
+  let counts: string | null = null
+  if (status.isPending) body = <SkeletonRows count={4} />
+  else if (!status.data) body = <Note variant="error">Health could not be loaded.</Note>
+  else {
+    const { groups, failing, warnings, ok } = healthOf(status.data)
+    counts = [`${ok} ok`, `${failing} failing`, warnings > 0 && `${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`].filter(Boolean).join(' · ')
+    body = <HealthGroups groups={groups} />
   }
-  const counts = [failing > 0 && `${failing} ${failing === 1 ? 'problem' : 'problems'}`, warnings > 0 && `${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`, `${ok} OK`].filter(Boolean)
-  const summary = failing + warnings > 0 ? `${counts.join(' · ')} · checked ${checked}` : `All checks OK · checked ${checked}`
   return (
-    <div className="flex flex-col gap-4">
-      <p className="label-13 text-gray-900">{summary}</p>
-      <HealthGroups groups={groups} extra={actions} />
-    </div>
+    <section aria-labelledby={title} className="flex flex-col gap-2.5">
+      <div className="flex items-baseline gap-2.5">
+        <h3 id={title} className="heading-16 flex-1">
+          Checks
+        </h3>
+        {counts && <span className="label-13 text-gray-900">{counts}</span>}
+        <Button variant="tertiary" size="small" loading={checks.pending} onClick={checks.run}>
+          Run Checks Again
+        </Button>
+      </div>
+      {body}
+    </section>
   )
 }
 
@@ -65,17 +78,10 @@ const viewOf = (section: string): HealthView => (section === 'jobs' || section =
 
 function HealthMenu() {
   const searchAll = useSearchAll()
-  const status = useStatus()
-  const attention = useAttention()
+  const checks = useRunChecks()
   return (
     <DotsMenu aria-label="Health actions" width={220}>
-      <MenuItem
-        disabled={status.isFetching}
-        onSelect={() => {
-          void status.refetch()
-          void attention.refetch()
-        }}
-      >
+      <MenuItem disabled={checks.pending} onSelect={checks.run}>
         Run checks again
       </MenuItem>
       <MenuItem disabled={searchAll.blocked} onSelect={searchAll.run}>
@@ -92,7 +98,12 @@ function HealthViews({ running, current, onSelect }: { running: number; current:
   const { failing, warnings } = status ? healthOf(status) : { failing: 0, warnings: 0 }
   const problems = failing + warnings
   // Nothing is counted while nothing is wrong: an OK count is noise beside Running now and Background jobs.
-  const checks = status === undefined || problems === 0 ? undefined : <span className={failing > 0 ? 'text-red-900' : warnings > 0 ? 'text-amber-900' : undefined}>{problems}</span>
+  const checks =
+    status === undefined || problems === 0 ? undefined : (
+      <span data-tone={failing > 0 ? 'failing' : 'warning'} className={failing > 0 ? 'text-red-900' : 'text-amber-900'}>
+        {problems}
+      </span>
+    )
   return (
     <SidePanelViews>
       <SidePanelView icon={<Loader />} count={running} current={current === 'running'} onSelect={() => onSelect('running')}>
@@ -108,10 +119,30 @@ function HealthViews({ running, current, onSelect }: { running: number; current:
   )
 }
 
+/** "Kestrel 1.8.2 · up 6 d 4 h · checked 1 min ago", in the panel's footer; nothing until the status is known. */
+function HealthFooter() {
+  const status = useStatus()
+  const now = useNow()
+  if (!status.data) return null
+  const { version, started_at } = status.data
+  const parts = [`Kestrel ${version}`, `up ${span(now - Date.parse(started_at))}`, `checked ${ago(new Date(status.dataUpdatedAt).toISOString(), now)}`]
+  return <span>{parts.join(' · ')}</span>
+}
+
+/** The verdict at the top of the content: what is wrong and where it gets fixed, or "All good". */
+function HealthVerdict() {
+  const { problems, ready } = useVerdict()
+  const status = useStatus().data
+  if (!ready || !status) return null
+  const { failing, warnings, ok } = healthOf(status)
+  // The one problem is all that is wrong when nothing else fails or warns.
+  return <Verdict problems={problems} checks={ok + failing + warnings} restFine={failing + warnings <= 1} />
+}
+
 /**
  * A SidePanel with the Views, and the sections as a centred column like the Overview's, so tiles do not stretch across a wide
  * window. The sections have ids so a place can scroll to them: "/health/checks", "/health/running" and "/health/jobs".
- * A phone shows no Views (the panel is its header); the three sections are stacked, so scrolling reaches them.
+ * A phone shows no Views (the panel is its header); the sections are stacked, so scrolling reaches them.
  */
 export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Running[]; onOpenAdoption: () => void; onOpenTitle: (id: number) => void }) {
   const [view, setView] = useState(() => viewOf(currentPlace().section))
@@ -127,16 +158,15 @@ export function Health({ running, onOpenAdoption, onOpenTitle }: { running: Runn
   }, [])
   return (
     <div className="flex min-h-0 flex-1 max-sm:flex-col">
-      <SidePanel title="Health" actions={<HealthMenu />} views={<HealthViews running={running.length} current={view} onSelect={show} />} />
+      <SidePanel title="Health" actions={<HealthMenu />} views={<HealthViews running={running.length} current={view} onSelect={show} />} footer={<HealthFooter />} />
       <PanelContent reading>
-        <div role="region" aria-label="Health" className="flex flex-col gap-8">
+        <div role="region" aria-label="Health" className="flex flex-col gap-6">
+          <HealthVerdict />
           <div id="health-running">
             <RunningNow running={running} onOpenAdoption={onOpenAdoption} onOpenTitle={onOpenTitle} />
           </div>
           <div id="health-checks">
-            <SectionBlock title="Checks">
-              <HealthChecks />
-            </SectionBlock>
+            <HealthChecks />
           </div>
           <div id="health-jobs">
             <BackgroundJobs onOpenTitle={onOpenTitle} />

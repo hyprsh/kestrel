@@ -17,6 +17,7 @@ const searchJob: Job = {
   disabled_by: null,
   runnable: true,
   last_run: null,
+  recent_runs: [],
   next_at: null,
   schedule: { every_ms: 5 * 60_000, busy_every_ms: null, runs_every_ms: null },
   progress: null,

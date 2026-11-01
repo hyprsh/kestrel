@@ -28,6 +28,7 @@ const trashJob = (over: Partial<Job> = {}): Job => ({
   disabled_by: null,
   runnable: false,
   last_run: null,
+  recent_runs: [],
   next_at: null,
   schedule: { every_ms: 3_600_000, busy_every_ms: null, runs_every_ms: 86_400_000 },
   progress: null,
