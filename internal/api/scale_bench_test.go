@@ -92,8 +92,6 @@ func seedScale(b *testing.B, db *sql.DB, titles int) {
 }
 
 // scaleServer is the real handler over a Library of scaleTitles, called without the network.
-var stForBench *store.Store
-
 func scaleServer(b *testing.B) http.Handler {
 	b.Helper()
 	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(b)})
@@ -101,7 +99,6 @@ func scaleServer(b *testing.B) http.Handler {
 		b.Fatal(err)
 	}
 	b.Cleanup(func() { st.Close() })
-	stForBench = st
 	roomy := func(string) (health.Space, error) { return health.Space{Free: 500 << 30, Total: 1 << 40}, nil }
 	a := app.New(app.Options{Options: api.Options{Version: "bench", Store: st, Web: webFS, CheapPasswordHash: true}, DiskSpace: roomy})
 	b.Cleanup(func() { a.Close(context.Background()) })
@@ -132,19 +129,13 @@ func benchGET(b *testing.B, path string) {
 	}
 	if rec := get(); rec.Code != 200 {
 		b.Fatalf("GET %s = %d %s", path, rec.Code, rec.Body.String())
-	} else {
-		b.ReportMetric(float64(rec.Body.Len()), "bytes")
 	}
 	b.ResetTimer()
-	defer func() { v, _ := stForBench.DataVersion(context.Background()); b.Logf("data_version at end %d", v) }()
+	var size int
 	for i := 0; i < b.N; i++ {
-		v, _ := stForBench.DataVersion(context.Background())
-		get()
-		w, _ := stForBench.DataVersion(context.Background())
-		if i < 3 {
-			b.Logf("data_version %d -> %d", v, w)
-		}
+		size = get().Body.Len()
 	}
+	b.ReportMetric(float64(size), "bytes/response")
 }
 
 func BenchmarkScaleListTitles(b *testing.B) { benchGET(b, "/api/v1/titles?limit=10000") }
