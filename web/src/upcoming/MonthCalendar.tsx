@@ -14,9 +14,22 @@ export const monthOf = (day: string) => `${day.slice(0, 7)}-01`
 const at = (day: string) => new Date(`${day}T12:00:00`)
 
 /** The first day of the month `by` months on. */
-const shiftMonth = (month: string, by: number) => {
+export const shiftMonth = (month: string, by: number) => {
   const d = at(month)
   return dayString(0, new Date(d.getFullYear(), d.getMonth() + by, 1, 12))
+}
+
+/** The last day of a month. */
+export const monthEnd = (month: string) => {
+  const d = at(month)
+  return dayString(0, new Date(d.getFullYear(), d.getMonth() + 1, 0, 12))
+}
+
+/** The months from `lo` to `hi`, both included. */
+export function monthsBetween(lo: string, hi: string): string[] {
+  const out: string[] = []
+  for (let m = lo; m <= hi; m = shiftMonth(m, 1)) out.push(m)
+  return out
 }
 
 /** The days the grid of a month shows: whole weeks, Monday to Sunday, with the neighbours' days at the ends. */
@@ -40,19 +53,24 @@ export function MonthCalendar({
   releases,
   onMonth,
   onPick,
+  onToday,
 }: {
   month: string
   today: string
   releases: ReadonlyMap<string, number>
   onMonth: (month: string) => void
   onPick: (day: string) => void
+  onToday: () => void
 }) {
   const title = at(month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   return (
     <section aria-label="Calendar" className="flex flex-col gap-1.5 px-2.5 pt-3">
       <div className="flex items-center justify-between">
         <h2 className="label-14 font-semibold">{title}</h2>
-        <span className="flex gap-0.5">
+        <span className="flex items-center gap-0.5">
+          <Button variant="tertiary" size="tiny" onClick={onToday}>
+            Today
+          </Button>
           <Button variant="tertiary" size="tiny" svgOnly aria-label="Previous month" onClick={() => onMonth(shiftMonth(month, -1))}>
             <ChevronLeft />
           </Button>

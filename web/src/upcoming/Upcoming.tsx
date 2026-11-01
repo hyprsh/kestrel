@@ -1,14 +1,14 @@
-// Upcoming: a timeline around today. Days run from 14 back to 60 ahead (Show more in both directions),
-// the view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
+// Upcoming: a timeline around today. It opens on the months from 14 days back to 60 ahead and loads a month more when
+// the reader nears either end; the calendar and the agenda follow each other by month. The view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
 // or Imported. j/k and Enter move and open (a group opens or closes), and
 // `t` goes back to today.
-import { Button, DotsMenu, EmptyState, Entity, LoadMoreButton, MenuItem, MenuSection, Note } from '@hyprsh/design'
+import { Button, DotsMenu, EmptyState, Entity, MenuItem, MenuSection, Note } from '@hyprsh/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useReport } from '../toasts'
 import { useQueue, type QueueItem } from '../api/queue'
-import { dayString, localDay, useTimeline, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
+import { dayString, localDay, useAgendaChunks, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
 import { FilterBar } from '../filter/FilterBar'
@@ -23,15 +23,21 @@ import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, Tal
 import { upcomingFilter, upcomingQualifiers } from './filter'
 import { useSeededQuery } from './filters'
 import { airTime, buildDays, daysAway, episodeRange, headingDate, inView, navRows, tally, undatedKey, upcomingKey, views, type Block, type Day, type ViewKey } from './state'
-import { gridDays, MonthCalendar, monthOf } from './MonthCalendar'
-import { AgendaTimeline, DayCard, DayHeading, TimelineSkeleton } from './Timeline'
+import { gridDays, MonthCalendar, monthEnd, monthOf, monthsBetween, shiftMonth } from './MonthCalendar'
+import { AgendaEdge, AgendaTimeline, DayCard, DayHeading, TimelineSkeleton } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
 
 const BACK = 14
 const AHEAD = 60
-const MORE_BACK = 30
-const MORE_AHEAD = 60
+// The agenda loads a month at a time. It stops at the edge when this many months in a row hold nothing, or at the limit.
+const EMPTY_RUN = 3
+const LIMIT = 36
+// While a scroll is ours (a jump to a day, to today, or keeping the place after a chunk lands), scroll events and the
+// month the agenda is over are not the reader's doing.
+const LOCK_MS = 600
+// A view with a range of its own shows only that range, so it loads nothing more.
+const ranged: readonly ViewKey[] = ['next30', 'week', 'recent']
 
 const reasonText = {
   no_air_date: (u: UndatedItem) => `${plural(u.episodes, 'episode')} without an air date`,
@@ -41,9 +47,13 @@ const reasonText = {
 
 /** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
 export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
-  const [back, setBack] = useState(BACK)
-  const [ahead, setAhead] = useState(AHEAD)
-  const timeline = useTimeline(back, ahead)
+  // The loaded months, first to last; they only grow, so the agenda never loses what was on screen.
+  // They start on the window around today and on the weeks of this month's grid, so its dimmed days carry their dots.
+  const [lo, setLo] = useState(() => [monthOf(dayString(-BACK)), monthOf(gridDays(monthOf(dayString()))[0])].sort()[0])
+  const [hi, setHi] = useState(() => [monthOf(dayString(AHEAD)), monthOf(gridDays(monthOf(dayString())).at(-1)!)].sort().at(-1)!)
+  const months = useMemo(() => monthsBetween(lo, hi), [lo, hi])
+  const timeline = useAgendaChunks(useMemo(() => months.map((m) => ({ from: m, to: monthEnd(m) })), [months]))
+  const loading = timeline.pending.some(Boolean)
   const queue = useQueue().data ?? []
   const now = useNow()
   useSeededQuery(query, onQuery)
@@ -55,27 +65,41 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const phone = usePhone()
   // A view narrows the agenda to a range or a state; none chosen shows the whole window.
   const [view, setView] = useState<ViewKey | null>(null)
-  const matching = useMemo(() => (timeline.data?.items ?? []).filter(passes), [timeline.data, passes])
+  const matching = useMemo(() => timeline.items.filter(passes), [timeline.items, passes])
   const counts = useMemo(() => Object.fromEntries(views.map((v) => [v.key, matching.filter((i) => inView(v.key, today, i)).length])) as Record<ViewKey, number>, [matching, today])
   const items = useMemo(() => (view ? matching.filter((i) => inView(view, today, i)) : matching), [matching, view, today])
-  const undated = useMemo(() => (view ? [] : (timeline.data?.undated ?? []).filter(passes)), [timeline.data, passes, view])
+  const undated = useMemo(() => (view ? [] : timeline.undated.filter(passes)), [timeline.undated, passes, view])
   const chooseView = (v: ViewKey) => setView((now) => (now === v ? null : v))
 
   // The calendar shows a month; the window grows to cover it. A day is underlined when an entry falls on it.
   const [month, setMonth] = useState(() => monthOf(today))
+  // A day the agenda is to scroll to once the months holding it have loaded.
+  const [wanted, setWanted] = useState<{ day: string; behavior: ScrollBehavior } | null>(null)
   const releases = useMemo(() => {
     const m = new Map<string, number>()
     for (const i of matching) m.set(localDay(i), (m.get(localDay(i)) ?? 0) + 1)
     return m
   }, [matching])
-  // Moving to another month widens the window to the weeks it shows, so its days can be underlined.
+  const cover = useCallback((first: string, last: string) => {
+    setLo((l) => (first < l ? first : l))
+    setHi((h) => (last > h ? last : h))
+  }, [])
+  // Showing a month loads every week its grid shows, so its dimmed days carry their dots too, and brings the agenda to it.
   const showMonth = (next: string) => {
     const grid = gridDays(next)
-    const apart = (day: string) => Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86_400_000)
-    setBack((b) => Math.max(b, apart(grid[0])))
-    setAhead((a) => Math.max(a, -apart(grid[grid.length - 1])))
+    cover(monthOf(grid[0]), monthOf(grid[grid.length - 1]))
     setMonth(next)
+    setWanted({ day: next, behavior: 'instant' })
   }
+  // The agenda scrolling into another month brings the calendar along.
+  const followMonth = useCallback(
+    (next: string) => {
+      const grid = gridDays(next)
+      cover(monthOf(grid[0]), monthOf(grid[grid.length - 1]))
+      setMonth(next)
+    },
+    [cover],
+  )
   const days = useMemo(() => withToday(buildDays(items), today), [items, today])
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const rows = useMemo(() => navRows(days, undated, open), [days, undated, open])
@@ -96,19 +120,139 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   // The view opens on the day before today, so today sits just below the top with the last day above it.
   const anchorRef = useRef<HTMLHeadingElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const scrollToToday = (behavior: ScrollBehavior) => {
-    const box = scrollRef.current
-    const marker = anchorRef.current
-    if (!box || !marker) return
-    const top = box.scrollTop + marker.getBoundingClientRect().top - box.getBoundingClientRect().top
-    box.scrollTo?.({ top: Math.max(0, top), behavior })
+  const lockedUntil = useRef(0)
+  const touched = useRef(false)
+  const lock = (ms = LOCK_MS) => {
+    lockedUntil.current = performance.now() + ms
   }
-  const scrolled = useRef(false)
+  // Where the first day in view sits, so a chunk that lands above it can be made up for.
+  const place = useRef<{ day: string; offset: number } | null>(null)
+  const measure = useCallback(() => {
+    const box = scrollRef.current
+    if (!box) return
+    const edge = box.getBoundingClientRect().top
+    for (const el of box.querySelectorAll<HTMLElement>('[data-day]')) {
+      const top = el.getBoundingClientRect()
+      if (top.bottom > edge + 1) {
+        place.current = { day: el.dataset.day!, offset: top.top - edge }
+        return
+      }
+    }
+    place.current = null
+  }, [])
+  const scrollTo = (el: Element | null | undefined, behavior: ScrollBehavior) => {
+    const box = scrollRef.current
+    if (!box || !el) return
+    lock(behavior === 'smooth' ? LOCK_MS + 400 : LOCK_MS)
+    const top = box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top
+    box.scrollTo?.({ top: Math.max(0, top), behavior })
+    if (behavior !== 'smooth') measure()
+  }
+  const scrollToToday = (behavior: ScrollBehavior) => scrollTo(anchorRef.current, behavior)
+  const scrollToDay = (day: string, behavior: ScrollBehavior) => scrollTo(scrollRef.current?.querySelector(`[data-day="${day}"]`), behavior)
+  const [settled, setSettled] = useState(false)
   useEffect(() => {
-    if (!timeline.data || scrolled.current) return
-    scrolled.current = true
+    if (settled || loading) return
     scrollToToday('instant')
-  }, [timeline.data])
+    setSettled(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the first months have answered
+  }, [loading, settled])
+
+  // A chunk that lands above the view pushes it down; put the first day in view back where it was.
+  useLayoutEffect(() => {
+    const box = scrollRef.current
+    const was = place.current
+    if (box && was && settled && !wanted) {
+      const el = box.querySelector(`[data-day="${was.day}"]`)
+      const delta = el ? el.getBoundingClientRect().top - box.getBoundingClientRect().top - was.offset : 0
+      if (Math.abs(delta) > 1) {
+        lock(150)
+        box.scrollTop += delta
+      }
+    }
+    measure()
+  }, [days, settled, wanted, measure])
+
+  // Reading the agenda: the first day under the top edge names the month the calendar shows. Not while we scroll ourselves.
+  const follow = useRef(followMonth)
+  follow.current = followMonth
+  useEffect(() => {
+    const box = scrollRef.current
+    if (!box) return
+    const onScroll = () => {
+      if (performance.now() >= lockedUntil.current) touched.current = true
+      measure()
+    }
+    box.addEventListener('scroll', onScroll, { passive: true })
+    return () => box.removeEventListener('scroll', onScroll)
+  }, [measure])
+  useEffect(() => {
+    const box = scrollRef.current
+    if (!box || typeof IntersectionObserver === 'undefined') return
+    const over = new Set<string>()
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const day = (e.target as HTMLElement).dataset.day!
+          if (e.isIntersecting) over.add(day)
+          else over.delete(day)
+        }
+        if (!touched.current || performance.now() < lockedUntil.current || over.size === 0) return
+        follow.current(monthOf([...over].sort()[0]))
+      },
+      { root: box, rootMargin: '0px 0px -75% 0px' },
+    )
+    for (const el of box.querySelectorAll('[data-day]')) io.observe(el)
+    return () => io.disconnect()
+  }, [days, settled])
+
+  // Near either end, the next month loads. A view with a range of its own loads nothing; Wanted only looks ahead.
+  const topEdge = useRef<HTMLDivElement>(null)
+  const bottomEdge = useRef<HTMLDivElement>(null)
+  const loadsUp = settled && view === null
+  const loadsDown = settled && (view === null || !ranged.includes(view))
+  const [near, setNear] = useState({ top: false, bottom: false })
+  useEffect(() => {
+    const box = scrollRef.current
+    if (!box || !settled || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) setNear((n) => ({ ...n, [e.target === topEdge.current ? 'top' : 'bottom']: e.isIntersecting }))
+      },
+      { root: box, rootMargin: '400px 0px' },
+    )
+    if (topEdge.current) io.observe(topEdge.current)
+    if (bottomEdge.current) io.observe(bottomEdge.current)
+    return () => io.disconnect()
+  }, [settled, loadsUp, loadsDown])
+  const empty = (counts: number[]) => counts.length >= EMPTY_RUN && counts.every((n) => n === 0)
+  const thisMonth = monthOf(today)
+  const topEnd = lo <= shiftMonth(thisMonth, -LIMIT) || empty(timeline.counts.slice(0, EMPTY_RUN))
+  const bottomEnd = hi >= shiftMonth(thisMonth, LIMIT) || empty(timeline.counts.slice(-EMPTY_RUN))
+  useEffect(() => {
+    if (loading || wanted) return
+    if (loadsUp && near.top && !topEnd) setLo(shiftMonth(lo, -1))
+    else if (loadsDown && near.bottom && !bottomEnd) setHi(shiftMonth(hi, 1))
+  }, [loading, wanted, loadsUp, loadsDown, near, topEnd, bottomEnd, lo, hi])
+
+  // A day asked for (the calendar's, a month's first) is scrolled to once the months holding it have loaded: the day
+  // itself, or the next one with entries.
+  useEffect(() => {
+    if (!wanted || loading || !settled) return
+    const target = days.find((d) => d.day >= wanted.day)
+    if (target) {
+      scrollToDay(target.day, wanted.behavior)
+      const row = rows.find((r) => r.day === target.day)
+      if (row) setSelKey(row.key)
+    }
+    setWanted(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the request or the loaded data changes
+  }, [wanted, loading, settled, days])
+
+  // Another view starts from the top of its own range.
+  useEffect(() => {
+    scrollRef.current?.scrollTo?.({ top: 0 })
+  }, [view])
 
   const toggle = (set: ReadonlySet<string>, key: string) => {
     const next = new Set(set)
@@ -124,19 +268,16 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   useListNav('up', rows.length, sel, select, openRow)
   const jumpToday = () => {
     setSelKey(rows[start]?.key ?? null)
+    setMonth(monthOf(today))
     scrollToToday('smooth')
   }
   useKey('t', jumpToday)
-  // A day of the calendar scrolls the agenda to that day, or to the next day with entries when nothing is due on it.
+  // A day of the calendar scrolls the agenda to that day, or to the next day with entries when nothing is due on it,
+  // loading its month first when it is not there yet.
   const goToDay = (day: string) => {
-    const target = days.find((d) => d.day >= day)
-    const box = scrollRef.current
-    const heading = target && box?.querySelector(`[data-day="${target.day}"]`)
-    if (!target || !box || !heading) return
-    const top = box.scrollTop + heading.getBoundingClientRect().top - box.getBoundingClientRect().top
-    box.scrollTo?.({ top: Math.max(0, top), behavior: 'smooth' })
-    const row = rows.find((r) => r.day === target.day)
-    if (row) setSelKey(row.key)
+    cover(monthOf(day), monthOf(day))
+    if (monthOf(day) !== month) setMonth(monthOf(day))
+    setWanted({ day, behavior: 'smooth' })
   }
   useKey('/', (e) => {
     e.preventDefault()
@@ -148,7 +289,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     void report(Promise.all(slots.map((slot) => search.mutateAsync({ versionId: slot.version_id, scope }))), { started: `Search started for ${item.title}`, failed: `Could not search ${item.title}` })
   }
 
-  const empty = timeline.data && items.length === 0 && undated.length === 0
+  const nothing = timeline.anyData && !loading && items.length === 0 && undated.length === 0
   return (
     <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
       <SidePanel
@@ -193,20 +334,16 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                 </SidePanelView>
               ))}
             </SidePanelViews>
-            <MonthCalendar month={month} today={today} releases={releases} onMonth={showMonth} onPick={goToDay} />
+            <MonthCalendar month={month} today={today} releases={releases} onMonth={showMonth} onPick={goToDay} onToday={jumpToday} />
           </>
         }
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
           <div className="flex flex-col gap-5 px-3 py-6 sm:px-8">
-            {timeline.isError && <Note variant="error">Upcoming could not be loaded.</Note>}
-            {timeline.data && (
-              <LoadMoreButton noGap variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setBack((b) => b + MORE_BACK)} className="mt-2">
-                Show earlier
-              </LoadMoreButton>
-            )}
-            {empty && (
+            {timeline.failed && <Note variant="error">Upcoming could not be loaded.</Note>}
+            {settled && loadsUp && !nothing && <AgendaEdge edgeRef={topEdge} loading={timeline.pending[0]} end={topEnd} loadingText="Loading earlier days…" endText="Nothing earlier" />}
+            {nothing && (
               <div className="my-4">
                 {query.trim() === '' ? (
                   <EmptyState description="Nothing is due in this window." />
@@ -219,8 +356,8 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                 )}
               </div>
             )}
-            {timeline.isPending && <TimelineSkeleton />}
-            {!timeline.isPending && (
+            {!settled && <TimelineSkeleton />}
+            {settled && (
               <AgendaTimeline>
                 {days.map((d) => {
                   return (
@@ -252,10 +389,8 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                 })}
               </AgendaTimeline>
             )}
-            {timeline.data && (
-              <LoadMoreButton variant="tertiary" size="small" loading={timeline.isFetching} onClick={() => setAhead((a) => a + MORE_AHEAD)}>
-                Show later
-              </LoadMoreButton>
+            {settled && loadsDown && !nothing && (
+              <AgendaEdge edgeRef={bottomEdge} loading={timeline.pending[timeline.pending.length - 1]} end={bottomEnd} loadingText="Loading later days…" endText="Nothing later" />
             )}
 
             {undated.length > 0 && (
@@ -375,7 +510,7 @@ function BlockRows({ block, ...p }: { block: Block } & RowProps) {
           fill
           title={
             <>
-              <span className="font-medium">{first.title}</span>{' '}
+              <span className="font-semibold">{first.title}</span>{' '}
               <span className="font-normal text-gray-900">
                 {episodeRange(block.items)} · {plural(block.items.length, 'episode')}
               </span>

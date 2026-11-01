@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -21,7 +21,10 @@ const NOW = new Date(2026, 9, 22, 12, 0, 0)
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: NOW })
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 const day = (n: number) => dayString(n)
 const ago = (days: number) => new Date(NOW.getTime() - days * 86_400_000).toISOString()
@@ -107,11 +110,47 @@ function fakeAgenda(items: UpcomingItem[], undated: Undated[] = [], imports: Rec
     http.get('/upcoming', ({ request, response }) => {
       const q = new URL(request.url).searchParams
       asked.push(`${q.get('from')}..${q.get('to')}`)
-      return response(200).json({ from: q.get('from') ?? '', to: q.get('to') ?? '', items, undated })
+      const from = q.get('from') ?? ''
+      const to = q.get('to') ?? ''
+      return response(200).json({ from, to, items: items.filter((i) => i.date >= from && i.date <= to), undated })
     }),
     http.get('/recent', ({ response }) => response(200).json({ items: imports, total: imports.length })),
   )
   return asked
+}
+
+/** An IntersectionObserver that does nothing until a test says what intersects: the edges that load more (rootMargin 400px) and the days that name the month. */
+function fakeObserver() {
+  type Obs = { cb: IntersectionObserverCallback; margin: string; targets: Set<Element> }
+  const all: Obs[] = []
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      o: Obs
+      constructor(cb: IntersectionObserverCallback, opts?: IntersectionObserverInit) {
+        this.o = { cb, margin: opts?.rootMargin ?? '', targets: new Set() }
+        all.push(this.o)
+      }
+      observe(el: Element) {
+        this.o.targets.add(el)
+      }
+      unobserve(el: Element) {
+        this.o.targets.delete(el)
+      }
+      disconnect() {
+        this.o.targets.clear()
+        all.splice(all.indexOf(this.o), 1)
+      }
+    },
+  )
+  const live = (margin: string) => all.filter((o) => o.margin === margin && o.targets.size > 0)
+  return {
+    edges: () => live('400px 0px').flatMap((o) => [...o.targets]) as HTMLElement[],
+    days: () => live('0px 0px -75% 0px').at(-1) ?? null,
+    reach(el: Element, isIntersecting: boolean, only?: Obs) {
+      for (const o of only ? [only] : all) if (o.targets.has(el)) o.cb([{ target: el, isIntersecting } as IntersectionObserverEntry], {} as IntersectionObserver)
+    },
+  }
 }
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -139,12 +178,11 @@ async function filterItem(name: string) {
 }
 
 describe('Upcoming timeline', () => {
-  it('asks for 14 days back to 60 ahead and opens at a Today marker between the past and the future', async () => {
+  it('asks month by month, from 14 days back to 60 ahead, and opens at a Today marker between the past and the future', async () => {
     const asked = fakeAgenda([episode({ date: day(-3), title: 'Past Show', episode_name: 'Before', title_id: 5 }), movie({ date: day(2) })])
     await openUpcoming()
 
-    expect(asked.at(-1)).toBe(`${day(-14)}..${day(60)}`)
-    expect(daysBetween(asked.at(-1)!)).toBe(74)
+    expect(asked.filter((r) => r.endsWith('-31') || r.endsWith('-30')).sort()).toEqual(['2026-09-01..2026-09-30', '2026-10-01..2026-10-31', '2026-11-01..2026-11-30', '2026-12-01..2026-12-31'])
     const today = screen.getByRole('heading', { name: /today$/ })
     expect(today).toHaveAttribute('aria-current', 'date') // nothing is due today and the marker is still there
     const before = within(timeline()).getByText('Past Show')
@@ -165,13 +203,44 @@ describe('Upcoming timeline', () => {
     expect(headings[2]).toMatch(/tomorrow$/)
   })
 
-  it('shows more in both directions', async () => {
-    const asked = fakeAgenda([movie()])
+  it('loads the next month near the bottom and the previous one near the top, and says when nothing lies beyond', async () => {
+    const io = fakeObserver()
+    const asked = fakeAgenda([movie({ date: day(1) }), movie({ date: day(-10), title_id: 3, title: 'Last Month' })])
     await openUpcoming()
-    await userEvent.click(screen.getByRole('button', { name: 'Show later' }))
-    expect(asked.at(-1)).toBe(`${day(-14)}..${day(120)}`)
-    await userEvent.click(screen.getByRole('button', { name: 'Show earlier' }))
-    expect(asked.at(-1)).toBe(`${day(-44)}..${day(120)}`)
+    await waitFor(() => expect(io.edges()).toHaveLength(2))
+    const [top, bottom] = io.edges()
+    expect(within(timeline()).getByText('Last Month')).toBeInTheDocument()
+    io.reach(top, true)
+    await waitFor(() => expect(asked).toContain('2026-08-01..2026-08-31'))
+    await waitFor(() => expect(asked).toContain('2026-07-01..2026-07-31'))
+    io.reach(bottom, true)
+    await waitFor(() => expect(asked).toContain('2027-01-01..2027-01-31'))
+    expect(await screen.findByText('Nothing later')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing earlier')).toBeInTheDocument()
+    expect(daysBetween(asked.at(-1)!)).toBeGreaterThan(26)
+  })
+
+  it('keeps the first day in view where it was when a month lands above it', async () => {
+    const io = fakeObserver()
+    fakeAgenda([movie({ date: day(1) }), movie({ date: day(-40), title_id: 3, title: 'Before' })])
+    await openUpcoming()
+    await waitFor(() => expect(io.edges()).toHaveLength(2))
+    const box = timeline().closest('.overflow-auto') as HTMLElement
+    // jsdom has no layout: give the day it holds a place that moves down by 300 when the earlier month arrives.
+    const heading = () => box.querySelector('[data-day]') as HTMLElement
+    box.scrollTop = 0
+    let shift = 0
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const top = this === box ? 0 : this.dataset.day ? 100 + shift : 0
+      return { top, bottom: top + 50, left: 0, right: 0, width: 0, height: 50, x: 0, y: top, toJSON: () => ({}) }
+    })
+    fireEvent.scroll(box)
+    shift = 300
+    const before = heading().dataset.day
+    io.reach(io.edges()[0], true)
+    await waitFor(() => expect(box.scrollTop).toBe(300))
+    expect(before).toBeTruthy()
+    vi.restoreAllMocks()
   })
 
   it('says so when nothing is due', async () => {
@@ -501,6 +570,27 @@ describe('Upcoming: the side panel', () => {
     expect(within(timeline()).getByText('Soon Movie')).toBeInTheDocument()
   })
 
+  it('keeps the Views out of the Filter menu on a desktop, which holds only refinements', async () => {
+    fakeAgenda([movie()])
+    await openUpcoming()
+    await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    expect(screen.getByRole('menuitemcheckbox', { name: /Series/ })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitemradio', { name: /Next 30 days/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Views', { selector: '[role=menu] *' })).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(within(await screen.findByRole('navigation', { name: 'Views' })).getByRole('button', { name: /Recently out/ }))
+    expect(screen.getByRole('button', { name: /^Filter$/ })).toBeInTheDocument() // a View is not a refinement: no count on the badge
+  })
+
+  it('puts the Views first in the Filter menu on a phone, where the panel has none', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('max-width: 639'), media: q, addEventListener: () => {}, removeEventListener: () => {} }))
+    fakeAgenda([movie()])
+    await openUpcoming()
+    await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    expect(await screen.findByRole('menuitemradio', { name: /Next 30 days/ })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Calendar' })).not.toBeInTheDocument()
+  })
+
   it('has a calendar whose days are buttons, with a dot when something is due, and that moves by month', async () => {
     const asked = fakeAgenda([movie({ date: day(1) })])
     await openUpcoming()
@@ -514,6 +604,48 @@ describe('Upcoming: the side panel', () => {
     await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
     await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
     await waitFor(() => expect(asked.at(-1)!.split('..')[1] > day(60)).toBe(true))
+  })
+
+  it('shows the whole grid of the month, the neighbours dimmed, with a dot on every day with releases', async () => {
+    // October 2026 shows Mon 28 September to Sun 1 November; November shows Mon 26 October to Sun 6 December.
+    fakeAgenda([movie({ date: '2026-09-29', title_id: 3, title: 'Late Sept' }), movie({ date: '2026-11-01' }), movie({ date: '2026-12-03', title_id: 4, title: 'Early Dec' })])
+    await openUpcoming()
+    const calendar = within(await screen.findByRole('region', { name: 'Calendar' }))
+    expect(calendar.getAllByRole('button', { name: /\d{4}/ })).toHaveLength(35)
+    await waitFor(() => expect(calendar.getAllByTestId('release-dot')).toHaveLength(2))
+    expect(calendar.getByRole('button', { name: /Tuesday, September 29, 2026, 1 release/ })).toBeInTheDocument()
+    expect(calendar.getByRole('button', { name: /Sunday, November 1, 2026, 1 release/ })).toBeInTheDocument()
+    await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
+    expect(calendar.getAllByRole('button', { name: /\d{4}/ })).toHaveLength(42)
+    await waitFor(() => expect(calendar.getAllByTestId('release-dot')).toHaveLength(2))
+    expect(calendar.getByRole('button', { name: /Thursday, December 3, 2026, 1 release/ })).toBeInTheDocument()
+  })
+
+  it('moves the agenda to the month the calendar switches to, loading it when it is not there', async () => {
+    const asked = fakeAgenda([movie({ date: day(1) }), movie({ date: '2027-02-10', title_id: 3, title: 'February Movie' }), movie({ date: '2027-01-12', title_id: 4, title: 'January Movie' })])
+    await openUpcoming()
+    const calendar = within(await screen.findByRole('region', { name: 'Calendar' }))
+    for (let i = 0; i < 3; i++) await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
+    expect(calendar.getByRole('heading', { name: 'January 2027' })).toBeInTheDocument()
+    await waitFor(() => expect(asked).toContain('2027-01-01..2027-01-31'))
+    await waitFor(() => expect(current()).toHaveTextContent('January Movie'))
+    await userEvent.click(calendar.getByRole('button', { name: 'Today' }))
+    expect(calendar.getByRole('heading', { name: 'October 2026' })).toBeInTheDocument()
+  })
+
+  it('moves the calendar to the month the agenda is scrolled into, not while it scrolls itself', async () => {
+    const io = fakeObserver()
+    fakeAgenda([movie({ date: day(1) }), movie({ date: '2026-12-10', title_id: 3, title: 'December Movie' })])
+    await openUpcoming()
+    const calendar = within(await screen.findByRole('region', { name: 'Calendar' }))
+    await waitFor(() => expect(io.days()).not.toBeNull())
+    const december = () => timeline().querySelector('[data-day="2026-12-10"]') as HTMLElement
+    io.reach(december(), true, io.days()!)
+    expect(calendar.getByRole('heading', { name: 'October 2026' })).toBeInTheDocument() // nobody scrolled
+    await new Promise((r) => setTimeout(r, 700)) // the opening scroll's hold ends
+    fireEvent.scroll(timeline().closest('.overflow-auto')!)
+    io.reach(december(), true, io.days()!)
+    await waitFor(() => expect(calendar.getByRole('heading', { name: 'December 2026' })).toBeInTheDocument())
   })
 })
 

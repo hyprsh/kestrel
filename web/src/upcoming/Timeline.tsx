@@ -23,6 +23,18 @@ export function DayHeading({ date, away, isToday, headingRef }: { date: string; 
   )
 }
 
+/**
+ * The end of the Agenda that loads more: a row that says so while a chunk loads, or that nothing lies beyond; otherwise
+ * an empty strip that `edgeRef` watches, so the next chunk loads before the reader gets there.
+ */
+export function AgendaEdge({ edgeRef, loading, end, loadingText, endText }: { edgeRef: Ref<HTMLDivElement>; loading: boolean; end: boolean; loadingText: string; endText: string }) {
+  return (
+    <div ref={edgeRef} role="status" className="label-13 flex min-h-8 items-center justify-center text-gray-900">
+      {loading ? loadingText : end ? endText : null}
+    </div>
+  )
+}
+
 /** The bordered card that holds one day's rows. */
 export function DayCard({ children }: { children: ReactNode }) {
   return <div className="overflow-hidden rounded-md shadow-border">{children}</div>

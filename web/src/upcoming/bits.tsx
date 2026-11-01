@@ -212,14 +212,14 @@ export function EntryName({ item }: { item: UpcomingItem }) {
   if (item.kind === 'series') {
     return (
       <>
-        <span className="font-medium">{item.title}</span> <span className="text-gray-900">{episodeCode(item.season!, item.episode!)}</span>
+        <span className="font-semibold">{item.title}</span> <span className="text-gray-900">{episodeCode(item.season!, item.episode!)}</span>
         {item.episode_name ? <span className="text-gray-900"> · {item.episode_name}</span> : null}
       </>
     )
   }
   return (
     <>
-      <span className="font-medium">{item.title}</span>
+      <span className="font-semibold">{item.title}</span>
       {item.year ? <span className="text-gray-900"> {item.year}</span> : null}
     </>
   )
