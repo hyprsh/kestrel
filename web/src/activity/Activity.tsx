@@ -4,16 +4,11 @@
 // The background jobs and what runs now moved to the Health screen.
 import { DotsMenu, MenuItem, MenuSection, parseQuery, termText, valuesOf, withoutValue } from '@hyprsh/design'
 import { CircleCheck, CircleX, List, Loader } from 'lucide-react'
-import { useState } from 'react'
 import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
 import { FilterChips, PanelContent, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
-import type { GrabEntry } from '../api/activity'
-import { useProfiles, useTitle } from '../api/queries'
-import { ManualSearch } from '../library/ManualSearch'
-import { slotLabel, type SlotKey } from '../library/bits'
-import { useOpenPlace } from '../place'
+import { manualSearchPath, useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
 import { activityQualifiers } from './filter'
 import { Pipeline, usePipeline, type PipelineData } from './Pipeline'
@@ -103,7 +98,7 @@ function footer(total: number, oldest: string | null): string {
 export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
   const pipeline = usePipeline(query)
   const phone = usePhone()
-  const [manual, setManual] = useState<GrabEntry | null>(null)
+  const openPlace = useOpenPlace()
   const panel = {
     title: 'Activity',
     actions: <ActivityMenu />,
@@ -124,31 +119,13 @@ export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <div className="flex min-h-0 flex-1 max-sm:flex-col">
       <SidePanel {...panel} />
-      {manual ? (
-        <ManualSearchOf grab={manual} onBack={() => setManual(null)} />
-      ) : (
-        <PanelContent reading>
-          <Pipeline data={pipeline} onOpenTitle={onOpenTitle} onManualSearch={setManual} />
-        </PanelContent>
-      )}
+      <PanelContent reading>
+        <Pipeline
+          data={pipeline}
+          onOpenTitle={onOpenTitle}
+          onManualSearch={(g) => g.title_id != null && g.version_id != null && openPlace(manualSearchPath({ titleId: g.title_id, versionId: g.version_id, scope: null }))}
+        />
+      </PanelContent>
     </div>
-  )
-}
-
-/** Manual search for the Version of a failed Grab, in place of the lists until Back. */
-function ManualSearchOf({ grab: g, onBack }: { grab: GrabEntry; onBack: () => void }) {
-  const title = useTitle(g.title_id).data
-  const profiles = useProfiles().data
-  const version = title?.versions.find((v) => v.id === g.version_id)
-  const profile = profiles?.find((p) => p.key === version?.profile)
-  return (
-    <ManualSearch
-      titleName={g.title}
-      slotLabel={g.slot ? slotLabel[g.slot as SlotKey] : ''}
-      profileName={profile?.name ?? version?.profile ?? ''}
-      versionId={g.version_id!}
-      scope={undefined}
-      onBack={onBack}
-    />
   )
 }

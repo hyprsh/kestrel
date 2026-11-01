@@ -17,6 +17,7 @@ import { DeleteMenuItems, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeD
 import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } from './episodes'
 import { IconAction } from './IconAction'
 import { TickBox } from './TickBox'
+import { scopeCode } from './ManualSearchRoute'
 import type { ManualSearchTarget } from './TitleDetail'
 
 type ColumnWidths = ReturnType<typeof useColumnWidths>
@@ -89,7 +90,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
   const searchEpisodes = useEpisodeSearch()
   const search: EpisodeActions['search'] = (eps, label, scope) => searchEpisodes(versions, eps, label, scope)
 
-  const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
+  const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label, code: scopeCode(body, episodes) } })
   const monitor: EpisodeActions['monitor'] = (eps, monitored) => monitorEpisodes.mutate({ ids: eps.map((e) => e.id), monitored })
   const monitorSeason: EpisodeActions['monitorSeason'] = (season, monitored) => patchSeason.mutate({ season, monitored })
 
@@ -219,6 +220,7 @@ export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions,
           tabIndex={-1}
           onFocus={toRowCell}
           disabled={!wanted}
+          reason={wanted ? undefined : nothingWanted}
           onClick={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}
         />
       ) : (
@@ -250,13 +252,15 @@ function ManualItems({ versions, text = 'Manual Search', onPick }: { versions: E
 /** The search button of an episode row, shown on hover: Search now for what is Wanted in it. Upgrades are asked from a file's popover. */
 export function RowSearch({ actions, episode }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; episode: Episode }) {
   const code = episodeCode(episode)
+  const wanted = wantedIn([episode], actions.versions)
   return (
     <IconAction
       icon={Search}
       label={`Search ${code}`}
       tabIndex={-1}
       onFocus={toRowCell}
-      disabled={!wantedIn([episode], actions.versions)}
+      disabled={!wanted}
+      reason={wanted ? undefined : nothingWanted}
       onClick={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}
     />
   )

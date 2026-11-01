@@ -25,7 +25,7 @@ import { Overview } from '../overview/Overview'
 import { Requests } from '../requests/Requests'
 import { useTrashOutcomeToasts } from '../trash/toasts'
 import { EpisodeViewContext, noEpisodeView, type EpisodeView } from '../library/episodeView'
-import { currentPlace, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace } from '../place'
+import { currentPlace, manualSearchPath, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace, type ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
 import { Upcoming } from '../upcoming/Upcoming'
 import { Settings as SettingsScreen } from '../screens/Settings'
@@ -79,6 +79,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [episodeView, setEpisodeView] = useState<EpisodeView>(() =>
     start.screen === 'library' && start.season !== null ? { titleId: startTitle, season: start.season, episode: start.episode } : noEpisodeView,
   )
+  // A Title's Manual search ("/library/12/search?version=4&scope=S05"): it replaces the Title page and has its own address.
+  const [manual, setManual] = useState<ManualSearchAt | null>(start.search)
   // On a phone Settings' list and an opened section are two screens; "/settings/indexers" is the second.
   const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
   const [more, setMore] = useState(false)
@@ -87,6 +89,11 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
   const [filter, setFilter] = useState({ screen: start.screen, q: start.q })
   const query = filter.screen === screen ? filter.q : ''
+  // The search belongs to the Library and to its Title: another screen or Title closes it.
+  const searchShown = screen === 'library' && manual !== null && manual.titleId === libraryId ? manual : null
+  useEffect(() => {
+    if (manual !== null && (screen !== 'library' || manual.titleId !== libraryId)) setManual(null)
+  }, [manual, screen, libraryId])
   const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
   // Health's section ("/health/jobs") is scrolled to; the address keeps it until the screen changes.
   const [healthSection, setHealthSection] = useState(start.screen === 'health' ? start.section : '')
@@ -96,7 +103,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   }, [libraryId])
   const shownView = screen === 'library' ? episodeView : noEpisodeView
   const address = { q: query, section: screen === 'health' ? healthSection : section }
-  useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView)), [screen, address.q, address.section, shownView])
+  useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView, searchShown)), [screen, address.q, address.section, shownView, searchShown])
   // A first load at "/health/jobs" scrolls to that section.
   useEffect(() => {
     if (start.screen === 'health' && start.section) document.getElementById(`health-${start.section}`)?.scrollIntoView?.()
@@ -109,6 +116,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       if (place.screen === 'health') setHealthSection(place.section)
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))
+      setManual(place.search)
       setEpisodeView(place.season === null ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode })
       setSettingsSection(place.screen === 'settings' ? place.section : '')
       if (isTitleId(place.section)) setLibraryId(Number(place.section))
@@ -192,12 +200,29 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   })
   const places = useMemo(() => [...screens, health, { key: 'about', label: 'About' }].map((s) => ({ id: s.key, label: s.label })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
+  // Opens a Title's Manual search as a new history entry, so Back returns to where it was opened from; null closes it the same way.
+  const openSearch = useCallback((at: ManualSearchAt) => {
+    setLibraryId(at.titleId)
+    setFilter({ screen: 'library', q: '' })
+    setScreen('library')
+    setTitleOpen(true)
+    setManual(at)
+    pushPlace(manualSearchPath(at))
+  }, [])
+  const closeSearch = useCallback(() => {
+    if (pushedPlace()) history.back()
+    else setManual(null)
+  }, [])
   // An action that opens a place: "/settings/download-client" is the Settings screen at that
   // section, "/log?q=kind:failures" the Log with that filter.
   const goPath = useCallback(
     (path: string) => {
-      const { screen: key, section, q } = placeOf(path)
+      const { screen: key, section, q, search } = placeOf(path)
       if (!isPlace(key)) return
+      if (search) {
+        guardLeave(() => openSearch(search))
+        return
+      }
       const go = () => {
         setScreen(key)
         setFilter({ screen: key, q })
@@ -213,7 +238,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       if (key === 'settings') go()
       else guardLeave(go)
     },
-    [phone],
+    [phone, openSearch],
   )
   // An opened Title is shown, so the Library's filter must not hide it.
   const openTitle = useCallback(
@@ -302,6 +327,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                       onCloseTitle={closeLibraryTitle}
                       onAdd={() => setMenu({ mode: 'add' })}
                       onAdopt={() => setScreen('adoption')}
+                      search={searchShown}
+                      onSearch={(at) => (at ? openSearch(at) : closeSearch())}
                     />
                   ) : screen === 'log' ? (
                     <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} onOpenTitle={openTitle} />

@@ -7,6 +7,8 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { fakeSeries } from '../test/series'
+import { releaseList } from '../test/grabs'
 
 type Event = components['schemas']['Event']
 type Bucket = components['schemas']['EventsBucket']
@@ -193,6 +195,30 @@ describe('Follow live', () => {
     await openLog()
     await ready()
     expect(screen.getByRole('switch', { name: 'Follow live' })).not.toBeChecked()
+  })
+})
+
+describe('the Manual search action of a search that found nothing', () => {
+  it('opens that Version’s Manual search, narrowed to the scope searched, and Back returns to the Log', async () => {
+    fakeSeries()
+    server.use(http.post('/versions/{id}/releases', ({ response }) => response(200).json(releaseList())))
+    serve(() => [
+      event(5, 'search', 'Searched by hand for S01 in 4K: nothing to grab', { title_id: 5, version_id: 52, data: { scope: 'S01', slot: '4K', releases: 0, grabbed: 0, result: 'nothing_fit' } }),
+    ])
+    const user = await openLog()
+    await ready()
+
+    await user.click(within(rowsOf()[0]).getByRole('button', { name: 'Manual search' }))
+    expect(await screen.findByText('Season 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to Breaking Bad' })).toBeInTheDocument()
+    expect(location.pathname).toBe('/library/5/search')
+    expect(new URLSearchParams(location.search).get('version')).toBe('52')
+    expect(new URLSearchParams(location.search).get('scope')).toBe('S01')
+
+    history.back()
+    await waitFor(() => expect(location.pathname).toBe('/log'))
+    expect(screen.queryByText('Season 1')).not.toBeInTheDocument()
+    await ready()
   })
 })
 

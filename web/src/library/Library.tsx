@@ -10,10 +10,11 @@ import { useKey, useListNav } from '../keys'
 import { FacetFilterButton, SortButton } from '../layout/FilterButton'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { FilterChips, SidePanel } from '../layout/SidePanel'
+import type { ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
 import { useSelection } from '../selection'
 import { useNow } from '../time'
-import { size, slotLabel } from './bits'
+import { size } from './bits'
 import { BulkActions } from './BulkActions'
 import { EpisodeViewContext } from './episodeView'
 import { episodeCode, seasonName } from './episodes'
@@ -21,7 +22,7 @@ import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
 import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
 import { AddTitle, LibraryMenu, StatusSection } from './LibraryBar'
-import { ManualSearch } from './ManualSearch'
+import { ManualSearchRoute, scopeCode } from './ManualSearchRoute'
 import { grabsByTitle } from './rowState'
 import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
 import { TitleRows } from './TitleRows'
@@ -52,6 +53,8 @@ export function Library({
   onAdopt,
   query,
   onQuery,
+  search,
+  onSearch,
 }: {
   selectedId: number | null
   onSelect: (id: number) => void
@@ -64,6 +67,9 @@ export function Library({
   /** The filter field's text, kept by the Shell so it can live in the address bar. */
   query: string
   onQuery: (query: string) => void
+  /** The Manual search the address names, and how to open one (pushing its address) or close it (Back); null closes. */
+  search: ManualSearchAt | null
+  onSearch: (search: ManualSearchAt | null) => void
 }) {
   const phone = usePhone()
   const titles = useTitles()
@@ -116,8 +122,7 @@ export function Library({
     if (hits[0]) onSelect(hits[0].title.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstHit])
-  // A manual search replaces the Title pane; picking another Title in the list closes it.
-  const [search, setSearch] = useState<(ManualSearchTarget & { titleId: number }) | null>(null)
+  // A manual search replaces the Title pane; it has its own address (the Shell keeps it), and picking another Title in the list closes it.
   const searching = search !== null && search.titleId === current?.id
   // The listbox (EntityList takes no ref), inside the scroller that holds the ref.
   const focusList = () => listRef.current?.querySelector<HTMLElement>('[role=listbox]')?.focus()
@@ -260,7 +265,7 @@ export function Library({
       ) : null}
     </div>
   )
-  const startSearchFor = (titleId: number, s: ManualSearchTarget) => setSearch({ ...s, titleId })
+  const startSearchFor = (titleId: number, s: ManualSearchTarget) => onSearch({ titleId, versionId: s.versionId, scope: s.scope?.code ?? null })
   const startSearch = (s: ManualSearchTarget) => current && startSearchFor(current.id, s)
   /** What Search and Manual… do on a result row: for that Series, whichever Title the pane shows. */
   function actionsOf(h: EpisodeHit): Pick<EpisodeActions, 'versions' | 'search' | 'manual'> {
@@ -269,22 +274,18 @@ export function Library({
       search: (eps, label, scope) => episodeSearch(h.versions, eps, label, scope),
       manual: (v, body, label) => {
         showHit(h)
-        startSearchFor(h.title.id, { versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label } })
+        startSearchFor(h.title.id, { versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label, code: scopeCode(body, h.episodes) } })
       },
     }
   }
   // The selected Title's page, or the manual search that replaces it; `onEscape` is where Escape in the page goes.
   const titlePage = (onEscape: () => void) =>
     current && searching ? (
-      <ManualSearch
-        key={`${search.versionId} ${JSON.stringify(search.scope?.body ?? null)}`}
+      <ManualSearchRoute
+        at={search}
         titleName={current.title}
-        slotLabel={slotLabel[search.slot]}
-        profileName={search.profileName}
-        versionId={search.versionId}
-        scope={search.scope}
         onBack={() => {
-          setSearch(null)
+          onSearch(null)
           requestAnimationFrame(() => paneRef.current?.focus())
         }}
       />

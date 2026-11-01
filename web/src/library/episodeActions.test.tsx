@@ -123,7 +123,11 @@ describe('searching from the episode table', () => {
 
   it('cannot search an episode nothing wants', async () => {
     const { grid } = await openSeries()
-    expect(within(grid).getByRole('button', { name: 'Search S01E02' })).toBeDisabled()
+    const search = within(grid).getByRole('button', { name: 'Search S01E02' })
+    expect(search).toBeDisabled()
+    // The tooltip says why.
+    await userEvent.hover(search.closest('.hy-tooltip')!)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Search S01E02: Nothing here is Wanted')
   })
 
   it('opens Manual search for one episode in the Slot chosen from its menu', async () => {

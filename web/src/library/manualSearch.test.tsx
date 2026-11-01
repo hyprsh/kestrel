@@ -236,6 +236,7 @@ describe('manual search', () => {
     await openManualSearch()
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Fits 1', 'Rejected 3'])
     cleanup()
+    history.replaceState(null, '', '/')
 
     fakeSearch(seriesReleases())
     const table = await openManualSearch()
@@ -595,6 +596,7 @@ describe('manual search', () => {
       expect(names(table)[0]).toContain('Paddington.C')
 
       cleanup()
+      history.replaceState(null, '', '/')
       fakeSearch(sized())
       await openManualSearch()
       expect(screen.getByRole('button', { name: 'Sort releases: Largest first' })).toBeInTheDocument()

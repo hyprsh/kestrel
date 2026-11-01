@@ -891,7 +891,7 @@ describe('Upcoming: the Display switch and the Month display', () => {
     expect(await screen.findByRole('region', { name: 'Month' })).toBeInTheDocument()
   })
 
-  it('opens on the household default display, and this browser\'s own choice wins over it', async () => {
+  it("opens on the household default display, and this browser's own choice wins over it", async () => {
     serveDisplay({ upcoming_display: 'month' })
     many()
     renderApp()
@@ -904,7 +904,7 @@ describe('Upcoming: the Display switch and the Month display', () => {
     expect(localStorage.getItem('kestrel.upcoming.display')).toBe('agenda')
   })
 
-  it('keeps the browser\'s own Agenda over a household default of Month', async () => {
+  it("keeps the browser's own Agenda over a household default of Month", async () => {
     serveDisplay({ upcoming_display: 'month' })
     localStorage.setItem('kestrel.upcoming.display', 'agenda')
     many()

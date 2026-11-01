@@ -3,6 +3,7 @@
 // from those and from the Title's name (the Library knows it), so what an event does not hold is left out, never guessed.
 // A message that does not read as the formatter expects falls back to being shown as it is.
 import type { LogEvent } from '../api/log'
+import { manualSearchPath } from '../place'
 import { clock } from './rows'
 
 /** How an event reads: red for an error, amber for a warning, plain otherwise. */
@@ -346,7 +347,14 @@ export function actionOf(e: LogEvent): EventAction | null {
   }
   if (e.kind === 'original_offered') return { label: 'Open Health', path: '/health' }
   if (e.kind === 'adoption_scanned') return { label: 'Open Adoption', path: '/adoption' }
-  if (e.title_id != null) return { label: e.kind === 'search' && e.message.includes('nothing to grab') ? 'Manual search' : 'Open', title: e.title_id }
+  if (e.title_id != null) {
+    // A search that found nothing to grab opens that Version's Manual search, narrowed to the scope the search covered.
+    if (e.kind === 'search' && e.message.includes('nothing to grab') && e.version_id != null) {
+      const scope = str((e.data as Record<string, unknown> | null)?.scope) ?? searchResult(e.message)?.scope
+      return { label: 'Manual search', path: manualSearchPath({ titleId: e.title_id, versionId: e.version_id, scope: scope && /^S\d+(E\d+)?$/i.test(scope) ? scope.toUpperCase() : null }) }
+    }
+    return { label: 'Open', title: e.title_id }
+  }
   return null
 }
 

@@ -162,7 +162,10 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
       open_newest: 'Open the newest season',
       manual_search_sort: 'Manual search sort',
       upcoming_display: 'Upcoming starts on',
-      kind: 'Upcoming shows', wanted_only: 'Wanted only', hide_imported: 'Hide imported' },
+      kind: 'Upcoming shows',
+      wanted_only: 'Wanted only',
+      hide_imported: 'Hide imported',
+    },
     commit: async (d, changed) => {
       const display: DisplayPatch = {}
       if (changed.includes('season_order')) display.season_order = d.season_order
@@ -196,7 +199,11 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
             options={seasonOrders}
           />
         </SettingRow>
-        <SettingRow label="Open the newest season" dirty={dirty('open_newest')} help="A Series page starts on its latest season instead of the first. A link to a season or an episode still opens that one.">
+        <SettingRow
+          label="Open the newest season"
+          dirty={dirty('open_newest')}
+          help="A Series page starts on its latest season instead of the first. A link to a season or an episode still opens that one."
+        >
           <Toggle aria-label="Open the newest season" checked={draft.open_newest} disabled={off('seasons_open')} onChange={(open_newest) => set({ open_newest })} />
         </SettingRow>
         <SettingRow label="Manual search sort" dirty={dirty('manual_search_sort')} help="How Manual search lists Releases when it opens.">
@@ -209,7 +216,11 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
             options={sorts}
           />
         </SettingRow>
-        <SettingRow label="Upcoming starts on" dirty={dirty('upcoming_display')} help="The display Upcoming opens with. A browser that picked another display keeps its own. A phone always shows the Agenda.">
+        <SettingRow
+          label="Upcoming starts on"
+          dirty={dirty('upcoming_display')}
+          help="The display Upcoming opens with. A browser that picked another display keeps its own. A phone always shows the Agenda."
+        >
           <Select
             size="small"
             aria-label="Upcoming starts on"
