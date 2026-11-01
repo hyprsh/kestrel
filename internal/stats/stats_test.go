@@ -439,3 +439,17 @@ func TestResponseTimesAreEachIndexersMedianOverTheLastDay(t *testing.T) {
 		t.Errorf("response times = %v, want 650 ms for 1, 800 ms for 2 and none for 3", got)
 	}
 }
+
+func TestBelowCutoffComesFromTheProfilesAndIsZeroWithoutThem(t *testing.T) {
+	t.Parallel()
+	r := newRig(t)
+	rg, _ := stats.ParseRange("30d")
+	res, err := stats.New(r.st).Compute(context.Background(), now, rg, nil)
+	if err != nil || res.BelowCutoff != 0 {
+		t.Fatalf("without a source: %d, %v", res.BelowCutoff, err)
+	}
+	res, err = stats.New(r.st).WithBelowCutoff(func(context.Context) (int, error) { return 12, nil }).Compute(context.Background(), now, rg, nil)
+	if err != nil || res.BelowCutoff != 12 {
+		t.Fatalf("with a source: %d, %v", res.BelowCutoff, err)
+	}
+}

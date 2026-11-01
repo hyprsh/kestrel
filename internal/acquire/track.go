@@ -341,11 +341,14 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 			continue
 		}
 		out.Searched = append(out.Searched, v.ID)
-		slotVersion[v.Slot] = v.ID
 		u := Unit{}
 		if upgrade && v.File != nil {
-			u.Held = fileHeld(v.File)
+			u.Held = fileHeld(v.File, sub.versions[v.Slot])
 		}
+		if u.Held != nil && u.Held.Done {
+			continue // at its Profile's cutoff: marked searched, but no indexer is asked for an Upgrade
+		}
+		slotVersion[v.Slot] = v.ID
 		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{u}})
 	}
 	if len(in.Versions) == 0 {

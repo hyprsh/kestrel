@@ -19,6 +19,8 @@ func profilesProblem(err error) error {
 	switch {
 	case errors.Is(err, profiles.ErrNotFound):
 		return problem(http.StatusNotFound, "not_found", "no such Profile")
+	case errors.Is(err, profiles.ErrInUse):
+		return problem(http.StatusConflict, "conflict", "A Version still uses that Profile: switch it to another Profile first")
 	case errors.As(err, &ve):
 		return invalid(ve.Field, ve.Code, ve.Message)
 	}
@@ -31,14 +33,113 @@ func (s *server) profileToAPI(p profiles.Profile) oapi.Profile {
 	if p.Rule == scoring.OriginalLanguage {
 		rule = "original"
 	}
+	var custom *bool
+	if p.Custom {
+		yes := true
+		custom = &yes
+	}
 	return oapi.Profile{
 		Key: p.Key, Name: p.Name, Slot: slot, LanguageRule: rule,
 		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalChoice), OriginalFallback: p.OriginalChoice.DeprecatedFlag(),
 		Enabled: p.Enabled, DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
 		TrashProfileMovies: p.TrashMovies, TrashProfileSeries: p.TrashSeries,
-		FromConfigFile: s.declares(configfile.SectionProfiles),
+		FromConfigFile: s.declares(configfile.SectionProfiles), Custom: custom,
 	}
+}
+
+// overlayFromAPI is the Overlay a patch sets.
+func overlayFromAPI(o oapi.ProfileOverlay) scoring.Overlay {
+	kind := func(k oapi.ProfileKindOverlay) scoring.KindOverlay {
+		out := scoring.KindOverlay{}
+		if k.Cutoff != nil {
+			out.Cutoff = *k.Cutoff
+		}
+		if k.Qualities != nil {
+			for _, q := range *k.Qualities {
+				out.Qualities = append(out.Qualities, scoring.QualityPref{Name: q.Name, Accepted: q.Accepted})
+			}
+		}
+		return out
+	}
+	size := func(z oapi.ProfileSize) scoring.SizeLimit {
+		var l scoring.SizeLimit
+		if z.Min != nil {
+			l.Min = *z.Min
+		}
+		if z.Max != nil {
+			l.Max = *z.Max
+		}
+		return l
+	}
+	return scoring.Overlay{
+		MinScore: o.MinScore, UpgradeUntil: o.UpgradeUntil, Series: kind(o.Series), Movies: kind(o.Movies),
+		EpisodeSize: size(o.EpisodeSize), MovieSize: size(o.MovieSize),
+	}
+}
+
+// overlayToAPI is the Overlay as the API shows it.
+func overlayToAPI(o scoring.Overlay) oapi.ProfileOverlay {
+	kind := func(k scoring.KindOverlay) oapi.ProfileKindOverlay {
+		out := oapi.ProfileKindOverlay{}
+		if k.Cutoff != "" {
+			c := k.Cutoff
+			out.Cutoff = &c
+		}
+		if len(k.Qualities) > 0 {
+			qs := qualitiesToAPI(k.Qualities)
+			out.Qualities = &qs
+		}
+		return out
+	}
+	size := func(l scoring.SizeLimit) oapi.ProfileSize {
+		var z oapi.ProfileSize
+		if l.Min > 0 {
+			v := l.Min
+			z.Min = &v
+		}
+		if l.Max > 0 {
+			v := l.Max
+			z.Max = &v
+		}
+		return z
+	}
+	return oapi.ProfileOverlay{
+		MinScore: o.MinScore, UpgradeUntil: o.UpgradeUntil, Series: kind(o.Series), Movies: kind(o.Movies),
+		EpisodeSize: size(o.EpisodeSize), MovieSize: size(o.MovieSize),
+	}
+}
+
+func qualitiesToAPI(qs []scoring.QualityPref) []oapi.ProfileQuality {
+	out := make([]oapi.ProfileQuality, len(qs))
+	for i, q := range qs {
+		out[i] = oapi.ProfileQuality{Name: q.Name, Accepted: q.Accepted}
+	}
+	return out
+}
+
+func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestObject) (oapi.CreateProfileResponseObject, error) {
+	if r.Body == nil {
+		return nil, invalid("body", "required", "a body is required")
+	}
+	if err := s.refuseDeclared(configfile.SectionProfiles); err != nil {
+		return nil, err
+	}
+	p, err := s.profiles.Create(ctx, r.Body.Name, r.Body.CopyFrom)
+	if err != nil {
+		return nil, profilesProblem(err)
+	}
+	return oapi.CreateProfile201JSONResponse(s.profileToAPI(p)), nil
+}
+
+func (s *server) DeleteProfile(ctx context.Context, r oapi.DeleteProfileRequestObject) (oapi.DeleteProfileResponseObject, error) {
+	if err := s.refuseDeclared(configfile.SectionProfiles); err != nil {
+		return nil, err
+	}
+	if err := s.profiles.Delete(ctx, string(r.Key)); err != nil {
+		return nil, profilesProblem(err)
+	}
+	return oapi.DeleteProfile204Response{}, nil
 }
 
 func (s *server) ListProfiles(ctx context.Context, _ oapi.ListProfilesRequestObject) (oapi.ListProfilesResponseObject, error) {
@@ -65,15 +166,26 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 	if err != nil {
 		return nil, invalid("original_fallback", "invalid", "original_fallback disagrees with original_language; send original_language only")
 	}
-	p, err := s.profiles.Patch(ctx, string(r.Key), profiles.Patch{
-		Enabled: b.Enabled, OriginalChoice: original, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries,
-	})
+	patch := profiles.Patch{
+		Enabled: b.Enabled, OriginalChoice: original, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries, Name: b.Name,
+	}
+	if b.Overlay != nil {
+		o := overlayFromAPI(*b.Overlay)
+		patch.Overlay = &o
+	}
+	p, err := s.profiles.Patch(ctx, string(r.Key), patch)
 	var ve *profiles.ValidationError
 	if b.OriginalLanguage == nil && errors.As(err, &ve) && ve.Field == "original_language" {
 		ve.Field = "original_fallback" // the client sent the deprecated field
 	}
 	if err != nil {
 		return nil, profilesProblem(err)
+	}
+	if b.Overlay != nil {
+		// What the Profile does has changed: work out the stored files again from what Import kept.
+		if err := s.rescoreProfile(ctx, p.Key); err != nil {
+			return nil, err
+		}
 	}
 	return oapi.PatchProfile200JSONResponse(s.profileToAPI(p)), nil
 }
@@ -310,4 +422,18 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 		return nil, err
 	}
 	return oapi.PatchSettings200JSONResponse(out), nil
+}
+
+// rescoreProfile re-scores the files of every Version under the Profile, as a switch of Profile does.
+func (s *server) rescoreProfile(ctx context.Context, key string) error {
+	vs, err := s.profiles.Versions(ctx, key)
+	if err != nil {
+		return err
+	}
+	for _, v := range vs {
+		if err := s.imports.Rescore(ctx, v.TitleID, v.VersionID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

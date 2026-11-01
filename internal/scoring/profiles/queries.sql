@@ -1,6 +1,8 @@
 -- name: ListProfiles :many
 SELECT key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language
+       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language,
+       custom, series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
+       movie_min_size, movie_max_size, episode_min_size, episode_max_size
 FROM profiles ORDER BY sort;
 
 -- name: SetProfileEnabled :exec
@@ -26,3 +28,40 @@ UPDATE profiles SET default_series = ? WHERE key = ?;
 
 -- name: SetProfileTrash :exec
 UPDATE profiles SET trash_profile_movies = ?, trash_profile_series = ? WHERE key = ?;
+
+-- name: SetProfileOverlay :exec
+-- What the household set on top of TRaSH (ADR 0023); NULL is as TRaSH has it, or no limit.
+UPDATE profiles SET series_qualities = ?, movie_qualities = ?, series_cutoff = ?, movie_cutoff = ?, upgrade_until = ?,
+    min_score = ?, movie_min_size = ?, movie_max_size = ?, episode_min_size = ?, episode_max_size = ?
+WHERE key = ?;
+
+-- name: SetProfileName :exec
+UPDATE profiles SET name = ? WHERE key = ?;
+
+-- name: InsertCustomProfile :exec
+INSERT INTO profiles (key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
+    default_movies, default_series, trash_profile_movies, trash_profile_series, original_language, custom,
+    series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
+    movie_min_size, movie_max_size, episode_min_size, episode_max_size)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: DeleteCustomProfile :execrows
+DELETE FROM profiles WHERE key = ? AND custom = 1;
+
+-- name: VersionsUnderProfile :many
+SELECT v.id AS version_id, v.title_id FROM versions v WHERE v.profile_key = ? ORDER BY v.id;
+
+-- name: ProfileVersionCount :one
+SELECT COUNT(*) FROM versions WHERE profile_key = ?;
+
+-- name: MaxProfileSort :one
+SELECT COALESCE(MAX(sort), 0) FROM profiles;
+
+-- The files that fit their Version, with what the cutoff looks at: the Profile, the kind, the Score and the stored parse.
+-- name: CutoffFiles :many
+SELECT v.profile_key, t.kind, f.score, f.parsed_release
+FROM files f
+JOIN versions v ON v.id = f.version_id
+JOIN titles t ON t.id = v.title_id
+LEFT JOIN file_misfits m ON m.file_id = f.id
+WHERE m.file_id IS NULL;

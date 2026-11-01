@@ -32,7 +32,7 @@ func (s *server) GetStats(ctx context.Context, r oapi.GetStatsRequestObject) (oa
 	if err != nil {
 		return nil, err
 	}
-	res, err := stats.New(s.opts.Store).Compute(ctx, now, rng, disks)
+	res, err := stats.New(s.opts.Store).WithBelowCutoff(s.belowCutoff).Compute(ctx, now, rng, disks)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +72,7 @@ func (s *server) GetStats(ctx context.Context, r oapi.GetStatsRequestObject) (oa
 		Indexers:       make([]oapi.StatsIndexer, 0, len(res.Indexers)),
 		DownloadClient: client,
 		Quality:        make([]oapi.StatsQuality, 0, len(res.Quality)),
+		BelowCutoff:    res.BelowCutoff,
 		ReleaseGroups:  make([]oapi.StatsReleaseGroup, 0, len(res.Groups)),
 	}
 	out.Grabs.Imported, out.Grabs.Failed = res.Imported, res.Failed
@@ -188,4 +189,10 @@ func millis(d *time.Duration) *int64 {
 	}
 	n := d.Milliseconds()
 	return &n
+}
+
+// belowCutoff is the number of files below their Profile's cutoff.
+func (s *server) belowCutoff(ctx context.Context) (int, error) {
+	c, err := s.profiles.BelowCutoff(ctx)
+	return c.Total, err
 }

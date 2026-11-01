@@ -191,7 +191,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		}
 		u := Unit{}
 		if v.File != nil {
-			u.Held = fileHeld(v.File)
+			u.Held = fileHeld(v.File, sub.versions[v.Slot])
 		}
 		versionOf[v.Slot] = v.ID
 		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{u}})
@@ -257,7 +257,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
 			if cell.State == library.Filled {
-				u.Held = cellHeld(cell)
+				u.Held = cellHeld(cell, sub.versions[v.Slot])
 			}
 			ver.Units = append(ver.Units, u)
 		}
@@ -278,7 +278,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		}
 		title := scoring.Title{
 			Name: d.Title, Year: d.Year, OriginalLanguage: release.LanguageByISO(d.OriginalLanguage),
-			EpisodeTitles: episodeTitles(parsed, episodes),
+			EpisodeTitles: episodeTitles(parsed, episodes), SeasonEpisodes: packEpisodes(parsed, episodes),
 		}
 		e, err := s.entryFor(ctx, sub, it.raw, parsed, title, now)
 		if err != nil {

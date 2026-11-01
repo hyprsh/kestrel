@@ -81,6 +81,10 @@ type Profiles interface {
 	Region(ctx context.Context) (profiles.Region, bool, error)
 	List(ctx context.Context) ([]profiles.Profile, error)
 	Patch(ctx context.Context, key string, p profiles.Patch) (profiles.Profile, error)
+	Create(ctx context.Context, name, copyKey string) (profiles.Profile, error)
+	Delete(ctx context.Context, key string) error
+	Versions(ctx context.Context, key string) ([]profiles.Version, error)
+	BelowCutoff(ctx context.Context) (profiles.Cutoffs, error)
 }
 
 // RootFolders reads the Root folders.
@@ -231,6 +235,7 @@ type Remover interface {
 // names the Custom Formats each file of a Title matches under its Profile.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
+	Rescore(ctx context.Context, titleID, versionID int64) error
 	FileFormats(ctx context.Context, titleID int64) (map[int64][]scoring.MatchedFormat, error)
 }
 

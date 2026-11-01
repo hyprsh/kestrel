@@ -54,6 +54,7 @@ type statsJSON struct {
 	Requests struct {
 		Total int `json:"total"`
 	} `json:"requests"`
+	BelowCutoff int `json:"below_cutoff"`
 }
 
 func (w wantedRig) stats(t *testing.T, query string) statsJSON {

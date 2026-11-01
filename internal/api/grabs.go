@@ -30,6 +30,7 @@ var rejectionMessages = map[scoring.Rejection]string{
 	acquire.RejectOtherSlot:               "Fits another Slot",
 	acquire.RejectEpisodeNotListed:        "Names an episode TheTVDB does not list yet",
 	acquire.RejectSeasonNotListed:         "Names a season TheTVDB does not list",
+	scoring.RejectSize:                    "Outside the size limit",
 	scoring.RejectOriginalOnly:            "Only in the Title's Original Language: the Profile offers it instead of grabbing it",
 }
 
@@ -38,6 +39,21 @@ func rejectionMessage(r scoring.Rejection) string {
 		return m
 	}
 	return string(r)
+}
+
+// sizeMessage says which side of the Profile's size limit a Release is on, by its size per Movie or per episode.
+func sizeMessage(f acquire.Found) string {
+	units := 1
+	if f.PerEpisode {
+		units = len(f.Episodes)
+		if f.Pack {
+			units = len(f.Covers)
+		}
+	}
+	if units > 0 && f.SizeLimit.Min > 0 && f.Size/int64(units) < f.SizeLimit.Min {
+		return "Under the size limit"
+	}
+	return "Over the size limit"
 }
 
 func (s *server) searchTimeout() time.Duration {
@@ -98,6 +114,16 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 			url := f.InfoURL
 			rel.InfoUrl = &url
 		}
+		if f.SizeLimit.Any() {
+			lim := oapi.ReleaseSizeLimit{PerEpisode: f.PerEpisode}
+			if f.SizeLimit.Min > 0 {
+				lim.Min = &f.SizeLimit.Min
+			}
+			if f.SizeLimit.Max > 0 {
+				lim.Max = &f.SizeLimit.Max
+			}
+			rel.SizeLimit = &lim
+		}
 		if f.Grabs > 0 {
 			grabs := f.Grabs
 			rel.Grabs = &grabs
@@ -117,7 +143,11 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 			rel.CustomFormats = append(rel.CustomFormats, oapi.CustomFormatMatch{Name: cf.Name, Points: cf.Score})
 		}
 		for _, rj := range f.Rejections {
-			rel.Rejections = append(rel.Rejections, oapi.Rejection{Code: oapi.RejectionCode(rj.Code), Message: rejectionMessage(rj.Code), Overridable: rj.Overridable})
+			msg := rejectionMessage(rj.Code)
+			if rj.Code == scoring.RejectSize {
+				msg = sizeMessage(f)
+			}
+			rel.Rejections = append(rel.Rejections, oapi.Rejection{Code: oapi.RejectionCode(rj.Code), Message: msg, Overridable: rj.Overridable})
 		}
 		out.Items = append(out.Items, rel)
 	}

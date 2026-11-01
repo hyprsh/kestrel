@@ -236,6 +236,10 @@ type Found struct {
 	// Covers says, for each episode a Series Release holds that the library knows (or for the Movie itself),
 	// whether this Version Wants it, already has a file for it, or neither, and the Score of that file.
 	Covers []Cover
+	// SizeLimit is the size limit the Version's Profile puts on this kind of Release, per Movie or (PerEpisode)
+	// per episode of a Series; zero for none.
+	SizeLimit  scoring.SizeLimit
+	PerEpisode bool
 }
 
 // CoverState is where one thing a Release covers stands for the Version searched.
@@ -561,6 +565,10 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 			f.Season, f.Episodes, f.Pack = sr.Season, slices.Clone(sr.Episodes), sr.FullSeason
 		}
 		f.Covers = coversOf(sub.detail, e.cand.Parsed, eps, slot)
+		if p := sub.versions[slot]; p != nil {
+			f.PerEpisode = e.cand.Parsed.Kind != release.KindMovie
+			f.SizeLimit = p.SizeLimit(e.cand.Parsed.Kind)
+		}
 		for _, l := range v.Languages {
 			f.Languages = append(f.Languages, l.Name)
 		}

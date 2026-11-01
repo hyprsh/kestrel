@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const clearSlotDefaultMovies = `-- name: ClearSlotDefaultMovies :exec
@@ -27,9 +28,129 @@ func (q *Queries) ClearSlotDefaultSeries(ctx context.Context, slot string) error
 	return err
 }
 
+const cutoffFiles = `-- name: CutoffFiles :many
+SELECT v.profile_key, t.kind, f.score, f.parsed_release
+FROM files f
+JOIN versions v ON v.id = f.version_id
+JOIN titles t ON t.id = v.title_id
+LEFT JOIN file_misfits m ON m.file_id = f.id
+WHERE m.file_id IS NULL
+`
+
+type CutoffFilesRow struct {
+	ProfileKey    string
+	Kind          string
+	Score         sql.NullInt64
+	ParsedRelease sql.NullString
+}
+
+// The files that fit their Version, with what the cutoff looks at: the Profile, the kind, the Score and the stored parse.
+func (q *Queries) CutoffFiles(ctx context.Context) ([]CutoffFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, cutoffFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CutoffFilesRow
+	for rows.Next() {
+		var i CutoffFilesRow
+		if err := rows.Scan(
+			&i.ProfileKey,
+			&i.Kind,
+			&i.Score,
+			&i.ParsedRelease,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const deleteCustomProfile = `-- name: DeleteCustomProfile :execrows
+DELETE FROM profiles WHERE key = ? AND custom = 1
+`
+
+func (q *Queries) DeleteCustomProfile(ctx context.Context, key string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteCustomProfile, key)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const insertCustomProfile = `-- name: InsertCustomProfile :exec
+INSERT INTO profiles (key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
+    default_movies, default_series, trash_profile_movies, trash_profile_series, original_language, custom,
+    series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
+    movie_min_size, movie_max_size, episode_min_size, episode_max_size)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertCustomProfileParams struct {
+	Key                string
+	Name               string
+	Sort               int64
+	Slot               string
+	Any                int64
+	LanguageRule       string
+	MinHeight          int64
+	MaxHeight          int64
+	OriginalFallback   int64
+	TrashProfileMovies string
+	TrashProfileSeries string
+	OriginalLanguage   string
+	SeriesQualities    sql.NullString
+	MovieQualities     sql.NullString
+	SeriesCutoff       sql.NullString
+	MovieCutoff        sql.NullString
+	UpgradeUntil       sql.NullInt64
+	MinScore           sql.NullInt64
+	MovieMinSize       sql.NullInt64
+	MovieMaxSize       sql.NullInt64
+	EpisodeMinSize     sql.NullInt64
+	EpisodeMaxSize     sql.NullInt64
+}
+
+func (q *Queries) InsertCustomProfile(ctx context.Context, arg InsertCustomProfileParams) error {
+	_, err := q.db.ExecContext(ctx, insertCustomProfile,
+		arg.Key,
+		arg.Name,
+		arg.Sort,
+		arg.Slot,
+		arg.Any,
+		arg.LanguageRule,
+		arg.MinHeight,
+		arg.MaxHeight,
+		arg.OriginalFallback,
+		arg.TrashProfileMovies,
+		arg.TrashProfileSeries,
+		arg.OriginalLanguage,
+		arg.SeriesQualities,
+		arg.MovieQualities,
+		arg.SeriesCutoff,
+		arg.MovieCutoff,
+		arg.UpgradeUntil,
+		arg.MinScore,
+		arg.MovieMinSize,
+		arg.MovieMaxSize,
+		arg.EpisodeMinSize,
+		arg.EpisodeMaxSize,
+	)
+	return err
+}
+
 const listProfiles = `-- name: ListProfiles :many
 SELECT key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language
+       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language,
+       custom, series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
+       movie_min_size, movie_max_size, episode_min_size, episode_max_size
 FROM profiles ORDER BY sort
 `
 
@@ -58,6 +179,17 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 			&i.TrashProfileMovies,
 			&i.TrashProfileSeries,
 			&i.OriginalLanguage,
+			&i.Custom,
+			&i.SeriesQualities,
+			&i.MovieQualities,
+			&i.SeriesCutoff,
+			&i.MovieCutoff,
+			&i.UpgradeUntil,
+			&i.MinScore,
+			&i.MovieMinSize,
+			&i.MovieMaxSize,
+			&i.EpisodeMinSize,
+			&i.EpisodeMaxSize,
 		); err != nil {
 			return nil, err
 		}
@@ -70,6 +202,28 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const maxProfileSort = `-- name: MaxProfileSort :one
+SELECT COALESCE(MAX(sort), 0) FROM profiles
+`
+
+func (q *Queries) MaxProfileSort(ctx context.Context) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, maxProfileSort)
+	var coalesce interface{}
+	err := row.Scan(&coalesce)
+	return coalesce, err
+}
+
+const profileVersionCount = `-- name: ProfileVersionCount :one
+SELECT COUNT(*) FROM versions WHERE profile_key = ?
+`
+
+func (q *Queries) ProfileVersionCount(ctx context.Context, profileKey string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, profileVersionCount, profileKey)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const setProfileDefaultMovies = `-- name: SetProfileDefaultMovies :exec
@@ -116,6 +270,20 @@ func (q *Queries) SetProfileEnabled(ctx context.Context, arg SetProfileEnabledPa
 	return err
 }
 
+const setProfileName = `-- name: SetProfileName :exec
+UPDATE profiles SET name = ? WHERE key = ?
+`
+
+type SetProfileNameParams struct {
+	Name string
+	Key  string
+}
+
+func (q *Queries) SetProfileName(ctx context.Context, arg SetProfileNameParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileName, arg.Name, arg.Key)
+	return err
+}
+
 const setProfileOriginalChoice = `-- name: SetProfileOriginalChoice :exec
 UPDATE profiles SET original_language = ?, original_fallback = ? WHERE key = ?
 `
@@ -132,6 +300,44 @@ func (q *Queries) SetProfileOriginalChoice(ctx context.Context, arg SetProfileOr
 	return err
 }
 
+const setProfileOverlay = `-- name: SetProfileOverlay :exec
+UPDATE profiles SET series_qualities = ?, movie_qualities = ?, series_cutoff = ?, movie_cutoff = ?, upgrade_until = ?,
+    min_score = ?, movie_min_size = ?, movie_max_size = ?, episode_min_size = ?, episode_max_size = ?
+WHERE key = ?
+`
+
+type SetProfileOverlayParams struct {
+	SeriesQualities sql.NullString
+	MovieQualities  sql.NullString
+	SeriesCutoff    sql.NullString
+	MovieCutoff     sql.NullString
+	UpgradeUntil    sql.NullInt64
+	MinScore        sql.NullInt64
+	MovieMinSize    sql.NullInt64
+	MovieMaxSize    sql.NullInt64
+	EpisodeMinSize  sql.NullInt64
+	EpisodeMaxSize  sql.NullInt64
+	Key             string
+}
+
+// What the household set on top of TRaSH (ADR 0023); NULL is as TRaSH has it, or no limit.
+func (q *Queries) SetProfileOverlay(ctx context.Context, arg SetProfileOverlayParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileOverlay,
+		arg.SeriesQualities,
+		arg.MovieQualities,
+		arg.SeriesCutoff,
+		arg.MovieCutoff,
+		arg.UpgradeUntil,
+		arg.MinScore,
+		arg.MovieMinSize,
+		arg.MovieMaxSize,
+		arg.EpisodeMinSize,
+		arg.EpisodeMaxSize,
+		arg.Key,
+	)
+	return err
+}
+
 const setProfileTrash = `-- name: SetProfileTrash :exec
 UPDATE profiles SET trash_profile_movies = ?, trash_profile_series = ? WHERE key = ?
 `
@@ -145,4 +351,36 @@ type SetProfileTrashParams struct {
 func (q *Queries) SetProfileTrash(ctx context.Context, arg SetProfileTrashParams) error {
 	_, err := q.db.ExecContext(ctx, setProfileTrash, arg.TrashProfileMovies, arg.TrashProfileSeries, arg.Key)
 	return err
+}
+
+const versionsUnderProfile = `-- name: VersionsUnderProfile :many
+SELECT v.id AS version_id, v.title_id FROM versions v WHERE v.profile_key = ? ORDER BY v.id
+`
+
+type VersionsUnderProfileRow struct {
+	VersionID int64
+	TitleID   int64
+}
+
+func (q *Queries) VersionsUnderProfile(ctx context.Context, profileKey string) ([]VersionsUnderProfileRow, error) {
+	rows, err := q.db.QueryContext(ctx, versionsUnderProfile, profileKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VersionsUnderProfileRow
+	for rows.Next() {
+		var i VersionsUnderProfileRow
+		if err := rows.Scan(&i.VersionID, &i.TitleID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

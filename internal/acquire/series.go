@@ -94,7 +94,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		}
 		title := scoring.Title{
 			Name: d.Title, Year: d.Year, OriginalLanguage: release.LanguageByISO(d.OriginalLanguage),
-			EpisodeTitles: episodeTitles(parsed, episodes),
+			EpisodeTitles: episodeTitles(parsed, episodes), SeasonEpisodes: packEpisodes(parsed, episodes),
 		}
 		e, err := s.entryFor(ctx, sub, r, parsed, title, now)
 		if err != nil {
@@ -258,7 +258,10 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			}
 			u := Unit{Ref: EpisodeRef{ep.Season, ep.Number}}
 			if upgrade {
-				u.Held = cellHeld(cell)
+				u.Held = cellHeld(cell, sub.versions[v.Slot])
+				if u.Held.Done {
+					continue // at its Profile's cutoff: no Upgrade is searched for
+				}
 			}
 			ver.Units = append(ver.Units, u)
 			if ep.Season != 0 || scope.Narrow() {
@@ -360,4 +363,13 @@ func onlyPlanned(ids []int64, covers []EpisodeRef, eps []library.Episode) []int6
 		}
 	}
 	return out
+}
+
+// packEpisodes is how many episodes a season pack holds as far as the library knows them, for judging its size per
+// episode; 0 for anything else.
+func packEpisodes(p release.ParsedRelease, eps []library.Episode) int {
+	if p.Series == nil || !p.Series.FullSeason || p.Series.MultiSeason {
+		return 0
+	}
+	return len(episodesOf(p, eps))
 }

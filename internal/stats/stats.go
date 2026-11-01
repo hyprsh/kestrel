@@ -47,6 +47,15 @@ const BestMinHitRate = 0.5
 // Service computes the statistics.
 type Service struct {
 	st *store.Store
+	// belowCutoff counts the files below their Profile's cutoff; nil counts none.
+	belowCutoff func(ctx context.Context) (int, error)
+}
+
+// WithBelowCutoff sets where the count of files below their Profile's cutoff comes from. The Profiles own the
+// cutoff and the TRaSH ladder it is read against, so the count is theirs; the Overview only shows it.
+func (s *Service) WithBelowCutoff(f func(ctx context.Context) (int, error)) *Service {
+	s.belowCutoff = f
+	return s
 }
 
 // New returns a Service over the store.
@@ -178,12 +187,14 @@ type Result struct {
 	Failed   int
 	Indexers []Indexer
 	// Best is the index in Indexers of the best indexer, -1 for none.
-	Best     int
-	Client   Client
-	Quality  []Quality
-	Groups   []Group
-	Requests Requests
-	Storage  Storage
+	Best    int
+	Client  Client
+	Quality []Quality
+	// BelowCutoff is how many files fit their Version but are below their Profile's cutoff: Upgrades are wanted.
+	BelowCutoff int
+	Groups      []Group
+	Requests    Requests
+	Storage     Storage
 }
 
 // Compute reads the statistics for a range at now. disks are the Root folders' disks as the caller read them.
@@ -237,6 +248,11 @@ func (s *Service) Compute(ctx context.Context, now time.Time, r Range, disks []D
 	}
 	if res.Quality, err = s.quality(ctx, q); err != nil {
 		return res, err
+	}
+	if s.belowCutoff != nil {
+		if res.BelowCutoff, err = s.belowCutoff(ctx); err != nil {
+			return res, err
+		}
 	}
 	grabbed, err := q.GrabbedFiles(ctx, db.GrabbedFilesParams{FromAt: from, ToAt: to})
 	if err != nil {

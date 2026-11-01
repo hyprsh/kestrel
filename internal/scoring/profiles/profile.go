@@ -35,6 +35,11 @@ type Profile struct {
 	// TrashMovies and TrashSeries name the TRaSH profile files (without .json)
 	// backing the Profile under the current Primary Language (Settled 5).
 	TrashMovies, TrashSeries string
+
+	// Custom marks a Profile made with "New Profile…": a copy of another that can be renamed and deleted.
+	Custom bool
+	// Overlay is what the household set on top of TRaSH's data (ADR 0023); zero leaves TRaSH's.
+	Overlay scoring.Overlay
 }
 
 // Default reports whether the Profile is the default of its Slot for a kind.
@@ -48,8 +53,17 @@ func (p Profile) Default(kind release.Kind) bool {
 // Spec is the scoring.ProfileSpec of the Profile under a Primary Language.
 func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
 	return scoring.ProfileSpec{
-		Slot: p.Slot, Any: p.Any, Rule: p.Rule, Primary: primary, OriginalChoice: p.OriginalChoice,
+		Slot: p.Slot, Any: p.Any, Rule: p.Rule, Primary: primary, OriginalChoice: p.OriginalChoice, Overlay: p.overlay(),
 	}
+}
+
+// overlay is the Overlay the Spec carries: nil when the household set nothing.
+func (p Profile) overlay() *scoring.Overlay {
+	if p.Overlay.IsZero() {
+		return nil
+	}
+	o := p.Overlay
+	return &o
 }
 
 // Builtin returns the six Profiles as shipped: all enabled, HD the default

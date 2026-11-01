@@ -116,9 +116,16 @@ func (s *server) ListProfileDetails(ctx context.Context, _ oapi.ListProfileDetai
 		used[u.ProfileKey] = u
 	}
 	snap := s.scoring.Current()
+	cutoffs, err := s.profiles.BelowCutoff(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := oapi.ProfileDetailList{Items: make([]oapi.ProfileDetail, len(all))}
 	for i, p := range all {
-		d := oapi.ProfileDetail{Key: p.Key, Titles: int(used[p.Key].Titles), Files: int(used[p.Key].Files)}
+		d := oapi.ProfileDetail{
+			Key: p.Key, Titles: int(used[p.Key].Titles), Files: int(used[p.Key].Files), Rescores: int(used[p.Key].Files),
+			BelowCutoff: cutoffs.ByProfile[p.Key], Overlay: overlayToAPI(p.Overlay),
+		}
 		var resolved *scoring.Profile
 		if snap != nil {
 			resolved, _ = snap.Profile(p.Spec(region.Primary.Release())) // unresolvable: empty, not an error
@@ -132,12 +139,17 @@ func (s *server) ListProfileDetails(ctx context.Context, _ oapi.ListProfileDetai
 
 // profileScoring is what a resolved Profile does for a kind; nil (no snapshot, or none that fits) is empty.
 func profileScoring(p *scoring.Profile, kind release.Kind) oapi.ProfileScoring {
-	out := oapi.ProfileScoring{Qualities: []string{}, CustomFormats: []oapi.ProfileCustomFormat{}}
+	out := oapi.ProfileScoring{Qualities: []string{}, Ladder: []oapi.ProfileQuality{}, TrashLadder: []oapi.ProfileQuality{}, CustomFormats: []oapi.ProfileCustomFormat{}}
 	if p == nil {
 		return out
 	}
 	out.Qualities = append(out.Qualities, p.AllowedQualities(kind)...)
+	out.Ladder, out.TrashLadder = qualitiesToAPI(p.Ladder(kind)), qualitiesToAPI(p.TrashLadder(kind))
+	if c := p.Cutoff(kind); c != "" {
+		out.Cutoff = &c
+	}
 	out.MinScore = p.MinScore(kind)
+	out.TrashMinScore = p.TrashMinScore(kind)
 	for _, f := range p.Formats(kind) {
 		out.CustomFormats = append(out.CustomFormats, oapi.ProfileCustomFormat{Name: f.Name, Score: f.Score})
 	}
