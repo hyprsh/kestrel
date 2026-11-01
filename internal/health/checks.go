@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -429,6 +431,52 @@ func TestMediaServers(test func(ctx context.Context, ref Ref) *Failure) Check {
 		}
 		return nil
 	}
+}
+
+// ServiceState is the state of one metadata provider or media server, for the Health screen.
+type ServiceState struct {
+	// MediaServer is true for a media server and false for a metadata provider.
+	MediaServer bool
+	Name        string
+	// InstanceID is the media server's plugin instance; zero for a provider.
+	InstanceID int64
+	// Failing is true while the service's Needs attention row shows.
+	Failing bool
+	Message string
+	Since   time.Time
+}
+
+// Services lists the metadata providers (by name) and the enabled media
+// servers, each failing while its row shows.
+func (s *Service) Services(ctx context.Context) ([]ServiceState, error) {
+	rows, err := s.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byKey := map[string]Row{}
+	for _, r := range rows {
+		byKey[r.Key] = r
+	}
+	fill := func(st ServiceState, key string) ServiceState {
+		if r, ok := byKey[key]; ok {
+			st.Failing, st.Message, st.Since = true, r.Message, r.FirstAt
+		}
+		return st
+	}
+	var out []ServiceState
+	for _, name := range slices.Sorted(maps.Keys(s.deps.MetadataProbes)) {
+		out = append(out, fill(ServiceState{Name: name}, metadataKey(name)))
+	}
+	if s.deps.MediaServers != nil {
+		enabled, err := s.deps.MediaServers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, ref := range enabled {
+			out = append(out, fill(ServiceState{MediaServer: true, Name: ref.Name, InstanceID: ref.ID}, mediaServerKey(ref.ID)))
+		}
+	}
+	return out, nil
 }
 
 // ---- metadata providers ----

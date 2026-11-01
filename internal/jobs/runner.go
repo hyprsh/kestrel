@@ -65,11 +65,17 @@ type loopState struct {
 	next time.Time
 	// last is the last pass that finished; nil until the first does.
 	last *PassResult
+	// recent are the last passes that finished, oldest first, at most RecentPasses.
+	recent []PassResult
 	// progress is how far the pass running now has got, if it says; nil between passes.
 	progress *Progress
 	// outcome is the last outcome a pass reported; nil until one does.
 	outcome *Outcome
 }
+
+// RecentPasses is how many finished passes the runner remembers per loop, for
+// the Health screen's run bars.
+const RecentPasses = 10
 
 // PassResult is how one pass of a loop went.
 type PassResult struct {
@@ -87,6 +93,8 @@ type Job struct {
 	Running bool
 	// Last is nil until the first pass since start ends.
 	Last *PassResult
+	// Recent are the last RecentPasses passes that finished since start, oldest first.
+	Recent []PassResult
 	// Next is zero while a pass runs and before the loops start; a kick starts one sooner.
 	Next     time.Time
 	Schedule Schedule
@@ -208,6 +216,10 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 	}
 	r.mu.Lock()
 	l.state.started, l.state.last, l.state.progress = time.Time{}, p, nil
+	l.state.recent = append(l.state.recent, *p)
+	if n := len(l.state.recent); n > RecentPasses {
+		l.state.recent = slices.Clone(l.state.recent[n-RecentPasses:])
+	}
 	r.mu.Unlock()
 	return err
 }
@@ -246,6 +258,7 @@ func (r *Runner) Jobs() []Job {
 			p := *l.state.last
 			j.Last = &p
 		}
+		j.Recent = slices.Clone(l.state.recent)
 		if p := l.state.progress; p != nil {
 			c := *p
 			j.Progress = &c

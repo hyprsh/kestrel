@@ -532,6 +532,45 @@ func (e ClientStatusState) Valid() bool {
 	}
 }
 
+// Defines values for DownloadClientLiveState.
+const (
+	DownloadClientLiveStateFailing DownloadClientLiveState = "failing"
+	DownloadClientLiveStateOk      DownloadClientLiveState = "ok"
+)
+
+// Valid indicates whether the value is a known member of the DownloadClientLiveState enum.
+func (e DownloadClientLiveState) Valid() bool {
+	switch e {
+	case DownloadClientLiveStateFailing:
+		return true
+	case DownloadClientLiveStateOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EventsHistogramBucket.
+const (
+	EventsHistogramBucketN1d EventsHistogramBucket = "1d"
+	EventsHistogramBucketN1h EventsHistogramBucket = "1h"
+	EventsHistogramBucketN4h EventsHistogramBucket = "4h"
+)
+
+// Valid indicates whether the value is a known member of the EventsHistogramBucket enum.
+func (e EventsHistogramBucket) Valid() bool {
+	switch e {
+	case EventsHistogramBucketN1d:
+		return true
+	case EventsHistogramBucketN1h:
+		return true
+	case EventsHistogramBucketN4h:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FolderChangeKind.
 const (
 	Created  FolderChangeKind = "created"
@@ -1204,6 +1243,42 @@ func (e SeriesMonitor) Valid() bool {
 	}
 }
 
+// Defines values for ServiceStatusKind.
+const (
+	MediaServer      ServiceStatusKind = "media_server"
+	MetadataProvider ServiceStatusKind = "metadata_provider"
+)
+
+// Valid indicates whether the value is a known member of the ServiceStatusKind enum.
+func (e ServiceStatusKind) Valid() bool {
+	switch e {
+	case MediaServer:
+		return true
+	case MetadataProvider:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServiceStatusState.
+const (
+	ServiceStatusStateFailing ServiceStatusState = "failing"
+	ServiceStatusStateOk      ServiceStatusState = "ok"
+)
+
+// Valid indicates whether the value is a known member of the ServiceStatusState enum.
+func (e ServiceStatusState) Valid() bool {
+	switch e {
+	case ServiceStatusStateFailing:
+		return true
+	case ServiceStatusStateOk:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SetupSectionState.
 const (
 	Done SetupSectionState = "done"
@@ -1696,6 +1771,27 @@ func (e ListAdoptionRowsParamsFilter) Valid() bool {
 	case ListAdoptionRowsParamsFilterReplacement:
 		return true
 	case ListAdoptionRowsParamsFilterSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetEventsHistogramParamsBucket.
+const (
+	GetEventsHistogramParamsBucketN1d GetEventsHistogramParamsBucket = "1d"
+	GetEventsHistogramParamsBucketN1h GetEventsHistogramParamsBucket = "1h"
+	GetEventsHistogramParamsBucketN4h GetEventsHistogramParamsBucket = "4h"
+)
+
+// Valid indicates whether the value is a known member of the GetEventsHistogramParamsBucket enum.
+func (e GetEventsHistogramParamsBucket) Valid() bool {
+	switch e {
+	case GetEventsHistogramParamsBucketN1d:
+		return true
+	case GetEventsHistogramParamsBucketN1h:
+		return true
+	case GetEventsHistogramParamsBucketN4h:
 		return true
 	default:
 		return false
@@ -2327,6 +2423,9 @@ type ClientStatus struct {
 	Message *string `json:"message"`
 	Name    *string `json:"name"`
 
+	// Since When the failure started; absent while it works.
+	Since *time.Time `json:"since,omitempty"`
+
 	// State `none` when no download client is enabled.
 	State ClientStatusState `json:"state"`
 }
@@ -2397,6 +2496,40 @@ type Display struct {
 		Kind       UpcomingKind `json:"kind"`
 		WantedOnly bool         `json:"wanted_only"`
 	} `json:"upcoming_filters"`
+}
+
+// DownloadClientLive defines model for DownloadClientLive.
+type DownloadClientLive struct {
+	// CheckedAt When the call was made.
+	CheckedAt time.Time `json:"checked_at"`
+
+	// Downloading Jobs downloading now (those in the client's queue that are not paused or waiting). `null` when the call failed.
+	Downloading *int `json:"downloading"`
+
+	// FreeBytes Free space where the client downloads to. `null` when the client does not say.
+	FreeBytes  *int64 `json:"free_bytes"`
+	InstanceId int64  `json:"instance_id"`
+
+	// Message What the call said when it failed; `null` when it worked.
+	Message *string `json:"message"`
+	Name    string  `json:"name"`
+
+	// Queued Jobs waiting or paused in the client's queue. `null` when the call failed.
+	Queued *int                    `json:"queued"`
+	State  DownloadClientLiveState `json:"state"`
+
+	// Version The client's version, e.g. `4.3.2`. `null` when the call failed or the client does not say.
+	Version *string `json:"version"`
+}
+
+// DownloadClientLiveState defines model for DownloadClientLive.State.
+type DownloadClientLiveState string
+
+// DownloadsStatus defines model for DownloadsStatus.
+type DownloadsStatus struct {
+	// DownloadClient The enabled download client; `null` without one.
+	DownloadClient *DownloadClientLive `json:"download_client"`
+	Indexers       []IndexerGrabs      `json:"indexers"`
 }
 
 // Episode defines model for Episode.
@@ -2510,6 +2643,26 @@ type EventKindCount struct {
 type EventList struct {
 	Items []Event `json:"items"`
 }
+
+// EventsBucket defines model for EventsBucket.
+type EventsBucket struct {
+	// At When the bucket starts; it lasts `bucket`.
+	At     time.Time `json:"at"`
+	Errors int64     `json:"errors"`
+
+	// Events Events that are neither warnings nor errors.
+	Events   int64 `json:"events"`
+	Warnings int64 `json:"warnings"`
+}
+
+// EventsHistogram defines model for EventsHistogram.
+type EventsHistogram struct {
+	Bucket  EventsHistogramBucket `json:"bucket"`
+	Buckets []EventsBucket        `json:"buckets"`
+}
+
+// EventsHistogramBucket defines model for EventsHistogram.Bucket.
+type EventsHistogramBucket string
 
 // EventsSummary defines model for EventsSummary.
 type EventsSummary struct {
@@ -2729,6 +2882,13 @@ type IndexerError struct {
 	RetryAfter *int `json:"retry_after"`
 }
 
+// IndexerGrabs defines model for IndexerGrabs.
+type IndexerGrabs struct {
+	// Grabs30d Grabs made from the indexer in the last 30 days.
+	Grabs30d   int   `json:"grabs_30d"`
+	InstanceId int64 `json:"instance_id"`
+}
+
 // IndexerStatus defines model for IndexerStatus.
 type IndexerStatus struct {
 	// GrabMax The daily download limit: the indexer's own `grabmax` when it reports one, else the instance's
@@ -2758,8 +2918,11 @@ type IndexerStatus struct {
 	SearchPausedUntil *time.Time `json:"search_paused_until"`
 
 	// SearchUsed Search requests made today (the indexer's own count when it reports one).
-	SearchUsed int                `json:"search_used"`
-	State      IndexerStatusState `json:"state"`
+	SearchUsed int `json:"search_used"`
+
+	// Since When the failure started; absent unless `state` is `failing`.
+	Since *time.Time         `json:"since,omitempty"`
+	State IndexerStatusState `json:"state"`
 }
 
 // IndexerStatusState defines model for IndexerStatus.State.
@@ -2791,6 +2954,10 @@ type Job struct {
 	// Progress How far the pass running now has got, for a loop that says (`trash` while it re-scores:
 	// Titles re-scored of all of them); `null` between passes and for the other loops.
 	Progress *JobProgress `json:"progress"`
+
+	// RecentRuns The last ten passes that finished since start, oldest first (the newest is `last_run`); empty
+	// before the first. Kept in memory with the rest, so a restart empties it.
+	RecentRuns []JobRun `json:"recent_runs"`
 
 	// Runnable Whether `POST /jobs/{name}/run` runs it.
 	Runnable bool `json:"runnable"`
@@ -3270,6 +3437,9 @@ type PluginInstanceCheck struct {
 	// `invalid` or `not_found`. Clients tolerate new values.
 	Code *string `json:"code"`
 
+	// LatencyMs How long the latest Test of the instance took, in ms. `null` until one ran (a call Kestrel made for its own work does not change it).
+	LatencyMs *int64 `json:"latency_ms,omitempty"`
+
 	// Message The error's text, `null` when the call worked.
 	Message *string `json:"message"`
 	Ok      bool    `json:"ok"`
@@ -3352,9 +3522,15 @@ type PluginTestRequest struct {
 type PluginTestResult struct {
 	// Code Why the test failed, `null` when it passed: `auth`, `unavailable`, `rate_limited`,
 	// `invalid` or `not_found`. Clients tolerate new values.
-	Code    *string `json:"code"`
-	Message string  `json:"message"`
-	Ok      bool    `json:"ok"`
+	Code *string `json:"code"`
+
+	// LatencyMs How long the test took, in ms. A test of a saved instance's own connection also keeps it as the instance's `last_check.latency_ms`.
+	LatencyMs *int64 `json:"latency_ms,omitempty"`
+	Message   string `json:"message"`
+	Ok        bool   `json:"ok"`
+
+	// Version The version the plugin reported, when it does (SABnzbd).
+	Version *string `json:"version,omitempty"`
 }
 
 // PrimaryLanguage The household's Primary Language as ISO 639-1.
@@ -3423,6 +3599,33 @@ type Profile struct {
 // ProfileLanguageRule Which audio the Profile requires.
 type ProfileLanguageRule string
 
+// ProfileCustomFormat defines model for ProfileCustomFormat.
+type ProfileCustomFormat struct {
+	Name  string `json:"name"`
+	Score int    `json:"score"`
+}
+
+// ProfileDetail defines model for ProfileDetail.
+type ProfileDetail struct {
+	// Files Files in those Versions.
+	Files int    `json:"files"`
+	Key   string `json:"key"`
+
+	// Movies What the Profile does for one kind of Title under the active TRaSH snapshot.
+	Movies ProfileScoring `json:"movies"`
+
+	// Series What the Profile does for one kind of Title under the active TRaSH snapshot.
+	Series ProfileScoring `json:"series"`
+
+	// Titles Titles with a Version under the Profile.
+	Titles int `json:"titles"`
+}
+
+// ProfileDetailList defines model for ProfileDetailList.
+type ProfileDetailList struct {
+	Items []ProfileDetail `json:"items"`
+}
+
 // ProfileList defines model for ProfileList.
 type ProfileList struct {
 	Items []Profile `json:"items"`
@@ -3443,6 +3646,18 @@ type ProfilePatch struct {
 	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 	// Original-Language Profiles.
 	OriginalLanguage *OriginalLanguageChoice `json:"original_language,omitempty"`
+}
+
+// ProfileScoring What the Profile does for one kind of Title under the active TRaSH snapshot.
+type ProfileScoring struct {
+	// CustomFormats The Custom Formats it scores, highest Score first, then by name.
+	CustomFormats []ProfileCustomFormat `json:"custom_formats"`
+
+	// MinScore A Release scoring under this is rejected.
+	MinScore int `json:"min_score"`
+
+	// Qualities The quality names it allows, in the snapshot's order (best last, as TRaSH lists them).
+	Qualities []string `json:"qualities"`
 }
 
 // QueueItem defines model for QueueItem.
@@ -4017,6 +4232,29 @@ type SeasonsOpen string
 // never monitored automatically.
 type SeriesMonitor string
 
+// ServiceStatus defines model for ServiceStatus.
+type ServiceStatus struct {
+	// InstanceId The plugin instance of a media server; `null` for a metadata provider.
+	InstanceId *int64            `json:"instance_id"`
+	Kind       ServiceStatusKind `json:"kind"`
+
+	// Message What is wrong; `null` while `ok`.
+	Message *string `json:"message"`
+
+	// Name `TMDB`, `TheTVDB` or the media server instance's name.
+	Name string `json:"name"`
+
+	// Since When the failure first showed; `null` while `ok`.
+	Since *time.Time         `json:"since"`
+	State ServiceStatusState `json:"state"`
+}
+
+// ServiceStatusKind defines model for ServiceStatus.Kind.
+type ServiceStatusKind string
+
+// ServiceStatusState defines model for ServiceStatus.State.
+type ServiceStatusState string
+
 // Settings defines model for Settings.
 type Settings struct {
 	// CheckGithubUpdates "Check GitHub for updates" (default on). Once a day Kestrel asks GitHub for the latest release
@@ -4424,6 +4662,13 @@ type SystemStatus struct {
 	GrabsPaused bool            `json:"grabs_paused"`
 	Indexers    []IndexerStatus `json:"indexers"`
 
+	// Services The metadata providers and the media servers, each failing or not. A service is failing while
+	// its Needs attention row shows, so a provider that has failed for under a day still reads `ok`.
+	Services []ServiceStatus `json:"services"`
+
+	// StartedAt When this Kestrel started, so the uptime is now less this.
+	StartedAt time.Time `json:"started_at"`
+
 	// Trash The active TRaSH snapshot.
 	Trash struct {
 		AutoUpdate bool `json:"auto_update"`
@@ -4438,6 +4683,9 @@ type SystemStatus struct {
 
 	// Update A newer release exists. Absent when up to date or when the update check is off.
 	Update *UpdateAvailable `json:"update,omitempty"`
+
+	// Version The running version, as `GET /about` says.
+	Version string `json:"version"`
 }
 
 // TitleBulkOutcome defines model for TitleBulkOutcome.
@@ -5036,6 +5284,15 @@ type ListEventsParams struct {
 	Before         *int64    `form:"before,omitempty" json:"before,omitempty"`
 	Limit          *int      `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// GetEventsHistogramParams defines parameters for GetEventsHistogram.
+type GetEventsHistogramParams struct {
+	Bucket *GetEventsHistogramParamsBucket `form:"bucket,omitempty" json:"bucket,omitempty"`
+	Days   *int                            `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// GetEventsHistogramParamsBucket defines parameters for GetEventsHistogram.
+type GetEventsHistogramParamsBucket string
 
 // ListFolderChangesParams defines parameters for ListFolderChanges.
 type ListFolderChangesParams struct {
@@ -5694,6 +5951,9 @@ type ServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams)
+	// GetEventsHistogram Events over time
+	// (GET /events/histogram)
+	GetEventsHistogram(w http.ResponseWriter, r *http.Request, params GetEventsHistogramParams)
 	// GetEventsSummary What the Log holds
 	// (GET /events/summary)
 	GetEventsSummary(w http.ResponseWriter, r *http.Request)
@@ -5775,6 +6035,9 @@ type ServerInterface interface {
 	// ListProfiles The eight Profiles
 	// (GET /profiles)
 	ListProfiles(w http.ResponseWriter, r *http.Request)
+	// ListProfileDetails What each Profile accepts and what uses it
+	// (GET /profiles/details)
+	ListProfileDetails(w http.ResponseWriter, r *http.Request)
 	// PatchProfile Change a Profile's settings
 	// (PATCH /profiles/{key})
 	PatchProfile(w http.ResponseWriter, r *http.Request, key ProfileKey)
@@ -5805,6 +6068,9 @@ type ServerInterface interface {
 	// PatchSettings Change settings
 	// (PATCH /settings)
 	PatchSettings(w http.ResponseWriter, r *http.Request)
+	// GetDownloadsStatus The download client's live status and each indexer's Grabs (Settings, Downloads)
+	// (GET /settings/downloads)
+	GetDownloadsStatus(w http.ResponseWriter, r *http.Request)
 	// GetPlexSignInSettings Plex sign-in for Requesters
 	// (GET /settings/plex-sign-in)
 	GetPlexSignInSettings(w http.ResponseWriter, r *http.Request)
@@ -6588,6 +6854,52 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEventsHistogram operation middleware
+func (siw *ServerInterfaceWrapper) GetEventsHistogram(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEventsHistogramParams
+
+	// ------------- Optional query parameter "bucket" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "bucket", r.URL.Query(), &params.Bucket, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "bucket"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEventsHistogram(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7426,6 +7738,20 @@ func (siw *ServerInterfaceWrapper) ListProfiles(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListProfileDetails operation middleware
+func (siw *ServerInterfaceWrapper) ListProfileDetails(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProfileDetails(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PatchProfile operation middleware
 func (siw *ServerInterfaceWrapper) PatchProfile(w http.ResponseWriter, r *http.Request) {
 
@@ -7703,6 +8029,20 @@ func (siw *ServerInterfaceWrapper) PatchSettings(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDownloadsStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetDownloadsStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDownloadsStatus(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8810,6 +9150,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles/details", wrapper.ListProfileDetails)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup", wrapper.Lookup)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/{kind}/{tmdb_id}", wrapper.LookupTitle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lookup/series/{tmdb_id}/overview", wrapper.LookupSeriesOverview)
@@ -8847,6 +9188,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/recent", wrapper.ListRecentlyAdded)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.ListEvents)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events/summary", wrapper.GetEventsSummary)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events/histogram", wrapper.GetEventsHistogram)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/blocklist", wrapper.ListBlocklist)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/blocklist", wrapper.CreateBlocklistEntry)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/blocklist/{id}", wrapper.DeleteBlocklistEntry)
@@ -8890,6 +9232,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/plugin-instances/{id}", wrapper.GetPluginInstance)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/plugin-instances/{id}", wrapper.UpdatePluginInstance)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/plugin-instances/{id}/test", wrapper.TestPluginInstance)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings/downloads", wrapper.GetDownloadsStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/stats", wrapper.GetStats)
 
 	return m
@@ -10604,6 +10947,45 @@ func (response ListEventsdefaultApplicationProblemPlusJSONResponse) VisitListEve
 	return err
 }
 
+type GetEventsHistogramRequestObject struct {
+	Params GetEventsHistogramParams
+}
+
+type GetEventsHistogramResponseObject interface {
+	VisitGetEventsHistogramResponse(w http.ResponseWriter) error
+}
+
+type GetEventsHistogram200JSONResponse EventsHistogram
+
+func (response GetEventsHistogram200JSONResponse) VisitGetEventsHistogramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEventsHistogramdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetEventsHistogramdefaultApplicationProblemPlusJSONResponse) VisitGetEventsHistogramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetEventsSummaryRequestObject struct {
 }
 
@@ -12242,6 +12624,44 @@ func (response ListProfilesdefaultApplicationProblemPlusJSONResponse) VisitListP
 	return err
 }
 
+type ListProfileDetailsRequestObject struct {
+}
+
+type ListProfileDetailsResponseObject interface {
+	VisitListProfileDetailsResponse(w http.ResponseWriter) error
+}
+
+type ListProfileDetails200JSONResponse ProfileDetailList
+
+func (response ListProfileDetails200JSONResponse) VisitListProfileDetailsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProfileDetailsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProfileDetailsdefaultApplicationProblemPlusJSONResponse) VisitListProfileDetailsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PatchProfileRequestObject struct {
 	Key  ProfileKey `json:"key"`
 	Body *PatchProfileJSONRequestBody
@@ -12792,6 +13212,44 @@ type PatchSettingsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response PatchSettingsdefaultApplicationProblemPlusJSONResponse) VisitPatchSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDownloadsStatusRequestObject struct {
+}
+
+type GetDownloadsStatusResponseObject interface {
+	VisitGetDownloadsStatusResponse(w http.ResponseWriter) error
+}
+
+type GetDownloadsStatus200JSONResponse DownloadsStatus
+
+func (response GetDownloadsStatus200JSONResponse) VisitGetDownloadsStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDownloadsStatusdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetDownloadsStatusdefaultApplicationProblemPlusJSONResponse) VisitGetDownloadsStatusResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -15052,6 +15510,9 @@ type StrictServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// GetEventsHistogram Events over time
+	// (GET /events/histogram)
+	GetEventsHistogram(ctx context.Context, request GetEventsHistogramRequestObject) (GetEventsHistogramResponseObject, error)
 	// GetEventsSummary What the Log holds
 	// (GET /events/summary)
 	GetEventsSummary(ctx context.Context, request GetEventsSummaryRequestObject) (GetEventsSummaryResponseObject, error)
@@ -15133,6 +15594,9 @@ type StrictServerInterface interface {
 	// ListProfiles The eight Profiles
 	// (GET /profiles)
 	ListProfiles(ctx context.Context, request ListProfilesRequestObject) (ListProfilesResponseObject, error)
+	// ListProfileDetails What each Profile accepts and what uses it
+	// (GET /profiles/details)
+	ListProfileDetails(ctx context.Context, request ListProfileDetailsRequestObject) (ListProfileDetailsResponseObject, error)
 	// PatchProfile Change a Profile's settings
 	// (PATCH /profiles/{key})
 	PatchProfile(ctx context.Context, request PatchProfileRequestObject) (PatchProfileResponseObject, error)
@@ -15163,6 +15627,9 @@ type StrictServerInterface interface {
 	// PatchSettings Change settings
 	// (PATCH /settings)
 	PatchSettings(ctx context.Context, request PatchSettingsRequestObject) (PatchSettingsResponseObject, error)
+	// GetDownloadsStatus The download client's live status and each indexer's Grabs (Settings, Downloads)
+	// (GET /settings/downloads)
+	GetDownloadsStatus(ctx context.Context, request GetDownloadsStatusRequestObject) (GetDownloadsStatusResponseObject, error)
 	// GetPlexSignInSettings Plex sign-in for Requesters
 	// (GET /settings/plex-sign-in)
 	GetPlexSignInSettings(ctx context.Context, request GetPlexSignInSettingsRequestObject) (GetPlexSignInSettingsResponseObject, error)
@@ -16147,6 +16614,32 @@ func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, para
 	}
 }
 
+// GetEventsHistogram operation middleware
+func (sh *strictHandler) GetEventsHistogram(w http.ResponseWriter, r *http.Request, params GetEventsHistogramParams) {
+	var request GetEventsHistogramRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEventsHistogram(ctx, request.(GetEventsHistogramRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEventsHistogram")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEventsHistogramResponseObject); ok {
+		if err := validResponse.VisitGetEventsHistogramResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetEventsSummary operation middleware
 func (sh *strictHandler) GetEventsSummary(w http.ResponseWriter, r *http.Request) {
 	var request GetEventsSummaryRequestObject
@@ -16895,6 +17388,30 @@ func (sh *strictHandler) ListProfiles(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListProfileDetails operation middleware
+func (sh *strictHandler) ListProfileDetails(w http.ResponseWriter, r *http.Request) {
+	var request ListProfileDetailsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProfileDetails(ctx, request.(ListProfileDetailsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProfileDetails")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProfileDetailsResponseObject); ok {
+		if err := validResponse.VisitListProfileDetailsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PatchProfile operation middleware
 func (sh *strictHandler) PatchProfile(w http.ResponseWriter, r *http.Request, key ProfileKey) {
 	var request PatchProfileRequestObject
@@ -17157,6 +17674,30 @@ func (sh *strictHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchSettingsResponseObject); ok {
 		if err := validResponse.VisitPatchSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDownloadsStatus operation middleware
+func (sh *strictHandler) GetDownloadsStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetDownloadsStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDownloadsStatus(ctx, request.(GetDownloadsStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDownloadsStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDownloadsStatusResponseObject); ok {
+		if err := validResponse.VisitGetDownloadsStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

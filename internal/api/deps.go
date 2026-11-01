@@ -268,6 +268,7 @@ type Health interface {
 	Dismiss(ctx context.Context, id int64) error
 	Disks(ctx context.Context) ([]health.Disk, error)
 	ClientState() health.State
+	Services(ctx context.Context) ([]health.ServiceState, error)
 	AddCheck(name string, c health.Check)
 	ObserveMediaServer(ctx context.Context, ref health.Ref, f *health.Failure)
 	ObserveDownloadClient(ctx context.Context, ref health.Ref, f *health.Failure)
@@ -282,6 +283,7 @@ type History interface {
 	Last(ctx context.Context) (int64, error)
 	After(ctx context.Context, id int64, limit int) ([]history.Event, error)
 	Summary(ctx context.Context) (history.Summary, error)
+	Histogram(ctx context.Context, bucket time.Duration, days int) ([]history.Bucket, error)
 }
 
 // Scoring is the live TRaSH snapshot.

@@ -461,6 +461,30 @@ export interface paths {
         patch: operations["patchProfile"];
         trace?: never;
     };
+    "/profiles/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What each Profile accepts and what uses it
+         * @description In the order of `GET /profiles`. `titles` counts the Versions under the Profile and `files` the files in
+         *     them, which are the files whose Score a change of the Profile's Custom Formats would work out again.
+         *     The qualities, minimum Score and Custom Formats come from the active TRaSH snapshot and are empty
+         *     (and `min_score` 0) while there is none. They are not editable: only `enabled`, the defaults and
+         *     `original_language` are (`PATCH /profiles/{key}`).
+         */
+        get: operations["listProfileDetails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lookup": {
         parameters: {
             query?: never;
@@ -1330,6 +1354,30 @@ export interface paths {
          *     while the Log is empty.
          */
         get: operations["getEventsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/histogram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events over time
+         * @description How many events happened in each `bucket` of the last `days` days, oldest bucket first, empty buckets
+         *     included, for the Log's strip. Buckets start at multiples of their length counted from midnight UTC. Routine
+         *     events are counted. `errors` and `warnings` count the events of the kinds the Log's Errors and Warnings views
+         *     show (`grab_failed`, `import_rejected`, `blocklist`; `import_stalled`, `health_raised`, `original_offered`);
+         *     `events` counts every other one.
+         */
+        get: operations["getEventsHistogram"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2258,6 +2306,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The download client's live status and each indexer's Grabs (Settings, Downloads)
+         * @description Asks the enabled download client for its version, queue and free space now, in one call that is not
+         *     cached. A call that fails is still `200`, with `state: failing` and the client's words in `message`;
+         *     a client that cannot report a figure leaves it `null`. A good call counts as a check of the client, as
+         *     its Test does. `indexers` has one entry per indexer instance, with the Grabs made from it in the last
+         *     30 days (UTC), imported or not.
+         */
+        get: operations["getDownloadsStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stats": {
         parameters: {
             query?: never;
@@ -2759,6 +2831,11 @@ export interface components {
             code: string | null;
             /** @description The error's text, `null` when the call worked. */
             message: string | null;
+            /**
+             * Format: int64
+             * @description How long the latest Test of the instance took, in ms. `null` until one ran (a call Kestrel made for its own work does not change it).
+             */
+            latency_ms?: number | null;
         };
         PluginInstanceList: {
             items: components["schemas"]["PluginInstance"][];
@@ -2783,6 +2860,67 @@ export interface components {
             plugin_id: string;
             config: components["schemas"]["PluginConfigPatch"];
         };
+        DownloadsStatus: {
+            /** @description The enabled download client; `null` without one. */
+            download_client: components["schemas"]["DownloadClientLive"] | null;
+            indexers: components["schemas"]["IndexerGrabs"][];
+        };
+        DownloadClientLive: {
+            /** Format: int64 */
+            instance_id: number;
+            name: string;
+            /** @enum {string} */
+            state: "ok" | "failing";
+            /** @description What the call said when it failed; `null` when it worked. */
+            message: string | null;
+            /** @description The client's version, e.g. `4.3.2`. `null` when the call failed or the client does not say. */
+            version: string | null;
+            /**
+             * Format: date-time
+             * @description When the call was made.
+             */
+            checked_at: string;
+            /** @description Jobs downloading now (those in the client's queue that are not paused or waiting). `null` when the call failed. */
+            downloading: number | null;
+            /** @description Jobs waiting or paused in the client's queue. `null` when the call failed. */
+            queued: number | null;
+            /**
+             * Format: int64
+             * @description Free space where the client downloads to. `null` when the client does not say.
+             */
+            free_bytes: number | null;
+        };
+        IndexerGrabs: {
+            /** Format: int64 */
+            instance_id: number;
+            /** @description Grabs made from the indexer in the last 30 days. */
+            grabs_30d: number;
+        };
+        ProfileDetailList: {
+            items: components["schemas"]["ProfileDetail"][];
+        };
+        ProfileDetail: {
+            key: string;
+            /** @description Titles with a Version under the Profile. */
+            titles: number;
+            /** @description Files in those Versions. */
+            files: number;
+            movies: components["schemas"]["ProfileScoring"];
+            series: components["schemas"]["ProfileScoring"];
+        };
+        /** @description What the Profile does for one kind of Title under the active TRaSH snapshot. */
+        ProfileScoring: {
+            /** @description The quality names it allows, in the snapshot's order (best last, as TRaSH lists them). */
+            qualities: string[];
+            /** @description A Release scoring under this is rejected. */
+            min_score: number;
+            /** @description The Custom Formats it scores, highest Score first, then by name. */
+            custom_formats: components["schemas"]["ProfileCustomFormat"][];
+        };
+        ProfileCustomFormat: {
+            name: string;
+            score: number;
+        };
         PluginTestResult: {
             ok: boolean;
             /**
@@ -2791,6 +2929,13 @@ export interface components {
              */
             code: string | null;
             message: string;
+            /**
+             * Format: int64
+             * @description How long the test took, in ms. A test of a saved instance's own connection also keeps it as the instance's `last_check.latency_ms`.
+             */
+            latency_ms?: number;
+            /** @description The version the plugin reported, when it does (SABnzbd). */
+            version?: string | null;
         };
         /** @enum {string} */
         TitleKind: "movie" | "series";
@@ -3835,6 +3980,11 @@ export interface components {
             /** @description The last pass that finished since start; `null` before the first. */
             last_run: components["schemas"]["JobRun"] | null;
             /**
+             * @description The last ten passes that finished since start, oldest first (the newest is `last_run`); empty
+             *     before the first. Kept in memory with the rest, so a restart empties it.
+             */
+            recent_runs: components["schemas"]["JobRun"][];
+            /**
              * Format: date-time
              * @description When the next pass is due; `null` while one runs and before the loops start.
              */
@@ -4200,6 +4350,18 @@ export interface components {
         SystemStatus: {
             /** @description The "Pause Grabs" setting is on, so no automatic Grab is made. */
             grabs_paused: boolean;
+            /** @description The running version, as `GET /about` says. */
+            version: string;
+            /**
+             * Format: date-time
+             * @description When this Kestrel started, so the uptime is now less this.
+             */
+            started_at: string;
+            /**
+             * @description The metadata providers and the media servers, each failing or not. A service is failing while
+             *     its Needs attention row shows, so a provider that has failed for under a day still reads `ok`.
+             */
+            services: components["schemas"]["ServiceStatus"][];
             /** @description The active TRaSH snapshot. */
             trash: {
                 commit: string;
@@ -4277,7 +4439,32 @@ export interface components {
              */
             checked_at?: string | null;
         };
+        ServiceStatus: {
+            /** @enum {string} */
+            kind: "metadata_provider" | "media_server";
+            /** @description `TMDB`, `TheTVDB` or the media server instance's name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description The plugin instance of a media server; `null` for a metadata provider.
+             */
+            instance_id: number | null;
+            /** @enum {string} */
+            state: "ok" | "failing";
+            /** @description What is wrong; `null` while `ok`. */
+            message: string | null;
+            /**
+             * Format: date-time
+             * @description When the failure first showed; `null` while `ok`.
+             */
+            since: string | null;
+        };
         ClientStatus: {
+            /**
+             * Format: date-time
+             * @description When the failure started; absent while it works.
+             */
+            since?: string | null;
             /**
              * @description `none` when no download client is enabled.
              * @enum {string}
@@ -4293,6 +4480,11 @@ export interface components {
             /** Format: int64 */
             instance_id: number;
             name: string;
+            /**
+             * Format: date-time
+             * @description When the failure started; absent unless `state` is `failing`.
+             */
+            since?: string | null;
             /** @enum {string} */
             state: "ok" | "failing" | "disabled";
             message: string | null;
@@ -4509,6 +4701,27 @@ export interface components {
             oldest: string | null;
             /** @description How many days routine events are kept. */
             routine_days: number;
+        };
+        EventsHistogram: {
+            /** @enum {string} */
+            bucket: "1h" | "4h" | "1d";
+            buckets: components["schemas"]["EventsBucket"][];
+        };
+        EventsBucket: {
+            /**
+             * Format: date-time
+             * @description When the bucket starts; it lasts `bucket`.
+             */
+            at: string;
+            /**
+             * Format: int64
+             * @description Events that are neither warnings nor errors.
+             */
+            events: number;
+            /** Format: int64 */
+            warnings: number;
+            /** Format: int64 */
+            errors: number;
         };
         Event: {
             /** Format: int64 */
@@ -5612,6 +5825,27 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    listProfileDetails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per Profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileDetailList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
     lookup: {
         parameters: {
             query: {
@@ -6583,6 +6817,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventsSummary"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getEventsHistogram: {
+        parameters: {
+            query?: {
+                bucket?: "1h" | "4h" | "1d";
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The buckets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventsHistogram"];
                 };
             };
             default: components["responses"]["Problem"];
@@ -7675,6 +7933,27 @@ export interface operations {
             };
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getDownloadsStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadsStatus"];
+                };
+            };
             default: components["responses"]["Problem"];
         };
     };

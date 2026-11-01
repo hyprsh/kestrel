@@ -219,3 +219,40 @@ func TestJobsSaysWhichLoopIsMidPass(t *testing.T) {
 	close(out)
 	waitFor(t, "the pass to end", func() bool { j := r.Jobs()[0]; return !j.Running && j.Last != nil })
 }
+
+func TestJobsKeepsTheLastTenPassesOldestFirst(t *testing.T) {
+	r := jobs.New(nil)
+	n := 0
+	r.Add(jobs.Loop{Name: "flaky", Every: hourly, Run: func(context.Context) error {
+		n++
+		if n == 3 {
+			return errors.New("boom")
+		}
+		return nil
+	}})
+	if got := r.Jobs()[0].Recent; len(got) != 0 {
+		t.Fatalf("Recent before any pass = %+v, want none", got)
+	}
+	for range 12 {
+		_ = r.Pass(context.Background(), "flaky")
+	}
+	got := r.Jobs()[0].Recent
+	if len(got) != jobs.RecentPasses {
+		t.Fatalf("Recent has %d passes, want %d", len(got), jobs.RecentPasses)
+	}
+	// Passes 3..12 are kept, so the failed third is the oldest.
+	if got[0].Err != "boom" {
+		t.Errorf("Recent[0] = %+v, want the failed third pass first", got[0])
+	}
+	for i, p := range got[1:] {
+		if p.Err != "" {
+			t.Errorf("Recent[%d] = %+v, want a good pass", i+1, p)
+		}
+		if p.StartedAt.Before(got[i].StartedAt) {
+			t.Errorf("Recent is not oldest first at %d", i+1)
+		}
+	}
+	if last := r.Jobs()[0].Last; last == nil || !last.StartedAt.Equal(got[len(got)-1].StartedAt) {
+		t.Errorf("Last = %+v, want the newest of Recent", last)
+	}
+}

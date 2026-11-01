@@ -297,6 +297,7 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		return nil, err
 	}
 	out.GrabsPaused = paused
+	out.Version, out.StartedAt = s.opts.Version, s.started
 	if u := s.updates.Info(ctx); u.UpdateAvailable {
 		out.Update = &oapi.UpdateAvailable{Version: u.Latest, Url: u.URL}
 	}
@@ -311,6 +312,7 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		if st := s.health.ClientState(); st.Failing {
 			out.DownloadClient.State = oapi.ClientStatusState("failing")
 			out.DownloadClient.Message = &st.Message
+			out.DownloadClient.Since = &st.Since
 		}
 	}
 
@@ -340,8 +342,8 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 			row.State = oapi.IndexerStatusState("disabled")
 		case st.Failing:
 			row.State = oapi.IndexerStatusState("failing")
-			msg := st.Message
-			row.Message = &msg
+			msg, since := st.Message, st.Since
+			row.Message, row.Since = &msg, &since
 		}
 		out.Indexers = append(out.Indexers, row)
 	}
@@ -352,6 +354,23 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 	}
 	for _, d := range disks {
 		out.Disks = append(out.Disks, oapi.DiskStatus{Path: d.Path, FreeBytes: int64(d.Free), TotalBytes: int64(d.Total), LowFreeBytes: int64(d.Low)})
+	}
+	services, err := s.health.Services(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out.Services = []oapi.ServiceStatus{}
+	for _, v := range services {
+		row := oapi.ServiceStatus{Kind: oapi.MetadataProvider, Name: v.Name, State: oapi.ServiceStatusStateOk}
+		if v.MediaServer {
+			id := v.InstanceID
+			row.Kind, row.InstanceId = oapi.MediaServer, &id
+		}
+		if v.Failing {
+			msg, since := v.Message, v.Since
+			row.State, row.Message, row.Since = oapi.ServiceStatusStateFailing, &msg, &since
+		}
+		out.Services = append(out.Services, row)
 	}
 	ts := s.trash.Status(ctx)
 	out.Trash.Commit, out.Trash.AutoUpdate = ts.Commit, ts.AutoUpdate
