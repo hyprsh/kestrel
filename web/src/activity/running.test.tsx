@@ -142,7 +142,7 @@ describe('Running now', () => {
 
     await user().click(topBar().getByRole('button', { name: '2 running' }))
 
-    expect(screen.getByRole('complementary', { name: 'Health' })).toBeInTheDocument()
+    expect(await screen.findByRole('complementary', { name: 'Health' })).toBeInTheDocument()
     expect(location.pathname).toBe('/health/jobs')
     expect(
       runningNow()

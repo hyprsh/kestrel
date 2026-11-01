@@ -1,36 +1,28 @@
 // The Geist shell: a thin icon rail, and beside it each screen's SidePanel (layout/SidePanel.tsx) or, for a screen without one, a plain title at the top of its content.
 // Ported from the prototype's variant C; screens arrive with later tickets.
-import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
 import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
 import { useAuth, useLogout } from '../api/queries'
-import { CommandMenu, type MenuAction, type MenuMode } from '../command/CommandMenu'
-import { Adoption } from '../adoption/Adoption'
+import type { MenuAction, MenuMode } from '../command/CommandMenu'
 import { adoptionLabel, useAdoption } from '../api/adoption'
-import { Cleanup } from '../cleanup/Cleanup'
 import { CleanupLauncher } from '../cleanup/launch'
 import { plural } from '../format'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
 import { useSearchPassToast, useWatchSearch } from '../activity/searchToast'
-import { Library } from '../library/Library'
 import { startLiveStream } from '../live/stream'
-import { Health } from '../health/Health'
-import { Log } from '../log/Log'
-import { Overview } from '../overview/Overview'
-import { Requests } from '../requests/Requests'
 import { useTrashOutcomeToasts } from '../trash/toasts'
 import { EpisodeViewContext, noEpisodeView, type EpisodeView } from '../library/episodeView'
 import { currentPlace, manualSearchPath, PlaceOpener, placeOf, placePath, pushedPlace, pushPlace, showPlace, type ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
-import { Upcoming } from '../upcoming/Upcoming'
-import { Settings as SettingsScreen } from '../screens/Settings'
 import { guardLeave } from '../settings/draft'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
+import { PageSkeleton } from '../loading'
+import { lazyScreen } from './lazyScreen'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
 import { SidePanelPhoneContext } from '../layout/SidePanel'
@@ -38,6 +30,87 @@ import { PhoneTopBar } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { HealthButton } from './HealthButton'
+
+// Each screen is its own chunk, so a cold load fetches the shell and the screen it opens at; the tab bar's screens follow when the browser is idle.
+const lazyScreens = {
+  overview: lazyScreen(() => import('../overview/Overview').then((m) => m.Overview)),
+  library: lazyScreen(() => import('../library/Library').then((m) => m.Library)),
+  upcoming: lazyScreen(() => import('../upcoming/Upcoming').then((m) => m.Upcoming)),
+  activity: lazyScreen(() => import('../activity/Activity').then((m) => m.Activity)),
+  log: lazyScreen(() => import('../log/Log').then((m) => m.Log)),
+  health: lazyScreen(() => import('../health/Health').then((m) => m.Health)),
+  requests: lazyScreen(() => import('../requests/Requests').then((m) => m.Requests)),
+  settings: lazyScreen(() => import('../screens/Settings').then((m) => m.Settings)),
+  adoption: lazyScreen(() => import('../adoption/Adoption').then((m) => m.Adoption)),
+  cleanup: lazyScreen(() => import('../cleanup/Cleanup').then((m) => m.Cleanup)),
+  menu: lazyScreen(() => import('../command/CommandMenu').then((m) => m.CommandMenu)),
+}
+const Overview = lazyScreens.overview.Screen
+const Library = lazyScreens.library.Screen
+const Upcoming = lazyScreens.upcoming.Screen
+const Activity = lazyScreens.activity.Screen
+const Log = lazyScreens.log.Screen
+const Health = lazyScreens.health.Screen
+const Requests = lazyScreens.requests.Screen
+const SettingsScreen = lazyScreens.settings.Screen
+const Adoption = lazyScreens.adoption.Screen
+const Cleanup = lazyScreens.cleanup.Screen
+const CommandMenu = lazyScreens.menu.Screen
+
+// The rail, tab bar and More sheet items by the name they carry: pointing at, touching or focusing one fetches its screen at once.
+const screenOfLabel: Record<string, keyof typeof lazyScreens> = {
+  Overview: 'overview',
+  Library: 'library',
+  Upcoming: 'upcoming',
+  Activity: 'activity',
+  Log: 'log',
+  Settings: 'settings',
+  Requests: 'requests',
+  Adoption: 'adoption',
+  'Clean up': 'cleanup',
+  Health: 'health',
+}
+
+/** Fetches a screen's chunk when its item is pointed at, touched or focused, ahead of the click that opens it. */
+function prefetchOnIntent() {
+  const onIntent = (e: Event) => {
+    const el = (e.target as Element | null)?.closest?.('button, a')
+    if (!el) return
+    const label = (el.getAttribute('aria-label') ?? el.textContent ?? '').split(',')[0].trim()
+    const key = screenOfLabel[label]
+    if (key) void lazyScreens[key].preload().catch(() => {})
+  }
+  const events = ['pointerover', 'pointerdown', 'focusin'] as const
+  for (const ev of events) document.addEventListener(ev, onIntent, true)
+  return () => {
+    for (const ev of events) document.removeEventListener(ev, onIntent, true)
+  }
+}
+
+/** Fetches the chunks of the tab bar's screens and the command menu once the first screen has settled, one at a time, unless the browser asks to save data. */
+function prefetchScreens() {
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+  if (conn?.saveData) return () => {}
+  const order = [lazyScreens.library, lazyScreens.upcoming, lazyScreens.activity, lazyScreens.overview, lazyScreens.menu]
+  let cancelled = false
+  let handle: number | undefined
+  const idle = (f: () => void) => (typeof requestIdleCallback === 'function' ? (requestIdleCallback(f, { timeout: 5000 }) as number) : (window.setTimeout(f, 1500) as unknown as number))
+  const next = (i: number) => {
+    if (cancelled || i >= order.length) return
+    handle = idle(() => {
+      order[i].preload().then(
+        () => next(i + 1),
+        () => {}, // offline: the screen fetches itself when opened
+      )
+    })
+  }
+  const start = window.setTimeout(() => next(0), 2000)
+  return () => {
+    cancelled = true
+    clearTimeout(start)
+    if (handle !== undefined && typeof cancelIdleCallback === 'function') cancelIdleCallback(handle)
+  }
+}
 
 const screens = [
   { key: 'overview', label: 'Overview', icon: <Inbox /> },
@@ -144,6 +217,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
   const queryClient = useQueryClient()
   useEffect(() => startLiveStream(queryClient), [queryClient])
+  useEffect(() => prefetchScreens(), [])
+  useEffect(() => prefetchOnIntent(), [])
 
   // ⌘K / Ctrl+K opens and closes the command menu from anywhere.
   useEffect(() => {
@@ -314,39 +389,47 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
                 <BlockingBanner onOpen={goPath} />
                 <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
-                  {screen === 'settings' ? (
-                    <SettingsScreen onRunSetup={onRunSetup} onAdopt={() => setScreen('adoption')} section={settingsSection} onOpenSection={openSettingsSection} onCloseSection={closeSettingsSection} />
-                  ) : screen === 'adoption' ? (
-                    <Adoption />
-                  ) : screen === 'cleanup' ? (
-                    <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
-                  ) : screen === 'library' ? (
-                    <Library
-                      query={query}
-                      onQuery={(q) => setFilter({ screen: 'library', q })}
-                      selectedId={libraryId}
-                      onSelect={setLibraryId}
-                      titleOpen={titleOpen}
-                      onOpenTitle={openLibraryTitle}
-                      onCloseTitle={closeLibraryTitle}
-                      onAdd={() => setMenu({ mode: 'add' })}
-                      onAdopt={() => setScreen('adoption')}
-                      search={searchShown}
-                      onSearch={(at) => (at ? openSearch(at) : closeSearch())}
-                    />
-                  ) : screen === 'log' ? (
-                    <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} onOpenTitle={openTitle} />
-                  ) : screen === 'activity' ? (
-                    <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
-                  ) : screen === 'health' ? (
-                    <Health running={running} onOpenAdoption={() => setScreen('adoption')} onOpenTitle={openTitle} />
-                  ) : screen === 'requests' ? (
-                    <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
-                  ) : screen === 'upcoming' ? (
-                    <Upcoming query={query} onQuery={(q) => setFilter({ screen: 'upcoming', q })} onOpenTitle={openTitle} />
-                  ) : (
-                    <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
-                  )}
+                  <Suspense fallback={<PageSkeleton />}>
+                    {screen === 'settings' ? (
+                      <SettingsScreen
+                        onRunSetup={onRunSetup}
+                        onAdopt={() => setScreen('adoption')}
+                        section={settingsSection}
+                        onOpenSection={openSettingsSection}
+                        onCloseSection={closeSettingsSection}
+                      />
+                    ) : screen === 'adoption' ? (
+                      <Adoption />
+                    ) : screen === 'cleanup' ? (
+                      <Cleanup key={cleanupTitles?.join(',') ?? 'all'} titleIds={cleanupTitles} />
+                    ) : screen === 'library' ? (
+                      <Library
+                        query={query}
+                        onQuery={(q) => setFilter({ screen: 'library', q })}
+                        selectedId={libraryId}
+                        onSelect={setLibraryId}
+                        titleOpen={titleOpen}
+                        onOpenTitle={openLibraryTitle}
+                        onCloseTitle={closeLibraryTitle}
+                        onAdd={() => setMenu({ mode: 'add' })}
+                        onAdopt={() => setScreen('adoption')}
+                        search={searchShown}
+                        onSearch={(at) => (at ? openSearch(at) : closeSearch())}
+                      />
+                    ) : screen === 'log' ? (
+                      <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} onOpenTitle={openTitle} />
+                    ) : screen === 'activity' ? (
+                      <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
+                    ) : screen === 'health' ? (
+                      <Health running={running} onOpenAdoption={() => setScreen('adoption')} onOpenTitle={openTitle} />
+                    ) : screen === 'requests' ? (
+                      <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
+                    ) : screen === 'upcoming' ? (
+                      <Upcoming query={query} onQuery={(q) => setFilter({ screen: 'upcoming', q })} onOpenTitle={openTitle} />
+                    ) : (
+                      <Overview onOpen={goPath} onOpenTitle={openTitle} onOpenAdoption={() => setScreen('adoption')} />
+                    )}
+                  </Suspense>
                 </main>
                 {phone && (
                   <PhoneTabBar tabs={tabs} screen={screen} moreActive={more || !tabKeys.includes(screen)} onSelect={select} onMore={() => setMore(true)} onSearch={() => setMenu({ mode: 'root' })} />
@@ -364,14 +447,16 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                 />
               )}
               {menu && (
-                <CommandMenu
-                  initialMode={menu.mode}
-                  actions={actions}
-                  places={places}
-                  onClose={closeMenu}
-                  onGo={(place) => (place === 'about' ? goPath('/settings/about') : setScreen(place))}
-                  onOpenTitle={openTitle}
-                />
+                <Suspense fallback={null}>
+                  <CommandMenu
+                    initialMode={menu.mode}
+                    actions={actions}
+                    places={places}
+                    onClose={closeMenu}
+                    onGo={(place) => (place === 'about' ? goPath('/settings/about') : setScreen(place))}
+                    onOpenTitle={openTitle}
+                  />
+                </Suspense>
               )}
             </div>
           </SidePanelPhoneContext.Provider>

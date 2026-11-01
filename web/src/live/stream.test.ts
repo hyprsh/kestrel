@@ -40,11 +40,14 @@ function fakeBrowser() {
   let held = false
   const waiting: (() => void)[] = []
   const locks = {
-    async request(_name: string, cb: () => Promise<void>) {
+    async request(_name: string, a: unknown, b?: () => Promise<void>) {
+      const ifAvailable = typeof a !== 'function' && (a as { ifAvailable?: boolean }).ifAvailable === true
+      const cb = (b ?? a) as (lock: object | null) => Promise<void>
+      if (ifAvailable && held) return cb(null)
       if (held) await new Promise<void>((resume) => waiting.push(resume))
       held = true
       try {
-        await cb()
+        await cb({})
       } finally {
         held = false
         waiting.shift()?.()
@@ -73,11 +76,10 @@ describe('the live stream', () => {
     startLiveStream(a, deps)
     startLiveStream(b, deps)
     await flush()
-    a.setQueryData(['titles'], [1]) // fresh again after the leader's initial refetch-everything
-    b.setQueryData(['titles'], [1])
-    expect(b.getQueryState(['titles'])?.isInvalidated).toBe(false)
 
     expect(open()).toHaveLength(1)
+    a.setQueryData(['titles'], [1])
+    b.setQueryData(['titles'], [1])
     open()[0].emit('changed', { resource: 'title', id: 5 })
     await flush()
     expect(a.getQueryState(['titles'])?.isInvalidated).toBe(true)
@@ -87,6 +89,20 @@ describe('the live stream', () => {
     await flush()
     expect(a.getQueryData(['queue'])).toEqual([{ grab_id: 9 }])
     expect(b.getQueryData(['queue'])).toEqual([{ grab_id: 9 }])
+  })
+
+  it('at start-up refetches what resolved before the stream opened and spares what resolved after', async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    a.setQueryData(['titles'], [1], { updatedAt: Date.now() - 1000 }) // resolved before the connection: a change may have been missed
+    a.setQueryData(['queue'], [], { updatedAt: Date.now() + 60_000 }) // resolved after it
+    startLiveStream(a, deps)
+    await flush()
+    open()[0].onopen?.()
+
+    expect(open()).toHaveLength(1)
+    expect(a.getQueryState(['titles'])?.isInvalidated).toBe(true)
+    expect(a.getQueryState(['queue'])?.isInvalidated).toBe(false)
   })
 
   it('hands the stream to the other tab when the leader closes, and has everyone refetch', async () => {

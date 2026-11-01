@@ -11,7 +11,7 @@ const CHANNEL = 'kestrel-live'
 const EVENTS = ['changed', 'queue', 'activity', 'attention', 'search', 'jobs'] as const
 
 /** A frame as relayed between tabs; `reset` means "refetch everything you show". */
-type Frame = { event: (typeof EVENTS)[number] | 'reset'; data?: unknown }
+type Frame = { event: (typeof EVENTS)[number] | 'reset'; data?: unknown; /** A reset with `at` spares the queries that were updated at or after it. */ at?: number }
 
 type ChangedHint = { resource: string; id: number | null }
 
@@ -72,8 +72,11 @@ function applyFrame(qc: QueryClient, f: Frame) {
       void qc.invalidateQueries({ queryKey: ['attention'] })
       void qc.invalidateQueries({ queryKey: ['status'] })
       return
-    case 'reset':
-      void qc.invalidateQueries()
+    case 'reset': {
+      const at = f.at
+      // Anything older than the connection, or still in flight, may have missed a change; what resolved after it did not.
+      void qc.invalidateQueries(at === undefined ? undefined : { predicate: (q) => q.state.fetchStatus === 'fetching' || q.state.dataUpdatedAt < at })
+    }
   }
 }
 
@@ -89,7 +92,9 @@ export function startLiveStream(qc: QueryClient, deps: LiveDeps | null = browser
   let stopped = false
   let release: (() => void) | undefined
 
-  const lead = () =>
+  // `fresh` is a tab that took the lock with nobody ahead of it: it just loaded, so only what was fetched before the
+  // connection opened can have missed a change; what resolved after it is as new as the stream.
+  const lead = (fresh: boolean) =>
     new Promise<void>((done) => {
       if (stopped) return done()
       const es = new deps.EventSource(deps.url)
@@ -104,17 +109,24 @@ export function startLiveStream(qc: QueryClient, deps: LiveDeps | null = browser
       let opened = false
       es.onopen = () => {
         if (opened) publish({ event: 'reset' })
+        else if (fresh) publish({ event: 'reset', at: Date.now() })
         opened = true
       }
-      publish({ event: 'reset' })
+      if (!fresh) publish({ event: 'reset' })
       release = () => {
         es.close()
         done()
       }
     })
 
-  if (deps.locks) void deps.locks.request(LOCK, lead)
-  else void lead() // no Web Locks (very old browsers): every tab opens its own
+  const locks = deps.locks
+  if (locks) {
+    void locks.request(LOCK, { ifAvailable: true }, async (lock) => {
+      if (lock) return lead(true)
+      // Another tab leads: wait in line, and refetch when the stream passes to this tab.
+      await locks.request(LOCK, () => lead(false))
+    })
+  } else void lead(true) // no Web Locks (very old browsers): every tab opens its own
 
   return () => {
     stopped = true

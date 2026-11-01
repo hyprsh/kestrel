@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -16,6 +16,23 @@ beforeEach(() => {
   document.documentElement.classList.remove('dark')
 })
 
+describe('the app with its own client', () => {
+  it('asks for the session once, however many components use it', async () => {
+    let asked = 0
+    server.use(
+      http.get('/auth/me', ({ response }) => {
+        asked++
+        return response(200).json({ username: 'admin', role: 'admin', method: 'session', proxy_user: null, from_config_file: false })
+      }),
+    )
+    render(<App />)
+    await screen.findByRole('navigation')
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    expect(asked).toBe(1)
+  })
+})
+
 describe('the empty shell', () => {
   it('shows the icon rail with every top-level screen', async () => {
     renderApp()
@@ -23,13 +40,13 @@ describe('the empty shell', () => {
     for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings']) {
       expect(within(rail).getByRole('button', { name })).toBeInTheDocument()
     }
-    expect(screen.getByRole('main')).toHaveTextContent(/downloading/i) // Overview is the home screen
+    await waitFor(() => expect(screen.getByRole('main')).toHaveTextContent(/downloading/i)) // Overview is the home screen
   })
 
   it('switches the screen title when a rail item is chosen', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
   })
 
   it('goes back to the Overview when the Kestrel logo, which is the Overview button, is clicked', async () => {
@@ -38,10 +55,10 @@ describe('the empty shell', () => {
     const logo = screen.getByRole('button', { name: 'Overview' })
     expect(logo).not.toHaveAttribute('aria-current')
     await userEvent.click(logo)
-    expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
     expect(logo).toHaveAttribute('aria-current', 'page')
     expect(screen.getAllByRole('button', { name: 'Overview' })).toHaveLength(1) // the rail has no second Overview button
-    expect(screen.getByRole('main')).toHaveTextContent(/downloading/i)
+    await waitFor(() => expect(screen.getByRole('main')).toHaveTextContent(/downloading/i))
   })
 
   it('shows Health as a rail button, linking to Health, and not the version', async () => {

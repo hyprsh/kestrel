@@ -184,7 +184,9 @@ describe('Upcoming timeline', () => {
     const asked = fakeAgenda([episode({ date: day(-3), title: 'Past Show', episode_name: 'Before', title_id: 5 }), movie({ date: day(2) })])
     await openUpcoming()
 
-    expect(asked.filter((r) => r.endsWith('-31') || r.endsWith('-30')).sort()).toEqual(['2026-09-01..2026-09-30', '2026-10-01..2026-10-31', '2026-11-01..2026-11-30', '2026-12-01..2026-12-31'])
+    await waitFor(() =>
+      expect(asked.filter((r) => r.endsWith('-31') || r.endsWith('-30')).sort()).toEqual(['2026-09-01..2026-09-30', '2026-10-01..2026-10-31', '2026-11-01..2026-11-30', '2026-12-01..2026-12-31']),
+    )
     const before = within(timeline()).getByText('Past Show')
     const after = within(timeline()).getByText('Paddington')
     expect(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
