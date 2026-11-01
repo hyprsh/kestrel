@@ -4533,6 +4533,9 @@ type UpcomingItem struct {
 	// Markers What makes an episode worth a mention; empty for a Movie. Clients tolerate new values.
 	Markers *[]UpcomingItemMarkers `json:"markers,omitempty"`
 
+	// Monitored Whether the episode (or Movie) is monitored. Always true unless the request asked for `unmonitored`; clients read an absent value as true.
+	Monitored *bool `json:"monitored,omitempty"`
+
 	// Network A Series' network, stored on refresh; null for a Movie or when unknown.
 	Network *string `json:"network,omitempty"`
 
@@ -4902,6 +4905,10 @@ type ListUpcomingParams struct {
 
 	// To Last day of the window. Default 30 days after `from`.
 	To *openapi_types.Date `form:"to,omitempty" json:"to,omitempty"`
+
+	// Unmonitored Also list the unmonitored episodes and Movies in the window, each with `monitored` false (they never
+	// appear in `undated`). Default false: monitored entries only.
+	Unmonitored *bool `form:"unmonitored,omitempty" json:"unmonitored,omitempty"`
 }
 
 // DeleteVersionParams defines parameters for DeleteVersion.
@@ -8096,6 +8103,19 @@ func (siw *ServerInterfaceWrapper) ListUpcoming(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "unmonitored" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "unmonitored", r.URL.Query(), &params.Unmonitored, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unmonitored"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unmonitored", Err: err})
 		}
 		return
 	}

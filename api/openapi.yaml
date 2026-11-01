@@ -1595,6 +1595,13 @@ paths:
           schema:
             type: string
             format: date
+        - name: unmonitored
+          in: query
+          description: |
+            Also list the unmonitored episodes and Movies in the window, each with `monitored` false (they never
+            appear in `undated`). Default false: monitored entries only.
+          schema:
+            type: boolean
       responses:
         "200":
           description: The agenda.
@@ -6328,6 +6335,9 @@ components:
           format: int64
           nullable: true
           description: The episode's id, for Search now narrowed to it (`episode_ids`); null for a Movie.
+        monitored:
+          type: boolean
+          description: Whether the episode (or Movie) is monitored. Always true unless the request asked for `unmonitored`; clients read an absent value as true.
         has_poster:
           type: boolean
           description: Whether `GET /titles/{id}/poster` serves a poster for the Title.

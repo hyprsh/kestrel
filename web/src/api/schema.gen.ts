@@ -4432,6 +4432,8 @@ export interface components {
              * @description The episode's id, for Search now narrowed to it (`episode_ids`); null for a Movie.
              */
             episode_id?: number | null;
+            /** @description Whether the episode (or Movie) is monitored. Always true unless the request asked for `unmonitored`; clients read an absent value as true. */
+            monitored?: boolean;
             /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
             has_poster?: boolean;
             /** @description A Series' network, stored on refresh; null for a Movie or when unknown. */
@@ -6291,6 +6293,11 @@ export interface operations {
                 from?: string;
                 /** @description Last day of the window. Default 30 days after `from`. */
                 to?: string;
+                /**
+                 * @description Also list the unmonitored episodes and Movies in the window, each with `monitored` false (they never
+                 *     appear in `undated`). Default false: monitored entries only.
+                 */
+                unmonitored?: boolean;
             };
             header?: never;
             path?: never;
