@@ -212,6 +212,35 @@ func (s *Service) Last(ctx context.Context) (int64, error) {
 	return db.New(s.st.Read()).LastEventID(ctx)
 }
 
+// Summary is what the Log holds: events per kind (routine included) and when the oldest happened (zero when empty).
+type Summary struct {
+	Counts map[Kind]int64
+	Oldest time.Time
+}
+
+// Summary counts the events by kind and finds the oldest.
+func (s *Service) Summary(ctx context.Context) (Summary, error) {
+	q := db.New(s.st.Read())
+	rows, err := q.EventKindCounts(ctx)
+	if err != nil {
+		return Summary{}, err
+	}
+	out := Summary{Counts: map[Kind]int64{}}
+	for _, r := range rows {
+		out.Counts[Kind(r.Kind)] = r.N
+	}
+	oldest, err := q.OldestEventAt(ctx)
+	if err != nil {
+		return Summary{}, err
+	}
+	if oldest != "" {
+		if out.Oldest, err = time.Parse(time.RFC3339, oldest); err != nil {
+			return Summary{}, err
+		}
+	}
+	return out, nil
+}
+
 // Prune deletes routine events older than RoutineLife and reports how many.
 func (s *Service) Prune(ctx context.Context) (int64, error) {
 	cutoff := s.clock().Add(-RoutineLife).UTC().Format(time.RFC3339)

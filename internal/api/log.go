@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
@@ -63,6 +65,29 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 		out.Items = append(out.Items, item)
 	}
 	return oapi.ListEvents200JSONResponse(out), nil
+}
+
+// GetEventsSummary is what the Log holds, for its views' counts and its footer.
+func (s *server) GetEventsSummary(ctx context.Context, _ oapi.GetEventsSummaryRequestObject) (oapi.GetEventsSummaryResponseObject, error) {
+	sum, err := s.history.Summary(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.EventsSummary{Counts: make([]struct {
+		Count int64  `json:"count"`
+		Kind  string `json:"kind"`
+	}, 0, len(sum.Counts)), RoutineDays: int(history.RoutineLife / (24 * time.Hour))}
+	for k, n := range sum.Counts {
+		out.Counts = append(out.Counts, struct {
+			Count int64  `json:"count"`
+			Kind  string `json:"kind"`
+		}{Count: n, Kind: string(k)})
+	}
+	sort.Slice(out.Counts, func(i, j int) bool { return out.Counts[i].Kind < out.Counts[j].Kind })
+	if !sum.Oldest.IsZero() {
+		out.Oldest = &sum.Oldest
+	}
+	return oapi.GetEventsSummary200JSONResponse(out), nil
 }
 
 // slotsOf is a Slot filter's values; field names it in the error.

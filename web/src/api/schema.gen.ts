@@ -1267,6 +1267,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the Log holds
+         * @description How many events there are of each kind (routine ones included, so a view of them can show its count), when the
+         *     oldest one happened and how many days routine events are kept; the others are kept forever. `oldest` is null
+         *     while the Log is empty.
+         */
+        get: operations["getEventsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/blocklist": {
         parameters: {
             query?: never;
@@ -4139,6 +4161,18 @@ export interface components {
         EventList: {
             items: components["schemas"]["Event"][];
         };
+        EventsSummary: {
+            /** @description Events per kind, for the kinds that have any. */
+            counts: {
+                kind: string;
+                /** Format: int64 */
+                count: number;
+            }[];
+            /** Format: date-time */
+            oldest: string | null;
+            /** @description How many days routine events are kept. */
+            routine_days: number;
+        };
         Event: {
             /** Format: int64 */
             id: number;
@@ -6123,6 +6157,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getEventsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventsSummary"];
                 };
             };
             default: components["responses"]["Problem"];

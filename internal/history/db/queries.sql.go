@@ -10,6 +10,38 @@ import (
 	"database/sql"
 )
 
+const eventKindCounts = `-- name: EventKindCounts :many
+SELECT kind, COUNT(*) AS n FROM events GROUP BY kind ORDER BY kind
+`
+
+type EventKindCountsRow struct {
+	Kind string
+	N    int64
+}
+
+func (q *Queries) EventKindCounts(ctx context.Context) ([]EventKindCountsRow, error) {
+	rows, err := q.db.QueryContext(ctx, eventKindCounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EventKindCountsRow
+	for rows.Next() {
+		var i EventKindCountsRow
+		if err := rows.Scan(&i.Kind, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const eventsAfter = `-- name: EventsAfter :many
 SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data FROM events WHERE id > ? ORDER BY id LIMIT ?
 `
@@ -173,6 +205,17 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event
 		return nil, err
 	}
 	return items, nil
+}
+
+const oldestEventAt = `-- name: OldestEventAt :one
+SELECT CAST(COALESCE(MIN(at), '') AS TEXT) FROM events
+`
+
+func (q *Queries) OldestEventAt(ctx context.Context) (string, error) {
+	row := q.db.QueryRowContext(ctx, oldestEventAt)
+	var column_1 string
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const pruneRoutineEvents = `-- name: PruneRoutineEvents :execrows

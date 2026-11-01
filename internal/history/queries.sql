@@ -26,3 +26,9 @@ WHERE (sqlc.narg(kinds) IS NULL OR kind IN (SELECT value FROM json_each(sqlc.nar
   AND (sqlc.narg(before) IS NULL OR id < sqlc.narg(before))
 ORDER BY id DESC
 LIMIT sqlc.arg(max_rows);
+
+-- name: EventKindCounts :many
+SELECT kind, COUNT(*) AS n FROM events GROUP BY kind ORDER BY kind;
+
+-- name: OldestEventAt :one
+SELECT CAST(COALESCE(MIN(at), '') AS TEXT) FROM events;

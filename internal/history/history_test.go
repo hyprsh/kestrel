@@ -78,3 +78,28 @@ func TestRecordingOnANilServiceDoesNothing(t *testing.T) {
 	var h *history.Service
 	h.Record(context.Background(), history.Event{Kind: history.GrabSent})
 }
+
+func TestSummaryCountsEventsByKindAndFindsTheOldest(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	h := newService(t, &now)
+
+	if s, err := h.Summary(ctx); err != nil || len(s.Counts) != 0 || !s.Oldest.IsZero() {
+		t.Fatalf("Summary of an empty log = %+v, %v", s, err)
+	}
+	h.Record(ctx, history.Event{Kind: history.GrabFailed, Message: "a"})
+	now = now.Add(time.Hour)
+	h.Record(ctx, history.Event{Kind: history.GrabFailed, Message: "b"})
+	h.Record(ctx, history.Event{Kind: history.Searched, Message: "c"})
+
+	s, err := h.Summary(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Counts[history.GrabFailed] != 2 || s.Counts[history.Searched] != 1 || len(s.Counts) != 2 {
+		t.Errorf("Counts = %v, want two failed Grabs and one routine search", s.Counts)
+	}
+	if want := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC); !s.Oldest.Equal(want) {
+		t.Errorf("Oldest = %v, want %v", s.Oldest, want)
+	}
+}

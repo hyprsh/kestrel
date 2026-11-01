@@ -207,3 +207,39 @@ func TestRemovingABlocklistEntryLetsTheReleaseBeGrabbedAgain(t *testing.T) {
 		t.Errorf("second delete = %d, want 404", r.Status)
 	}
 }
+
+func TestTheLogSummaryCountsEventsByKindIncludingRoutineOnes(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	for _, row := range []string{
+		`('2026-10-17T12:00:00Z', 'health_raised', 0, 'a')`,
+		`('2026-10-17T13:00:00Z', 'health_raised', 0, 'b')`,
+		`('2026-10-17T14:00:00Z', 'search', 1, 'c')`,
+	} {
+		if _, err := s.in.st.Write().Exec(`INSERT INTO events (at, kind, routine, message) VALUES ` + row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := s.valid("GET", "/events/summary", "")
+	if r.Status != 200 {
+		t.Fatalf("GET /events/summary = %d %s", r.Status, r.Body)
+	}
+	got := decode[struct {
+		Counts []struct {
+			Kind  string `json:"kind"`
+			Count int64  `json:"count"`
+		} `json:"counts"`
+		Oldest      *string `json:"oldest"`
+		RoutineDays int     `json:"routine_days"`
+	}](t, r)
+	n := map[string]int64{}
+	for _, c := range got.Counts {
+		n[c.Kind] = c.Count
+	}
+	if n["health_raised"] != 2 || n["search"] != 1 {
+		t.Errorf("counts = %v, want 2 health_raised and 1 search (routine included)", got.Counts)
+	}
+	if got.Oldest == nil || *got.Oldest != "2026-10-17T12:00:00Z" || got.RoutineDays != 30 {
+		t.Errorf("oldest = %v, routine_days = %d", got.Oldest, got.RoutineDays)
+	}
+}

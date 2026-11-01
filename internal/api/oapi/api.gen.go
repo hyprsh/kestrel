@@ -2389,6 +2389,19 @@ type EventList struct {
 	Items []Event `json:"items"`
 }
 
+// EventsSummary defines model for EventsSummary.
+type EventsSummary struct {
+	// Counts Events per kind, for the kinds that have any.
+	Counts []struct {
+		Count int64  `json:"count"`
+		Kind  string `json:"kind"`
+	} `json:"counts"`
+	Oldest *time.Time `json:"oldest"`
+
+	// RoutineDays How many days routine events are kept.
+	RoutineDays int `json:"routine_days"`
+}
+
 // FileSummary defines model for FileSummary.
 type FileSummary struct {
 	// CustomFormats The Custom Formats the file matches with their points, as the Version's Profile scores the file now (its stored parse and probe, the way a Profile switch re-scores it), so the points add up to the Score.
@@ -5265,6 +5278,9 @@ type ServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams)
+	// GetEventsSummary What the Log holds
+	// (GET /events/summary)
+	GetEventsSummary(w http.ResponseWriter, r *http.Request)
 	// ListFolderChanges Title folders that changed since a marker
 	// (GET /folder-changes)
 	ListFolderChanges(w http.ResponseWriter, r *http.Request, params ListFolderChangesParams)
@@ -6133,6 +6149,20 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEventsSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetEventsSummary(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEventsSummary(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8179,6 +8209,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/upcoming", wrapper.ListUpcoming)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/recent", wrapper.ListRecentlyAdded)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events", wrapper.ListEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/events/summary", wrapper.GetEventsSummary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/blocklist", wrapper.ListBlocklist)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/blocklist/{id}", wrapper.DeleteBlocklistEntry)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/adoption", wrapper.DiscardAdoption)
@@ -9860,6 +9891,44 @@ type ListEventsdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response ListEventsdefaultApplicationProblemPlusJSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEventsSummaryRequestObject struct {
+}
+
+type GetEventsSummaryResponseObject interface {
+	VisitGetEventsSummaryResponse(w http.ResponseWriter) error
+}
+
+type GetEventsSummary200JSONResponse EventsSummary
+
+func (response GetEventsSummary200JSONResponse) VisitGetEventsSummaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEventsSummarydefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetEventsSummarydefaultApplicationProblemPlusJSONResponse) VisitGetEventsSummaryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -14129,6 +14198,9 @@ type StrictServerInterface interface {
 	// ListEvents The Log
 	// (GET /events)
 	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// GetEventsSummary What the Log holds
+	// (GET /events/summary)
+	GetEventsSummary(ctx context.Context, request GetEventsSummaryRequestObject) (GetEventsSummaryResponseObject, error)
 	// ListFolderChanges Title folders that changed since a marker
 	// (GET /folder-changes)
 	ListFolderChanges(ctx context.Context, request ListFolderChangesRequestObject) (ListFolderChangesResponseObject, error)
@@ -15174,6 +15246,30 @@ func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, para
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListEventsResponseObject); ok {
 		if err := validResponse.VisitListEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEventsSummary operation middleware
+func (sh *strictHandler) GetEventsSummary(w http.ResponseWriter, r *http.Request) {
+	var request GetEventsSummaryRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEventsSummary(ctx, request.(GetEventsSummaryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEventsSummary")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEventsSummaryResponseObject); ok {
+		if err := validResponse.VisitGetEventsSummaryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -277,6 +277,7 @@ type History interface {
 	List(ctx context.Context, f history.Filter) ([]history.Event, error)
 	Last(ctx context.Context) (int64, error)
 	After(ctx context.Context, id int64, limit int) ([]history.Event, error)
+	Summary(ctx context.Context) (history.Summary, error)
 }
 
 // Scoring is the live TRaSH snapshot.
