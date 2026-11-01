@@ -68,7 +68,10 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.ReleaseList{Items: make([]oapi.Release, 0, len(res.Items)), IndexerErrors: make([]oapi.IndexerError, 0, len(res.Failures))}
+	out := oapi.ReleaseList{
+		Items: make([]oapi.Release, 0, len(res.Items)), IndexerErrors: make([]oapi.IndexerError, 0, len(res.Failures)),
+		SearchedAt: res.SearchedAt, IndexersSearched: res.Indexers, Wanted: res.Wanted,
+	}
 	for _, f := range res.Items {
 		rel := oapi.Release{
 			ReleaseId: f.ID, Name: f.Name, Indexer: f.Indexer, Size: f.Size, PublishedAt: f.PublishedAt, Quality: f.Quality,
@@ -85,6 +88,21 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 				}
 				rel.EpisodeTitles = &names
 			}
+		}
+		if f.Group != "" {
+			group := f.Group
+			rel.Group = &group
+		}
+		if len(f.Covers) > 0 {
+			covers := make([]oapi.ReleaseCover, len(f.Covers))
+			for i, c := range f.Covers {
+				covers[i] = oapi.ReleaseCover{State: oapi.ReleaseCoverState(c.State), FileScore: c.FileScore}
+				if !c.Whole {
+					season, episode := c.Season, c.Episode
+					covers[i].Season, covers[i].Episode = &season, &episode
+				}
+			}
+			rel.Covers = &covers
 		}
 		for _, cf := range f.Formats {
 			rel.CustomFormats = append(rel.CustomFormats, oapi.CustomFormatMatch{Name: cf.Name, Points: cf.Score})

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
@@ -88,5 +89,28 @@ func TestSearchUpgradesOfAFilledSeriesVersionUpgradesTheEpisodesTheReleaseBeats(
 	}
 	if got, _ := r.svc.GrabEpisodes(ctx, out.Grabbed[0].ID); len(got) != 1 || got[0] != eps[0].ID {
 		t.Errorf("the Upgrade covers %v, want only the first episode", got)
+	}
+}
+
+func TestASearchOfAFilledMovieCoversItAsFilledWithTheHeldFilesScore(t *testing.T) {
+	r := newRig(t)
+	r.publish(t, hd1080, time.Hour)
+
+	res, err := r.svc.Search(context.Background(), r.versions[slot.Standard])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.found(t, res, hd1080).Covers; len(got) != 1 || !got[0].Whole || got[0].State != acquire.CoverWanted || res.Wanted != 1 {
+		t.Errorf("a Wanted Movie: covers %+v, wanted %d", got, res.Wanted)
+	}
+
+	r.fill(t, 120)
+	res, err = r.svc.Search(context.Background(), r.versions[slot.Standard])
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := r.found(t, res, hd1080).Covers
+	if len(got) != 1 || got[0].State != acquire.CoverFilled || got[0].FileScore == nil || *got[0].FileScore != 120 || res.Wanted != 0 {
+		t.Errorf("a Filled Movie: covers %+v, wanted %d", got, res.Wanted)
 	}
 }

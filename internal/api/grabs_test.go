@@ -33,11 +33,21 @@ type releaseJSON struct {
 		Message     string `json:"message"`
 		Overridable bool   `json:"overridable"`
 	} `json:"rejections"`
+	Group  *string `json:"group"`
+	Covers []struct {
+		Season    *int   `json:"season"`
+		Episode   *int   `json:"episode"`
+		State     string `json:"state"`
+		FileScore *int   `json:"file_score"`
+	} `json:"covers"`
 }
 
 type releaseListJSON struct {
-	Items         []releaseJSON `json:"items"`
-	IndexerErrors []struct {
+	SearchedAt       string        `json:"searched_at"`
+	IndexersSearched int           `json:"indexers_searched"`
+	Wanted           int           `json:"wanted"`
+	Items            []releaseJSON `json:"items"`
+	IndexerErrors    []struct {
 		Indexer    string `json:"indexer"`
 		Code       string `json:"code"`
 		RetryAfter *int   `json:"retry_after"`
@@ -186,6 +196,12 @@ func TestAManualSearchListsEveryReleaseAndGrabbingOneSendsItToTheDownloadClient(
 	}
 	if list.Items[0].Name != goodRelease {
 		t.Errorf("first = %q, want the acceptable release first", list.Items[0].Name)
+	}
+	if good.Group == nil || *good.Group != "GRP" || len(good.Covers) != 1 || good.Covers[0].State != "wanted" || good.Covers[0].Season != nil || good.Covers[0].Episode != nil {
+		t.Errorf("group = %v, covers = %+v, want GRP and the Wanted Movie", good.Group, good.Covers)
+	}
+	if list.SearchedAt == "" || list.IndexersSearched != 1 || list.Wanted != 1 {
+		t.Errorf("searched_at = %q, indexers_searched = %d, wanted = %d", list.SearchedAt, list.IndexersSearched, list.Wanted)
 	}
 
 	r := s.grab(s.hd, good.ReleaseID, false)

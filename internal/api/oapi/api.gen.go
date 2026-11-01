@@ -988,6 +988,27 @@ func (e ReleaseFits) Valid() bool {
 	}
 }
 
+// Defines values for ReleaseCoverState.
+const (
+	ReleaseCoverStateFilled ReleaseCoverState = "filled"
+	ReleaseCoverStateOther  ReleaseCoverState = "other"
+	ReleaseCoverStateWanted ReleaseCoverState = "wanted"
+)
+
+// Valid indicates whether the value is a known member of the ReleaseCoverState enum.
+func (e ReleaseCoverState) Valid() bool {
+	switch e {
+	case ReleaseCoverStateFilled:
+		return true
+	case ReleaseCoverStateOther:
+		return true
+	case ReleaseCoverStateWanted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReleaseDateEntryType.
 const (
 	ReleaseDateEntryTypeDigital           ReleaseDateEntryType = "digital"
@@ -3424,6 +3445,10 @@ type RejectionCode string
 
 // Release defines model for Release.
 type Release struct {
+	// Covers What the Release holds, for the Version searched: each episode of a Series Release that the Library
+	// knows (every episode of the season for a pack), or the Movie itself. Absent when the name
+	// names nothing the Library has.
+	Covers        *[]ReleaseCover     `json:"covers,omitempty"`
 	CustomFormats []CustomFormatMatch `json:"custom_formats"`
 
 	// EpisodeTitles Series only. The title of each of `episodes`, in the same order and in the Primary Language (as on
@@ -3432,11 +3457,14 @@ type Release struct {
 	EpisodeTitles *[]string `json:"episode_titles,omitempty"`
 
 	// Episodes Series only. The episode numbers of a single or multi-episode Release; empty for a pack.
-	Episodes  *[]int      `json:"episodes,omitempty"`
-	Fits      ReleaseFits `json:"fits"`
-	Indexer   string      `json:"indexer"`
-	Languages []string    `json:"languages"`
-	Name      string      `json:"name"`
+	Episodes *[]int      `json:"episodes,omitempty"`
+	Fits     ReleaseFits `json:"fits"`
+
+	// Group The release group the name ends in. Absent when the name has none.
+	Group     *string  `json:"group,omitempty"`
+	Indexer   string   `json:"indexer"`
+	Languages []string `json:"languages"`
+	Name      string   `json:"name"`
 
 	// Pack Series only. True for a season pack.
 	Pack        *bool     `json:"pack,omitempty"`
@@ -3458,6 +3486,26 @@ type Release struct {
 // ReleaseFits defines model for Release.Fits.
 type ReleaseFits string
 
+// ReleaseCover defines model for ReleaseCover.
+type ReleaseCover struct {
+	// Episode Absent for a Movie.
+	Episode *int `json:"episode,omitempty"`
+
+	// FileScore The Score of the file the Version holds there. Absent when it has no file or its Score is unknown.
+	FileScore *int `json:"file_score,omitempty"`
+
+	// Season Absent for a Movie.
+	Season *int `json:"season,omitempty"`
+
+	// State wanted: the Version has no file for it and Wants one. filled: it holds a file, which a grab of the Release
+	// replaces. other: not monitored, not out yet or already downloading.
+	State ReleaseCoverState `json:"state"`
+}
+
+// ReleaseCoverState wanted: the Version has no file for it and Wants one. filled: it holds a file, which a grab of the Release
+// replaces. other: not monitored, not out yet or already downloading.
+type ReleaseCoverState string
+
 // ReleaseDateEntry defines model for ReleaseDateEntry.
 type ReleaseDateEntry struct {
 	Certification *string              `json:"certification"`
@@ -3472,7 +3520,16 @@ type ReleaseDateEntryType string
 // ReleaseList defines model for ReleaseList.
 type ReleaseList struct {
 	IndexerErrors []IndexerError `json:"indexer_errors"`
-	Items         []Release      `json:"items"`
+
+	// IndexersSearched How many enabled indexers the search asked, those in `indexer_errors` included.
+	IndexersSearched int       `json:"indexers_searched"`
+	Items            []Release `json:"items"`
+
+	// SearchedAt When the search ran.
+	SearchedAt time.Time `json:"searched_at"`
+
+	// Wanted How many Units of the search's scope the Version Wants (its Wanted episodes, or 1 for a Wanted Movie).
+	Wanted int `json:"wanted"`
 }
 
 // ReleaseSearch Narrows the search of a Series Version to a season and, within it, episodes. Movie searches

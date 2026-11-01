@@ -266,3 +266,27 @@ func TestASearchTellsItsObserverWhatItSearchesAndHowManyReleasesCameBack(t *test
 		t.Errorf("releases = %d, want at least the 2 published", obs.releases)
 	}
 }
+
+func TestASearchSaysWhatEachReleaseCoversAndHowManyEpisodesTheVersionWants(t *testing.T) {
+	r := newRig(t)
+	_, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp2, "1", "2")
+	r.publishShow(t, nightPack, "1", "")
+
+	res, err := r.svc.Search(context.Background(), ver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.Wanted != 2 || res.Indexers != 1 || !res.SearchedAt.Equal(r.clock.now) {
+		t.Errorf("wanted = %d, indexers = %d, searched at %v", res.Wanted, res.Indexers, res.SearchedAt)
+	}
+	ep := r.found(t, res, nightEp2)
+	if len(ep.Covers) != 1 || ep.Covers[0].Episode != 2 || ep.Covers[0].State != acquire.CoverWanted || ep.Group != "GRP" {
+		t.Errorf("episode covers %+v, group %q", ep.Covers, ep.Group)
+	}
+	pack := r.found(t, res, nightPack)
+	if len(pack.Covers) != 2 || pack.Covers[0].State != acquire.CoverWanted || pack.Covers[1].Episode != 2 {
+		t.Errorf("pack covers %+v", pack.Covers)
+	}
+}
