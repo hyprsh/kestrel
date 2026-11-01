@@ -3,9 +3,13 @@ package profiles
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
@@ -137,8 +141,73 @@ type Cutoffs struct {
 	ByVersion map[int64]int
 }
 
-// BelowCutoff counts the files below their Profile's cutoff under the active snapshot.
+// cutoffCache keeps the last answer of BelowCutoff with the fingerprint of what it was computed from.
+type cutoffCache struct {
+	mu    sync.Mutex
+	key   string
+	val   Cutoffs
+	valid bool
+	scans atomic.Int64
+}
+
+// CutoffScans is how many times BelowCutoff has scanned the library's files rather than answered from its cache.
+func (s *Service) CutoffScans() int64 { return s.cutoffs.scans.Load() }
+
+// cutoffKey fingerprints everything BelowCutoff reads: the files, their Scores, parses, misfits and episodes (a few
+// aggregates, no parsing), each Version's Profile, the Profiles themselves (their cutoffs, Upgrade-until Scores and qualities), the
+// Primary Language and the scoring snapshot. Any change to any of them, from whichever module made it, changes the key.
+func (s *Service) cutoffKey(ctx context.Context) (string, error) {
+	q := db.New(s.st.Read())
+	in, err := q.CutoffInputs(ctx)
+	if err != nil {
+		return "", err
+	}
+	versions, err := q.VersionProfileKeys(ctx)
+	if err != nil {
+		return "", err
+	}
+	rows, err := q.ListProfiles(ctx)
+	if err != nil {
+		return "", err
+	}
+	region, _, err := s.Region(ctx)
+	if err != nil {
+		return "", err
+	}
+	snap, err := s.snapshot()
+	if err != nil {
+		return "", err
+	}
+	h := sha256.New()
+	fmt.Fprintf(h, "%+v\n%+v\n%+v\n%v\n%p", in, versions, rows, region.Primary, snap)
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// BelowCutoff counts the files below their Profile's cutoff under the active snapshot. The answer is kept in memory and
+// recomputed on the next call after a file is imported, replaced or deleted, a Version changes Profile, or a Profile, its
+// cutoff or Upgrade-until Score, the Primary Language or the scoring snapshot changes (see cutoffKey). It must be read, not changed.
 func (s *Service) BelowCutoff(ctx context.Context) (Cutoffs, error) {
+	key, err := s.cutoffKey(ctx)
+	if err != nil {
+		return Cutoffs{}, err
+	}
+	c := s.cutoffs
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.valid && c.key == key {
+		return c.val, nil
+	}
+	c.scans.Add(1)
+	val, err := s.scanCutoffs(ctx)
+	if err != nil {
+		return Cutoffs{}, err
+	}
+	c.key, c.val, c.valid = key, val, true
+	return val, nil
+}
+
+// scanCutoffs reads every file and counts the ones below their Profile's cutoff.
+func (s *Service) scanCutoffs(ctx context.Context) (Cutoffs, error) {
 	all, err := s.List(ctx)
 	if err != nil {
 		return Cutoffs{}, err

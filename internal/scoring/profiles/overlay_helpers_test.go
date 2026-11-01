@@ -1,6 +1,7 @@
 package profiles_test
 
 import (
+	"github.com/hyprsh/kestrel/internal/scoring"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/store"
@@ -41,4 +42,13 @@ func addFile(t *testing.T, st *store.Store, version int64, score int, parsed str
 	if misfit {
 		mustExec(t, st, `INSERT INTO file_misfits (file_id) VALUES (?)`, id)
 	}
+}
+
+func mustEmbedded(t *testing.T) *scoring.Snapshot {
+	t.Helper()
+	snap, err := scoring.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
 }

@@ -256,3 +256,76 @@ func TestFilesBelowTheCutoffAreCountedPerProfile(t *testing.T) {
 		t.Errorf("BelowCutoff by Version = %+v", c.ByVersion)
 	}
 }
+
+// BelowCutoff answers from memory until something it reads changes: each of those changes makes the next call scan again.
+func TestBelowCutoffIsKeptInMemoryAndRecomputedAfterEachChangeItReads(t *testing.T) {
+	ctx := context.Background()
+	s, st := newRig(t)
+	holder := scoring.NewHolder(mustEmbedded(t))
+	s.UseScoring(holder)
+	if _, err := s.Patch(ctx, "hd-primary", profiles.Patch{Overlay: &scoring.Overlay{Movies: scoring.KindOverlay{Cutoff: "WEBDL-1080p"}}}); err != nil {
+		t.Fatal(err)
+	}
+	q := func(name string) string { return `{"quality":{"quality":{"name":"` + name + `"}}}` }
+	movie := addTitle(t, st, "movie")
+	mv := addVersion(t, st, movie, "hd-primary")
+
+	below := func(want int) {
+		t.Helper()
+		c, err := s.BelowCutoff(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Total != want || c.ByVersion[mv] != want {
+			t.Fatalf("BelowCutoff = %+v, want %d below", c, want)
+		}
+	}
+	scans := func(want int64, why string) {
+		t.Helper()
+		if got := s.CutoffScans(); got != want {
+			t.Fatalf("%s: %d scans, want %d", why, got, want)
+		}
+	}
+
+	below(0)
+	below(0)
+	below(0)
+	scans(1, "an unchanged library is answered from memory")
+
+	addFile(t, st, mv, 100, q("WEBRip-1080p"), false) // an Import
+	below(1)
+	below(1)
+	scans(2, "a file imported")
+
+	mustExec(t, st, `UPDATE files SET score = 9000, parsed_release = ?`, q("WEBDL-1080p")) // a file replaced by a better one
+	below(0)
+	scans(3, "a file replaced")
+
+	addFile(t, st, mv, 100, q("WEBRip-1080p"), false)
+	below(1)
+	scans(4, "a second file")
+	mustExec(t, st, `DELETE FROM files WHERE score = 100`) // a file deleted
+	below(0)
+	scans(5, "a file deleted")
+
+	addFile(t, st, mv, 100, q("WEBRip-1080p"), true) // a misfit does not count
+	below(0)
+	scans(6, "a misfit marked")
+
+	if _, err := s.Patch(ctx, "hd-primary", profiles.Patch{Overlay: &scoring.Overlay{Movies: scoring.KindOverlay{Cutoff: "Bluray-1080p"}}}); err != nil { // a cutoff raised
+		t.Fatal(err)
+	}
+	below(1) // the WEB-DL file is now below the cutoff
+	scans(7, "a cutoff changed")
+
+	mustExec(t, st, `UPDATE versions SET profile_key = '4k-primary', slot = '4k'`) // the Version moves to another Profile
+	below(0)
+	scans(8, "a Version's Profile changed")
+	below(0)
+	scans(8, "and then it is kept again")
+
+	again := *mustEmbedded(t)
+	holder.Set(&again) // a new scoring snapshot (new Scores)
+	below(0)
+	scans(9, "a scoring snapshot swapped")
+}

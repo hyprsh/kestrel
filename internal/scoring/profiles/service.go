@@ -109,12 +109,13 @@ type Service struct {
 	settings *settings.Settings
 	tx       *sql.Tx // set by InTx: writes join the caller's transaction
 	live     *scoring.Holder
+	cutoffs  *cutoffCache // BelowCutoff's last answer; shared by the Service and what InTx makes of it
 }
 
 // InTx returns a Service whose settings and Profile writes run inside tx; the
 // caller commits or rolls back.
 func (s *Service) InTx(tx *sql.Tx) *Service {
-	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live}
+	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live, cutoffs: s.cutoffs}
 }
 
 // UseScoring makes the Service back Profiles with the live TRaSH snapshot
@@ -123,7 +124,7 @@ func (s *Service) UseScoring(h *scoring.Holder) { s.live = h }
 
 // New returns a Service over st. settings holds the language document.
 func New(st *store.Store, s *settings.Settings) *Service {
-	return &Service{st: st, settings: s}
+	return &Service{st: st, settings: s, cutoffs: &cutoffCache{}}
 }
 
 func fromRow(r db.Profile) (Profile, error) {

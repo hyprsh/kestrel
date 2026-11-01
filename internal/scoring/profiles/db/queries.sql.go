@@ -78,6 +78,43 @@ func (q *Queries) CutoffFiles(ctx context.Context) ([]CutoffFilesRow, error) {
 	return items, nil
 }
 
+const cutoffInputs = `-- name: CutoffInputs :one
+SELECT CAST((SELECT COUNT(*) FROM files) AS INTEGER) AS files,
+       CAST((SELECT COALESCE(SUM(id), 0) FROM files) AS INTEGER) AS file_ids,
+       CAST((SELECT COALESCE(SUM(COALESCE(score, 0)), 0) FROM files) AS INTEGER) AS scores,
+       CAST((SELECT COALESCE(SUM(LENGTH(COALESCE(parsed_release, ''))), 0) FROM files) AS INTEGER) AS parses,
+       CAST((SELECT COUNT(*) FROM file_misfits) AS INTEGER) AS misfits,
+       CAST((SELECT COALESCE(SUM(file_id), 0) FROM file_misfits) AS INTEGER) AS misfit_ids,
+       CAST((SELECT COUNT(*) FROM file_episodes) AS INTEGER) AS file_episodes
+`
+
+type CutoffInputsRow struct {
+	Files        int64
+	FileIds      int64
+	Scores       int64
+	Parses       int64
+	Misfits      int64
+	MisfitIds    int64
+	FileEpisodes int64
+}
+
+// What BelowCutoff's answer depends on in the library, as a few aggregates: files (how many, which, their Scores and stored parses),
+// misfits and the episodes files hold. A change of any of them changes the row.
+func (q *Queries) CutoffInputs(ctx context.Context) (CutoffInputsRow, error) {
+	row := q.db.QueryRowContext(ctx, cutoffInputs)
+	var i CutoffInputsRow
+	err := row.Scan(
+		&i.Files,
+		&i.FileIds,
+		&i.Scores,
+		&i.Parses,
+		&i.Misfits,
+		&i.MisfitIds,
+		&i.FileEpisodes,
+	)
+	return i, err
+}
+
 const deleteCustomProfile = `-- name: DeleteCustomProfile :execrows
 DELETE FROM profiles WHERE key = ? AND custom = 1
 `
@@ -356,6 +393,38 @@ type SetProfileTrashParams struct {
 func (q *Queries) SetProfileTrash(ctx context.Context, arg SetProfileTrashParams) error {
 	_, err := q.db.ExecContext(ctx, setProfileTrash, arg.TrashProfileMovies, arg.TrashProfileSeries, arg.Key)
 	return err
+}
+
+const versionProfileKeys = `-- name: VersionProfileKeys :many
+SELECT id, profile_key FROM versions ORDER BY id
+`
+
+type VersionProfileKeysRow struct {
+	ID         int64
+	ProfileKey string
+}
+
+func (q *Queries) VersionProfileKeys(ctx context.Context) ([]VersionProfileKeysRow, error) {
+	rows, err := q.db.QueryContext(ctx, versionProfileKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VersionProfileKeysRow
+	for rows.Next() {
+		var i VersionProfileKeysRow
+		if err := rows.Scan(&i.ID, &i.ProfileKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const versionsUnderProfile = `-- name: VersionsUnderProfile :many
