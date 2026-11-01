@@ -23,7 +23,7 @@ describe('the empty shell', () => {
     for (const name of ['Overview', 'Library', 'Upcoming', 'Log', 'Settings']) {
       expect(within(rail).getByRole('button', { name })).toBeInTheDocument()
     }
-    expect(screen.getByRole('main')).toHaveTextContent(/happening now/i) // Overview is the home screen
+    expect(screen.getByRole('main')).toHaveTextContent(/downloading/i) // Overview is the home screen
   })
 
   it('switches the screen title when a rail item is chosen', async () => {
@@ -41,7 +41,7 @@ describe('the empty shell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
     expect(logo).toHaveAttribute('aria-current', 'page')
     expect(screen.getAllByRole('button', { name: 'Overview' })).toHaveLength(1) // the rail has no second Overview button
-    expect(screen.getByRole('main')).toHaveTextContent(/happening now/i)
+    expect(screen.getByRole('main')).toHaveTextContent(/downloading/i)
   })
 
   it('shows Health as a rail button, linking to Health, and not the version', async () => {

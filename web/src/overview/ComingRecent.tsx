@@ -11,7 +11,7 @@ import { TitlePoster } from '../poster'
 import { ago, useNow } from '../time'
 import { airTime, dayLabel, episodeCode, upcomingKey } from '../upcoming/state'
 import type { OverviewNav } from './nav'
-import { EmptyLine, firstFive, Section, ViewAll } from './Section'
+import { EmptyLine, firstThree, Section, ViewAll } from './Section'
 
 const comingLine = (item: UpcomingItem) => {
   const at = airTime(item)
@@ -51,7 +51,7 @@ function TitleRows({ items, nav, onOpenTitle }: { items: TitleRowItem[]; nav: Ov
 export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const coming = useUpcoming(6)
   const all = coming.data ?? []
-  const items = firstFive(all).map((item) => ({ key: upcomingKey(item), titleId: item.title_id, hasPoster: item.has_poster, name: item.title, line: comingLine(item) }))
+  const items = firstThree(all).map((item) => ({ key: upcomingKey(item), titleId: item.title_id, hasPoster: item.has_poster, name: item.title, line: comingLine(item) }))
   return (
     <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined}>
       {coming.isPending ? (
@@ -71,7 +71,7 @@ export function RecentlyAdded({ onOpenTitle, nav }: { onOpenTitle: (id: number) 
   const recent = useRecent()
   const now = useNow()
   const all = recent.data?.items ?? []
-  const items = firstFive(all).map((item) => ({
+  const items = firstThree(all).map((item) => ({
     key: `${item.title_id}-${item.slot}-${item.imported_at}`,
     titleId: item.title_id,
     hasPoster: item.has_poster,

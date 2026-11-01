@@ -1,10 +1,12 @@
-// An Overview section: a heading with its count, at most five rows and a way to the rest.
+// An Overview section: a heading with its count, a few rows (five, or three in the compact lists) and a way to the rest.
 // The cap is fixed (not fitted to the window), so the sections further down stay in view.
 import { EmptyState, Pill, ShowMore } from '@hyprsh/design'
 import type { ReactNode } from 'react'
 import { useOpenPlace } from '../place'
 
 const LIMIT = 5
+// The three lists under the dashboard are compact: three rows each.
+const LIST = 3
 
 /**
  * The rows a section shows: the first five, in order, plus every row `keep` holds on to
@@ -15,6 +17,9 @@ export function firstFive<T>(items: T[], keep: (item: T) => boolean = () => fals
   let room = LIMIT - items.filter(keep).length
   return items.filter((item) => keep(item) || room-- > 0)
 }
+
+/** The rows of Recently added, Recent requests and Coming this week: the first three. */
+export const firstThree = <T,>(items: T[]): T[] => items.slice(0, LIST)
 
 /**
  * `count` is how many there are in all, shown after the title once there are any ("Happening now · 23").

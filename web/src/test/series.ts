@@ -19,7 +19,12 @@ export const episodeFile = (over: Partial<EpisodeFile> & Pick<EpisodeFile, 'id' 
   ...over,
 })
 
-export const cell = (state: components['schemas']['SlotState'], score: number | null = null, file: EpisodeFile | null = null) => ({ state, score, file })
+export const cell = (state: components['schemas']['SlotState'], score: number | null = null, file: EpisodeFile | null = null, last_search: components['schemas']['LastSearch'] | null = null) => ({
+  state,
+  score,
+  file,
+  last_search,
+})
 
 export const episode = (id: number, season: number, number: number, name: string, over: Partial<Episode> = {}): Episode => ({
   id,

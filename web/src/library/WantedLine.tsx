@@ -26,10 +26,32 @@ const codeWords: Record<string, string> = {
   size: 'outside the size limit',
 }
 
+/** What a rejection group is, without its count: "German only", "below the cutoff". */
+function reasonWords(r: RejectionCount): string {
+  if (r.code === 'language' && r.detail) return `${r.detail} only`
+  return codeWords[r.code] ?? r.code.replaceAll('_', ' ')
+}
+
 /** One rejection group as words: "23 German only", "6 below the cutoff". */
 function reasonText(r: RejectionCount): string {
-  if (r.code === 'language' && r.detail) return `${r.count} ${r.detail} only`
-  return `${r.count} ${codeWords[r.code] ?? r.code.replaceAll('_', ' ')}`
+  return `${r.count} ${reasonWords(r)}`
+}
+
+/**
+ * What a Wanted Version's last search came to, short: "23 releases, all German only", "nothing found yet", "4 releases, none
+ * fit the Profile". `all <reason>` when one rejection covers every release.
+ */
+export function foundText(ls: LastSearch): string {
+  switch (ls.outcome) {
+    case 'no_indexer':
+      return 'no indexer is turned on'
+    case 'error':
+      return 'the search failed'
+  }
+  if (ls.releases === 0) return 'nothing found yet'
+  const top = ls.reasons[0]
+  if (top && top.count >= ls.releases) return `${plural(ls.releases, 'release')}, all ${reasonWords(top)}`
+  return `${plural(ls.releases, 'release')}, ${ls.upgrade ? 'none better' : 'none fit the Profile'}`
 }
 
 /** How a search ended, after "23 releases": "none fit the Profile". */
@@ -45,6 +67,25 @@ function endText(ls: LastSearch): string {
       if (ls.releases === 0) return 'no releases came back'
       return `${plural(ls.releases, 'release')}, ${ls.upgrade ? 'none better' : 'none fit the Profile'}`
   }
+}
+
+/** How a search ended, as the last words of a line: "grabbed one", "none fit the Profile", "nothing found". */
+function outcomeText(ls: LastSearch): string {
+  switch (ls.outcome) {
+    case 'grabbed':
+      return 'grabbed one'
+    case 'no_indexer':
+      return 'no indexer is turned on'
+    case 'error':
+      return 'the search failed'
+  }
+  return ls.releases === 0 ? 'nothing found' : ls.upgrade ? 'none better' : 'none fit the Profile'
+}
+
+/** "Last searched 2 h ago · 14 releases · none fit the Profile": an episode's last search, for its cell's tooltip and popover. */
+export function lastSearchLine(ls: LastSearch, now: number): string {
+  const found = ls.outcome === 'no_indexer' || ls.outcome === 'error' ? [] : [plural(ls.releases, 'release')]
+  return [`Last searched ${ago(ls.at, now)}`, ...found, outcomeText(ls)].join(' · ')
 }
 
 /** "Last searched 2 h ago · 23 releases, none fit the Profile", or that it was not searched yet. */

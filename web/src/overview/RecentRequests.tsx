@@ -10,7 +10,7 @@ import { Loaded, SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
 import { reasons, slotState } from '../requests/status'
 import type { OverviewNav } from './nav'
-import { EmptyLine, firstFive, Section, ViewAll } from './Section'
+import { EmptyLine, firstThree, Section, ViewAll } from './Section'
 
 function StateBadges({ request: r }: { request: Request }) {
   const queue = useQueue().data ?? []
@@ -33,7 +33,7 @@ function StateBadges({ request: r }: { request: Request }) {
 
 export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const recent = useRecentRequests()
-  const shown = firstFive(recent.data?.items ?? [])
+  const shown = firstThree(recent.data?.items ?? [])
   const total = recent.data?.total ?? 0
   return (
     <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined}>

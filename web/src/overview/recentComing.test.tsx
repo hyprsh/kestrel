@@ -55,7 +55,7 @@ const url = () => location.pathname + location.search
 beforeEach(() => history.replaceState(null, '', '/'))
 
 describe('Recently added', () => {
-  it('is up to five rows with the poster, the name and the Slot and age, the week count in the heading', async () => {
+  it('is up to three rows with the poster, the name and the Slot and age, the week count in the heading', async () => {
     fakeRecent(
       many(10, (n) => recent(n)),
       14,
@@ -64,7 +64,7 @@ describe('Recently added', () => {
 
     const section = await screen.findByRole('region', { name: 'Recently added · 14' })
     const posters = await within(section).findAllByRole('listitem')
-    expect(posters).toHaveLength(5)
+    expect(posters).toHaveLength(3)
     expect(posters[0]).toHaveTextContent('Imported 1')
     expect(posters[0]).toHaveTextContent('Standard · 3 h ago')
     expect(posters[1].querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/42/poster'))
@@ -102,13 +102,13 @@ describe('Recently added', () => {
 })
 
 describe('Coming this week', () => {
-  it('is up to five rows with the poster, the name and the day', async () => {
+  it('is up to three rows with the poster, the name and the day', async () => {
     fakeUpcoming(many(10, (n) => upcoming(n)))
     renderApp()
 
     const section = await screen.findByRole('region', { name: 'Coming this week · 10' })
     const posters = await within(section).findAllByRole('listitem')
-    expect(posters).toHaveLength(5)
+    expect(posters).toHaveLength(3)
     expect(posters[0]).toHaveTextContent('Movie 1')
     expect(posters[0]).toHaveTextContent(dayLabel(dayString(1)))
     expect(posters[0].querySelector('img')).toHaveAttribute('src', expect.stringContaining('/titles/21/poster'))

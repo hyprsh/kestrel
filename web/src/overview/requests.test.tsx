@@ -13,7 +13,7 @@ const section = () => screen.findByRole('region', { name: /^Recent requests/ })
 const rows = async () => within(await section()).findAllByRole('listitem')
 
 describe('Recent requests on the Overview', () => {
-  it('shows the newest five, how many there are in all and a way to the rest', async () => {
+  it('shows the newest three, how many there are in all and a way to the rest', async () => {
     const queries = fakeRequests(
       Array.from({ length: 5 }, (_, i) => request({ id: 10 - i, title: `Movie ${i + 1}` })),
       12,
@@ -25,7 +25,7 @@ describe('Recent requests on the Overview', () => {
       within(s)
         .getAllByRole('listitem')
         .map((r) => r.textContent),
-    ).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Movie ${n}`)))
+    ).toEqual([1, 2, 3].map((n) => expect.stringContaining(`Movie ${n}`)))
     expect(queries[0].get('limit')).toBe('5')
 
     await userEvent.click(within(s).getByRole('button', { name: 'All requests →' }))

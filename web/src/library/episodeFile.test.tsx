@@ -34,7 +34,11 @@ async function openSeries() {
     episode(1, 0, 1, 'Good Cop Bad Cop'),
     episode(2, 1, 1, 'Pilot', { primary_name: 'Der Einstieg', cells: { standard: cell('filled', 120, pilotFile), '4k': cell('wanted') } }),
     episode(3, 1, 2, "Cat's in the Bag...", { cells: { standard: cell('filled', 120, pilotFile), '4k': cell('wanted') } }),
-    episode(4, 1, 3, '', { air_date: null, placeholder: true, cells: { standard: cell('wanted'), '4k': cell('wanted') } }),
+    episode(4, 1, 3, '', {
+      air_date: null,
+      placeholder: true,
+      cells: { standard: cell('wanted'), '4k': cell('wanted', null, null, { at: new Date(Date.now() - 2 * 3_600_000).toISOString(), releases: 14, outcome: 'nothing_fit', reasons: [], upgrade: false }) },
+    }),
     episode(5, 2, 1, '', { air_date: null }),
   ]
   const user = userEvent.setup()
@@ -110,7 +114,13 @@ describe('the file of an episode cell', () => {
     expect(tip).toContain('WEBDL-1080p')
     expect(tip).toContain('2.0 GB')
     expect(tip).toContain(pilotPath)
-    expect(within(grid).getByRole('button', { name: 'Season 1 episode 3 Standard: Wanted' }).getAttribute('title')).toBe('Standard: Wanted')
+    expect(within(grid).getByRole('button', { name: 'Season 1 episode 3 Standard: Wanted' }).getAttribute('title')).toBe('Standard: Wanted\nNot searched yet')
+  })
+
+  it('says in the tooltip of a Wanted cell when it was last searched, how many releases named it and how it ended', async () => {
+    const { grid } = await openSeries()
+    const tip = within(grid).getByRole('button', { name: 'Season 1 episode 3 4K: Wanted' }).getAttribute('title')
+    expect(tip).toContain('Last searched 2 h ago · 14 releases · none fit the Profile')
   })
 
   it('opens a popover on click laid out like the mockup, whose Copy Path button copies the path', async () => {

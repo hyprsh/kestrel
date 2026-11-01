@@ -720,7 +720,7 @@ describe('Activity on a phone', () => {
     fakeGrabs([grabEntry({ grab_id: 2, state: 'imported' }), grabEntry({ grab_id: 3, state: 'failed' })])
     renderApp()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Filter' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Views and filter' }))
     const failed = await screen.findByRole('menuitemcheckbox', { name: /^Failed/ })
     await waitFor(() => expect(failed).toHaveTextContent('1'))
     expect(screen.getByRole('menuitemcheckbox', { name: /^Everything/ })).toHaveAttribute('aria-checked', 'true')

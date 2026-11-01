@@ -1,6 +1,6 @@
 // chrome: layout
 import { Button, Menu, MenuDivider, MenuItem, MenuSection, parseQuery, termText, withoutTerm, withoutValue, withValue, type Term } from '@hyprsh/design'
-import { ArrowUpDown, Funnel, Minus, MinusCircle } from 'lucide-react'
+import { ArrowUpDown, Minus, MinusCircle, SlidersHorizontal } from 'lucide-react'
 import { Fragment, useRef, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
 import type { Facet } from '../filter/qualifiers'
@@ -17,13 +17,13 @@ const filterText = (count: number) => (count > 0 ? `Filter · ${count}` : 'Filte
  * FacetFilterButton, which holds that field's facets.
  */
 export function FilterButton({ count, label = 'Filter', children }: { count: number; /** The phone button's name, when its menu holds more than the filter. */ label?: string; children: ReactNode }) {
-  // A phone has one line for the bar, so the button is a funnel with the count as its badge; its name stays "Filter".
+  // A phone has one line for the bar, so the button is the sliders icon with the count as its badge; its name stays "Filter".
   const phone = usePhone()
   return (
     <Menu.Container position="bottom-start">
       {phone ? (
         <Menu.Button variant="secondary" size="medium" svgOnly aria-label={label} badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
-          <Funnel />
+          <SlidersHorizontal />
         </Menu.Button>
       ) : (
         <Menu.Button variant="secondary" size="small" showChevron>

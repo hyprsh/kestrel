@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
+import { FacetFilterButton } from '../layout/FilterButton'
 import { FilterStrip } from '../layout/FilterStrip'
 import { SidePanel } from '../layout/SidePanel'
 import { useKey, useListNav } from '../keys'
@@ -41,17 +42,28 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
     document.getElementById('requests-filter')?.focus()
   })
 
-  const filter = <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} />
+  const filter = <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} menus={false} />
+  const menu = <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
   const total = list.data && <span className="label-12 text-gray-900 tabular">{list.data.pages[0].total} in all</span>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {phone ? (
-        <SidePanel title="Requests" filter={filter} controls={total} />
+        <SidePanel
+          title="Requests"
+          filter={filter}
+          controls={
+            <>
+              {menu}
+              {total}
+            </>
+          }
+        />
       ) : (
         <>
           <h1 className="heading-20 px-4 pt-6 pb-2">Requests</h1>
           <FilterStrip>
             {filter}
+            {menu}
             {total}
           </FilterStrip>
         </>

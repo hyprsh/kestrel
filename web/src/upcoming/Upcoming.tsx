@@ -81,7 +81,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   // The day the agenda is at (the first one under its top edge, or the one asked for): its week is the one the header and the
   // calendar show.
   const [shown, setShown] = useState(today)
-  const week = weekStart(shown)
+  const week = weekStart(shown, today)
   // A day the agenda is to scroll to once the months holding it have loaded.
   const [wanted, setWanted] = useState<{ day: string; behavior: ScrollBehavior } | null>(null)
   const releases = useMemo(() => {
@@ -357,6 +357,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
               query={query}
               onQuery={onQuery}
               qualifiers={upcomingQualifiers}
+              label={phone ? 'Views and filter' : undefined}
               // A phone's panel shows no Views, so they are the first section of its Filter menu.
               lead={
                 phone ? (

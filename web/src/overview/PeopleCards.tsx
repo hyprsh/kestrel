@@ -47,7 +47,7 @@ export function RequestsCard({ stats }: { stats: Stats }) {
   return (
     <StatCard title="Requests">
       <div className="grid grid-cols-3 gap-3">
-        <Figure value={String(r.total)} label={`requested, ${rangeOf(stats.range).short}`} />
+        <Figure value={String(r.total)} label={stats.range === '30d' ? 'this month' : `in the last ${rangeOf(stats.range).short}`} />
         <Figure value={r.median_fulfil_seconds === null ? '—' : span(r.median_fulfil_seconds * 1000)} label="median to fulfil" />
         <Figure value={String(r.searching)} label="still searching" warn={r.searching > 0} />
       </div>

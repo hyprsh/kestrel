@@ -18,7 +18,7 @@ import { HappeningNow, useHappeningNow } from './HappeningNow'
 import { QualityCard, StorageCard } from './LibraryCards'
 import { GroupsCard, RequestsCard } from './PeopleCards'
 import { RecentRequests } from './RecentRequests'
-import { firstFive } from './Section'
+import { firstThree } from './Section'
 import { ranges } from './statsText'
 import { Tiles } from './Tiles'
 import type { OverviewNav } from './nav'
@@ -36,9 +36,9 @@ export function Overview({
   const [range, setRange] = useState<StatsRange>('30d')
   const stats = useStats(range)
   const happening = useHappeningNow(onOpen, onOpenTitle, onOpenAdoption)
-  const recentItems = firstFive(useRecent().data?.items ?? [])
-  const requests = firstFive(useRecentRequests().data?.items ?? [])
-  const coming = firstFive(useUpcoming(6).data ?? [])
+  const recentItems = firstThree(useRecent().data?.items ?? [])
+  const requests = firstThree(useRecentRequests().data?.items ?? [])
+  const coming = firstThree(useUpcoming(6).data ?? [])
 
   // One selection runs through every row in the order the screen reads: Happening now (its Needs attention
   // rows, then its groups, then the Downloading card, then the Searching card), then the second row left to right: Recently added, Recent requests, Coming this

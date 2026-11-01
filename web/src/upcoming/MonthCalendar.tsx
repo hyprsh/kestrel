@@ -42,14 +42,14 @@ export function gridDays(month: string): string[] {
   return Array.from({ length: count }, (_, i) => dayString(0, new Date(first.getFullYear(), first.getMonth(), 1 - lead + i, 12)))
 }
 
-/** Whether a day is in the week that starts on `monday`. */
-const inWeek = (day: string, monday: string) => day >= monday && day <= addDays(monday, 6)
+/** Whether a day is in the week that starts on `first`. */
+const inWeek = (day: string, first: string) => day >= first && day <= addDays(first, 6)
 
 const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const name = (day: string) => at(day).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
 /**
- * `releases` counts the entries by day; a day with some gets a dot. `week` is the Monday of the week the Agenda shows, shaded.
+ * `releases` counts the entries by day; a day with some gets a dot. `week` is the first day of the week the Agenda shows, shaded.
  * The month's name is the group's label, and the previous and next buttons move `month` (a YYYY-MM-01 day).
  */
 export function MonthCalendar({

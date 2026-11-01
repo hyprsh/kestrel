@@ -5,6 +5,7 @@ import { cx } from '../ui'
 import { dotOf, size, type Dot } from './bits'
 import type { CellLike } from './cellDetail'
 import { audioLine, qualityLine, type MediaFacts } from './media'
+import { lastSearchLine } from './WantedLine'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
 type EpisodeFile = components['schemas']['EpisodeFile']
@@ -92,6 +93,7 @@ export function FileDetailsPopover({
   dot,
   file,
   note,
+  lastSearch,
   trigger,
   onUpgrade,
   position = 'bottom-end',
@@ -101,6 +103,8 @@ export function FileDetailsPopover({
   dot: Dot
   file: FileFacts
   note?: string
+  /** When the Version or episode was last searched, with what came of it; a row of the grid. */
+  lastSearch?: string
   trigger: ReactElement
   onUpgrade?: () => void
   position?: 'bottom-start' | 'bottom-end'
@@ -124,6 +128,7 @@ export function FileDetailsPopover({
   rows.push(['Size', size(file.size)])
   if (on) rows.push(['Imported', file.release_group ? `${on}, from ${file.release_group}` : on])
   else if (file.release_group) rows.push(['Group', file.release_group])
+  if (lastSearch) rows.push(['Searched', lastSearch])
   const formats = file.custom_formats ?? []
   return (
     <Popover trigger={trigger} label={label} position={position} width={340}>
@@ -221,6 +226,7 @@ export function EpisodeFilePopover({
       dot={dotOf(cell.state, false)}
       file={{ ...file, score: cell.score }}
       note={others > 1 ? `This file holds ${others} episodes` : undefined}
+      lastSearch={cell.last_search ? lastSearchLine(cell.last_search, Date.now()).replace(/^Last searched /, '') : undefined}
       trigger={trigger}
       onUpgrade={onUpgrade}
     />
@@ -231,7 +237,7 @@ export function EpisodeFilePopover({
 export function CellPopover({ label, text, trigger }: { label: string; text: string; trigger: ReactElement }) {
   return (
     <Popover trigger={trigger} label={`${label} state`} position="bottom-end" width={240}>
-      <p className="label-13 text-gray-1000">{text}</p>
+      <p className="label-13 whitespace-pre-line text-gray-1000">{text}</p>
     </Popover>
   )
 }

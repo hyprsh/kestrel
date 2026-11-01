@@ -188,8 +188,8 @@ describe('Upcoming timeline', () => {
     const before = within(timeline()).getByText('Past Show')
     const after = within(timeline()).getByText('Paddington')
     expect(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // Mon 19 and Sat 24 have entries; the other days of the week of Thu 22 Oct are one line.
-    expect(within(timeline()).getByText('Nothing on Tue 20 – Fri 23, Sun 25')).toBeInTheDocument()
+    // Weeks roll from today: Oct 19 is in the week before, and Sat 24 has an entry in the week of Thu 22 Oct, whose other days are runs.
+    expect(within(timeline()).getByText('Nothing on Thu 22 – Fri 23, Sun 25 – Wed 28')).toBeInTheDocument()
   })
 
   it('labels the days relatively in the date column', async () => {
@@ -615,7 +615,7 @@ describe('Upcoming: the side panel', () => {
     await openUpcoming()
     expect(screen.queryByRole('button', { name: /^Display/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Calendar' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Views and filter' }))
     expect(await screen.findByRole('menuitemradio', { name: /Everything/ })).toBeInTheDocument()
     expect(screen.getByRole('menuitemradio', { name: /Not monitored/ })).toBeInTheDocument()
   })
@@ -772,9 +772,9 @@ describe('Upcoming: the Agenda display', () => {
     await openUpcoming()
     const header = within(screen.getByRole('region', { name: 'Week' }))
     expect(header.getByRole('heading', { name: 'This week' })).toBeInTheDocument()
-    expect(header.getByText('Oct 19 – 25')).toBeInTheDocument()
+    expect(header.getByText('Oct 22 – 28')).toBeInTheDocument()
     const cards = () => within(screen.getByRole('list', { name: 'The week in numbers' })).getAllByRole('listitem')
-    expect(cards().map((c) => c.textContent)).toEqual(['3episodes airing', '1Movie released', '2searched when out', '1already in the Library'])
+    expect(cards().map((c) => c.textContent)).toEqual(['2episodes airing', '1Movie released', '2searched when out', '0already in the Library'])
   })
 
   it('moves by week with the arrows and comes back with Today', async () => {
@@ -783,10 +783,10 @@ describe('Upcoming: the Agenda display', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next week' }))
     const header = within(screen.getByRole('region', { name: 'Week' }))
     expect(header.getByRole('heading', { name: 'Next week' })).toBeInTheDocument()
-    expect(header.getByText('Oct 26 – Nov 1')).toBeInTheDocument()
+    expect(header.getByText('Oct 29 – Nov 4')).toBeInTheDocument()
     expect(within(screen.getByRole('list', { name: 'The week in numbers' })).getAllByRole('listitem')[1]).toHaveTextContent('1Movie released')
     await userEvent.click(screen.getByRole('button', { name: 'Next week' }))
-    expect(header.getByRole('heading', { name: 'Week of Nov 2' })).toBeInTheDocument()
+    expect(header.getByRole('heading', { name: 'Week of Nov 5' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Previous week' }))
     await userEvent.click(screen.getByRole('button', { name: 'Previous week' }))
     await userEvent.click(screen.getByRole('button', { name: 'Previous week' }))
@@ -804,9 +804,9 @@ describe('Upcoming: the Agenda display', () => {
         .getAllByRole('button')
         .filter((b) => b.hasAttribute('data-week'))
         .map((b) => b.textContent)
-    expect(shaded()).toEqual(['19', '20', '21', '22', '23', '24', '25'])
+    expect(shaded()).toEqual(['22', '23', '24', '25', '26', '27', '28'])
     await userEvent.click(screen.getByRole('button', { name: 'Next week' }))
-    expect(shaded()).toEqual(['26', '27', '28', '29', '30', '31', '1'])
+    expect(shaded()).toEqual(['29', '30', '31', '1'])
   })
 
   it("draws the date column with the weekday, the day number and how far away it is, beside that day's card", async () => {
@@ -823,21 +823,21 @@ describe('Upcoming: the Agenda display', () => {
   it('collapses runs of empty days into one muted line', async () => {
     fakeAgenda([episode({ date: day(-3), title_id: 5, title: 'Monday Show' }), movie({ date: day(2) })])
     await openUpcoming()
-    // Mon 19 and Sat 24 have entries; Tue-Fri is a run, Sun 25 a day of its own.
-    expect(within(timeline()).getByText('Nothing on Tue 20 – Fri 23, Sun 25')).toBeInTheDocument()
+    // Sat 24 has an entry in the week of Thu 22: Thu-Fri is a run, Sun 25 to Wed 28 another.
+    expect(within(timeline()).getByText('Nothing on Thu 22 – Fri 23, Sun 25 – Wed 28')).toBeInTheDocument()
   })
 
   it('merges whole empty weeks into one line, and keeps the week of today apart', async () => {
     fakeAgenda([movie({ date: day(-3), title: 'Early' }), movie({ date: day(23), title_id: 3, title: 'Late' })])
     await openUpcoming()
-    // Weeks of 26 Oct and 2 Nov are empty; 9 Nov has Late (Nov 14).
-    expect(within(timeline()).getByText('Nothing on Mon 26 Oct – Sun 8 Nov')).toBeInTheDocument()
+    // The weeks of 29 Oct and 5 Nov are empty; 12 Nov has Late (Nov 14).
+    expect(within(timeline()).getByText('Nothing on Thu 29 Oct – Wed 11 Nov')).toBeInTheDocument()
   })
 
   it("shows today's week even when it holds nothing", async () => {
     fakeAgenda([movie({ date: day(30), title: 'Far' })])
     await openUpcoming()
-    expect(within(timeline()).getByText(/^Nothing on Mon 19 – Sun 25$/)).toBeInTheDocument()
+    expect(within(timeline()).getByText(/^Nothing on Thu 22 – Wed 28$/)).toBeInTheDocument()
   })
 
   it("names the Movie's release and offers Search now only on an entry that is out and not found", async () => {
@@ -954,7 +954,7 @@ describe('Upcoming: the Display switch and the Month display', () => {
     expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Month' })).not.toBeInTheDocument()
     expect(localStorage.getItem('kestrel.upcoming.display')).toBe('agenda')
-    expect(within(screen.getByRole('region', { name: 'Week' })).getByText('Oct 19 – 25')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Week' })).getByText('Oct 22 – 28')).toBeInTheDocument()
     expect(within(timeline()).getByText('Five')).toBeInTheDocument()
   })
 
@@ -992,7 +992,7 @@ describe('Upcoming: on a phone', () => {
     const strip = within(screen.getByRole('group', { name: 'This week' }))
     const days = strip.getAllByRole('button')
     expect(days).toHaveLength(7)
-    expect(days[0]).toHaveAccessibleName(/^Monday, October 19/)
+    expect(days[0]).toHaveAccessibleName(/^Thursday, October 22, today/)
     expect(strip.getAllByTestId('week-dot').filter((d) => d.hasAttribute('data-due'))).toHaveLength(2)
     expect(strip.getByRole('button', { name: /Thursday, October 22, today, 1 due/ })).toHaveAttribute('aria-current', 'date')
     expect(strip.getByRole('button', { name: /Thursday/ })).toHaveAttribute('aria-pressed', 'true')

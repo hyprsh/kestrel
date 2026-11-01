@@ -277,7 +277,7 @@ describe('Library quality, Storage, release groups and Requests', () => {
     fakeStats()
     renderOverview()
     const card = await screen.findByRole('region', { name: 'Requests' })
-    expect(card).toHaveTextContent('14requested, 30 d')
+    expect(card).toHaveTextContent('14this month')
     expect(card).toHaveTextContent('1 d 4 hmedian to fulfil')
     expect(card).toHaveTextContent('2still searching')
     expect(card).toHaveTextContent('Ellie (Plex)')

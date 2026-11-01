@@ -56,7 +56,7 @@ export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean })
   const columns = phone ? NARROW : WIDE
   const noRates = ixs.length > 0 && ixs.every((i) => i.hit_rate === null)
   return (
-    <StatCard title="Indexers" aside={best && <Badge variant="blue" contrast="low" size="sm">{`Best: ${best.name}`}</Badge>}>
+    <StatCard title="Indexers" aside={best && <Badge variant="green" contrast="low" size="sm">{`Best: ${best.name}`}</Badge>}>
       {ixs.length === 0 ? (
         <p className="label-13 m-0 text-gray-900">No indexer was asked or grabbed from in this range.</p>
       ) : (

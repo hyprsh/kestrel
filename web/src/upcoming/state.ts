@@ -61,30 +61,33 @@ export const dayLabel = dated
 /** The day `n` days after (or before, when negative) a YYYY-MM-DD day. */
 export const addDays = (day: string, n: number) => new Date((dayNumber(day) + n) * 86_400_000).toISOString().slice(0, 10)
 
-/** The Monday of the week a day is in. */
-export const weekStart = (day: string) => addDays(day, -((dayNumber(day) + 3) % 7))
+/**
+ * The first day of the week a day is in. Weeks roll: This week starts today and runs seven days (Nov 1 – 7 when today is
+ * Nov 1), Next week follows it and Last week is the seven days before today.
+ */
+export const weekStart = (day: string, today: string) => addDays(today, Math.floor(daysFrom(today, day) / 7) * 7)
 
-/** The seven days of the week that starts on `monday`. */
-export const weekDays = (monday: string) => Array.from({ length: 7 }, (_, i) => addDays(monday, i))
+/** The seven days of the week that starts on `first`. */
+export const weekDays = (first: string) => Array.from({ length: 7 }, (_, i) => addDays(first, i))
 
 const utc = (day: string, o: Intl.DateTimeFormatOptions) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { ...o, timeZone: 'UTC' })
 
 /** "Oct 11" for a YYYY-MM-DD day. */
 const monthDay = (day: string) => utc(day, { month: 'short', day: 'numeric' })
 
-/** "Nov 2 – 8", or "Oct 26 – Nov 1" across months: the dates of the week that starts on `monday`. */
-export function weekRange(monday: string): string {
-  const end = addDays(monday, 6)
-  return `${monthDay(monday)} – ${monday.slice(5, 7) === end.slice(5, 7) ? Number(end.slice(8)) : monthDay(end)}`
+/** "Nov 1 – 7", or "Oct 29 – Nov 4" across months: the dates of the week that starts on `first`. */
+export function weekRange(first: string): string {
+  const end = addDays(first, 6)
+  return `${monthDay(first)} – ${first.slice(5, 7) === end.slice(5, 7) ? Number(end.slice(8)) : monthDay(end)}`
 }
 
 /** What the agenda's header calls a week: This week, Next week, Last week, else "Week of Nov 9". */
-export function weekTitle(today: string, monday: string): string {
-  const by = daysFrom(weekStart(today), monday) / 7
+export function weekTitle(today: string, first: string): string {
+  const by = daysFrom(today, first) / 7
   if (by === 0) return 'This week'
   if (by === 1) return 'Next week'
   if (by === -1) return 'Last week'
-  return `Week of ${monthDay(monday)}`
+  return `Week of ${monthDay(first)}`
 }
 
 /** "Mon, Nov 2": the heading of a day on the phone's agenda. */
@@ -134,12 +137,12 @@ export function entryStatus(item: UpcomingItem, queue: readonly QueueItem[]): En
 /** What a week adds up to: the episodes airing, the Movie releases, and how many entries wait for their release or are in the Library. */
 export type WeekStats = { episodes: number; movies: number; searching: number; imported: number }
 
-export function weekStats(items: readonly UpcomingItem[], monday: string, queue: readonly QueueItem[]): WeekStats {
-  const end = addDays(monday, 6)
+export function weekStats(items: readonly UpcomingItem[], first: string, queue: readonly QueueItem[]): WeekStats {
+  const end = addDays(first, 6)
   const out: WeekStats = { episodes: 0, movies: 0, searching: 0, imported: 0 }
   for (const item of items) {
     const day = localDay(item)
-    if (day < monday || day > end) continue
+    if (day < first || day > end) continue
     if (item.kind === 'series') out.episodes++
     else out.movies++
     const { kind } = entryStatus(item, queue)
@@ -185,7 +188,7 @@ function quietText(runs: readonly (readonly [string, string])[]): string {
 }
 
 /**
- * The agenda as it is drawn, week by week (Monday to Sunday): a segment per day with entries, then one quiet line
+ * The agenda as it is drawn, week by week (the weeks roll from today, see weekStart): a segment per day with entries, then one quiet line
  * for the week's other days (as runs). Weeks with no entries merge into one quiet line, except the week of today. It
  * reaches from the earlier of today and the first entry to the later of today and the last one.
  */
@@ -197,18 +200,18 @@ export function buildSegments(items: readonly UpcomingItem[], today: string): Se
   }
   const days = [...byDay.keys(), today].sort()
   const out: Segment[] = []
-  const thisWeek = weekStart(today)
+  const thisWeek = today
   let merging = false
-  for (let monday = weekStart(days[0]); monday <= days[days.length - 1]; monday = addDays(monday, 7)) {
-    const week = weekDays(monday)
+  for (let first = weekStart(days[0], today); first <= days[days.length - 1]; first = addDays(first, 7)) {
+    const week = weekDays(first)
     const empty = week.every((d) => !byDay.has(d))
-    if (empty && monday !== thisWeek) {
+    if (empty && first !== thisWeek) {
       const last = out.at(-1)
       if (merging && last?.type === 'quiet') {
-        const runs: [string, string][] = [[last.from, addDays(monday, 6)]]
-        out[out.length - 1] = { ...last, to: addDays(monday, 6), text: quietText(runs) }
+        const runs: [string, string][] = [[last.from, addDays(first, 6)]]
+        out[out.length - 1] = { ...last, to: addDays(first, 6), text: quietText(runs) }
       } else {
-        out.push({ type: 'quiet', key: `quiet-${monday}`, from: monday, to: addDays(monday, 6), week: monday, text: quietText([[monday, addDays(monday, 6)]]) })
+        out.push({ type: 'quiet', key: `quiet-${first}`, from: first, to: addDays(first, 6), week: first, text: quietText([[first, addDays(first, 6)]]) })
       }
       merging = true
       continue
@@ -218,14 +221,14 @@ export function buildSegments(items: readonly UpcomingItem[], today: string): Se
     for (const d of week) {
       const here = byDay.get(d)
       if (here) {
-        out.push({ type: 'day', key: `day-${d}`, from: d, to: d, week: monday, items: here })
+        out.push({ type: 'day', key: `day-${d}`, from: d, to: d, week: first, items: here })
       } else if (runs.length > 0 && runs[runs.length - 1][1] === addDays(d, -1)) {
         runs[runs.length - 1][1] = d
       } else {
         runs.push([d, d])
       }
     }
-    if (runs.length > 0) out.push({ type: 'quiet', key: `quiet-${monday}`, from: runs[0][0], to: runs[runs.length - 1][1], week: monday, text: quietText(runs) })
+    if (runs.length > 0) out.push({ type: 'quiet', key: `quiet-${first}`, from: runs[0][0], to: runs[runs.length - 1][1], week: first, text: quietText(runs) })
   }
   return out
 }

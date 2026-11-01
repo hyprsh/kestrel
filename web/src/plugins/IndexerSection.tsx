@@ -15,7 +15,7 @@ const contract = 'indexer.v1'
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`
 
-/** The row's status: Off, Failing with why, or OK with how long the last Test took. */
+/** The row's status: Off, Failing with why, or OK with the median time its searches take (else how long the last Test took). */
 function IndexerStatus({ instance, failing, latency }: { instance: PluginInstance; failing: string | null; latency: number | null }) {
   if (!instance.enabled)
     return (
@@ -175,7 +175,7 @@ export function IndexerSection() {
                     }
                     name={i.name}
                     address={typeof i.config.url === 'string' ? i.config.url.replace(/^https?:\/\//, '') : ''}
-                    status={<IndexerStatus instance={i} failing={failing} latency={i.last_check?.latency_ms ?? null} />}
+                    status={<IndexerStatus instance={i} failing={failing} latency={health.get(i.id)?.median_ms ?? i.last_check?.latency_ms ?? null} />}
                     grabs={n === undefined ? '' : plural(n, 'Grab')}
                     toggle={
                       <Toggle

@@ -12,6 +12,7 @@ import { EpisodeMenu, EpisodeTick, RowSearch, type EpisodeActions } from './Epis
 import { EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { EpisodeName } from './EpisodeName'
 import { cellText, grabOf, monthDay } from './cellDetail'
+import { lastSearchLine } from './WantedLine'
 import { episodeCode, episodeRow } from './episodes'
 import { rowActionsShown } from './IconAction'
 import { SlotCell } from './SlotCell'
@@ -229,7 +230,10 @@ export function EpisodeMatrix({
 /** What the tooltip of a cell adds to its state and file: the air date of a Wanted or unaired episode, a download's progress. */
 function moreOf(cell: Episode['cells'][SlotKey], episode: Episode, text: string | null, state: string): string {
   if (!cell || cell.file) return ''
-  if (cell.state === 'wanted' && episode.air_date) return `\nAired ${monthDay(episode.air_date)}`
+  if (cell.state === 'wanted') {
+    const aired = episode.air_date ? `\nAired ${monthDay(episode.air_date)}` : ''
+    return cell.last_search ? `${aired}\n${lastSearchLine(cell.last_search, Date.now())}` : `${aired}\nNot searched yet`
+  }
   if (cell.state === 'unreleased' && episode.air_date) return `\nAirs ${monthDay(episode.air_date)}`
   return text && text !== state ? `\n${text}` : ''
 }
