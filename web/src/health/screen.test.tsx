@@ -163,8 +163,11 @@ describe('Health screen', () => {
 
     await screen.findByRole('navigation')
     await userEvent.keyboard('{Control>}k{/Control}')
-    await screen.findByRole('dialog')
-    await userEvent.keyboard('health{Enter}')
+    const menu = await screen.findByRole('dialog')
+    await userEvent.keyboard('health')
+    // Enter picks the first row, so wait for the list to have settled on Health before pressing it.
+    await within(menu).findByRole('option', { name: /^Health/ })
+    await userEvent.keyboard('{Enter}')
     expect(await screen.findByRole('region', { name: 'Health' })).toBeInTheDocument()
     expect(url()).toBe('/health')
   })

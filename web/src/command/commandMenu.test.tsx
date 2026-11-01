@@ -110,8 +110,11 @@ describe('the command menu', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     await userEvent.keyboard('{Control>}k{/Control}')
-    await screen.findByRole('dialog')
-    await userEvent.keyboard('upcom{Enter}') // first match is Go to > Upcoming
+    const again = await screen.findByRole('dialog')
+    await userEvent.keyboard('upcom')
+    // Enter picks the first row, so wait for the list to have settled on Upcoming before pressing it.
+    await within(again).findByRole('option', { name: /^Upcoming/ })
+    await userEvent.keyboard('{Enter}') // first match is Go to > Upcoming
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Upcoming', level: 1 })).toBeInTheDocument()
   })
