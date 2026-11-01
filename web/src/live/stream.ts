@@ -89,7 +89,9 @@ export function startLiveStream(qc: QueryClient, deps: LiveDeps | null = browser
   let stopped = false
   let release: (() => void) | undefined
 
-  const lead = () =>
+  // `fresh` is a tab that took the lock with nobody ahead of it: it just loaded, so what it shows is as new as the
+  // stream and the refetch-everything would only repeat every request the screen made a moment ago.
+  const lead = (fresh: boolean) =>
     new Promise<void>((done) => {
       if (stopped) return done()
       const es = new deps.EventSource(deps.url)
@@ -106,15 +108,21 @@ export function startLiveStream(qc: QueryClient, deps: LiveDeps | null = browser
         if (opened) publish({ event: 'reset' })
         opened = true
       }
-      publish({ event: 'reset' })
+      if (!fresh) publish({ event: 'reset' })
       release = () => {
         es.close()
         done()
       }
     })
 
-  if (deps.locks) void deps.locks.request(LOCK, lead)
-  else void lead() // no Web Locks (very old browsers): every tab opens its own
+  const locks = deps.locks
+  if (locks) {
+    void locks.request(LOCK, { ifAvailable: true }, async (lock) => {
+      if (lock) return lead(true)
+      // Another tab leads: wait in line, and refetch when the stream passes to this tab.
+      await locks.request(LOCK, () => lead(false))
+    })
+  } else void lead(true) // no Web Locks (very old browsers): every tab opens its own
 
   return () => {
     stopped = true
