@@ -10,6 +10,47 @@ import (
 	"database/sql"
 )
 
+const eventBuckets = `-- name: EventBuckets :many
+SELECT CAST(CAST(strftime('%s', at) AS INTEGER) / CAST(?1 AS INTEGER) AS INTEGER) AS bucket, kind, COUNT(*) AS n
+FROM events WHERE at >= ?2
+GROUP BY 1, kind
+`
+
+type EventBucketsParams struct {
+	BucketSecs int64
+	Since      string
+}
+
+type EventBucketsRow struct {
+	Bucket int64
+	Kind   string
+	N      int64
+}
+
+// The events since a time, counted per kind and per bucket of bucket_secs seconds from the epoch.
+func (q *Queries) EventBuckets(ctx context.Context, arg EventBucketsParams) ([]EventBucketsRow, error) {
+	rows, err := q.db.QueryContext(ctx, eventBuckets, arg.BucketSecs, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EventBucketsRow
+	for rows.Next() {
+		var i EventBucketsRow
+		if err := rows.Scan(&i.Bucket, &i.Kind, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const eventKindCounts = `-- name: EventKindCounts :many
 SELECT kind, COUNT(*) AS n FROM events GROUP BY kind ORDER BY kind
 `

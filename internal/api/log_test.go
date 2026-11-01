@@ -3,6 +3,7 @@ package api_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/jobs"
 )
@@ -245,5 +246,48 @@ func TestTheLogSummaryCountsEventsByKindIncludingRoutineOnes(t *testing.T) {
 	}
 	if got.Oldest == nil || *got.Oldest != "2026-10-17T12:00:00Z" || got.RoutineDays != 30 {
 		t.Errorf("oldest = %v, routine_days = %d", got.Oldest, got.RoutineDays)
+	}
+}
+
+func TestTheLogHistogramCountsRecentEventsPerBucketBySeverity(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	// The tests' clock stands at noon on 2026-10-17.
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	at := now.Add(-time.Hour).Format(time.RFC3339)
+	old := now.Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	for _, row := range [][2]string{{at, "grab"}, {at, "search"}, {at, "grab_failed"}, {at, "health_raised"}, {old, "grab_failed"}} {
+		if _, err := s.in.st.Write().Exec(`INSERT INTO events (at, kind, routine, message) VALUES (?, ?, 0, 'x')`, row[0], row[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := s.valid("GET", "/events/histogram?bucket=1h&days=2", "")
+	if r.Status != 200 {
+		t.Fatalf("GET /events/histogram = %d %s", r.Status, r.Body)
+	}
+	got := decode[struct {
+		Bucket  string `json:"bucket"`
+		Buckets []struct {
+			At       string `json:"at"`
+			Events   int64  `json:"events"`
+			Warnings int64  `json:"warnings"`
+			Errors   int64  `json:"errors"`
+		} `json:"buckets"`
+	}](t, r)
+	var events, warnings, errs int64
+	for _, b := range got.Buckets {
+		events, warnings, errs = events+b.Events, warnings+b.Warnings, errs+b.Errors
+	}
+	if got.Bucket != "1h" || len(got.Buckets) < 48 || len(got.Buckets) > 50 {
+		t.Errorf("bucket = %q with %d buckets, want 1h and about 49", got.Bucket, len(got.Buckets))
+	}
+	if events != 2 || warnings != 1 || errs != 1 {
+		t.Errorf("totals = %d events, %d warnings, %d errors; want 2, 1 and 1 (the month-old failure is out of range)", events, warnings, errs)
+	}
+
+	for _, bad := range []string{"bucket=2h", "days=0", "days=91"} {
+		if r := s.valid("GET", "/events/histogram?"+bad, ""); r.Status != 422 && r.Status != 400 {
+			t.Errorf("GET /events/histogram?%s = %d, want a validation error", bad, r.Status)
+		}
 	}
 }

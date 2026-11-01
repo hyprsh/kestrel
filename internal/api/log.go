@@ -84,6 +84,33 @@ func (s *server) GetEventsSummary(ctx context.Context, _ oapi.GetEventsSummaryRe
 	return oapi.GetEventsSummary200JSONResponse(out), nil
 }
 
+// GetEventsHistogram is the Log's strip: events per bucket of time, by severity.
+func (s *server) GetEventsHistogram(ctx context.Context, r oapi.GetEventsHistogramRequestObject) (oapi.GetEventsHistogramResponseObject, error) {
+	bucket, days := oapi.GetEventsHistogramParamsBucket("4h"), 7
+	if r.Params.Bucket != nil {
+		bucket = *r.Params.Bucket
+	}
+	if r.Params.Days != nil {
+		days = *r.Params.Days
+	}
+	length, ok := map[oapi.GetEventsHistogramParamsBucket]time.Duration{"1h": time.Hour, "4h": 4 * time.Hour, "1d": 24 * time.Hour}[bucket]
+	if !ok {
+		return nil, invalid("bucket", "invalid", "bucket must be 1h, 4h or 1d")
+	}
+	if days < 1 || days > 90 {
+		return nil, invalid("days", "invalid", "days must be between 1 and 90")
+	}
+	buckets, err := s.history.Histogram(ctx, length, days)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.EventsHistogram{Bucket: oapi.EventsHistogramBucket(bucket), Buckets: make([]oapi.EventsBucket, 0, len(buckets))}
+	for _, b := range buckets {
+		out.Buckets = append(out.Buckets, oapi.EventsBucket{At: b.Start, Events: b.Events, Warnings: b.Warnings, Errors: b.Errors})
+	}
+	return oapi.GetEventsHistogram200JSONResponse(out), nil
+}
+
 // slotsOf is a Slot filter's values; field names it in the error.
 func slotsOf(field string, slots *[]oapi.Slot) ([]string, error) {
 	if slots == nil {

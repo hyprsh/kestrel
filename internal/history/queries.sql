@@ -33,3 +33,9 @@ SELECT kind, COUNT(*) AS n FROM events GROUP BY kind ORDER BY kind;
 
 -- name: OldestEventAt :one
 SELECT CAST(COALESCE(MIN(at), '') AS TEXT) FROM events;
+
+-- The events since a time, counted per kind and per bucket of bucket_secs seconds from the epoch.
+-- name: EventBuckets :many
+SELECT CAST(CAST(strftime('%s', at) AS INTEGER) / CAST(sqlc.arg(bucket_secs) AS INTEGER) AS INTEGER) AS bucket, kind, COUNT(*) AS n
+FROM events WHERE at >= sqlc.arg(since)
+GROUP BY 1, kind;
