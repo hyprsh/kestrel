@@ -1,8 +1,9 @@
 // The Library's Status section of the Filter menu (All, Wanted, Long Missing, Downloading, Unreleased, Unmonitored,
-// each with its count) and its view controls: the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
+// each with its count) and the panel's actions: the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
 // Add Title.
 import { Button, DotsMenu, MenuItem, MenuSection } from '@hyprsh/design'
 import { Plus } from 'lucide-react'
+import { usePhone } from '../responsive'
 import { stateTabs, type StateTab } from './filter'
 
 /**
@@ -46,10 +47,12 @@ export function LibraryMenu({ onAdopt, onCleanup, onTick }: { onAdopt: () => voi
   )
 }
 
+/** The panel's primary action: a "+" icon button named Add Title (a phone's is a touch size larger). */
 export function AddTitle({ onAdd }: { onAdd: () => void }) {
+  const phone = usePhone()
   return (
-    <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
-      Add Title
+    <Button variant="primary" size={phone ? 'medium' : 'small'} svgOnly aria-label="Add Title" onClick={onAdd}>
+      <Plus />
     </Button>
   )
 }

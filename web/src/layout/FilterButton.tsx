@@ -38,7 +38,7 @@ export function FilterButton({ count, children }: { count: number; children: Rea
 }
 
 /** The query with `value` taken out of the excluded `name:` terms (`-slot:4k`), which the design's withoutValue leaves alone. */
-function withoutExcluded(text: string, name: string, value: string, qualifiers: readonly Facet[]): string {
+export function withoutExcluded(text: string, name: string, value: string, qualifiers: readonly Facet[]): string {
   const terms = parseQuery(text, qualifiers).terms
   const i = terms.findIndex((t: Term) => t.name === name && t.excluded && t.values.includes(value))
   if (i < 0) return text
@@ -196,7 +196,7 @@ function sortChoice(query: string, onQuery: (query: string) => void, qualifiers:
   return { facet, rows, chosen, set }
 }
 
-/** The Sort button: "Sort: Newest added" with its rows as radio items; a phone's one line has an icon button named "Sort". */
+/** The Sort button: "Newest added" (named "Sort: Newest added") with its rows as radio items; a phone's one line has an icon button named "Sort". */
 export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { query: string; onQuery: (query: string) => void; qualifiers: readonly Facet[]; name?: string }) {
   const phone = usePhone()
   const choice = sortChoice(query, onQuery, qualifiers, name)
@@ -205,12 +205,13 @@ export function SortButton({ query, onQuery, qualifiers, name = 'sort' }: { quer
   return (
     <Menu.Container position="bottom-start">
       {phone ? (
-        <Menu.Button variant="secondary" size="small" svgOnly aria-label="Sort">
+        <Menu.Button variant="secondary" size="small" svgOnly aria-label={`${facet.label}: ${chosen.label}`}>
           <ArrowUpDown />
         </Menu.Button>
       ) : (
-        <Menu.Button variant="secondary" size="small" showChevron>
-          {`${facet.label}: ${chosen.label}`}
+        // The chosen row names the button ("Newest added"); the name keeps the "Sort: " a screen reader needs to know what it is.
+        <Menu.Button variant="secondary" size="small" showChevron aria-label={`${facet.label}: ${chosen.label}`}>
+          {chosen.label}
         </Menu.Button>
       )}
       <Menu width={220} className="max-h-[min(32rem,70vh)] overflow-y-auto">

@@ -29,7 +29,7 @@ describe('the empty shell', () => {
   it('switches the screen title when a rail item is chosen', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
   })
 
   it('goes back to the Overview when the Kestrel logo is clicked', async () => {

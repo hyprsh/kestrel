@@ -1,9 +1,9 @@
-// The Geist shell: a thin icon rail plus a top bar with the command-menu entry.
+// The Geist shell: a thin icon rail, and beside it each screen's SidePanel (layout/SidePanel.tsx) or, for a screen without one yet, a heading line.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
-import { Button, CommandMenuTrigger, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
+import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -33,8 +33,9 @@ import { Settings as SettingsScreen } from '../screens/Settings'
 import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { KestrelLogo } from '../ui'
 import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
-import { ScreenBarPlacesContext } from '../layout/ScreenBar'
-import { PhoneTopBar, TopBar as TopBarFrame } from '../layout/TopBar'
+import { ScreenHeading } from '../layout/ScreenHeading'
+import { SidePanelPhoneContext } from '../layout/SidePanel'
+import { PhoneTopBar } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { HealthButton } from './HealthButton'
@@ -59,10 +60,11 @@ const health = { key: 'health', label: 'Health', icon: <HeartPulse /> }
 const tabKeys = ['overview', 'library', 'upcoming', 'activity']
 // Settings and Log first, then the screens a phone reaches only from here (Requests also from the Overview), About last.
 const moreKeys = ['settings', 'log', 'requests', 'adoption', 'cleanup', 'about']
-// Short names for the More sheet; the top bar keeps the long ones.
+// Short names for the More sheet; a screen's heading keeps the long ones.
 const moreLabels: Record<string, string> = { adoption: 'Adoption', cleanup: 'Clean up' }
-// The screens that put their own bar in the middle of a desktop's top bar, in place of the command box.
-const barScreens = ['library', 'upcoming', 'activity', 'log']
+// The screens that carry their own name in a SidePanel (see layout/SidePanel.tsx), so the Shell adds no heading above them.
+// Phase 2 adds Log, Upcoming, Settings, Activity and Health as they move over.
+const panelScreens = ['library']
 const isTitleId = (section: string) => /^\d+$/.test(section)
 const isPlace = (key: string) => [...screens, about, requests, health].some((s) => s.key === key)
 
@@ -82,10 +84,6 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   // On a phone Settings' list and an opened section are two screens; "/settings/indexers" is the second.
   const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
   const [more, setMore] = useState(false)
-  // Where a screen's bar goes in a desktop's top bar (see ScreenBar); a phone has none.
-  const [barMiddle, setBarMiddle] = useState<HTMLElement | null>(null)
-  const [barEnd, setBarEnd] = useState<HTMLElement | null>(null)
-  const barPlaces = useMemo(() => (phone ? undefined : { middle: barMiddle, end: barEnd }), [phone, barMiddle, barEnd])
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
   // The text of a screen's filter field (the Library's or the Log's); another screen starts unfiltered.
@@ -125,6 +123,13 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const logout = useLogout()
   const current = [...screens, about, adoption, cleanup, requests, health].find((s) => s.key === screen)!
   const running = useRunningNow()
+  // What a phone's header shows before the screen's own actions: what runs and Health. A desktop has them in the rail.
+  const phoneExtras = (
+    <>
+      <RunningIndicator running={running} onOpen={() => goPath('/health/jobs')} phone />
+      <HealthButton tooltipPosition="bottom" active={screen === 'health'} />
+    </>
+  )
 
   // Every open tab stays live through one shared stream; the cache refetches on its hints.
   const queryClient = useQueryClient()
@@ -250,22 +255,32 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     <CleanupLauncher.Provider value={openCleanup}>
       <PlaceOpener.Provider value={goPath}>
         <EpisodeViewContext.Provider value={{ view: episodeView, setView: setEpisodeView }}>
-          <ScreenBarPlacesContext.Provider value={barPlaces}>
+          <SidePanelPhoneContext.Provider value={phoneExtras}>
             <div className="flex h-full">
-              {!phone && <Rail screen={screen} onSelect={setScreen} theme={theme} onTheme={setTheme} onAdd={() => setMenu({ mode: 'add' })} onSearch={() => setMenu({ mode: 'root' })} />}
-              <div className="flex min-w-0 flex-1 flex-col">
-                <TopBar
-                  title={current.label}
-                  phone={phone}
-                  bar={barScreens.includes(screen)}
-                  onBarMiddle={setBarMiddle}
-                  onBarEnd={setBarEnd}
-                  onOpenMenu={() => setMenu({ mode: 'root' })}
-                  onAdd={() => setMenu({ mode: 'add' })}
+              {!phone && (
+                <Rail
+                  screen={screen}
+                  onSelect={setScreen}
                   running={running}
                   onOpenRunning={() => goPath('/health/jobs')}
-                  healthOpen={screen === 'health'}
+                  theme={theme}
+                  onTheme={setTheme}
+                  onAdd={() => setMenu({ mode: 'add' })}
+                  onSearch={() => setMenu({ mode: 'root' })}
                 />
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                {!panelScreens.includes(screen) &&
+                  (phone ? (
+                    <PhoneTopBar title={current.label}>
+                      {phoneExtras}
+                      <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={() => setMenu({ mode: 'add' })}>
+                        <Plus />
+                      </Button>
+                    </PhoneTopBar>
+                  ) : (
+                    <ScreenHeading>{current.label}</ScreenHeading>
+                  ))}
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
                 <BlockingBanner onOpen={goPath} />
                 <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
@@ -320,7 +335,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
               )}
               {menu && <CommandMenu initialMode={menu.mode} actions={actions} places={places} onClose={closeMenu} onGo={setScreen} onOpenTitle={openTitle} />}
             </div>
-          </ScreenBarPlacesContext.Provider>
+          </SidePanelPhoneContext.Provider>
         </EpisodeViewContext.Provider>
       </PlaceOpener.Provider>
     </CleanupLauncher.Provider>
@@ -371,6 +386,8 @@ function Rail({
   onTheme,
   onAdd,
   onSearch,
+  running,
+  onOpenRunning,
 }: {
   screen: string
   onSelect: (key: string) => void
@@ -378,6 +395,8 @@ function Rail({
   onTheme: (theme: Theme) => void
   onAdd: () => void
   onSearch: () => void
+  running: Running[]
+  onOpenRunning: () => void
 }) {
   const logout = useLogout()
   const auth = useAuth()
@@ -409,6 +428,7 @@ function Rail({
         </RailButton>
       ))}
       <RailSpacer />
+      <RailRunning running={running} onOpen={onOpenRunning} />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
       <HealthButton tooltipPosition="right" active={screen === 'health'} />
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
@@ -425,80 +445,34 @@ function Rail({
   )
 }
 
-/** The desktop header: the title, then the command box or the screen's own bar, then what runs and the screen's menu and action. */
-function TopBar({
-  title,
-  phone,
-  bar,
-  onBarMiddle,
-  onBarEnd,
-  onOpenMenu,
-  onAdd,
-  running,
-  onOpenRunning,
-  healthOpen,
-}: {
-  title: string
-  phone: boolean
-  /** Whether the screen puts its own bar in the middle, in place of the command box. */
-  bar: boolean
-  onBarMiddle: (el: HTMLElement | null) => void
-  onBarEnd: (el: HTMLElement | null) => void
-  onOpenMenu: () => void
-  onAdd: () => void
-  running: Running[]
-  onOpenRunning: () => void
-  /** Whether the Health screen is the one shown, for the Health button. */
-  healthOpen: boolean
-}) {
-  // A phone has no room for the search box: the title, what runs, Health and Add; Search is the tab bar's accessory.
-  if (phone)
-    return (
-      <PhoneTopBar title={title}>
-        <RunningIndicator running={running} onOpen={onOpenRunning} phone />
-        <HealthButton tooltipPosition="bottom" active={healthOpen} />
-        <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={onAdd}>
-          <Plus />
-        </Button>
-      </PhoneTopBar>
-    )
-  return (
-    <TopBarFrame
-      title={title}
-      bar={bar}
-      end={
-        <>
-          <RunningIndicator running={running} onOpen={onOpenRunning} />
-          {/* The screen's "…" menu and primary action. */}
-          {bar && <div ref={onBarEnd} className="flex items-center gap-2 empty:hidden" />}
-        </>
-      }
-    >
-      {bar ? (
-        <div ref={onBarMiddle} className="flex min-w-0 items-center gap-2" />
-      ) : (
-        /* A button that opens the menu, styled as the search box it stands for. */
-        <CommandMenuTrigger size="small" aria-label="Search or run a command" onClick={onOpenMenu} className="w-full">
-          Search or run a command…
-        </CommandMenuTrigger>
-      )}
-    </TopBarFrame>
-  )
-}
-
-/** Quiet while nothing runs; a dot and what runs, or how many things do, while work does. */
-function RunningIndicator({ running, onOpen, phone = false }: { running: Running[]; onOpen: () => void; phone?: boolean }) {
-  if (running.length === 0) return null
+/** What runs, in a few words: "Searching 15/40", "Searching 1/4 · 12 releases" (off a phone's narrow header), or how many things run. */
+function runningLabel(running: Running[], phone: boolean) {
   const [one] = running
   // The count takes the ellipsis's place: "Searching 15/40". A search pass adds the Releases checked, off a phone's narrow bar.
   const counted = one.progress?.total ? `${one.short.replace(/…$/, '')} ${one.progress.done}/${one.progress.total}` : null
   const progress = counted && one.releases && !phone ? `${counted} · ${plural(one.releases, 'release')}` : counted
-  const label = running.length > 1 ? `${running.length} running` : (progress ?? one.short)
-  // The tooltip, which a screen reader gets as the description, names what runs and what is searched now.
-  const tip = running.map((r) => (r.now ? `${r.name}\n${r.now}` : r.name)).join('\n')
+  return running.length > 1 ? `${running.length} running` : (progress ?? one.short)
+}
+
+/** The tooltip, which a screen reader gets as the description, names what runs and what is searched now. */
+const runningTip = (running: Running[]) => running.map((r) => (r.now ? `${r.name}\n${r.now}` : r.name)).join('\n')
+
+/** A phone header's mark for work in progress: a dot and what runs, or how many things do. Quiet while nothing runs. */
+function RunningIndicator({ running, onOpen, phone = false }: { running: Running[]; onOpen: () => void; phone?: boolean }) {
+  if (running.length === 0) return null
   return (
-    <Button variant="tertiary" size="small" onClick={onOpen} title={tip} prefix={<StatusDot state="info" label={false} aria-hidden />}>
-      {label}
+    <Button variant="tertiary" size="small" onClick={onOpen} title={runningTip(running)} prefix={<StatusDot state="info" label={false} aria-hidden />}>
+      {runningLabel(running, phone)}
+    </Button>
+  )
+}
+
+/** The rail's mark for work in progress: a dot that opens the jobs, named by what runs (the same words a phone's header shows). */
+function RailRunning({ running, onOpen }: { running: Running[]; onOpen: () => void }) {
+  if (running.length === 0) return null
+  return (
+    <Button svgOnly variant="tertiary" aria-label={runningLabel(running, false)} title={runningTip(running)} onClick={onOpen}>
+      <StatusDot state="info" label={false} aria-hidden />
     </Button>
   )
 }

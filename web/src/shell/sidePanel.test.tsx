@@ -1,5 +1,5 @@
-// The desktop top bar: the command box on the screens that have none of their own, a screen's bar in its place on the four
-// that do, and the rail's search button for the command menu either way.
+// The desktop shell: no top bar; the Library's SidePanel holds its name, filter, Filter, Sort and actions, the screens
+// without a panel keep a heading line, and the rail's search button opens the command menu either way.
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -11,44 +11,57 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 beforeEach(() => history.replaceState(null, '', '/'))
 
-describe('the desktop top bar', () => {
-  it('has the command box on the Overview, and no Health in it', async () => {
+describe('the desktop shell without a top bar', () => {
+  it('has a heading line and no command box on the Overview, and Health in the rail only', async () => {
     renderApp()
     const bar = await screen.findByRole('banner')
-    expect(within(bar).queryByRole('button', { name: /^Health/ })).not.toBeInTheDocument()
+    expect(bar).toHaveTextContent('Overview')
+    expect(within(bar).queryByRole('button')).not.toBeInTheDocument()
     expect(await within(screen.getByRole('navigation')).findByRole('button', { name: /^Health/ })).toBeInTheDocument()
-    expect(within(bar).getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument()
-    expect(within(bar).queryByRole('combobox')).not.toBeInTheDocument()
   })
 
-  it("holds the Library's filter, Filter and Sort, and no command box, on the Library", async () => {
+  it("holds the Library's name, actions, filter, Filter and Sort in its side panel, and no heading line", async () => {
     fakeLibrary([row(1, 'Heat', 'Heat')])
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const bar = screen.getByRole('banner')
-    expect(await within(bar).findByRole('combobox', { name: 'Filter the Library' })).toBeInTheDocument()
-    expect(within(bar).getByRole('button', { name: /^Filter/ })).toBeInTheDocument()
-    expect(within(bar).getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
-    expect(within(bar).getByRole('button', { name: 'Add Title' })).toBeInTheDocument()
+    const panel = await screen.findByRole('complementary', { name: 'Library' })
+    expect(within(panel).getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    expect(await within(panel).findByRole('combobox', { name: 'Filter the Library' })).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: /^Filter/ })).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: /^Sort/ })).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: 'Library actions' })).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: 'Add Title' })).toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Search or run a command' })).not.toBeInTheDocument()
   })
 
-  it('keeps `/` focusing the filter that sits in the top bar', async () => {
+  it('shows an active filter as a chip that removes it, and counts it in Filter', async () => {
+    fakeLibrary([row(1, 'Heat', 'Heat')])
+    history.replaceState(null, '', '/library?q=is%3Awanted')
+    renderApp()
+    const panel = await screen.findByRole('complementary', { name: 'Library' })
+    expect(within(panel).getByRole('button', { name: 'Filter · 1' })).toBeInTheDocument()
+    await userEvent.click(within(panel).getByRole('button', { name: 'Remove Wanted' }))
+    expect(within(panel).queryByRole('button', { name: 'Remove Wanted' })).not.toBeInTheDocument()
+    expect(within(panel).getByRole('combobox', { name: 'Filter the Library' })).toHaveValue('')
+  })
+
+  it('keeps `/` focusing the filter field in the side panel', async () => {
     fakeLibrary([row(1, 'Heat', 'Heat')])
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const field = await within(screen.getByRole('banner')).findByRole('combobox', { name: 'Filter the Library' })
+    const field = await within(await screen.findByRole('complementary', { name: 'Library' })).findByRole('combobox', { name: 'Filter the Library' })
     await screen.findAllByRole('option')
     await userEvent.keyboard('/')
     expect(field).toHaveFocus()
   })
 
-  it("puts Activity's filter field and Upcoming's Today in the top bar", async () => {
+  it("keeps Activity's filter field and Upcoming's Today in their bar, in the content", async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Activity' }))
-    expect(await within(screen.getByRole('banner')).findByRole('combobox', { name: 'Filter Activity' })).toBeInTheDocument()
+    expect(await within(screen.getByRole('main')).findByRole('combobox', { name: 'Filter Activity' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Upcoming' }))
-    expect(await within(screen.getByRole('banner')).findByRole('button', { name: 'Today' })).toBeInTheDocument()
+    expect(await within(screen.getByRole('main')).findByRole('button', { name: 'Today' })).toBeInTheDocument()
   })
 
   it('opens the command menu from the rail search button, on any screen', async () => {

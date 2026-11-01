@@ -34,9 +34,10 @@ async function frame(client: QueryClient, snapshot: Partial<ActivitySnapshot>) {
   })
 }
 
-const topBar = () => within(screen.getByRole('banner'))
+// What runs shows in the rail on a desktop.
+const topBar = () => within(screen.getByRole('navigation'))
 
-describe('the top bar', () => {
+describe('the rail', () => {
   beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
   afterEach(() => vi.useRealTimers())
 
@@ -134,13 +135,13 @@ describe('Running now', () => {
   const user = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
   const runningNow = () => within(screen.getByRole('region', { name: /^Running now/ }))
 
-  it('opens from the top bar and lists everything running by a readable name', async () => {
+  it('opens from the rail and lists everything running by a readable name', async () => {
     await withActivity({ running: ['poll', 'trash'] })
     act(() => vi.advanceTimersByTime(1000))
 
     await user().click(topBar().getByRole('button', { name: '2 running' }))
 
-    expect(topBar().getByText('Health')).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toHaveTextContent('Health')
     expect(location.pathname).toBe('/health/jobs')
     expect(
       runningNow()

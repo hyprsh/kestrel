@@ -152,7 +152,7 @@ describe('the command menu', () => {
     await userEvent.keyboard('zod')
     await userEvent.click(await within(menu).findByRole('option', { name: /zodiac/i }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
   })
 
@@ -264,7 +264,7 @@ describe('the command menu', () => {
     await waitFor(() => expect(f.sent).toHaveLength(1))
     expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'standard', profile: 'hd-primary' }] })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /paddington/i, selected: true })).toBeInTheDocument()
   })
 
@@ -330,7 +330,7 @@ describe('the command menu', () => {
 
     expect(f.sent).toHaveLength(0)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('banner')).toHaveTextContent('Library')
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /paddington returns/i, selected: true })).toBeInTheDocument()
   })
 

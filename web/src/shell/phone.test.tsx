@@ -81,6 +81,24 @@ describe('the shell on a phone', () => {
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 
+  it('has the Library screen header hold the name, Health, the actions and the filter with Filter and Sort', async () => {
+    fakeLibrary(rows())
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const header = await screen.findByRole('banner')
+    expect(within(header).getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    const order = [
+      await within(header).findByRole('button', { name: /^Health/ }),
+      within(header).getByRole('button', { name: 'Library actions' }),
+      within(header).getByRole('button', { name: 'Add Title' }),
+      within(header).getByRole('combobox', { name: 'Filter the Library' }),
+      within(header).getByRole('button', { name: 'Filter' }),
+      within(header).getByRole('button', { name: 'Sort: Newest added' }),
+    ]
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByRole('banner')).toHaveLength(1)
+  })
+
   it('has an Add Title button that opens the menu in Add mode', async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Add Title' }))
@@ -138,7 +156,7 @@ describe('the Library on a phone', () => {
     expect(screen.queryByText(/^1 of \d+/)).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter the Library' })).toHaveAttribute('placeholder', 'Filter titles')
     expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sort' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sort: Newest added' })).toBeInTheDocument()
   })
 
   it("shows tick boxes once asked, and the ticked Titles' actions on a bar over the list", async () => {
