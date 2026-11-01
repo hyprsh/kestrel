@@ -123,15 +123,9 @@ function holding(r: TitleRow, vs: ReturnType<typeof kept>, now: number, withSize
 /** Whether a Title is monitored, as GET /titles says: a Movie's flag, a Series' mode not being Not monitored. */
 export const isMonitoredRow = (r: TitleRow) => r.monitored
 
-/** The Slots as the dots show them: a Wanted Version a Grab is filling is downloading. */
-export function shownSlots(r: TitleRow, grabs: readonly QueueItem[]): TitleRow['slots'] {
-  const out = { ...r.slots }
-  for (const g of grabs) {
-    const k = g.slot as SlotKey | null
-    const v = k ? out[k] : null
-    if (k && v && filling(g) && v.state === 'wanted') out[k] = { ...v, state: 'downloading' }
-  }
-  return out
+/** The Slots as the chips show them, in Slot order: a Wanted Version a Grab is filling is downloading. */
+export function shownSlots(r: TitleRow, grabs: readonly QueueItem[]): TitleRow['slot_states'] {
+  return r.slot_states.map((v) => (v.state === 'wanted' && grabs.some((g) => g.slot === v.slot && filling(g)) ? { ...v, state: 'downloading' } : v))
 }
 
 /** The grid's poster badge: Long Missing, or how far a Grab has got. */

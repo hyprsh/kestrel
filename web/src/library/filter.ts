@@ -47,8 +47,19 @@ const sortLabel = (s: Sort) => sortKeys[s.key][s.dir]
 /** The order a parsed filter asks for. */
 const sortOfQuery = (q: Query): Sort => sortOf(q.terms.find((t) => t.name === 'sort')?.values[0])
 
+/** A Slot the filter offers: its key and its name. */
+export type SlotChoice = { key: string; label: string }
+
+/** The Slots the rows have Versions in, Standard and 4K first, then the rest in the order they come. */
+export function slotsPresent(rows: readonly Pick<TitleRow, 'slot_states'>[]): SlotChoice[] {
+  const seen = new Map<string, string>()
+  for (const r of rows) for (const s of r.slot_states) if (!seen.has(s.slot)) seen.set(s.slot, s.label)
+  const known = slotKeys.filter((k) => seen.has(k))
+  return [...known, ...[...seen.keys()].filter((k) => !(known as string[]).includes(k))].map((key) => ({ key, label: seen.get(key) as string }))
+}
+
 /** The Library's qualifiers, given the Profiles to offer. `is:` has no menu: the state tabs set it. */
-export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {
+export function libraryQualifiers(profiles: readonly ProfileChoice[], slots: readonly SlotChoice[] = slotKeys.map((k) => ({ key: k, label: slotLabel[k] }))): Facet[] {
   return [
     { ...kindQualifier(true), label: 'Kind', options: { movie: { label: 'Movies' }, series: { label: 'Series' } } },
     {
@@ -69,9 +80,9 @@ export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {
       name: 'slot',
       label: 'Slot',
       help: 'Titles with a Version in that Slot',
-      values: slotKeys,
+      values: slots.map((x) => x.key),
       excludable: true,
-      options: Object.fromEntries(slotKeys.map((k) => [k, { label: slotLabel[k] }])),
+      options: Object.fromEntries(slots.map((x) => [x.key, { label: x.label }])),
     },
     {
       name: 'profile',

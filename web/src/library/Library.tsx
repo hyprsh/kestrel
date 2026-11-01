@@ -20,7 +20,8 @@ import { EpisodeViewContext } from './episodeView'
 import { episodeCode, seasonName } from './episodes'
 import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
-import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
+import { filterLibrary, libraryQualifiers, slotsPresent, tabCounts, tabOf, withTab } from './filter'
+import { singleSlot } from './rowChips'
 import { AddTitle, LibraryMenu, StatusSection } from './LibraryBar'
 import { ManualSearchRoute, scopeCode } from './ManualSearchRoute'
 import { grabsByTitle } from './rowState'
@@ -77,11 +78,12 @@ export function Library({
   const now = useNow()
   const openCleanup = useOpenCleanup()
   const profiles = useProfiles().data
-  const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` }))), [profiles])
   const listRef = useRef<HTMLDivElement>(null)
   const paneRef = useRef<HTMLElement>(null)
 
-  const all = titles.data ?? []
+  const all = useMemo(() => titles.data ?? [], [titles.data])
+  const slots = useMemo(() => slotsPresent(all), [all])
+  const qualifiers = useMemo(() => libraryQualifiers((profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` })), slots.length > 0 ? slots : undefined), [profiles, slots])
   const grabs = useMemo(() => grabsByTitle(queue), [queue])
   const grabbing = useMemo(() => new Set(grabs.keys()), [grabs])
   const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
@@ -246,6 +248,8 @@ export function Library({
       }
       navOffset={hits.length}
       activeId={hit ? hitDomId(hit) : undefined}
+      single={singleSlot(all)}
+      profileName={(key) => profiles?.find((p) => p.key === key)?.name ?? key}
     />
   )
   const nothing = (

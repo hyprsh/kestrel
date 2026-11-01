@@ -1,6 +1,6 @@
 // chrome: domain-visual
 // The Library's list: a cursor listbox of rich rows. A row has its tick box, the poster, the title and year, a line
-// saying why the Title is in its state (toned by it), the Slot dots and the size on disk.
+// saying why the Title is in its state (toned by it), a chip per Slot and the size on disk.
 import { Entity } from '@hyprsh/design'
 import type { ReactNode, RefObject } from 'react'
 import type { TitleRow } from '../api/queries'
@@ -8,8 +8,10 @@ import type { QueueItem } from '../api/queue'
 import { SkeletonRow } from '../loading'
 import { TitlePoster } from '../poster'
 import type { Selection } from '../selection'
-import { KindIcon, size, SlotDots } from './bits'
-import { isMonitoredRow, shownSlots, stateLine, toneText } from './rowState'
+import { KindIcon, size } from './bits'
+import { isMonitoredRow, stateLine, toneText } from './rowState'
+import { rowChips } from './rowChips'
+import { SlotChips } from './SlotChip'
 import { MonitorMark } from './MonitorToggle'
 import { TickBox } from './TickBox'
 
@@ -27,6 +29,8 @@ export function TitleRows({
   lead,
   navOffset = 0,
   activeId,
+  single = false,
+  profileName,
 }: {
   rows: TitleRow[]
   /** The cursor's row. */
@@ -47,6 +51,9 @@ export function TitleRows({
   navOffset?: number
   /** The cursor's option when it is on one of the `lead` rows. */
   activeId?: string
+  /** Whether no Title in the Library has more than one Slot: the chips then drop the Slot name. */
+  single?: boolean
+  profileName?: (key: string) => string
 }) {
   return (
     // The floating bar of ticked Titles covers the foot of the list: room for it at the end.
@@ -72,6 +79,9 @@ export function TitleRows({
           const g = grabs.get(r.id) ?? []
           const line = stateLine(r, g, now)
           const monitored = isMonitoredRow(r)
+          const chips = <SlotChips chips={rowChips(r, g, { single, profileName })} max={phone ? 3 : 4} wrap={phone} align={phone ? 'start' : 'end'} label={`${r.title} Slots`} />
+          // Unmonitored rows dim their chips with the poster.
+          const dimmed = monitored ? 'contents' : 'opacity-60'
           return (
             <Entity
               key={r.id}
@@ -96,7 +106,7 @@ export function TitleRows({
                 <span className="flex flex-col items-end gap-1.5">
                   <span className="flex items-center gap-2">
                     <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
-                    <SlotDots slots={shownSlots(r, g)} />
+                    {!phone && <span className={dimmed}>{chips}</span>}
                     <span title={monitored ? 'Monitored' : 'Not monitored'} data-monitor-mark={monitored ? 'on' : 'off'}>
                       <MonitorMark monitored={monitored} />
                     </span>
@@ -116,8 +126,11 @@ export function TitleRows({
                   </span>
                 }
                 description={
-                  <span data-state-line className={`block truncate ${toneText[line.tone]}`}>
-                    {line.text}
+                  <span className="flex flex-col gap-1">
+                    <span data-state-line className={`block truncate ${toneText[line.tone]}`}>
+                      {line.text}
+                    </span>
+                    {phone && <span className={dimmed}>{chips}</span>}
                   </span>
                 }
               />

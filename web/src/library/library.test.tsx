@@ -51,12 +51,12 @@ describe('the Library list', () => {
     expect(first).toHaveTextContent('Paddington2014')
     // One Version of two is Wanted: the line names its Slot, and says Kestrel has not looked yet.
     expect(first.querySelector('[data-state-line]')).toHaveTextContent(/^Standard Wanted for .* · not searched yet$/)
-    // One phrase per row, and the dots inside are hidden from the accessibility tree.
-    const dots = within(first).getByRole('img', { name: 'Standard: Wanted, 4K: Filled' })
-    expect(dots.children).toHaveLength(2)
-    for (const dot of Array.from(dots.children)) expect(dot).toHaveAttribute('aria-hidden', 'true')
-    // The row is named once: no dot carries a title of its own.
-    for (const dot of Array.from(dots.children)) expect(dot).not.toHaveAttribute('title')
+    // A chip per Slot, in Slot order, each named for its Slot and state.
+    const std = within(first).getByRole('img', { name: 'Standard: Wanted' })
+    const fourK = within(first).getByRole('img', { name: '4K: Have' })
+    expect(std).toHaveAttribute('data-state', 'wanted')
+    expect(fourK).toHaveAttribute('data-state', 'filled')
+    expect(std.compareDocumentPosition(fourK) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     // A Title that wants nothing says what it holds: here its Primary-Language title, and its size.
     const amelie = within(list).getByRole('option', { name: /amélie/i })

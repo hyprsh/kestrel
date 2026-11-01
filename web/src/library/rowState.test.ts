@@ -51,10 +51,10 @@ describe('the state line of a Library row', () => {
     const r = row(1, 'Orbit', 'Orbit', { slots: { standard: slot('filled'), '4k': slot('wanted') } })
     const g = [grab({ slot: '4k' })]
     expect(stateLine(r, g, now)).toEqual({ text: '4K downloading · 64% · 6 min left', tone: 'info' })
-    expect(shownSlots(r, g)['4k']?.state).toBe('downloading')
+    expect(shownSlots(r, g).find((v) => v.slot === '4k')?.state).toBe('downloading')
     expect(posterBadge(r, g)).toEqual({ label: '64%', tone: 'info' })
     // An Upgrade leaves a filled dot filled.
-    expect(shownSlots(r, [grab({ is_upgrade: true })]).standard?.state).toBe('filled')
+    expect(shownSlots(r, [grab({ is_upgrade: true })]).find((v) => v.slot === 'standard')?.state).toBe('filled')
   })
 
   it("counts a Series' Wanted episodes by season, with those downloading", () => {

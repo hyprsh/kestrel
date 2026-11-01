@@ -125,7 +125,7 @@ describe('the Library filter, typed', () => {
     expect(names(list)).toEqual(['Recent Film'])
     const recent = within(list).getByRole('option', { name: /recent film/i })
     expect(recent).toHaveTextContent('Downloading · 40%')
-    expect(within(recent).getByRole('img', { name: 'Standard: Downloading, 4K: no Version' })).toBeInTheDocument()
+    expect(within(recent).getByRole('img', { name: 'Standard: Downloading 40%' })).toBeInTheDocument()
   })
 
   it('sorts by Wanted since, the longest Wanted first and Titles that are not Wanted last', async () => {
