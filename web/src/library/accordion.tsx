@@ -4,6 +4,9 @@
 // chip inside it stays a real button of its own.
 import { ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { plural } from '../format'
+import type { TitleDetail } from '../api/queries'
+import { foundText } from './WantedLine'
 
 /** The bordered list the rows sit in. */
 export function AccordionList({ children, label }: { children: ReactNode; label?: string }) {
@@ -71,4 +74,28 @@ export function AccordionRow({
       {open && body}
     </div>
   )
+}
+
+/** The padding and rule of an open row's body. */
+export const bodyWrap = 'flex flex-col gap-3 border-t border-gray-alpha-200 bg-background-100 py-3.5 pr-3.5 pl-[46px] max-sm:pl-3'
+/** The grid of an open row's facts. */
+export const factsGrid = 'grid grid-cols-4 gap-3 max-sm:grid-cols-2'
+
+/** A fact of an open row: a small label over its value. */
+export function Fact({ k, children, wide }: { k: string; children: ReactNode; wide?: boolean }) {
+  return (
+    <div className={`flex min-w-0 flex-col gap-0.5 ${wide ? 'col-span-2 max-sm:col-span-1' : ''}`}>
+      <span className="label-12 text-gray-900">{k}</span>
+      <span className="label-13 min-w-0 break-words">{children}</span>
+    </div>
+  )
+}
+
+/** Whole days since an instant (0 when there is none). */
+export const days = (since: string | null, now: number) => (since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 86_400_000)) : 0)
+
+/** What the last search came to, in a few words: "23 releases", "37 releases, grabbed one", "no indexer is turned on". */
+export function lastSearchWords(ls: NonNullable<TitleDetail['versions'][number]['last_search']>): string {
+  if (ls.outcome === 'grabbed') return `${plural(ls.releases, 'release')}, grabbed one`
+  return ls.releases === 0 || ls.outcome === 'no_indexer' || ls.outcome === 'error' ? foundText(ls) : plural(ls.releases, 'release')
 }

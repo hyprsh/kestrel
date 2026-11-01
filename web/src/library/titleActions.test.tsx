@@ -139,17 +139,30 @@ describe('the Version rows', () => {
       }),
     )
 
-  it('show a Series Version as a card: Wanted count, a bar, its episodes and size', async () => {
+  it('show a Series Version as a row: its episodes, a chip, a bar and its size', async () => {
     const r = seriesRow(5, 'Breaking Bad')
     fakeSeries()
     standardOnly(r, { episodes: 236, filled: 228, wanted: 8, long_missing: 2, unmonitored: 4, downloading: 0, downloading_long_missing: 0, size: 412 * 1024 ** 3 })
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByRole('progressbar', { name: 'Standard: 228 of 240 episodes, 4 not monitored' })).toBeInTheDocument()
-    expect(within(hd).getByText('8 Wanted')).toBeInTheDocument()
-    expect(within(hd).getByText('228 of 240 episodes · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
-    expect(within(hd).getByText('412.0 GB')).toBeInTheDocument()
+    expect(within(hd).getByText('228 of 240 episodes · 8 Wanted · 4 not monitored')).toBeInTheDocument()
+    expect(within(hd).getByRole('img', { name: /^Standard: 228 of 240 episodes/ })).toHaveTextContent(/228\/240/)
+    expect(hd.querySelector('[data-bar="filled"]')).not.toBeNull()
+    expect(within(hd).getAllByText('412.0 GB').length).toBeGreaterThan(0)
+  })
+
+  it('keep a Series’ Slot rows closed when it has two Slots, and open and ring the one ?slot= names', async () => {
+    fakeSeries()
+    history.replaceState(null, '', '/library?slot=4k')
+    const pane = await openTitle(/breaking bad/i)
+
+    const std = within(await within(pane).findByRole('listitem', { name: 'Standard' })).getByRole('button', { name: /^Standard:/ })
+    const uhd = within(within(pane).getByRole('listitem', { name: '4K' })).getByRole('button', { name: /^4K:/ })
+    expect(std).toHaveAttribute('aria-expanded', 'false')
+    expect(uhd).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById('version-4k')).toHaveAttribute('data-current')
+    expect(within(pane).queryByRole('button', { name: 'Add a Slot' })).not.toBeInTheDocument() // both Slots exist
   })
 
   it('leave out a Slot without a Version: Add Version… is in the Title menu', async () => {
@@ -255,6 +268,7 @@ describe('the Version rows', () => {
     fakeSeries()
     const pane = await openTitle(/breaking bad/i)
 
+    await userEvent.click(within(await within(pane).findByRole('listitem', { name: 'Standard' })).getByRole('button', { name: /^Standard:/ })) // the rows start closed
     await userEvent.click(await within(pane).findByRole('button', { name: 'Standard Version actions' }))
     const menu = screen.getByRole('menu', { name: 'Standard Version actions' })
     expect(

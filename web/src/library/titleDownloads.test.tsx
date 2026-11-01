@@ -40,9 +40,11 @@ describe("a Title's downloads on its page", () => {
     const pane = await screen.findByRole('region', { name: /breaking bad/i })
 
     const uhd = await within(pane).findByRole('listitem', { name: '4K' })
-    expect(await within(uhd).findByText('S05E09–E10')).toBeInTheDocument()
-    expect(within(uhd).getByText('75% · 2 min left')).toBeInTheDocument()
+    expect(await within(uhd).findByText('Downloading S05E09–E10')).toBeInTheDocument()
     expect(within(pane).getByRole('listitem', { name: 'Standard' })).not.toHaveTextContent('Downloading')
+    await userEvent.click(within(uhd).getByRole('button', { name: /^4K:/ }))
+    expect(within(uhd).getByText('75%')).toBeInTheDocument()
+    expect(within(uhd).getByRole('button', { name: /^S05E09–E10/ })).toBeInTheDocument() // a link into Activity
   })
 
   it('has no download line when nothing of this Title is downloading', async () => {

@@ -13,7 +13,7 @@ import { ago, span, until, useNow } from '../time'
 import { dotState, stateName, type SlotDotState } from '../ui/slotState'
 import { size } from './bits'
 import { baseName } from './cellDetail'
-import { AccordionList, AccordionRow, Chevron } from './accordion'
+import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid, lastSearchWords } from './accordion'
 import { useEpisodeView } from './episodeView'
 import { importedOn, EndOfPath } from './EpisodeFilePopover'
 import { audioLine, qualityLine, qualityName } from './media'
@@ -25,17 +25,9 @@ import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
 import { VersionMenu } from './VersionRows'
 import { useSearchWanted } from './VersionSearch'
-import { foundText, whyNoneFit } from './WantedLine'
+import { whyNoneFit } from './WantedLine'
 
 type Version = TitleDetail['versions'][number]
-
-const days = (since: string | null, now: number) => (since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 86_400_000)) : 0)
-
-/** What the last search came to, in a few words: "23 releases", "37 releases, grabbed one", "no indexer is turned on". */
-function lastSearchWords(ls: NonNullable<Version['last_search']>): string {
-  if (ls.outcome === 'grabbed') return `${plural(ls.releases, 'release')}, grabbed one`
-  return ls.releases === 0 || ls.outcome === 'no_indexer' || ls.outcome === 'error' ? foundText(ls) : plural(ls.releases, 'release')
-}
 
 /** A Slot's state in a line: "Have · BluRay 1080p", "Downloading 40% · 13 min left", "Wanted 12 days · next search in 4 h". */
 function stateLine(v: Version, dl: SlotDownloads | null, now: number): { text: string; tone: string; state: SlotDotState | null } {
@@ -184,16 +176,6 @@ function SlotRow({
   )
 }
 
-/** A fact of the open row: a small label over its value. */
-function Fact({ k, children, wide }: { k: string; children: React.ReactNode; wide?: boolean }) {
-  return (
-    <div className={`flex min-w-0 flex-col gap-0.5 ${wide ? 'col-span-2 max-sm:col-span-1' : ''}`}>
-      <span className="label-12 text-gray-900">{k}</span>
-      <span className="label-13 min-w-0 break-words">{children}</span>
-    </div>
-  )
-}
-
 function SlotBody({
   title,
   profiles,
@@ -217,8 +199,8 @@ function SlotBody({
   const client = useDownloadClient()
   const f = v.file
   const more = <VersionMenu {...{ title, profiles, profileName }} version={v} downloads={downloads} onManualSearch={() => onManualSearch()} more />
-  const wrap = 'flex flex-col gap-3 border-t border-gray-alpha-200 bg-background-100 py-3.5 pr-3.5 pl-[46px] max-sm:pl-3'
-  const grid = 'grid grid-cols-4 gap-3 max-sm:grid-cols-2'
+  const wrap = bodyWrap
+  const grid = factsGrid
   if (downloads) {
     const g = downloads.items[0]
     const total = downloads.items.reduce((n, i) => n + i.bytes_total, 0)
