@@ -84,6 +84,7 @@ export const handlers = [
   http.get('/queue', ({ response }) => response(200).json({ items: [] })),
   http.get('/grabs', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/events/summary', ({ response }) => response(200).json({ counts: [], oldest: null, routine_days: 30 })),
+  http.get('/events/histogram', ({ response }) => response(200).json({ bucket: '4h', buckets: [] })),
   http.get('/blocklist', ({ response }) => response(200).json({ items: [] })),
   http.get('/upcoming', ({ request, response }) => {
     const q = new URL(request.url).searchParams

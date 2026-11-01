@@ -1,0 +1,133 @@
+import { describe, expect, it } from 'vitest'
+import type { LogEvent } from '../api/log'
+import { actionOf, foldSummary, kindNames, searchResult, sentence, sentenceText, severityOf } from './sentence'
+
+const ev = (kind: string, message: string, data: LogEvent['data'] = null, over: Partial<LogEvent> = {}): LogEvent => ({
+  id: 1,
+  at: '2026-10-17T12:00:00Z',
+  kind,
+  routine: false,
+  title_id: 3,
+  version_id: null,
+  episode_id: null,
+  grab_id: null,
+  request_id: null,
+  message,
+  data,
+  ...over,
+})
+
+const text = (e: LogEvent, title?: string) => sentenceText(sentence(e, title))
+
+describe('the sentence of each kind the server records', () => {
+  const R = 'Paddington.2014.1080p.BluRay.x264-GRP'
+  const cases: [string, LogEvent, string, string?][] = [
+    ['grab', ev('grab', `Sent ${R} to the download client`, { by: 'by_search' }), `Grabbed Paddington · ${R} · found by a search`],
+    ['grab by hand', ev('grab', `Sent ${R} to the download client`, { by: 'by_hand' }), `Grabbed Paddington · ${R} · chosen by hand`],
+    ['grab from before the payload', ev('grab', `Sent ${R} to the download client`), `Grabbed Paddington · ${R}`],
+    ['grab_downloading', ev('grab_downloading', `Download started: ${R}`, null, { routine: true }), `Download started Paddington · ${R}`],
+    ['grab_completed', ev('grab_completed', `Download finished: ${R}`, null, { routine: true }), `Download finished Paddington · ${R}`],
+    ['grab_failed by the client', ev('grab_failed', `Download failed (encrypted): ${R}`), `Download failed Paddington · encrypted · ${R}`],
+    ['grab_failed discarded', ev('grab_failed', `Discarded the stalled Import of ${R}`), `Discarded the stalled Import of Paddington · ${R}`],
+    ['grab_canceled', ev('grab_canceled', `Canceled ${R}`), `Canceled Paddington · ${R}`],
+    ['import', ev('import', `Imported ${R} as /data/media/movies/Paddington (2014)/Paddington.mkv`, { path: '/x' }), `Imported Paddington · ${R}`],
+    [
+      'import with an inconclusive probe',
+      ev('import', `Imported ${R} as /x.mkv (probe inconclusive: the parsed languages stand)`),
+      `Imported Paddington · ${R} · languages not confirmed by the probe`,
+    ],
+    ['import_rejected', ev('import_rejected', `Import of ${R} rejected: not_upgrade`), `Import rejected Paddington · not_upgrade · ${R}`],
+    ['import_stalled', ev('import_stalled', `Import of ${R} stalled: disk full`), `Import stalled Paddington · disk full · ${R}`],
+    ['import_episode imported', ev('import_episode', 'S01E02: imported as /tv/x.mkv', { status: 'imported', file: 'x.mkv', path: '/tv/x.mkv' }), 'Imported Paddington · S01E02 · x.mkv'],
+    ['import_episode left alone', ev('import_episode', 'S01E03: left alone (unmonitored)', { status: 'skipped', reason: 'unmonitored' }), 'Left alone Paddington · S01E03 · unmonitored'],
+    ['adoption', ev('adoption', 'Adopted Paddington (2014) in Standard, 4K'), 'Adopted Paddington · into Standard, 4K'],
+    ['adoption of a Title the Library lost', ev('adoption', 'Adopted Heat (1995) in Standard'), 'Adopted Heat (1995) · into Standard', ''],
+    [
+      'adoption_scanned',
+      ev('adoption_scanned', 'Adoption scan: 4 matched, 1 need a choice, 0 skipped', null, { routine: true, title_id: null }),
+      'Adoption scan: 4 matched, 1 need a choice, 0 skipped',
+    ],
+    ['cleanup', ev('cleanup', 'Cleaned up 3 Unmanaged file(s), 1500000000 bytes'), 'Cleaned up Paddington · 3 Unmanaged files · 1.5 GB'],
+    ['request', ev('request', 'Request from Ellie via Plex'), 'Ellie requested Paddington · through Plex'],
+    ['request_ended', ev('request_ended', 'Request from Ellie via Plex ended by hand'), 'Ended the request for Paddington · from Ellie through Plex'],
+    ['watch_ahead', ev('watch_ahead', 'Watch-ahead added season 3'), 'Watch-ahead added Paddington · season 3'],
+    ['rename', ev('rename', 'Renamed "A" to "B" (4 files)', { from: 'A', to: 'B', files: 4 }), 'Renamed Paddington · folder A to B'],
+    ['move', ev('move', 'Moved from /a to /b', { from: '/a', to: '/b' }), 'Moved Paddington · from /a to /b'],
+    ['delete', ev('delete', 'Deleted Paddington.mkv (S01E02); blocklisted R'), 'Deleted Paddington · Paddington.mkv (S01E02); blocklisted R'],
+    ['title_refreshed', ev('title_refreshed', 'Refreshed from the metadata providers', null, { routine: true }), 'Refreshed Paddington · from the metadata providers'],
+    ['blocklist', ev('blocklist', `Blocklisted ${R}: canceled and blocklisted`), `Blocklisted Paddington · ${R} · canceled and blocklisted`],
+    [
+      'health_raised',
+      ev('health_raised', 'SABnzbd refused the connection', { key: 'k', kind: 'download_client_unreachable', severity: 'blocking' }, { title_id: null }),
+      'SABnzbd refused the connection',
+    ],
+    ['health_cleared', ev('health_cleared', 'Cleared: SABnzbd refused the connection', null, { title_id: null }), 'Cleared: SABnzbd refused the connection'],
+    ['search found nothing', ev('search', 'Searched by hand for S05 in 4K: nothing to grab', null, { routine: true }), 'Searched Paddington · S05 · 4K · nothing to grab'],
+    ['search of a whole Title', ev('search', 'Searched by hand in Standard: grabbed 1 Release', null, { routine: true }), 'Searched Paddington · Standard · grabbed 1 Release'],
+    ['search that failed', ev('search', 'Searched by hand in Standard and failed: indexers down', null, { routine: true }), 'Searched Paddington · Standard · failed: indexers down'],
+    [
+      'original_offered',
+      ev('original_offered', 'Standard has the Original Language only: accept or dismiss it in Needs attention', null, { routine: true }),
+      'Offered the Original Language only Paddington · Standard · accept or dismiss it in Needs attention',
+    ],
+  ]
+  it.each(cases)('%s', (_, e, want, title = 'Paddington') => expect(text(e, title || undefined)).toBe(want))
+
+  it('has a name and a sentence for every kind of the server', () => {
+    const kinds = Object.keys(kindNames)
+    expect(kinds).toHaveLength(24)
+    for (const kind of kinds) expect(sentence(ev(kind, 'x'), 'T').verb).not.toBe('')
+  })
+
+  it('leaves a message it does not understand as it is, and an unknown kind too', () => {
+    expect(sentence(ev('import_rejected', 'Something else'), 'T')).toMatchObject({ verb: 'Something else', severity: 'error' })
+    expect(sentence(ev('mystery', 'It happened'), 'T')).toMatchObject({ verb: 'It happened', severity: 'plain', icon: 'event' })
+  })
+
+  it('colours errors and warnings by kind and leaves the rest plain', () => {
+    for (const k of ['grab_failed', 'import_rejected', 'blocklist']) expect(severityOf(k)).toBe('error')
+    for (const k of ['import_stalled', 'health_raised', 'original_offered']) expect(severityOf(k)).toBe('warning')
+    expect(severityOf('grab')).toBe('plain')
+    expect(sentence(ev('grab_failed', 'Download failed (x): R'), 'T').severity).toBe('error')
+  })
+})
+
+describe('the one action of an event', () => {
+  it('goes to the place that puts a Health check right, and to Health for a check it does not know', () => {
+    const h = (kind: string) => ev('health_raised', 'x', { kind }, { title_id: null })
+    expect(actionOf(h('download_client_unreachable'))).toEqual({ label: 'Open Download Settings', path: '/settings/download-client' })
+    expect(actionOf(h('indexer_failing'))).toEqual({ label: 'Open Indexers', path: '/settings/indexers' })
+    expect(actionOf(h('something_new'))).toEqual({ label: 'Open Health', path: '/health' })
+  })
+
+  it('opens the Title of an event about one, offering a Manual search when a search found nothing', () => {
+    expect(actionOf(ev('import', 'Imported R as /x'))).toEqual({ label: 'Open', title: 3 })
+    expect(actionOf(ev('search', 'Searched by hand in Standard: nothing to grab'))).toEqual({ label: 'Manual search', title: 3 })
+    expect(actionOf(ev('health_cleared', 'Cleared: x', null, { title_id: null }))).toBeNull()
+  })
+})
+
+describe('a search message', () => {
+  it('is read into scope, Slot, result and Grabs', () => {
+    expect(searchResult('Searched by hand for S01E02 in Standard: grabbed 2 Releases; 1 indexer did not answer')).toEqual({
+      scope: 'S01E02',
+      slot: 'Standard',
+      result: 'grabbed 2 Releases; 1 indexer did not answer',
+      grabbed: 2,
+    })
+    expect(searchResult('something else')).toBeNull()
+  })
+})
+
+describe('the summary of a fold', () => {
+  it('counts each routine kind and adds the Grabs its searches made', () => {
+    const search = (n: number, m: string) => ev('search', m, null, { id: n, routine: true })
+    expect(
+      foldSummary([
+        search(1, 'Searched by hand in Standard: grabbed 1 Release'),
+        search(2, 'Searched by hand in Standard: nothing to grab'),
+        ev('grab_downloading', 'Download started: R', null, { routine: true }),
+      ]),
+    ).toBe('2 searches · 1 download started · 1 Grab')
+  })
+})

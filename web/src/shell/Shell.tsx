@@ -288,7 +288,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                       onAdopt={() => setScreen('adoption')}
                     />
                   ) : screen === 'log' ? (
-                    <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} />
+                    <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} onOpenTitle={openTitle} />
                   ) : screen === 'activity' ? (
                     <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
                   ) : screen === 'health' ? (

@@ -35,6 +35,12 @@ releases on for a moment, a manual search and a Grab of Paddington in Peru's Rel
 SABnzbd holds at 40 % (Downloading now, Activity's pipeline); with them off again, two Requests from
 Ellie through Plex, one for Paddington 2 (Searching, nothing to find) and one for Paddington
 (Completed). Needs attention has one row: Paddington 2, Wanted and Long Missing.
+
+For the Log, straight into SQLite as well: about a week of events, so its strip, day headings and folds have something to show.
+Each day has an import, a Grab, a refresh, a request, and two bursts of routine search runs (nothing to grab, mostly) that
+fold into one row each. Two Grabs failed (one "encrypted" twice, a day apart, so the opened error lists the earlier one), one
+Import was rejected, the download client was unreachable twice (Needs attention raised, one clear), an Import stalled and an
+Original Offer came in, so Errors and Warnings have rows and the strip has red and amber columns.
 """
 import argparse, datetime, http.cookiejar, json, os, sqlite3, subprocess, time, urllib.error, urllib.request
 
@@ -399,4 +405,50 @@ for n, days_ago, took_hours in ((1, 12, 5), (3, 6, 30), (2, 3, None), (4, 2, Non
         db.execute("UPDATE request_slots SET filled_at=? WHERE request_id=?", (iso(created + datetime.timedelta(hours=took_hours)), rid))
 db.commit()
 db.close()
+# The Log: a week of events, written as the app records them (messages and payloads of internal/history), oldest first.
+db = sqlite3.connect(args.db)
+grabs = db.execute("SELECT id, title_id, version_id, release_name FROM grabs ORDER BY id DESC").fetchall()
+gb = next(g for g in grabs if g[1] == tid[1396]) if any(g[1] == tid[1396] for g in grabs) else grabs[0]
+gp = next(g for g in grabs if g[1] == tid[116149]) if any(g[1] == tid[116149] for g in grabs) else grabs[0]
+log = []
+
+
+def ev(days_ago, hour, minute, kind, message, title=None, grab=None, routine=0, data=None):
+    when = at_day(days_ago, hour, minute)
+    if when > datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=2):
+        return
+    log.append((iso(when), kind, routine, tid[title] if title else None,
+                ver[(tid[title], "standard")] if title else None, grab, message, json.dumps(data) if data else None))
+
+
+names = {1396: "Breaking Bad", 116149: "Paddington", 346648: "Paddington 2", 559969: "El Camino", 516729: "Paddington in Peru"}
+for d in range(7, -1, -1):
+    for burst, hour in enumerate((3, 13)):
+        for i in range(8 + (d + burst) % 5):
+            t = (346648, 559969, 516729, 1396, 116149)[(i + d) % 5]
+            res = "grabbed 1 Release" if (d, burst, i) in ((5, 1, 3), (1, 0, 2), (0, 1, 4)) else "nothing to grab"
+            scope = " for S05" if t == 1396 else ""
+            ev(d, hour, i * 2, "search", f"Searched by hand{scope} in Standard: {res}", title=t, routine=1)
+    ev(d, 9, 15, "title_refreshed", "Refreshed from the metadata providers", title=1396, routine=1)
+    ev(d, 10, 15, "import", f"Imported {gb[3]} as /data/media/tv/Breaking Bad/Season 05/e.mkv", title=1396, grab=gb[0], data={"path": "/data/media/tv/Breaking Bad/Season 05/e.mkv"})
+    ev(d, 10, 2, "grab", f"Sent {gb[3]} to the download client", title=1396, grab=gb[0], data={"by": ("by_search", "by_hand", "by_rss")[d % 3]})
+    ev(d, 11, 31, "request", "Request from Ellie via Plex", title=346648)
+    ev(d, 21, 5, "adoption_scanned", "Adoption scan: 4 matched, 0 need a choice, 0 skipped", routine=1)
+ev(6, 8, 30, "adoption", "Adopted El Camino (2019) in Standard", title=559969)
+ev(5, 18, 2, "grab_failed", f"Download failed (encrypted): {gp[3]}", title=116149, grab=gp[0])
+ev(4, 6, 12, "health_raised", "SABnzbd refused the connection", data={"key": "download_client", "kind": "download_client_unreachable", "severity": "blocking"})
+ev(4, 6, 40, "health_cleared", "Cleared: SABnzbd refused the connection", data={"key": "download_client", "kind": "download_client_unreachable", "severity": "blocking"})
+ev(3, 15, 20, "import_rejected", f"Import of {gb[3]} rejected: not_upgrade", title=1396, grab=gb[0])
+ev(2, 12, 50, "import_stalled", f"Import of {gp[3]} stalled: /data/media/movies is not writable", title=116149, grab=gp[0])
+ev(1, 17, 40, "original_offered", "Standard has the Original Language only: accept or dismiss it in Needs attention", title=516729, routine=1)
+ev(1, 18, 2, "grab_failed", f"Download failed (encrypted): {gp[3]}", title=116149, grab=gp[0])
+ev(0, 0, 40, "health_raised", "SABnzbd refused the connection", data={"key": "download_client", "kind": "download_client_unreachable", "severity": "blocking"})
+ev(0, 0, 55, "health_raised", "Plex refused the connection", data={"key": "media_server", "kind": "media_server_unreachable", "severity": "warning"})
+# Events get ids in the order they are written and the Log lists by id, so the ones the API wrote a moment ago make way.
+db.execute("DELETE FROM events")
+for row in sorted(log):
+    db.execute("INSERT INTO events(at,kind,routine,title_id,version_id,grab_id,message,data) VALUES (?,?,?,?,?,?,?,?)", row)
+db.commit()
+db.close()
+
 print(f"seed: {len(tid)} Titles, {len(files)} files, {fills} fills, 1 Grab, 5 Requests")

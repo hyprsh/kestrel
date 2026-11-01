@@ -16,13 +16,13 @@ const filterText = (count: number) => (count > 0 ? `Filter · ${count}` : 'Filte
  * children say, so a screen without a text filter (Upcoming) puts its toggles in it; a screen with a filter field uses
  * FacetFilterButton, which holds that field's facets.
  */
-export function FilterButton({ count, children }: { count: number; children: ReactNode }) {
+export function FilterButton({ count, label = 'Filter', children }: { count: number; /** The phone button's name, when its menu holds more than the filter. */ label?: string; children: ReactNode }) {
   // A phone has one line for the bar, so the button is a funnel with the count as its badge; its name stays "Filter".
   const phone = usePhone()
   return (
     <Menu.Container position="bottom-start">
       {phone ? (
-        <Menu.Button variant="secondary" size="medium" svgOnly aria-label="Filter" badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
+        <Menu.Button variant="secondary" size="medium" svgOnly aria-label={label} badge={count} badgeLabel={count > 0 ? `${count} active` : undefined}>
           <Funnel />
         </Menu.Button>
       ) : (
@@ -75,6 +75,7 @@ export function FacetFilterButton({
   lead,
   leadActive = 0,
   active: activeCount,
+  label,
 }: {
   query: string
   onQuery: (query: string) => void
@@ -85,6 +86,8 @@ export function FacetFilterButton({
   leadActive?: number
   /** How many to badge instead of the facets with a term, for a screen whose Views set some terms the menu would otherwise count. */
   active?: number
+  /** The phone button's name when `lead` adds more than filters (a Log's Views). */
+  label?: string
 }) {
   const facets = qualifiers.filter(isMenu)
   // A Shift-click or Shift+Enter excludes in the item's onClick, which the menu calls before onSelect: this tells onSelect it has been done.
@@ -93,7 +96,7 @@ export function FacetFilterButton({
   const names = new Set(facets.map((f) => f.name))
   const active = activeCount ?? new Set(parsed.terms.filter((t) => names.has(t.name)).map((t) => t.name)).size
   return (
-    <FilterButton count={active + leadActive}>
+    <FilterButton count={active + leadActive} label={label}>
       {active + leadActive > 0 && <MenuItem onSelect={() => onQuery('')}>Clear all</MenuItem>}
       {lead}
       {facets.map((f, i) => {

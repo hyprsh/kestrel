@@ -59,11 +59,11 @@ export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: r
     {
       name: 'routine',
       label: 'Routine',
-      help: 'Show routine events, such as a download starting',
+      help: 'Routine events, such as a download starting, are shown folded; routine:no leaves them out',
       values: ['yes', 'no'],
-      unlisted: ['no'],
+      unlisted: ['yes'],
       excludable: true,
-      options: { yes: { label: 'Show routine events' } },
+      options: { no: { label: 'Hide routine events' } },
     },
   ]
 }
@@ -93,27 +93,25 @@ export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
     excludeSlots: [...new Set(negated('slot'))] as SlotKey[],
     titleIds: valuesOf(q, 'title', named),
     excludeTitleIds: named(negated('title')),
-    routine: routine ? (routine.values.at(-1) === 'yes') !== routine.excluded : false,
+    // Routine events are in the Log unless routine:no leaves them out; they show folded.
+    routine: routine ? (routine.values.at(-1) === 'yes') !== routine.excluded : true,
   }
 }
 
 /** Whether a parsed filter asks for the oldest events first (`sort:oldest`). */
 export const oldestFirst = (q: Query) => q.terms.some((t) => t.name === 'sort' && t.values[0] === 'oldest')
 
-/**
- * A view of the Log: a name, an icon key and the filter it stands for. `terms` are the qualifier terms it sets, as typed;
- * `routine` says it shows routine events, so its count includes them.
- */
-export type LogView = { key: string; label: string; terms: string; kinds: readonly string[] | null; routine: boolean }
+/** A view of the Log: a name, an icon key and the filter it stands for. `terms` are the qualifier terms it sets, as typed. */
+export type LogView = { key: string; label: string; terms: string; kinds: readonly string[] | null }
 
 export const logViews: readonly LogView[] = [
-  { key: 'everything', label: 'Everything', terms: '', kinds: null, routine: false },
-  { key: 'errors', label: 'Errors', terms: 'kind:errors', kinds: groups.errors, routine: false },
-  { key: 'warnings', label: 'Warnings', terms: 'kind:warnings', kinds: groups.warnings, routine: false },
-  { key: 'grabs', label: 'Grabs', terms: 'kind:grabs', kinds: groups.grabs, routine: false },
-  { key: 'imports', label: 'Imports', terms: 'kind:imports', kinds: groups.imports, routine: false },
-  { key: 'adoption', label: 'Adoption', terms: 'kind:adoption', kinds: groups.adoption, routine: false },
-  { key: 'searches', label: 'Searches', terms: 'kind:search routine:yes', kinds: ['search'], routine: true },
+  { key: 'everything', label: 'Everything', terms: '', kinds: null },
+  { key: 'errors', label: 'Errors', terms: 'kind:errors', kinds: groups.errors },
+  { key: 'warnings', label: 'Warnings', terms: 'kind:warnings', kinds: groups.warnings },
+  { key: 'grabs', label: 'Grabs', terms: 'kind:grabs', kinds: groups.grabs },
+  { key: 'imports', label: 'Imports', terms: 'kind:imports', kinds: groups.imports },
+  { key: 'adoption', label: 'Adoption', terms: 'kind:adoption', kinds: groups.adoption },
+  { key: 'searches', label: 'Searches', terms: 'kind:search', kinds: ['search'] },
 ]
 
 /** The Log's `query` for a view: its terms, keeping the sort of `query`. */
@@ -127,7 +125,7 @@ const included = (parsed: Query, name: string) => parsed.terms.filter((t) => t.n
 
 /**
  * The view a filter is on. Everything is a filter with no terms and no free text, apart from the sort. Any other view is
- * current while its own term is in the filter (`kind:errors`, and for Searches `kind:search routine:yes`), however it is
+ * current while its own term is in the filter (`kind:errors`), however it is
  * refined further; with two views' terms present, or none, no view is current. A filter that is only a single kind, or a Slot,
  * is none of them.
  */
@@ -155,10 +153,7 @@ export function refinements(query: string, qualifiers: readonly Facet[]): number
   return names.size
 }
 
-/** How many events a view shows, from the summary's per-kind counts; Everything is every kind that is not routine. */
-export function viewCount(view: LogView, counts: readonly { kind: string; count: number; routine: boolean }[]): number {
-  return counts
-    .filter((c) => (view.kinds ? view.kinds.includes(c.kind) : !c.routine))
-    .filter((c) => view.routine || !c.routine)
-    .reduce((n, c) => n + c.count, 0)
+/** How many events a view shows, from the summary's per-kind counts; Everything is every kind, routine ones (shown folded) included. */
+export function viewCount(view: LogView, counts: readonly { kind: string; count: number }[]): number {
+  return counts.filter((c) => !view.kinds || view.kinds.includes(c.kind)).reduce((n, c) => n + c.count, 0)
 }
