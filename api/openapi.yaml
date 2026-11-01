@@ -5970,7 +5970,7 @@ components:
       properties:
         kind: { type: string }
         count: { type: integer, format: int64 }
-        routine: { type: boolean, description: Whether events of this kind are routine, left out of the Log unless asked for. }
+        routine: { type: boolean, description: "Whether events of this kind are routine, left out of the Log unless asked for." }
     EventsSummary:
       type: object
       required: [counts, oldest, routine_days]
@@ -5981,7 +5981,7 @@ components:
           items:
             $ref: "#/components/schemas/EventKindCount"
         oldest: { type: string, format: date-time, nullable: true }
-        routine_days: { type: integer, description: How many days routine events are kept. }
+        routine_days: { type: integer, description: "How many days routine events are kept." }
     Event:
       type: object
       required: [id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data]

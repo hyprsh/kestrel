@@ -4165,7 +4165,7 @@ export interface components {
             kind: string;
             /** Format: int64 */
             count: number;
-            /** @description Whether events of this kind are routine */
+            /** @description Whether events of this kind are routine, left out of the Log unless asked for. */
             routine: boolean;
         };
         EventsSummary: {

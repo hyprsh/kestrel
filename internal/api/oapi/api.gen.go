@@ -2389,7 +2389,7 @@ type EventKindCount struct {
 	Count int64  `json:"count"`
 	Kind  string `json:"kind"`
 
-	// Routine Whether events of this kind are routine
+	// Routine Whether events of this kind are routine, left out of the Log unless asked for.
 	Routine bool `json:"routine"`
 }
 
