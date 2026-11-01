@@ -71,7 +71,7 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 /** A path on one line that gives up its start, not its end: "\u2026/Season 05/Breaking Bad - S05E01.mkv". The full path is its tooltip. */
-function EndOfPath({ path, className }: { path: string; className?: string }) {
+export function EndOfPath({ path, className }: { path: string; className?: string }) {
   // The right-to-left box clips and ellipsises at the start; <bdi> keeps the slashes and dots of the path in reading order.
   return (
     <span dir="rtl" title={path} className={cx('label-12-mono block min-w-0 truncate text-left text-gray-900', className)}>
