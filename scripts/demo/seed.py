@@ -6,7 +6,10 @@
 Through the API: the account demo / demo-password-123, English and US, Root folders
 <media>/movies, <media>/movies-family and <media>/tv, the fake indexer, SABnzbd and Plex,
 Plex sign-in on for Requesters (the fake's Ellie signs in with one click),
-setup completed, then Paddington (Standard) and Breaking Bad (Standard and 4K), and without
+setup completed, the Standard and 4K Profiles given a cutoff, an Upgrade-until Score and size limits (HD: WEB-DL 1080p for Series
+and BluRay 1080p for Movies, up to Score 2,000, 0.2 - 10 GB per episode; 4K: WEB-DL 2160p, up to 2,500, 0.5 - 20 GB per episode, so the
+fake's 182 GB Remux is over the limit), and a custom "HD, small files" Profile (no Remux, up to 3 GB per episode, no Upgrade-until
+Score) that nothing uses, then Paddington (Standard) and Breaking Bad (Standard and 4K), and without
 files Paddington 2, Paddington in Peru, El Camino and Better Call Saul.
 
 Straight into SQLite, since Imports would need real downloads: the files of both,
@@ -40,7 +43,15 @@ For the Log, straight into SQLite as well: about a week of events, so its strip,
 Each day has an import, a Grab, a refresh, a request, and two bursts of routine search runs (nothing to grab, mostly) that
 fold into one row each. Two Grabs failed (one "encrypted" twice, a day apart, so the opened error lists the earlier one), one
 Import was rejected, the download client was unreachable twice (Needs attention raised, one clear), an Import stalled and an
-Original Offer came in, so Errors and Warnings have rows and the strip has red and amber columns.
+Original Offer came in, so Errors and Warnings have rows and the strip has red and amber columns. The search runs say how many
+Releases they checked and what came of them, each Grab says why it was made (the Wanted it covers, the files it replaces and the
+Score it gains), and the first outage of the download client records its three failed tries, when it came back and that two Grabs
+waited and none was lost.
+
+For the facts the Title page, Activity and the Log leave out when the server did not record them: the Versions without files
+(Paddington 2, Paddington in Peru, El Camino and Breaking Bad's 4K) carry what their last search found and when the next is due
+(a few hours on, so the sweep leaves them alone), every finished Grab says what it covered and replaced and how many library files
+its Import replaced, and one Grab of Breaking Bad's S05E09-E10 is importing, checking two files.
 """
 import argparse, datetime, http.cookiejar, json, os, sqlite3, subprocess, time, urllib.error, urllib.request
 
@@ -95,6 +106,27 @@ def default(slot, kind):
 
 
 std_m, std_s, k4_s = default("standard", "movies"), default("standard", "series"), default("4k", "series")
+
+# What the Profiles' sheets and cards show beyond TRaSH's data (ADR 0023): where Upgrades stop (the cutoff quality and an
+# Upgrade-until Score), the size limits and, on one custom Profile, its own quality order. Set now, before any file is
+# scored or searched for. The sizes fit the fake indexer's Releases: it offers season packs of a few GB over 16 episodes.
+GB = 1 << 30
+
+
+def overlay(until=None, series_cutoff=None, movie_cutoff=None, episode=(None, None), movie=(None, None), series_qualities=None):
+    return {"min_score": None, "upgrade_until": until,
+            "series": {"cutoff": series_cutoff, "qualities": series_qualities}, "movies": {"cutoff": movie_cutoff, "qualities": None},
+            "episode_size": {"min": episode[0] and int(episode[0] * GB), "max": episode[1] and int(episode[1] * GB)},
+            "movie_size": {"min": movie[0] and int(movie[0] * GB), "max": movie[1] and int(movie[1] * GB)}}
+
+
+call("PATCH", f"/profiles/{std_m}", {"overlay": overlay(until=2000, series_cutoff="WEBDL-1080p", movie_cutoff="Bluray-1080p", episode=(0.2, 10), movie=(1, 10))})
+call("PATCH", f"/profiles/{k4_s}", {"overlay": overlay(until=2500, series_cutoff="WEBDL-2160p", movie_cutoff="WEBDL-2160p", episode=(0.5, 20), movie=(10, 80))})
+small = call("POST", "/profiles", {"name": "HD, small files", "copy_from": std_m})
+ladder = next(d for d in call("GET", "/profiles/details")["items"] if d["key"] == small["key"])["series"]["ladder"]
+call("PATCH", f"/profiles/{small['key']}", {"overlay": overlay(
+    series_cutoff="WEBDL-1080p", episode=(None, 3),
+    series_qualities=[{"name": q["name"], "accepted": q["accepted"] and not q["name"].startswith(("Remux", "Bluray-1080p Remux"))} for q in ladder])})
 call("POST", "/titles", {"kind": "movie", "tmdb_id": 116149, "versions": [{"slot": "standard", "profile": std_m}],
                          "root_folder": f"{ROOT}/movies"})
 call("POST", "/titles", {"kind": "series", "tmdb_id": 1396, "series_monitor": "all",
@@ -369,6 +401,36 @@ for name, (_ok, _bad, n_searches, hit, answer) in PROFILE.items():
         releases = rnd.randint(1, 30) if answered and rnd.random() < hit + 0.1 else 0
         db.execute("INSERT INTO indexer_searches(indexer_id,indexer_name,at,ok,releases,fit,duration_ms) VALUES (?,?,?,?,?,?,?)",
                    (IDS[name], name, iso(when), int(answered), releases if answered else 0, int(fit), max(120, int(rnd.gauss(answer, answer * 0.25) * 1000)) if answered else 8000))
+
+# What each Grab says of why it was made: it covers the Wanted episodes (or the Movie) it holds, unless it is an Upgrade, which
+# replaces the files it holds at +250 on average. The Import replaced as many files as the Grab said it would.
+db.execute("UPDATE grabs SET covers_wanted = CASE WHEN is_upgrade = 1 THEN 0 ELSE MAX(1, (SELECT COUNT(*) FROM grab_episodes e WHERE e.grab_id = grabs.id)) END, "
+           "replaces_files = CASE WHEN is_upgrade = 1 THEN MAX(1, (SELECT COUNT(*) FROM grab_episodes e WHERE e.grab_id = grabs.id)) ELSE 0 END, "
+           "score_delta = CASE WHEN is_upgrade = 1 THEN 250 ELSE 0 END")
+db.execute("UPDATE grabs SET import_replaced = replaces_files WHERE state = 'imported'")
+
+# What the last search of each Version without a file found, and the next search a few hours on, past the sweep that runs now.
+# (Version, hours ago, Releases, outcome, rejections: [code, detail, count], hours until the next search)
+for tmdb, slot_, ago, releases, outcome, reasons, nxt in (
+    (346648, "standard", 2, 23, "nothing_fit", [("language", "German", 23)], 4),
+    (559969, "standard", 5, 11, "nothing_fit", [("below_min_score", None, 7), ("resolution", None, 4)], 19),
+    (1396, "4k", 1, 37, "nothing_fit", [("below_min_score", None, 21), ("resolution", None, 9), ("language", "German", 7)], 3),
+):
+    v = ver[(tid[tmdb], slot_)]
+    db.execute("INSERT INTO version_searches(version_id,at,releases,outcome,reasons,upgrade) VALUES (?,?,?,?,?,0)",
+               (v, iso(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=ago)), releases, outcome,
+                json.dumps([{"code": c, "detail": d, "count": n} if d else {"code": c, "count": n} for c, d, n in reasons], separators=(",", ":"))))
+    db.execute("UPDATE search_state SET next_missing_at=? WHERE version_id=?",
+               (iso(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=nxt)), v))
+
+# An Import in progress: Breaking Bad's S05E09-E10 came down as one Grab and the Import is checking its two files.
+imp = db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,parsed,verdict,"
+                 "client_instance_id,client_id,state,created_at,updated_at,download_started_at,download_done_at,covers_wanted,replaces_files,score_delta,import_checking) "
+                 "VALUES (?,?,?,?,?,?,?,?,?,'{}','{}',?,?,'importing',?,?,?,?,2,0,0,2)",
+                 (tid[1396], std_bb, "seed-importing", "Breaking.Bad.S05E07-E08.1080p.WEB-DL.DD5.1.H.264-NTb", IDS["NZBgeek"], "NZBgeek", 3 << 30,
+                  iso(at_day(0, 0)), 1600, sab, "SABnzbd_nzo_seed-importing", iso(at_day(0, 0, 5)), iso(at_day(0, 0, 25)), iso(at_day(0, 0, 6)), iso(at_day(0, 0, 24)))).lastrowid
+for n in (7, 8):
+    db.execute("INSERT INTO grab_episodes(grab_id, episode_id) VALUES (?,?)", (imp, eps[(5, n)]))
 db.commit()
 versions = [(r["id"], r["profile_key"]) for r in db.execute("SELECT DISTINCT v.id, v.profile_key FROM versions v JOIN files f ON f.version_id = v.id")]
 db.close()
@@ -429,9 +491,12 @@ for d in range(7, -1, -1):
     for burst, hour in enumerate((3, 13)):
         for i in range(8 + (d + burst) % 5):
             t = (346648, 559969, 516729, 1396, 116149)[(i + d) % 5]
-            res = "grabbed 1 Release" if (d, burst, i) in ((5, 1, 3), (1, 0, 2), (0, 1, 4)) else "nothing to grab"
+            grabbed = (d, burst, i) in ((5, 1, 3), (1, 0, 2), (0, 1, 4))
+            res = "grabbed 1 Release" if grabbed else "nothing to grab"
             scope = " for S05" if t == 1396 else ""
-            ev(d, hour, i * 2, "search", f"Searched by hand{scope} in Standard: {res}", title=t, routine=1)
+            ev(d, hour, i * 2, "search", f"Searched by hand{scope} in Standard: {res}", title=t, routine=1,
+               data={"scope": "S05" if t == 1396 else "", "slot": "Standard", "releases": rnd.randint(11, 37), "grabbed": int(grabbed),
+                     "result": "grabbed" if grabbed else "nothing_fit"})
     ev(d, 9, 15, "title_refreshed", "Refreshed from the metadata providers", title=1396, routine=1)
     ev(d, 10, 15, "import", f"Imported {gb[3]} as /data/media/tv/Breaking Bad/Season 05/e.mkv", title=1396, grab=gb[0], data={"path": "/data/media/tv/Breaking Bad/Season 05/e.mkv"})
     ev(d, 10, 2, "grab", f"Sent {gb[3]} to the download client", title=1396, grab=gb[0], data={"by": ("by_search", "by_hand", "by_rss")[d % 3]})
@@ -440,7 +505,9 @@ for d in range(7, -1, -1):
 ev(6, 8, 30, "adoption", "Adopted El Camino (2019) in Standard", title=559969)
 ev(5, 18, 2, "grab_failed", f"Download failed (encrypted): {gp[3]}", title=116149, grab=gp[0])
 ev(4, 6, 12, "health_raised", "SABnzbd refused the connection", data={"key": "download_client", "kind": "download_client_unreachable", "severity": "blocking"})
-ev(4, 6, 40, "health_cleared", "Cleared: SABnzbd refused the connection", data={"key": "download_client", "kind": "download_client_unreachable", "severity": "blocking"})
+ev(4, 6, 40, "health_cleared", "Cleared: SABnzbd refused the connection",
+   data={"key": "download_client", "kind": "download_client_unreachable", "severity": "blocking", "waited": 2, "lost": 0,
+         "attempts": [iso(at_day(4, 6, 12)), iso(at_day(4, 6, 20)), iso(at_day(4, 6, 30))], "recovered_at": iso(at_day(4, 6, 40))})
 ev(3, 15, 20, "import_rejected", f"Import of {gb[3]} rejected: not_upgrade", title=1396, grab=gb[0])
 ev(2, 12, 50, "import_stalled", f"Import of {gp[3]} stalled: /data/media/movies is not writable", title=116149, grab=gp[0])
 ev(1, 17, 40, "original_offered", "Standard has the Original Language only: accept or dismiss it in Needs attention", title=516729, routine=1)
