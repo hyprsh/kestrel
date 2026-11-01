@@ -177,9 +177,11 @@ describe('the wizard Profiles section', () => {
 })
 
 describe('Settings', () => {
-  const open = async () => {
+  // Settings shows one section at a time, the first until another is chosen in the panel.
+  const open = async (section?: string) => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    if (section) await userEvent.click(await screen.findByRole('link', { name: section }))
   }
 
   it('lists the Primary Language and Profiles sections in the jump list', async () => {
@@ -206,7 +208,7 @@ describe('Settings', () => {
 
   it('enables, disables and chooses what each Primary-Language Profile does with Original-only Releases', async () => {
     const sent = fakeProfiles()
-    await open()
+    await open('Profiles')
     const section = await screen.findByRole('region', { name: 'Profiles' })
 
     await userEvent.click(await within(section).findByLabelText('4K enabled'))
@@ -230,7 +232,7 @@ describe('Settings', () => {
 
   it('shows the server problem when the only HD default is disabled', async () => {
     fakeProfiles()
-    await open()
+    await open('Profiles')
     const section = await screen.findByRole('region', { name: 'Profiles' })
     await userEvent.click(await within(section).findByLabelText('HD enabled'))
     expect(await within(section).findByRole('alert')).toHaveTextContent('The Standard Slot always has a default')
@@ -254,12 +256,13 @@ describe('Settings', () => {
       http.patch('/profiles/{key}', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
       http.patch('/settings', ({ response }) => response('default').json(problem(500, 'internal', 'database locked'), { status: 500 })),
     )
-    await open()
+    await open('Profiles')
     const profiles = await screen.findByRole('region', { name: 'Profiles' })
 
     await userEvent.selectOptions(await within(profiles).findByLabelText('HD Original Language only'), 'offer')
     expect(await within(profiles).findByRole('alert')).toBeInTheDocument()
 
+    await userEvent.click(screen.getByRole('link', { name: 'Primary Language' }))
     const language = await screen.findByRole('region', { name: 'Primary Language' })
     await userEvent.selectOptions(await within(language).findByLabelText('Primary Language'), 'de')
     await userEvent.click(within(language).getByRole('button', { name: 'Save language' }))

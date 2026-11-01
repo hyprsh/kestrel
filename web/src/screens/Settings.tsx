@@ -1,8 +1,11 @@
 import { Button, Checkbox, Code, Entity, Fieldset, Input, Note, Snippet, Textarea } from '@hyprsh/design'
-import { ChevronRight } from 'lucide-react'
-import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
+import { ChevronRight, Search } from 'lucide-react'
+import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
-import { JumpLink, JumpNav } from '../layout/JumpNav'
+import { JumpGroup, JumpLink, JumpNav } from '../layout/JumpNav'
+import { SidePanel } from '../layout/SidePanel'
+import { useStatus } from '../api/attention'
+import { healthOf } from '../health/tiles'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { adoptionLabel, useAdoption } from '../api/adoption'
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
@@ -20,39 +23,57 @@ import { PlexSignInForm } from './PlexSignIn'
 import { SiloSettingsForm } from './SiloSettings'
 import { DefaultsPerSlot, ProfileToggles } from '../profiles/Profiles'
 
-/** Settings sections, in page order. Later tickets add theirs here. */
+/** Settings sections, in page order (the phone's list), each in the group the desktop panel files it under. */
 const sections = [
-  { id: 'language', title: 'Primary Language' },
-  { id: 'display', title: 'Display' },
-  { id: 'profiles', title: 'Profiles' },
-  { id: 'trash', title: 'TRaSH' },
-  { id: 'metadata', title: 'Provider keys' },
-  { id: 'download-client', title: 'Download client' },
-  { id: 'indexers', title: 'Indexers' },
-  { id: 'grabs', title: 'Grabs' },
-  { id: 'root-folders', title: 'Root folders' },
-  { id: 'adoption', title: 'Existing files' },
-  { id: 'media-servers', title: 'Media servers' },
-  { id: 'plex', title: 'Plex' },
-  { id: 'silo', title: 'Silo' },
-  { id: 'account', title: 'Account' },
-  { id: 'updates', title: 'Updates' },
-  { id: 'security', title: 'Security' },
-  { id: 'reverse-proxy', title: 'Reverse proxy' },
-  { id: 'setup', title: 'Setup' },
+  { id: 'language', title: 'Primary Language', group: 'Media', rows: ['Language and country'] },
+  { id: 'display', title: 'Display', group: 'Media', rows: ['Household defaults'] },
+  { id: 'profiles', title: 'Profiles', group: 'Media', rows: ['Defaults per Slot', 'Profiles'] },
+  { id: 'trash', title: 'TRaSH', group: 'Media', rows: ['Custom Formats and profiles'] },
+  { id: 'metadata', title: 'Provider keys', group: 'Connections', rows: ['TMDB and TheTVDB'] },
+  { id: 'download-client', title: 'Download client', group: 'Connections', rows: [] },
+  { id: 'indexers', title: 'Indexers', group: 'Connections', rows: [] },
+  { id: 'grabs', title: 'Grabs', group: 'Connections', rows: ['Automatic Grabs'] },
+  { id: 'root-folders', title: 'Root folders', group: 'Media', rows: ['Folders'] },
+  { id: 'adoption', title: 'Existing files', group: 'Media', rows: ['Adopt existing library'] },
+  { id: 'media-servers', title: 'Media servers', group: 'Connections', rows: [] },
+  { id: 'plex', title: 'Plex', group: 'Connections', rows: ['Plex sign-in'] },
+  { id: 'silo', title: 'Silo', group: 'Connections', rows: ['Watch-ahead'] },
+  { id: 'account', title: 'Account', group: 'System', rows: ['Password', 'Sessions'] },
+  { id: 'updates', title: 'Updates', group: 'System', rows: ['GitHub'] },
+  { id: 'security', title: 'Security', group: 'System', rows: ['API key'] },
+  { id: 'reverse-proxy', title: 'Reverse proxy', group: 'System', rows: ['Reverse proxy', 'Trusted proxies'] },
+  { id: 'setup', title: 'Setup', group: 'System', rows: ['Setup wizard'] },
 ]
+const groups = ['Media', 'Connections', 'System']
 
-/** Scrolls to a section and focuses its heading, keeping the page (and its place) rather than the base URL's Overview. */
-function jumpTo(event: MouseEvent<HTMLAnchorElement>, id: string) {
+/** The sections whose Health check fails or warns: the download client, an indexer, a low disk (the Root folders). */
+function useAttentionSections(): Set<string> {
+  const status = useStatus()
+  const out = new Set<string>()
+  if (!status.data) return out
+  for (const t of healthOf(status.data).groups.flatMap((g) => g.tiles)) {
+    if (t.tone === 'failing' && t.key === 'client') out.add('download-client')
+    else if (t.tone === 'failing' && t.key.startsWith('indexer-')) out.add('indexers')
+    else if (t.tone === 'low') out.add('root-folders')
+  }
+  return out
+}
+
+/** The section a "#settings-<id>" address names, if there is one. */
+const hashSection = () => sections.find((s) => location.hash === `#settings-${s.id}`)?.id
+
+/** Opens a section: its heading takes focus and the address keeps the page, rather than the base URL's Overview. */
+function openSectionLink(event: MouseEvent<HTMLAnchorElement>, id: string, open: (id: string) => void) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   event.preventDefault()
-  document.getElementById(`settings-${id}`)?.scrollIntoView()
-  document.getElementById(`settings-${id}-title`)?.focus()
+  open(id)
   history.replaceState(history.state, '', event.currentTarget.href)
+  // The section renders on the next paint.
+  setTimeout(() => document.getElementById(`settings-${id}-title`)?.focus(), 0)
 }
 
 /**
- * One page with a jump list on the left; each section is a group of rows. On a phone the list is a
+ * A panel of sections on the left and the open section, a group of rows, beside it (the first until one is chosen). On a phone the list is a
  * screen of its own and a section another, full screen with a Back button: `section` is the open
  * one ("" is the list), kept by the Shell in the address bar so the browser's Back returns to the list.
  */
@@ -211,33 +232,100 @@ export function Settings({
         </div>
       )
     return (
-      <nav key="list" aria-label="Settings sections" className="min-h-0 flex-1 overflow-auto">
-        <Entity.List>
-          {sections.map((s) => (
-            <Entity key={s.id} as="button" right={<ChevronRight aria-hidden className="size-4 text-gray-900" />} onClick={() => onOpenSection?.(s.id)}>
-              <Entity.Content fill title={s.title} />
-            </Entity>
-          ))}
-        </Entity.List>
-      </nav>
+      <div key="list" className="flex min-h-0 flex-1 flex-col">
+        <SidePanel title="Settings" />
+        <nav aria-label="Settings sections" className="min-h-0 flex-1 overflow-auto">
+          <Entity.List>
+            {sections.map((s) => (
+              <Entity key={s.id} as="button" right={<ChevronRight aria-hidden className="size-4 text-gray-900" />} onClick={() => onOpenSection?.(s.id)}>
+                <Entity.Content fill title={s.title} />
+              </Entity>
+            ))}
+          </Entity.List>
+        </nav>
+      </div>
     )
   }
 
+  return <DesktopSettings content={content} initial={section} />
+}
+
+function DesktopSettings({ content, initial }: { content: Record<string, ReactNode>; initial: string }) {
+  const known = (id: string | undefined) => sections.find((s) => s.id === id)?.id
+  const [open, setOpen] = useState(known(initial) ?? hashSection() ?? sections[0].id)
+  const [find, setFind] = useState('')
+  const attention = useAttentionSections()
+  // A place opened from elsewhere ("/settings/indexers"), or the address changing under us.
+  useEffect(() => {
+    const id = known(initial)
+    if (id) setOpen(id)
+  }, [initial])
+  useEffect(() => {
+    const onHash = () => {
+      const id = hashSection()
+      if (id) setOpen(id)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  const needle = find.trim().toLowerCase()
+  const matches = sections
+    .map((s) => ({ s, row: s.title.toLowerCase().includes(needle) ? undefined : s.rows.find((r) => r.toLowerCase().includes(needle)) }))
+    .filter(({ s, row }) => !needle || s.title.toLowerCase().includes(needle) || row !== undefined)
+  const choose = (id: string) => {
+    setOpen(id)
+    setFind('')
+  }
+  const current = sections.find((s) => s.id === open)!
+
   return (
-    <div className="flex min-h-0 flex-1 overflow-auto">
-      <JumpNav label="Settings sections">
-        {sections.map((s) => (
-          <JumpLink key={s.id} href={`${location.pathname}#settings-${s.id}`} onClick={(e) => jumpTo(e, s.id)}>
-            {s.title}
-          </JumpLink>
-        ))}
-      </JumpNav>
-      <div className="min-w-0 max-w-3xl flex-1 p-4 pr-8">
-        {sections.map((s) => (
-          <Group key={s.id} id={s.id} title={s.title}>
-            {content[s.id]}
+    <div className="flex min-h-0 flex-1">
+      <SidePanel
+        title="Settings"
+        filter={
+          <Input
+            size="small"
+            aria-label="Find a setting"
+            placeholder="Find a setting"
+            type="search"
+            prefix={<Search aria-hidden className="size-4" />}
+            prefixStyling={false}
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && matches[0]) {
+                e.preventDefault()
+                choose(matches[0].s.id)
+                history.replaceState(history.state, '', `${location.pathname}#settings-${matches[0].s.id}`)
+              } else if (e.key === 'Escape') setFind('')
+            }}
+          />
+        }
+      >
+        <JumpNav label="Settings sections">
+          {matches.length === 0 && <p className="label-13 px-2.5 py-2 text-gray-900">No setting matches “{find.trim()}”.</p>}
+          {groups.map((g) => {
+            const inGroup = matches.filter(({ s }) => s.group === g)
+            if (inGroup.length === 0) return null
+            return (
+              <JumpGroup key={g} title={g}>
+                {inGroup.map(({ s, row }) => (
+                  <JumpLink key={s.id} href={`${location.pathname}#settings-${s.id}`} current={s.id === open} warn={attention.has(s.id)} note={row} onClick={(e) => openSectionLink(e, s.id, choose)}>
+                    {s.title}
+                  </JumpLink>
+                ))}
+              </JumpGroup>
+            )
+          })}
+        </JumpNav>
+      </SidePanel>
+      <div className="min-w-0 flex-1 overflow-auto px-10 py-7">
+        <div key={current.id} className="max-w-[880px]">
+          <Group id={current.id} title={current.title}>
+            {content[current.id]}
           </Group>
-        ))}
+        </div>
       </div>
     </div>
   )
@@ -246,7 +334,7 @@ export function Settings({
 function Group({ id, title, headingHidden, children }: { id: string; title: string; headingHidden?: boolean; children: ReactNode }) {
   return (
     <section id={`settings-${id}`} aria-labelledby={`settings-${id}-title`} className="mb-8">
-      <h2 id={`settings-${id}-title`} tabIndex={-1} className={headingHidden ? 'sr-only' : 'heading-20 mb-3'}>
+      <h2 id={`settings-${id}-title`} tabIndex={-1} className={headingHidden ? 'sr-only' : 'heading-24 mb-3'}>
         {title}
       </h2>
       <div className="flex flex-col gap-4">{children}</div>

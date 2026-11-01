@@ -43,7 +43,7 @@ describe('Settings jump list', () => {
     expect(location.hash).toBe('#settings-trash')
     expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'TRaSH' })).toHaveFocus()
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    expect(screen.queryByRole('region', { name: 'Display' })).not.toBeInTheDocument()
   })
 
   it('has Plex and Reverse proxy links that jump to their own sections', async () => {
@@ -59,5 +59,18 @@ describe('Settings jump list', () => {
     await userEvent.click(within(jump).getByRole('link', { name: 'Reverse proxy' }))
     expect(location.hash).toBe('#settings-reverse-proxy')
     expect(screen.getByRole('heading', { name: 'Reverse proxy', level: 2 })).toHaveFocus()
+  })
+
+  it('opens the first section, groups the list and finds a setting by its row', async () => {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
+    expect(within(jump).getByRole('link', { name: 'Primary Language' })).toHaveAttribute('aria-current', 'true')
+    expect(within(jump).getByRole('region', { name: 'Connections' })).toBeInTheDocument()
+
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'api key{Enter}')
+    expect(location.hash).toBe('#settings-security')
+    expect(await screen.findByRole('heading', { name: 'API key' })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Find a setting' })).toHaveValue('')
   })
 })

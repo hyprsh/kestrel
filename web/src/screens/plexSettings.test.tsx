@@ -63,6 +63,7 @@ function fakePlexSettings(initial: Partial<Saved> = {}, rejects?: { field: strin
 const openCard = async () => {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+  await userEvent.click(await screen.findByRole('link', { name: 'Plex' }))
   await screen.findByRole('heading', { name: 'Plex' })
   return screen.findByRole('heading', { name: 'Plex sign-in' })
 }

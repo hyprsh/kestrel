@@ -15,8 +15,8 @@
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
 //   FloatingBar.tsx       toolbar for ticked rows: over a list's foot, or sticky in a pane    <FloatingBar label="2 ticked">{actions}</FloatingBar>
-//   JumpNav.tsx           JumpNav and JumpLink: sticky links     <JumpNav label="Sections"><JumpLink href onClick>{name}</JumpLink></JumpNav>
-//                         that jump to sections of the page
+//   JumpNav.tsx           JumpNav, JumpGroup, JumpLink: a panel's section links    <JumpNav label><JumpGroup title><JumpLink href onClick current warn>{name}</JumpLink>
+//                         (current, a "Needs attention" dot, a note line)
 //   ListPane.tsx          list column beside a detail pane       <ListPane>{list}</ListPane>
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
 //   Pane.tsx              PaneHeader and PaneFooter: top and     <PaneHeader>{title, controls}</PaneHeader>

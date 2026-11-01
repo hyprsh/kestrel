@@ -38,6 +38,7 @@ describe('Pause Grabs', () => {
     )
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Grabs' }))
     const section = await screen.findByRole('region', { name: 'Grabs' })
     const toggle = await within(section).findByRole('checkbox', { name: /pause grabs/i })
     expect(toggle).not.toBeChecked()
