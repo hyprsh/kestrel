@@ -14,7 +14,6 @@ import type { ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
 import { useSelection } from '../selection'
 import { useNow } from '../time'
-import { PageSkeleton } from '../loading'
 import { size } from './bits'
 import { BulkActions } from './BulkActions'
 import { EpisodeViewContext } from './episodeView'
@@ -26,7 +25,7 @@ import { singleSlot } from './rowChips'
 import { AddTitle, LibraryMenu, StatusSection } from './LibraryBar'
 import { scopeCode } from './scopeCode'
 import { grabsByTitle } from './rowState'
-import { TitleDetail, type ManualSearchTarget } from './TitleDetail'
+import { TitleDetail, TitlePending, type ManualSearchTarget } from './TitleDetail'
 import { TitleRows } from './TitleRows'
 import { useEpisodeResults, type EpisodeHit } from './useEpisodeResults'
 
@@ -271,7 +270,9 @@ export function Library({
       profileName={(key) => profiles?.find((p) => p.key === key)?.name ?? key}
     />
   )
-  const nothing = (
+  const nothing = titles.isPending ? (
+    <TitlePending />
+  ) : (
     <div className="flex flex-1 items-center justify-center p-6 text-center">
       {titles.isError ? (
         <Note variant="error" size="small">
@@ -304,7 +305,7 @@ export function Library({
   // The selected Title's page, or the manual search that replaces it; `onEscape` is where Escape in the page goes.
   const titlePage = (onEscape: () => void) =>
     current && searching ? (
-      <Suspense fallback={<PageSkeleton />}>
+      <Suspense fallback={<TitlePending />}>
         <ManualSearchRoute
           at={search}
           titleName={current.title}

@@ -1,6 +1,6 @@
 // The Log: what Kestrel did, as a strip of the last days over one card of events as sentences, filtered by one field of
 // qualifiers (kind:, slot:, title:, routine:) and free text; and the Blocklist view, where an entry can be removed.
-import { Button, DotsMenu, EmptyState, Entity, MenuDivider, MenuItem, MenuSection, Note, Pager, Table, Toggle, parseQuery, withValue } from '@hyprsh/design'
+import { Button, DotsMenu, EmptyState, Entity, MenuDivider, MenuItem, MenuSection, Note, Pager, Skeleton, Table, Toggle, parseQuery, withValue } from '@hyprsh/design'
 import { ArrowDownToLine, CircleAlert, FileCheck, FolderInput, List, Search, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useBlocklist, useEventsHistogram, useEventsSummary, useSameKind, useUnblock, type EventsSummary, type LogEvent } from '../api/log'
@@ -90,7 +90,7 @@ function useStrip() {
 /** A phone's week line: "874 events this week · 3 errors · 12 warnings", the errors in red. */
 function WeekLine() {
   const { days, histogram } = useStrip()
-  if (!histogram.data) return null
+  if (!histogram.data) return <Skeleton width={240} height={14} />
   const t = stripTotals(histogram.data.buckets)
   const span = days >= 7 ? 'this week' : days <= 1 ? 'today' : `in the last ${days} days`
   return (

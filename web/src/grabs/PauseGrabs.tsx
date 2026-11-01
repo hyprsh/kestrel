@@ -2,12 +2,13 @@
 import { Note, Toggle } from '@hyprsh/design'
 import { ApiError, usePatchSettings, useSettings } from '../api/queries'
 import { SettingRow, SettingsCard } from '../layout/SettingsPage'
+import { SkeletonForm } from '../loading'
 
 /** On means Kestrel grabs what fits on its own; off pauses Grabs (`pause_grabs`). It applies at once, as it always did. */
 export function AutomaticGrabsRow() {
   const { data } = useSettings()
   const save = usePatchSettings()
-  if (!data) return null
+  if (!data) return <SkeletonForm rows={1} />
   return (
     <SettingsCard>
       <SettingRow
