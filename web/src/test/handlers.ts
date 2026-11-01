@@ -81,6 +81,8 @@ export const handlers = [
     }),
   ),
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
+  http.get('/profiles/details', ({ response }) => response(200).json({ items: [] })),
+  http.get('/settings/downloads', ({ response }) => response(200).json({ download_client: null, indexers: [] })),
   http.get('/titles', ({ response }) => response(200).json({ items: [], next_cursor: null })),
   http.get('/queue', ({ response }) => response(200).json({ items: [] })),
   http.get('/grabs', ({ response }) => response(200).json({ items: [], next_cursor: null })),
