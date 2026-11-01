@@ -3,7 +3,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { TitleRow } from '../api/queries'
 import { fakeLibrary, row } from '../test/library'
@@ -146,5 +146,24 @@ describe('Library rows: Slot chips', () => {
     await userEvent.click(await within(list).findByRole('button', { name: '1 more Slots' }))
     await userEvent.click(within(await screen.findByRole('dialog', { name: '1 more Slots' })).getByRole('button', { name: /ANIME/ }))
     await waitFor(() => expect(location.search).toContain('slot=anime'))
+  })
+
+  it('opens on hover without taking focus from the filter field', async () => {
+    const hover = vi.fn((q: string) => ({ matches: q.includes('hover: hover'), media: q, addEventListener: () => undefined, removeEventListener: () => undefined }))
+    vi.stubGlobal('matchMedia', hover)
+    try {
+      fakeLibrary([row(1, 'Paddington', 'Paddington'), row(2, 'Heat', 'Heat', { slot_states: [entry('standard', 'Standard', 'filled'), entry('4k', '4K', 'wanted')] })])
+      const list = await openLibrary()
+      const field = screen.getByRole('combobox', { name: 'Filter the Library' })
+      field.focus()
+      expect(field).toHaveFocus()
+
+      await userEvent.hover(within(await within(list).findByRole('option', { name: /heat/i })).getByRole('button', { name: /^4K:/ }))
+
+      expect(await screen.findByRole('dialog', { name: /^4K/ })).toBeInTheDocument()
+      expect(field).toHaveFocus()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
