@@ -286,3 +286,99 @@ func TestAnOutageCountsTheGrabsItHeldUp(t *testing.T) {
 		t.Errorf("another indexer's outage holds up %d Grabs, want 0", waited)
 	}
 }
+
+func TestASeriesSearchRecordsWhatItFoundForEachEpisodeAndASeasonPackCountsForAll(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	id, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp1, "1", "1")
+	r.publishShow(t, nightPack, "1", "")
+
+	if _, err := r.svc.SearchWanted(ctx, id, []int64{ver}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := r.svc.LastEpisodeSearches(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eps, _ := r.lib.Episodes(ctx, id, library.View{Now: r.clock.now})
+	for _, ep := range eps {
+		if ep.Season != 1 {
+			continue
+		}
+		ls, ok := got[[2]int64{ver, ep.ID}]
+		if !ok {
+			t.Fatalf("S01E%02d has no last search", ep.Number)
+		}
+		want := 1 // the pack
+		if ep.Number == 1 {
+			want = 2 // the pack and its own release
+		}
+		if ls.Releases != want || !ls.At.Equal(r.clock.now) {
+			t.Errorf("S01E%02d: %+v, want %d releases", ep.Number, ls, want)
+		}
+	}
+}
+
+func TestASearchOfOneEpisodeLeavesTheVersionsOwnRecordAlone(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	id, ver := r.nightShow(t, library.MonitorAll)
+	r.publishShow(t, nightEp1, "1", "1")
+	if _, err := r.svc.SearchWanted(ctx, id, []int64{ver}); err != nil {
+		t.Fatal(err)
+	}
+	whole := r.lastSearch(t, ver)
+	r.clock.now = r.clock.now.Add(time.Hour)
+	eps, _ := r.lib.Episodes(ctx, id, library.View{Now: r.clock.now})
+
+	if _, err := acquire.SearchNow(r.svc, ctx, ver, library.Scope{EpisodeIDs: []int64{eps[1].ID}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if after := r.lastSearch(t, ver); after.At != whole.At || after.Releases != whole.Releases {
+		t.Errorf("Version record = %+v after a search of one episode, want %+v untouched", after, whole)
+	}
+	got, _ := r.svc.LastEpisodeSearches(ctx, id)
+	if ls, ok := got[[2]int64{ver, eps[1].ID}]; !ok || !ls.At.Equal(r.clock.now) {
+		t.Errorf("episode record = %+v, %v, want one from the scoped search", ls, ok)
+	}
+}
+
+func TestAnAutomaticSearchWritesARoutineSearchedEvent(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	hist := history.New(r.deps.Store, r.clock.Now, nil)
+	r.deps.History = hist
+	svc, err := acquire.New(r.deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.svc = svc
+	r.publish(t, hd1080, time.Hour)
+
+	if _, err := svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard)); err != nil {
+		t.Fatal(err)
+	}
+
+	events, _ := hist.After(ctx, 0, 100)
+	n := 0
+	for _, e := range events {
+		if e.Kind != history.Searched {
+			continue
+		}
+		n++
+		var data struct {
+			Releases, Grabbed int
+			Slot, Result      string
+		}
+		_ = json.Unmarshal(e.Data, &data)
+		if !e.Routine || data.Releases != 1 || data.Grabbed != 1 || data.Slot != "Standard" || data.Result != "grabbed" || e.Message != "Searched in Standard: grabbed 1 Release" {
+			t.Errorf("event = %+v data %+v", e, data)
+		}
+	}
+	if n != 1 {
+		t.Errorf("%d Searched events, want 1", n)
+	}
+}

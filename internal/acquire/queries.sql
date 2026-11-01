@@ -137,6 +137,15 @@ ON CONFLICT (version_id) DO UPDATE SET at = excluded.at, releases = excluded.rel
 -- name: ListVersionSearches :many
 SELECT * FROM version_searches WHERE version_id IN (SELECT value FROM json_each(sqlc.arg(ids)));
 
+-- What the last search of each episode of a Version found; one row per Version and episode.
+-- name: UpsertEpisodeSearch :exec
+INSERT INTO episode_searches (version_id, episode_id, at, releases, outcome, reasons, upgrade) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (version_id, episode_id) DO UPDATE SET at = excluded.at, releases = excluded.releases, outcome = excluded.outcome,
+                                                   reasons = excluded.reasons, upgrade = excluded.upgrade;
+
+-- name: ListEpisodeSearches :many
+SELECT es.* FROM episode_searches es JOIN episodes e ON e.id = es.episode_id WHERE e.title_id = ?;
+
 -- Why a Release was grabbed: the Wanted it covers, the files it replaces and the average Score gain.
 -- name: SetGrabWhy :exec
 UPDATE grabs SET covers_wanted = ?, replaces_files = ?, score_delta = ? WHERE id = ?;

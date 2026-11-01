@@ -630,6 +630,41 @@ func (q *Queries) ListDownloadingGrabs(ctx context.Context) ([]Grab, error) {
 	return items, nil
 }
 
+const listEpisodeSearches = `-- name: ListEpisodeSearches :many
+SELECT es.version_id, es.episode_id, es.at, es.releases, es.outcome, es.reasons, es.upgrade FROM episode_searches es JOIN episodes e ON e.id = es.episode_id WHERE e.title_id = ?
+`
+
+func (q *Queries) ListEpisodeSearches(ctx context.Context, titleID int64) ([]EpisodeSearch, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodeSearches, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EpisodeSearch
+	for rows.Next() {
+		var i EpisodeSearch
+		if err := rows.Scan(
+			&i.VersionID,
+			&i.EpisodeID,
+			&i.At,
+			&i.Releases,
+			&i.Outcome,
+			&i.Reasons,
+			&i.Upgrade,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGrabEpisodes = `-- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id
 `
@@ -1242,6 +1277,36 @@ type StartImportParams struct {
 
 func (q *Queries) StartImport(ctx context.Context, arg StartImportParams) error {
 	_, err := q.db.ExecContext(ctx, startImport, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const upsertEpisodeSearch = `-- name: UpsertEpisodeSearch :exec
+INSERT INTO episode_searches (version_id, episode_id, at, releases, outcome, reasons, upgrade) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (version_id, episode_id) DO UPDATE SET at = excluded.at, releases = excluded.releases, outcome = excluded.outcome,
+                                                   reasons = excluded.reasons, upgrade = excluded.upgrade
+`
+
+type UpsertEpisodeSearchParams struct {
+	VersionID int64
+	EpisodeID int64
+	At        string
+	Releases  int64
+	Outcome   string
+	Reasons   string
+	Upgrade   int64
+}
+
+// What the last search of each episode of a Version found; one row per Version and episode.
+func (q *Queries) UpsertEpisodeSearch(ctx context.Context, arg UpsertEpisodeSearchParams) error {
+	_, err := q.db.ExecContext(ctx, upsertEpisodeSearch,
+		arg.VersionID,
+		arg.EpisodeID,
+		arg.At,
+		arg.Releases,
+		arg.Outcome,
+		arg.Reasons,
+		arg.Upgrade,
+	)
 	return err
 }
 

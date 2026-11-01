@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 
+	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 )
 
@@ -23,10 +24,7 @@ func (s *server) withSearches(ctx context.Context, d *oapi.TitleDetail) error {
 	for i := range d.Versions {
 		v := &d.Versions[i]
 		if ls, ok := last[v.Id]; ok {
-			out := oapi.LastSearch{At: ls.At, Releases: ls.Releases, Outcome: oapi.LastSearchOutcome(ls.Outcome), Upgrade: ls.Upgrade, Reasons: make([]oapi.RejectionCount, len(ls.Reasons))}
-			for j, r := range ls.Reasons {
-				out.Reasons[j] = oapi.RejectionCount{Code: oapi.RejectionCode(r.Code), Count: r.Count, Detail: strPtr(r.Detail)}
-			}
+			out := lastSearchToAPI(ls)
 			v.LastSearch = &out
 		}
 		if n, ok := next[v.Id]; ok {
@@ -41,4 +39,13 @@ func (s *server) withSearches(ctx context.Context, d *oapi.TitleDetail) error {
 		}
 	}
 	return nil
+}
+
+// lastSearchToAPI is a last search as the API tells it.
+func lastSearchToAPI(ls acquire.LastSearch) oapi.LastSearch {
+	out := oapi.LastSearch{At: ls.At, Releases: ls.Releases, Outcome: oapi.LastSearchOutcome(ls.Outcome), Upgrade: ls.Upgrade, Reasons: make([]oapi.RejectionCount, len(ls.Reasons))}
+	for j, r := range ls.Reasons {
+		out.Reasons[j] = oapi.RejectionCount{Code: oapi.RejectionCode(r.Code), Count: r.Count, Detail: strPtr(r.Detail)}
+	}
+	return out
 }

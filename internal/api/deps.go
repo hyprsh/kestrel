@@ -170,6 +170,8 @@ type Acquire interface {
 	GrabEpisodes(ctx context.Context, grabID int64) ([]int64, error)
 	// LastSearches is what the last search of each of the Versions found.
 	LastSearches(ctx context.Context, versionIDs []int64) (map[int64]acquire.LastSearch, error)
+	// LastEpisodeSearches is what the last search of each episode of the Title's Versions found, per Version and episode.
+	LastEpisodeSearches(ctx context.Context, titleID int64) (map[[2]int64]acquire.LastSearch, error)
 	Grab(ctx context.Context, versionID int64, releaseID string, override bool) (acquire.Grab, error)
 	GetGrab(ctx context.Context, id int64) (acquire.Grab, error)
 	GrabFormats(ctx context.Context, grabID int64) ([]scoring.MatchedFormat, error)

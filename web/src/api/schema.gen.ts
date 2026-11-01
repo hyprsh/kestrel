@@ -3203,6 +3203,11 @@ export interface components {
             score: number | null;
             /** @description The file holding the episode in this Version, even a misfit one; `null` when there is none. */
             file: components["schemas"]["EpisodeFile"] | null;
+            /**
+             * @description What the last search that asked the indexers for this episode found; null when it was never searched.
+             *     `releases` counts the Releases that named the episode (a season pack names each episode it holds).
+             */
+            last_search?: components["schemas"]["LastSearch"] | null;
         };
         /** @description A file on disk holding one or more episodes of a Version (a multi-episode file holds several). */
         EpisodeFile: {

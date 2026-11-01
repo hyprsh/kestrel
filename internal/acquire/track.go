@@ -271,6 +271,13 @@ type Outcome struct {
 	Releases int
 	// entries are those Releases, for the record of what each Version's search found.
 	entries []*entry
+	// scoped is set for a Series search narrowed to a season or to episodes; episodes are the episodes of the
+	// library, library its list, for the per-episode record of what each Version's search found.
+	// asked is set once the indexers were asked (or the cache read) for the search.
+	asked    bool
+	scoped   bool
+	episodes map[int64][]int64
+	library  []library.Episode
 }
 
 // SearchWanted is the automatic search for what a Title's Versions are
@@ -285,14 +292,14 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil // nothing was searched: the Versions stay due
 	}
-	return s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, false)
+	return s.searchAutomatic(ctx, titleID, versionIDs, false)
 }
 
 // SearchNew is the search on add: the first search of a new Version (added by
 // hand or by a Request). It does what SearchWanted does but is not a sweep, so
 // the 80 % budget stop does not apply to it.
 func (s *Service) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
-	return s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, false)
+	return s.searchAutomatic(ctx, titleID, versionIDs, false)
 }
 
 // SearchUpgrades is the Upgrade sweep's search: the same as SearchWanted for
@@ -304,7 +311,14 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil
 	}
-	return s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, true)
+	return s.searchAutomatic(ctx, titleID, versionIDs, true)
+}
+
+// searchAutomatic is searchTitle for the searches Kestrel starts on its own, which also say in the Log what they found.
+func (s *Service) searchAutomatic(ctx context.Context, titleID int64, versionIDs []int64, upgrade bool) (Outcome, error) {
+	out, err := s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, upgrade)
+	s.noteAutomatic(ctx, titleID, upgrade, out, err)
+	return out, err
 }
 
 // searchTitle searches a Title for its Wanted Versions, or with upgrade for its
@@ -356,6 +370,7 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 	}
 	obs := ObserverOf(ctx)
 	obs.Searching(targetOf(sub.detail, in))
+	out.asked = true
 	entries, failures, err := s.candidates(ctx, sub, library.Scope{}, fromCache)
 	if err != nil {
 		return out, err

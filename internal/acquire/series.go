@@ -245,6 +245,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	var in Input
 	in.SeasonsFinished = seasonsFinished(episodes, now)
 	versionOf := map[Slot]int64{}
+	searchedEpisodes := map[int64][]int64{}
 	wantedSeasons := map[int]bool{}
 	for _, v := range d.Versions {
 		if !slices.Contains(versionIDs, v.ID) || v.State != want {
@@ -264,6 +265,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 				}
 			}
 			ver.Units = append(ver.Units, u)
+			searchedEpisodes[v.ID] = append(searchedEpisodes[v.ID], ep.ID)
 			if ep.Season != 0 || scope.Narrow() {
 				wantedSeasons[ep.Season] = true
 			}
@@ -274,6 +276,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			in.Versions = append(in.Versions, ver)
 		}
 	}
+	out.scoped, out.episodes, out.library = scope.Narrow(), searchedEpisodes, episodes
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
@@ -285,6 +288,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	slices.Sort(seasons)
 	obs := ObserverOf(ctx)
 	obs.Searching(targetOf(d, in))
+	out.asked = true
 	entries := map[string]*entry{}
 	add := func(found []*entry) {
 		for _, e := range found {

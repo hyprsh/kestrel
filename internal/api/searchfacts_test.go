@@ -149,3 +149,37 @@ func TestAGrabListsTheEpisodeIdsItWasMadeFor(t *testing.T) {
 		t.Errorf("GET /grabs = %+v, want episode_ids [%d]", l.Items, second.ID)
 	}
 }
+
+func TestAnEpisodeCellTellsWhatTheLastSearchForItFound(t *testing.T) {
+	t.Parallel()
+	s := newSeriesSearch(t)
+	s.publishEpisode(t, badEp1, "1", "1")
+	s.pass(t, jobs.Search)
+
+	d := decode[struct {
+		Items []struct {
+			Season int `json:"season"`
+			Number int `json:"number"`
+			Cells  struct {
+				Standard *struct {
+					LastSearch *lastSearchJSON `json:"last_search"`
+				} `json:"standard"`
+			} `json:"cells"`
+		} `json:"items"`
+	}](t, s.valid("GET", fmt.Sprintf("/titles/%d/episodes", s.title), ""))
+
+	found := false
+	for _, e := range d.Items {
+		c := e.Cells.Standard
+		if e.Season != 1 || c == nil || c.LastSearch == nil {
+			continue
+		}
+		found = true
+		if e.Number == 1 && (c.LastSearch.Releases != 1 || c.LastSearch.Outcome != "grabbed") {
+			t.Errorf("S01E01 last_search = %+v, want grabbed over 1 release", c.LastSearch)
+		}
+	}
+	if !found {
+		t.Error("no episode cell has a last_search after a search")
+	}
+}

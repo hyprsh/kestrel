@@ -4413,6 +4413,13 @@ components:
             - $ref: "#/components/schemas/EpisodeFile"
           nullable: true
           description: The file holding the episode in this Version, even a misfit one; `null` when there is none.
+        last_search:
+          allOf:
+            - $ref: "#/components/schemas/LastSearch"
+          nullable: true
+          description: |
+            What the last search that asked the indexers for this episode found; null when it was never searched.
+            `releases` counts the Releases that named the episode (a season pack names each episode it holds).
     EpisodeFile:
       type: object
       description: A file on disk holding one or more episodes of a Version (a multi-episode file holds several).

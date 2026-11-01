@@ -56,6 +56,16 @@ type Episode struct {
 	Overview      string
 }
 
+type EpisodeSearch struct {
+	VersionID int64
+	EpisodeID int64
+	At        string
+	Releases  int64
+	Outcome   string
+	Reasons   string
+	Upgrade   int64
+}
+
 type Event struct {
 	ID        int64
 	At        string

@@ -67,6 +67,22 @@ func (s *Service) LastSearches(ctx context.Context, versionIDs []int64) (map[int
 	return out, nil
 }
 
+// LastEpisodeSearches returns the last search of each episode of the Title's Versions that was ever searched, per
+// Version and episode.
+func (s *Service) LastEpisodeSearches(ctx context.Context, titleID int64) (map[[2]int64]LastSearch, error) {
+	rows, err := db.New(s.st.Read()).ListEpisodeSearches(ctx, titleID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[[2]int64]LastSearch, len(rows))
+	for _, r := range rows {
+		ls := LastSearch{VersionID: r.VersionID, At: parseTime(r.At), Releases: int(r.Releases), Outcome: SearchEnd(r.Outcome), Upgrade: r.Upgrade == 1}
+		_ = json.Unmarshal([]byte(r.Reasons), &ls.Reasons)
+		out[[2]int64{r.VersionID, r.EpisodeID}] = ls
+	}
+	return out, nil
+}
+
 // found keeps what a search saw, for noteSearched.
 func (o *Outcome) found(entries []*entry) {
 	o.Releases = len(entries)
@@ -94,12 +110,39 @@ func (s *Service) noteSearched(ctx context.Context, titleID int64, upgrade bool,
 		if !ok {
 			continue
 		}
-		reasons, _ := json.Marshal(reasonCounts(out.entries, slot))
-		_ = q.UpsertVersionSearch(ctx, db.UpsertVersionSearchParams{
-			VersionID: vid, At: now, Releases: int64(out.Releases), Outcome: string(s.endOf(ctx, out, vid, err)),
-			Reasons: string(reasons), Upgrade: b2i(upgrade),
-		})
+		end := string(s.endOf(ctx, out, vid, err))
+		// A search narrowed to a season or episodes of a Series saw only part of the Version: it leaves the
+		// Version's own record alone and writes the episodes' records.
+		if !out.scoped {
+			reasons, _ := json.Marshal(reasonCounts(out.entries, slot))
+			_ = q.UpsertVersionSearch(ctx, db.UpsertVersionSearchParams{
+				VersionID: vid, At: now, Releases: int64(out.Releases), Outcome: end, Reasons: string(reasons), Upgrade: b2i(upgrade),
+			})
+		}
+		if len(out.episodes[vid]) == 0 {
+			continue
+		}
+		perEpisode := entriesByEpisode(out.entries, out.library)
+		for _, eid := range out.episodes[vid] {
+			found := perEpisode[eid]
+			reasons, _ := json.Marshal(reasonCounts(found, slot))
+			_ = q.UpsertEpisodeSearch(ctx, db.UpsertEpisodeSearchParams{
+				VersionID: vid, EpisodeID: eid, At: now, Releases: int64(len(found)), Outcome: end, Reasons: string(reasons), Upgrade: b2i(upgrade),
+			})
+		}
 	}
+}
+
+// entriesByEpisode groups the Releases a search saw by the episodes each names; a season pack names every episode it
+// holds.
+func entriesByEpisode(entries []*entry, eps []library.Episode) map[int64][]*entry {
+	out := map[int64][]*entry{}
+	for _, e := range entries {
+		for _, ep := range episodesOf(e.cand.Parsed, eps) {
+			out[ep.ID] = append(out[ep.ID], e)
+		}
+	}
+	return out
 }
 
 // endOf says how the search of one Version ended: grabbed when a Grab was made for it, else an error when the search

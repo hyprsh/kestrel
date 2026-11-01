@@ -2670,6 +2670,10 @@ type EpisodeCell struct {
 	// File The file holding the episode in this Version, even a misfit one; `null` when there is none.
 	File *EpisodeFile `json:"file"`
 
+	// LastSearch What the last search that asked the indexers for this episode found; null when it was never searched.
+	// `releases` counts the Releases that named the episode (a season pack names each episode it holds).
+	LastSearch *LastSearch `json:"last_search,omitempty"`
+
 	// Score The Score of the file holding the episode, when there is one.
 	Score *int `json:"score"`
 

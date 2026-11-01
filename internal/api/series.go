@@ -93,12 +93,27 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 	if err != nil {
 		return nil, err
 	}
+	searches, err := s.acquire.LastEpisodeSearches(ctx, r.Id)
+	if err != nil {
+		return nil, err
+	}
 	out := oapi.EpisodeList{Items: make([]oapi.Episode, 0, len(eps))}
-	cell := func(c *library.EpisodeCell) *oapi.EpisodeCell {
+	var episodeID int64
+	versionOf := map[slot.Slot]int64{}
+	if d, err := s.library.Get(ctx, r.Id, view); err == nil {
+		for _, v := range d.Versions {
+			versionOf[v.Slot] = v.ID
+		}
+	}
+	cell := func(c *library.EpisodeCell, sl slot.Slot) *oapi.EpisodeCell {
 		if c == nil {
 			return nil
 		}
 		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
+		if ls, ok := searches[[2]int64{versionOf[sl], episodeID}]; ok {
+			l := lastSearchToAPI(ls)
+			out.LastSearch = &l
+		}
 		if f := c.File; f != nil {
 			quality, languages := imports.Facts(f.ParsedRelease, f.Probe)
 			media := imports.MediaFacts(f.ParsedRelease, f.Probe, f.ReleaseName)
@@ -119,7 +134,8 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		if e.AirDate != nil {
 			oe.AirDate = &openapi_types.Date{Time: *e.AirDate}
 		}
-		oe.Cells.Standard, oe.Cells.N4k = cell(e.Cells[slot.Standard]), cell(e.Cells[slot.FourK])
+		episodeID = e.ID
+		oe.Cells.Standard, oe.Cells.N4k = cell(e.Cells[slot.Standard], slot.Standard), cell(e.Cells[slot.FourK], slot.FourK)
 		out.Items = append(out.Items, oe)
 	}
 	return oapi.ListEpisodes200JSONResponse(out), nil
