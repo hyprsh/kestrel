@@ -63,6 +63,8 @@ describe('the sentence of each kind the server records', () => {
     ],
     ['health_cleared', ev('health_cleared', 'Cleared: SABnzbd refused the connection', null, { title_id: null }), 'Cleared: SABnzbd refused the connection'],
     ['search found nothing', ev('search', 'Searched by hand for S05 in 4K: nothing to grab', null, { routine: true }), 'Searched Paddington · S05 · 4K · nothing to grab'],
+    ['an automatic search', ev('search', 'Searched in Standard: nothing to grab', null, { routine: true }), 'Searched Paddington · Standard · nothing to grab'],
+    ['an automatic Upgrade search', ev('search', 'Searched for Upgrades in 4K: grabbed 1 Release', null, { routine: true }), 'Searched Paddington · Upgrades · 4K · grabbed 1 Release'],
     ['search of a whole Title', ev('search', 'Searched by hand in Standard: grabbed 1 Release', null, { routine: true }), 'Searched Paddington · Standard · grabbed 1 Release'],
     [
       'search with what it checked and grabbed',

@@ -128,14 +128,17 @@ const details = (...parts: (string | undefined | false)[]) => {
 /** What a Searched event's message says: its scope (`S05`, `S01E02`), Slot and result. */
 export type SearchResult = { scope: string; slot: string; result: string; grabbed: number }
 
-/** Reads "Searched by hand for S05 in 4K: grabbed 2 Releases; 1 indexer did not answer". Null when it does not read so. */
+/**
+ * Reads "Searched by hand for S05 in 4K: grabbed 2 Releases; 1 indexer did not answer", and the searches Kestrel runs on
+ * its own: "Searched in Standard: nothing to grab", "Searched for Upgrades in 4K: grabbed 1 Release". Null when it does not read so.
+ */
 export function searchResult(message: string): SearchResult | null {
-  const m = /^Searched by hand(?: for (.+?))? in (.+?)(?::| and failed:)(.*)$/.exec(message)
+  const m = /^Searched(?: by hand| for (Upgrades))?(?: for (.+?))? in (.+?)(?::| and failed:)(.*)$/.exec(message)
   if (!m) return null
   const failed = / and failed:/.test(message)
-  const tail = m[3].trim()
+  const tail = m[4].trim()
   const grabbed = Number(/grabbed (\d+) Release/.exec(tail)?.[1] ?? 0)
-  return { scope: m[1] ?? '', slot: m[2], result: failed ? `failed: ${tail}` : tail, grabbed }
+  return { scope: m[2] ?? m[1] ?? '', slot: m[3], result: failed ? `failed: ${tail}` : tail, grabbed }
 }
 
 /** The words for how a search ended, after its Releases: "1 Grab", "none fit". */
