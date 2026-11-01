@@ -49,6 +49,10 @@ Keep every binary, scenario and screenshot in your scratchpad (`$S` below). Run 
 
    Done when `gh pr view <PR>` shows every planned shot linked.
 
+## A big Library
+
+`DEMO_TITLES=4000 demo.sh start …` grows the seeded Library to that many Titles, for measuring lists, filters and endpoints at scale. `seed_big.py` writes them straight into SQLite (about 10 seconds for 4,000): three Movies to one Series, named from word lists; of the Movies about 55 % have a Standard file, 12 % a 4K one too, 23 % are Wanted and 10 % are not monitored; a Series has 2 to 6 Seasons of 6 to 12 episodes, mostly with a Standard file per aired episode, some with 4K, some missing the newest ones; plus 400 finished Grabs. The new Titles have no posters and sort after the six seeded ones under "Newest added" (they are all dated 200 days back). Without `DEMO_TITLES` nothing changes.
+
 ## Sweep
 
 `node scripts/demo/sweep.mjs <out dir> [screen…] [--dark]` shoots every screen of a running demo at 390x844 and 1440x900 (`<screen>-390.png`, `<screen>-1440.png`, `-dark` variants with `--dark`) and prints one line per screen: Overview, Library, a Movie and a Series Title page, Upcoming, Requests, Activity, Health, Log, every Settings section, About, and the phone More sheet (390 only). A page whose `scrollWidth` exceeds the viewport is reported as OVERFLOW and the exit code is 1. `--list` names the screens.
