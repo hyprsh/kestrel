@@ -1,3 +1,4 @@
+// chrome: domain-visual
 import { Button, Note, Skeleton, Tabs } from '@hyprsh/design'
 import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
