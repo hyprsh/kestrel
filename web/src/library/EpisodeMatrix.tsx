@@ -169,7 +169,7 @@ export function EpisodeMatrix({
                     Aired
                   </TableHead>
                 ) : (
-                  <TableHead key={k} {...drag} columnKey={k} align="right" className={`px-2 whitespace-nowrap ${className}`}>
+                  <TableHead key={k} {...drag} columnKey={k} className={`px-2 whitespace-nowrap ${className}`}>
                     {slotLabel[k as SlotKey]}
                   </TableHead>
                 )
@@ -282,7 +282,7 @@ function EpisodeRow({
             </Button>
           )
           return (
-            <TableCell key={s} align="right" className="px-2">
+            <TableCell key={s} className="px-2">
               {cell?.file ? (
                 <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={button} />
               ) : phone ? (
