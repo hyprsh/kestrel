@@ -242,7 +242,7 @@ func (d declarer) declareRoots(ctx context.Context, want rootfolders.Folders) er
 // displayPatch is what the file's display section sets. A declared
 // upcoming_filters is whole: a filter it leaves out takes its default.
 func displayPatch(d configfile.Display) display.Patch {
-	p := display.Patch{SeasonOrder: d.SeasonOrder, SeasonsOpen: d.SeasonsOpen, ManualSearchSort: d.ManualSearchSort}
+	p := display.Patch{SeasonOrder: d.SeasonOrder, SeasonsOpen: d.SeasonsOpen, ManualSearchSort: d.ManualSearchSort, UpcomingDisplay: d.UpcomingDisplay}
 	if u := d.UpcomingFilters; u != nil {
 		def := display.Defaults().UpcomingFilters
 		kind, wanted, hide := def.Kind, def.WantedOnly, def.HideImported

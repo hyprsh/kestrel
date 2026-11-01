@@ -397,15 +397,15 @@ func TestAnInstanceConfigIsRejectedWithoutItsSecret(t *testing.T) {
 }
 
 func TestDisplayDeclaresAnyOfItsSettings(t *testing.T) {
-	f, err := configfile.Load(write(t, "display:\n  season_order: newest_first\n  upcoming_filters:\n    wanted_only: true\n"), env())
+	f, err := configfile.Load(write(t, "display:\n  season_order: newest_first\n  upcoming_display: month\n  upcoming_filters:\n    wanted_only: true\n"), env())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !f.Declares(configfile.SectionDisplay) || !f.DeclaresDisplay(configfile.DisplaySeasonOrder) || !f.DeclaresDisplay(configfile.DisplayUpcomingFilters) {
-		t.Errorf("declares = %+v, want season_order and upcoming_filters", f.Display)
+	if !f.Declares(configfile.SectionDisplay) || !f.DeclaresDisplay(configfile.DisplaySeasonOrder) || !f.DeclaresDisplay(configfile.DisplayUpcomingFilters) || !f.DeclaresDisplay(configfile.DisplayUpcomingDisplay) {
+		t.Errorf("declares = %+v, want season_order, upcoming_display and upcoming_filters", f.Display)
 	}
 	if f.DeclaresDisplay(configfile.DisplaySeasonsOpen) || f.DeclaresDisplay(configfile.DisplayManualSearchSort) {
-		t.Errorf("declares %+v, want only the two named", f.Display)
+		t.Errorf("declares %+v, want only the three named", f.Display)
 	}
 	if *f.Display.SeasonOrder != "newest_first" || !*f.Display.UpcomingFilters.WantedOnly {
 		t.Errorf("display = %+v", f.Display)

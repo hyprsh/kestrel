@@ -2577,6 +2577,7 @@ export interface components {
                     season_order: boolean;
                     seasons_open: boolean;
                     manual_search_sort: boolean;
+                    upcoming_display: boolean;
                     upcoming_filters: boolean;
                 };
                 language_region: boolean;
@@ -2627,6 +2628,8 @@ export interface components {
          * @enum {string}
          */
         ManualSearchSort: "best_first" | "score_asc" | "release_asc" | "release_desc" | "quality_asc" | "quality_desc" | "languages_asc" | "languages_desc" | "formats_asc" | "formats_desc" | "size_asc" | "size_desc" | "age_asc" | "age_desc" | "indexer_asc" | "indexer_desc";
+        /** @enum {string} */
+        UpcomingDisplay: "agenda" | "month";
         /** @description One of `all`, `movie` or `series`; anything else is `422`. */
         UpcomingKind: string;
         /**
@@ -2637,9 +2640,11 @@ export interface components {
         Display: {
             /** @description Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first. */
             season_order: components["schemas"]["SeasonOrder"];
-            /** @description Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials. */
+            /** @description Where a Series page starts. `latest_and_wanted` opens its newest season (Settings shows this as "Open the newest season"); `all` and `none` open the first season. A link to a season or episode wins. */
             seasons_open: components["schemas"]["SeasonsOpen"];
             manual_search_sort: components["schemas"]["ManualSearchSort"];
+            /** @description The display Upcoming opens with, Agenda or Month. A browser's own last choice wins. */
+            upcoming_display: components["schemas"]["UpcomingDisplay"];
             upcoming_filters: {
                 kind: components["schemas"]["UpcomingKind"];
                 wanted_only: boolean;
@@ -2663,6 +2668,7 @@ export interface components {
                 season_order?: components["schemas"]["SeasonOrder"];
                 seasons_open?: components["schemas"]["SeasonsOpen"];
                 manual_search_sort?: components["schemas"]["ManualSearchSort"];
+                upcoming_display?: components["schemas"]["UpcomingDisplay"];
                 upcoming_filters?: {
                     kind?: components["schemas"]["UpcomingKind"];
                     wanted_only?: boolean;

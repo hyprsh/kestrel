@@ -1720,6 +1720,24 @@ func (e UpcomingDateReleaseType) Valid() bool {
 	}
 }
 
+// Defines values for UpcomingDisplay.
+const (
+	Agenda UpcomingDisplay = "agenda"
+	Month  UpcomingDisplay = "month"
+)
+
+// Valid indicates whether the value is a known member of the UpcomingDisplay enum.
+func (e UpcomingDisplay) Valid() bool {
+	switch e {
+	case Agenda:
+		return true
+	case Month:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpcomingItemMarkers.
 const (
 	SeasonFinale   UpcomingItemMarkers = "season_finale"
@@ -2587,8 +2605,11 @@ type Display struct {
 	// SeasonOrder Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.
 	SeasonOrder SeasonOrder `json:"season_order"`
 
-	// SeasonsOpen Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials.
-	SeasonsOpen     SeasonsOpen `json:"seasons_open"`
+	// SeasonsOpen Where a Series page starts. `latest_and_wanted` opens its newest season (Settings shows this as "Open the newest season"); `all` and `none` open the first season. A link to a season or episode wins.
+	SeasonsOpen SeasonsOpen `json:"seasons_open"`
+
+	// UpcomingDisplay The display Upcoming opens with, Agenda or Month. A browser's own last choice wins.
+	UpcomingDisplay UpcomingDisplay `json:"upcoming_display"`
 	UpcomingFilters struct {
 		HideImported bool `json:"hide_imported"`
 
@@ -4602,6 +4623,7 @@ type Settings struct {
 			ManualSearchSort bool `json:"manual_search_sort"`
 			SeasonOrder      bool `json:"season_order"`
 			SeasonsOpen      bool `json:"seasons_open"`
+			UpcomingDisplay  bool `json:"upcoming_display"`
 			UpcomingFilters  bool `json:"upcoming_filters"`
 		} `json:"display"`
 		LanguageRegion bool `json:"language_region"`
@@ -4659,6 +4681,7 @@ type SettingsPatch struct {
 		ManualSearchSort *ManualSearchSort `json:"manual_search_sort,omitempty"`
 		SeasonOrder      *SeasonOrder      `json:"season_order,omitempty"`
 		SeasonsOpen      *SeasonsOpen      `json:"seasons_open,omitempty"`
+		UpcomingDisplay  *UpcomingDisplay  `json:"upcoming_display,omitempty"`
 		UpcomingFilters  *struct {
 			HideImported *bool `json:"hide_imported,omitempty"`
 
@@ -5339,6 +5362,9 @@ type UpcomingDate struct {
 
 // UpcomingDateReleaseType defines model for UpcomingDate.ReleaseType.
 type UpcomingDateReleaseType string
+
+// UpcomingDisplay defines model for UpcomingDisplay.
+type UpcomingDisplay string
 
 // UpcomingItem An episode airing or one release date of a Movie. Next to the original fields, every entry
 // carries the context and state below (all of them present in responses from this version on;

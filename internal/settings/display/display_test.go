@@ -29,7 +29,7 @@ func TestUnsavedSettingsReportTodaysBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := display.Display{
-		SeasonOrder: "oldest_first", SeasonsOpen: "latest_and_wanted", ManualSearchSort: "best_first",
+		SeasonOrder: "oldest_first", SeasonsOpen: "latest_and_wanted", ManualSearchSort: "best_first", UpcomingDisplay: "agenda",
 		UpcomingFilters: display.UpcomingFilters{Kind: "all"},
 	}
 	if got != want {
@@ -43,12 +43,12 @@ func TestSetChangesOnlyWhatIsNamed(t *testing.T) {
 	if _, err := s.Set(ctx, display.Patch{SeasonOrder: ptr("newest_first"), Upcoming: &display.UpcomingPatch{WantedOnly: ptr(true)}}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.Set(ctx, display.Patch{ManualSearchSort: ptr("size_desc"), Upcoming: &display.UpcomingPatch{Kind: ptr("series")}})
+	got, err := s.Set(ctx, display.Patch{ManualSearchSort: ptr("size_desc"), UpcomingDisplay: ptr("month"), Upcoming: &display.UpcomingPatch{Kind: ptr("series")}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := display.Display{
-		SeasonOrder: "newest_first", SeasonsOpen: "latest_and_wanted", ManualSearchSort: "size_desc",
+		SeasonOrder: "newest_first", SeasonsOpen: "latest_and_wanted", ManualSearchSort: "size_desc", UpcomingDisplay: "month",
 		UpcomingFilters: display.UpcomingFilters{Kind: "series", WantedOnly: true},
 	}
 	if got != want {
@@ -65,6 +65,7 @@ func TestARejectedValueSavesNothing(t *testing.T) {
 	for _, p := range []display.Patch{
 		{SeasonOrder: ptr("sideways")},
 		{SeasonsOpen: ptr("some")},
+		{UpcomingDisplay: ptr("week")},
 		{ManualSearchSort: ptr("score_desc")}, // that is best first
 		{ManualSearchSort: ptr("size")},
 		{Upcoming: &display.UpcomingPatch{Kind: ptr("anime")}},

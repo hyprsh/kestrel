@@ -109,6 +109,7 @@ type Display struct {
 	SeasonOrder      *string `yaml:"season_order"`
 	SeasonsOpen      *string `yaml:"seasons_open"`
 	ManualSearchSort *string `yaml:"manual_search_sort"`
+	UpcomingDisplay  *string `yaml:"upcoming_display"`
 	// UpcomingFilters is declared as a whole: a filter it leaves out is the default (all kinds, off, off).
 	UpcomingFilters *UpcomingFilters `yaml:"upcoming_filters"`
 }
@@ -128,6 +129,7 @@ const (
 	DisplaySeasonOrder      DisplaySetting = "season_order"
 	DisplaySeasonsOpen      DisplaySetting = "seasons_open"
 	DisplayManualSearchSort DisplaySetting = "manual_search_sort"
+	DisplayUpcomingDisplay  DisplaySetting = "upcoming_display"
 	DisplayUpcomingFilters  DisplaySetting = "upcoming_filters"
 )
 
@@ -140,6 +142,7 @@ var displaySettings = []struct {
 	{DisplaySeasonOrder, func(d *Display) bool { return d.SeasonOrder != nil }},
 	{DisplaySeasonsOpen, func(d *Display) bool { return d.SeasonsOpen != nil }},
 	{DisplayManualSearchSort, func(d *Display) bool { return d.ManualSearchSort != nil }},
+	{DisplayUpcomingDisplay, func(d *Display) bool { return d.UpcomingDisplay != nil }},
 	{DisplayUpcomingFilters, func(d *Display) bool { return d.UpcomingFilters != nil }},
 }
 

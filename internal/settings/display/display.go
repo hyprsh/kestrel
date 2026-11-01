@@ -1,6 +1,7 @@
 // Package display holds the household-wide view defaults: the order of a
-// Series' seasons, which seasons start open, where Manual search starts its
-// sort and the Upcoming filters a new session starts with. Each is a default
+// Series' seasons, whether a Series page starts on its newest season, where
+// Manual search starts its sort, the display Upcoming opens with and the
+// Upcoming filters a new session starts with. Each is a default
 // only: a browser or session that picks otherwise keeps its choice.
 package display
 
@@ -26,6 +27,9 @@ const (
 	NoneOpen        = "none"
 
 	BestFirst = "best_first"
+
+	UpcomingAgenda = "agenda"
+	UpcomingMonth  = "month"
 
 	KindAll    = "all"
 	KindMovie  = "movie"
@@ -57,12 +61,14 @@ type UpcomingFilters struct {
 	HideImported bool   `json:"hide_imported"`
 }
 
-// Display is the four settings (three the UI offers; see SeasonsOpen).
+// Display is the household's view defaults.
 type Display struct {
 	SeasonOrder string `json:"season_order"`
-	// SeasonsOpen is kept for the Config File and API, which still accept it, but nothing reads it: the Title page has season tabs.
+	// SeasonsOpen decides where a Series page starts: LatestAndWanted opens the newest season, the other two the first.
+	// Only the first is offered in Settings (a switch); the Config File and API still accept all three.
 	SeasonsOpen      string          `json:"seasons_open"`
 	ManualSearchSort string          `json:"manual_search_sort"`
+	UpcomingDisplay  string          `json:"upcoming_display"`
 	UpcomingFilters  UpcomingFilters `json:"upcoming_filters"`
 }
 
@@ -72,6 +78,7 @@ func Defaults() Display {
 		SeasonOrder:      OldestFirst,
 		SeasonsOpen:      LatestAndWanted,
 		ManualSearchSort: BestFirst,
+		UpcomingDisplay:  UpcomingAgenda,
 		UpcomingFilters:  UpcomingFilters{Kind: KindAll},
 	}
 }
@@ -88,6 +95,7 @@ type Patch struct {
 	SeasonOrder      *string
 	SeasonsOpen      *string
 	ManualSearchSort *string
+	UpcomingDisplay  *string
 	Upcoming         *UpcomingPatch
 }
 
@@ -117,6 +125,9 @@ func Check(p Patch) error {
 	if err := oneOf("manual_search_sort", p.ManualSearchSort, SortValues()...); err != nil {
 		return err
 	}
+	if err := oneOf("upcoming_display", p.UpcomingDisplay, UpcomingAgenda, UpcomingMonth); err != nil {
+		return err
+	}
 	if u := p.Upcoming; u != nil {
 		if err := oneOf("upcoming_filters.kind", u.Kind, KindAll, KindMovie, KindSeries); err != nil {
 			return err
@@ -139,6 +150,7 @@ func Apply(cur Display, p Patch) (Display, error) {
 	set(&d.SeasonOrder, p.SeasonOrder)
 	set(&d.SeasonsOpen, p.SeasonsOpen)
 	set(&d.ManualSearchSort, p.ManualSearchSort)
+	set(&d.UpcomingDisplay, p.UpcomingDisplay)
 	if u := p.Upcoming; u != nil {
 		set(&d.UpcomingFilters.Kind, u.Kind)
 		if u.WantedOnly != nil {

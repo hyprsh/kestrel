@@ -370,7 +370,7 @@ func (s *server) patchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 		}
 	}
 	if d := r.Body.Display; d != nil {
-		patch := display.Patch{SeasonOrder: enumPtr(d.SeasonOrder), SeasonsOpen: enumPtr(d.SeasonsOpen), ManualSearchSort: enumPtr(d.ManualSearchSort)}
+		patch := display.Patch{SeasonOrder: enumPtr(d.SeasonOrder), SeasonsOpen: enumPtr(d.SeasonsOpen), ManualSearchSort: enumPtr(d.ManualSearchSort), UpcomingDisplay: enumPtr(d.UpcomingDisplay)}
 		if u := d.UpcomingFilters; u != nil {
 			patch.Upcoming = &display.UpcomingPatch{Kind: enumPtr(u.Kind), WantedOnly: u.WantedOnly, HideImported: u.HideImported}
 		}

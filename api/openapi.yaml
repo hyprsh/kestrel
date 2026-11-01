@@ -3418,7 +3418,7 @@ components:
           properties:
             display:
               type: object
-              required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+              required: [season_order, seasons_open, manual_search_sort, upcoming_display, upcoming_filters]
               description: Per display setting, `true` while the Config File declares it; a patch naming it answers `409 conflict`.
               properties:
                 season_order:
@@ -3426,6 +3426,8 @@ components:
                 seasons_open:
                   type: boolean
                 manual_search_sort:
+                  type: boolean
+                upcoming_display:
                   type: boolean
                 upcoming_filters:
                   type: boolean
@@ -3490,12 +3492,15 @@ components:
         Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so
         `score_desc` is not a value.
       enum: [best_first, score_asc, release_asc, release_desc, quality_asc, quality_desc, languages_asc, languages_desc, formats_asc, formats_desc, size_asc, size_desc, age_asc, age_desc, indexer_asc, indexer_desc]
+    UpcomingDisplay:
+      type: string
+      enum: [agenda, month]
     UpcomingKind:
       type: string
       description: One of `all`, `movie` or `series`; anything else is `422`.
     Display:
       type: object
-      required: [season_order, seasons_open, manual_search_sort, upcoming_filters]
+      required: [season_order, seasons_open, manual_search_sort, upcoming_display, upcoming_filters]
       description: |
         The household-wide view defaults. Each is where a browser or session starts: a season the
         user opened or closed on a Series, a sort picked in Manual search and the Upcoming filters
@@ -3508,9 +3513,13 @@ components:
         seasons_open:
           allOf:
             - $ref: "#/components/schemas/SeasonsOpen"
-          description: Which seasons of a Series start open. `latest_and_wanted` opens the latest season and any with a Wanted episode, never Specials.
+          description: Where a Series page starts. `latest_and_wanted` opens its newest season (Settings shows this as "Open the newest season"); `all` and `none` open the first season. A link to a season or episode wins.
         manual_search_sort:
           $ref: "#/components/schemas/ManualSearchSort"
+        upcoming_display:
+          allOf:
+            - $ref: "#/components/schemas/UpcomingDisplay"
+          description: The display Upcoming opens with, Agenda or Month. A browser's own last choice wins.
         upcoming_filters:
           type: object
           required: [kind, wanted_only, hide_imported]
@@ -3553,6 +3562,8 @@ components:
               $ref: "#/components/schemas/SeasonsOpen"
             manual_search_sort:
               $ref: "#/components/schemas/ManualSearchSort"
+            upcoming_display:
+              $ref: "#/components/schemas/UpcomingDisplay"
             upcoming_filters:
               type: object
               properties:
