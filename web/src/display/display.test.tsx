@@ -65,13 +65,17 @@ describe('season order in the episode table', () => {
     serveDisplay({ season_order: 'newest_first' })
     fakeLongSeries()
     const grid = await openGrid()
-    within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 2' }).focus()
+    const row = (n: number) =>
+      within(grid)
+        .getByRole('checkbox', { name: `Tick Season 3 episode ${n}` })
+        .closest('tr')!
+    row(2).focus()
     await userEvent.keyboard('j')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 1' })).toHaveFocus()
+    expect(row(1)).toHaveFocus()
     await userEvent.keyboard('k')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 2' })).toHaveFocus()
+    expect(row(2)).toHaveFocus()
     await userEvent.keyboard('{End}')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 3 episode 1' })).toHaveFocus()
+    expect(row(1)).toHaveFocus()
   })
 })
 

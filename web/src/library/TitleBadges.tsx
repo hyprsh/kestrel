@@ -4,6 +4,8 @@ import { useEpisodes, type TitleDetail } from '../api/queries'
 import { plural } from '../format'
 import { useNow } from '../time'
 import { episodeCode, seasonStanding } from './episodes'
+import { SlotChips, stateWord, type ChipData } from './SlotChip'
+import { slotsOf } from './slots'
 import { downloadsOf, useTitleDownloads } from './TitleDownloads'
 
 const day = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -16,7 +18,7 @@ const today = (now: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** A Series' "Wanted" in amber, "downloading" in blue and the next episode to air in gray; a Movie's the same three: "Wanted · 12 days", "Downloading · 40%" and its release ("Released: …", or the next one). Nothing shows when nothing applies. */
+/** A Series' "Wanted" in amber, "downloading" in blue and the next episode to air in gray; a Movie's a chip per Slot (STD, "4K 40%", "DE Wanted") and its release ("Released: …", or the next one). */
 export function TitleBadges({ title }: { title: TitleDetail }) {
   return title.kind === 'series' ? <SeriesBadges title={title} /> : <MovieBadges title={title} />
 }
@@ -71,18 +73,33 @@ const releaseName = { premiere: 'premiere', theatrical_limited: 'limited release
 function MovieBadges({ title }: { title: TitleDetail }) {
   const downloads = useTitleDownloads(title.id)
   const now = useNow()
-  const wanted = title.versions.filter((v) => v.state === 'wanted' && !downloads.slot(v.slot))
-  const since = wanted.flatMap((v) => (v.wanted_since ? [new Date(v.wanted_since).getTime()] : []))
-  const d = since.length > 0 ? Math.floor((now - Math.min(...since)) / 86_400_000) : 0
-  const pct = downloadsOf(downloads.all).pct
   const dates = title.release_dates.map((r) => ({ ...r, day: r.date.slice(0, 10) })).sort((a, b) => a.day.localeCompare(b.day))
   const next = dates.find((r) => r.day >= today(now))
   const out = dates[0]
+  const date = next ? `Next: ${releaseName[next.type]} \u00b7 ${dayName(next.day)}` : out ? `Released: ${dayName(out.day)}` : null
+  // One chip per Slot, from the Title's Versions: its short label, a state dot and the state in a word or a percent.
+  const chips: ChipData[] = slotsOf(title).map((s) => {
+    const v = title.versions.find((x) => x.slot === s.key)
+    const grab = downloads.slot(s.key)
+    const state = grab ? 'downloading' : (v?.state ?? null)
+    const since = v?.wanted_since ? Math.floor((now - new Date(v.wanted_since).getTime()) / 86_400_000) : 0
+    const text = state === 'downloading' ? (grab?.pct != null ? `${grab.pct}%` : 'Downloading') : state === 'wanted' ? 'Wanted' : undefined
+    const tip =
+      state === 'downloading'
+        ? `${s.name}: downloading${grab?.pct != null ? ` ${grab.pct}%` : ''}`
+        : state === 'wanted'
+          ? `${s.name}: Wanted${since >= 1 ? ` ${plural(since, 'day')}` : ''}`
+          : `${s.name}: ${stateWord[state ?? ''] ?? state ?? 'no Version'}`
+    return { key: s.key, short: s.short, state, text, tip }
+  })
   return (
-    <Pills
-      wanted={wanted.length > 1 ? `${wanted.length} Wanted` : wanted.length === 1 ? `Wanted${d >= 1 ? ` · ${plural(d, 'day')}` : ''}` : null}
-      downloading={downloads.all.length > 0 ? `Downloading${pct !== null ? ` · ${pct}%` : ''}` : null}
-      date={next ? `Next: ${releaseName[next.type]} · ${dayName(next.day)}` : out ? `Released: ${dayName(out.day)}` : null}
-    />
+    <div className="flex flex-wrap items-center gap-2">
+      <SlotChips chips={chips} max={chips.length} label="Slots" align="start" />
+      {date && (
+        <Badge variant="gray" contrast="low" size="sm">
+          {date}
+        </Badge>
+      )}
+    </div>
   )
 }

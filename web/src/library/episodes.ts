@@ -2,7 +2,7 @@
 // actions (EpisodeActions.tsx, DeleteFiles.tsx) share.
 import type { Episode } from '../api/queries'
 import type { Display } from '../display/useDisplay'
-import type { SlotKey } from './bits'
+import { cellOf } from './slots'
 
 const two = (n: number) => String(n).padStart(2, '0')
 
@@ -37,13 +37,13 @@ export const episodeRow = (id: number) => `episode-${id}`
 export const seasonRow = (season: number) => `season-${season}`
 
 /** One of the Series' Versions as the episode grid's actions see it. */
-export type EpisodeVersion = { id: number; slot: SlotKey; profileName: string }
+export type EpisodeVersion = { id: number; slot: 'standard' | '4k'; profileName: string }
 
 /** How a season stands, for its tab and summary line. An episode counts once: filled when every Slot has its file, else downloading or Wanted when a Slot is. */
 export type SeasonStanding = { total: number; filled: number; downloading: number; wanted: number }
 
-export function seasonStanding(episodes: Episode[], slots: SlotKey[]): SeasonStanding {
-  const states = (e: Episode) => slots.map((s) => e.cells[s]?.state)
+export function seasonStanding(episodes: Episode[], slots: readonly string[]): SeasonStanding {
+  const states = (e: Episode) => slots.map((s) => cellOf(e, s)?.state)
   return {
     total: episodes.length,
     filled: episodes.filter((e) => states(e).length > 0 && states(e).every((s) => s === 'filled')).length,
@@ -69,14 +69,14 @@ export function defaultSeason(seasons: number[], open: Display['seasons_open'] =
   return regular.length > 0 ? Math.min(...regular) : 0
 }
 
-type CellState = NonNullable<Episode['cells'][SlotKey]>['state']
+type CellState = NonNullable<ReturnType<typeof cellOf>>['state']
 
 /** How one Slot stands in a season: a state per episode (the squares of the season grid) and the counts the row says in words. */
-export type SlotTally = { slot: SlotKey; states: CellState[]; filled: number; downloading: number; wanted: number; unaired: number; unmonitored: number; counted: number }
+export type SlotTally = { slot: string; states: CellState[]; filled: number; downloading: number; wanted: number; unaired: number; unmonitored: number; counted: number }
 
 /** `counted` is what the fill count measures against: the episodes out and monitored. */
-export function slotTally(episodes: Episode[], slot: SlotKey): SlotTally {
-  const states = episodes.map((e) => e.cells[slot]?.state ?? 'unmonitored')
+export function slotTally(episodes: Episode[], slot: string): SlotTally {
+  const states = episodes.map((e) => cellOf(e, slot)?.state ?? 'unmonitored')
   const n = (s: CellState) => states.filter((x) => x === s).length
   return {
     slot,
@@ -99,10 +99,10 @@ export function tallyCount(t: SlotTally): string {
 /** The filters of the open season's table. */
 export type EpisodeFilter = 'all' | 'missing' | 'downloading' | 'unaired'
 
-const statesOf = (e: Episode, slots: SlotKey[]) => slots.map((s) => e.cells[s]?.state)
+const statesOf = (e: Episode, slots: readonly string[]) => slots.map((s) => cellOf(e, s)?.state)
 
 /** Whether an episode shows under a filter: Missing is Wanted in some Slot, Downloading is downloading in some Slot, Not aired is not out in some Slot. */
-export function matchesFilter(e: Episode, slots: SlotKey[], filter: EpisodeFilter): boolean {
+export function matchesFilter(e: Episode, slots: readonly string[], filter: EpisodeFilter): boolean {
   const states = statesOf(e, slots)
   switch (filter) {
     case 'missing':
@@ -117,7 +117,7 @@ export function matchesFilter(e: Episode, slots: SlotKey[], filter: EpisodeFilte
 }
 
 /** An episode that is not out in any Slot yet: the table folds these into one row. */
-export const isUnaired = (e: Episode, slots: SlotKey[]) => {
+export const isUnaired = (e: Episode, slots: readonly string[]) => {
   const states = statesOf(e, slots).filter((s) => s !== undefined)
   return states.length > 0 && states.every((s) => s === 'unreleased')
 }

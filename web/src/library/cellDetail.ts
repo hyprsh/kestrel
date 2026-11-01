@@ -3,7 +3,7 @@
 // the queue's Grabs (GET /queue). The API gives no per-episode wanted-since, last search outcome, release group or codec.
 import type { Episode } from '../api/queries'
 import type { QueueItem } from '../api/queue'
-import { size, type SlotKey } from './bits'
+import { size } from './bits'
 import { episodeCode } from './episodes'
 
 /** What a Slot cell needs of a Version's cell: an Episode's cell, or a Movie Version's state with its file. */
@@ -45,7 +45,7 @@ export function grabsByEpisode(queue: readonly QueueItem[] | undefined, titleId:
   return out
 }
 
-export const grabOf = (grabs: Map<string, QueueItem>, slot: SlotKey, e: Episode) => grabs.get(`${slot} ${episodeCode(e)}`)
+export const grabOf = (grabs: Map<string, QueueItem>, slot: string, e: Episode) => grabs.get(`${slot} ${episodeCode(e)}`)
 
 /** "13 min", "2 h": the time a download has left. */
 function remaining(seconds: number): string {

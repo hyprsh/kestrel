@@ -8,7 +8,8 @@ import type { TitleDetail } from '../api/queries'
 import { plural } from '../format'
 import { usePhone } from '../responsive'
 import { ago, useNow } from '../time'
-import { dotOf, faintDot, size, slotKeys, slotLabel, versionStatus } from './bits'
+import { dotOf, faintDot, size, versionStatus } from './bits'
+import { slotName, slotsOf } from './slots'
 import { baseName, cellText } from './cellDetail'
 import { DeleteFile } from './DeleteFiles'
 import { FileDetailsPopover, importedOn } from './EpisodeFilePopover'
@@ -31,7 +32,7 @@ function wantedLine(v: Version, now: number): string {
 export function MovieSection({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (t: ManualSearchTarget) => void }) {
   const phone = usePhone()
   const [deleting, setDeleting] = useState<Version | null>(null)
-  const versions = slotKeys.flatMap((k) => title.versions.filter((v) => v.slot === k))
+  const versions = slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
   if (versions.length === 0) return null
   return (
     <section aria-label="Files" className="mt-6">
@@ -83,7 +84,7 @@ function FileRow({ title, version: v, onManualSearch, onDelete }: { title: Title
   const downloads = useTitleDownloads(title.id)
   const search = useSearchVersion(title, v.id)
   const [menuOpen, setMenuOpen] = useState(false)
-  const name = slotLabel[v.slot]
+  const name = slotName(v.slot)
   const dl = downloads.slot(v.slot)
   const stateKey = dl ? 'downloading' : v.state
   const f = v.file

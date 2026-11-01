@@ -36,7 +36,7 @@ describe('the Title page header', () => {
     expect(within(pane).queryByRole('button', { name: 'Search now' })).not.toBeInTheDocument()
   })
 
-  it('shows what is Wanted, downloading and next as badges, and the year, seasons and monitoring on one line', async () => {
+  it('shows what is Wanted, downloading and next as badges, and the year and seasons on one line, and monitoring in its own button', async () => {
     const fake = fakeSeries()
     fake.episodes.push(
       episode(4, 1, 3, 'Down', { cells: { standard: cell('downloading'), '4k': cell('unreleased') } }),
@@ -48,7 +48,7 @@ describe('the Title page header', () => {
     expect(await within(pane).findByText('1 Wanted')).toBeInTheDocument()
     expect(within(pane).getByText('1 downloading · 75%')).toBeInTheDocument()
     expect(within(pane).getByText(/^Next: S01E04 · /)).toBeInTheDocument()
-    expect(within(pane).getByRole('button', { name: 'Monitoring all episodes' })).toBeInTheDocument()
+    expect(within(pane).getByRole('button', { name: /^Monitoring: monitored, all episodes/ })).toHaveTextContent('Monitored · all episodes')
     expect(within(pane).getByText(/^1 season/)).toBeInTheDocument()
     expect(within(pane).getByText(/^Ended/)).toBeInTheDocument()
   })
@@ -68,18 +68,7 @@ describe('the Title page header', () => {
     const names = within(menu)
       .getAllByRole('menuitem')
       .map((i) => i.textContent)
-    expect(names).toEqual([
-      'Monitoring…Monitored',
-      'Add Version…',
-      'Refresh metadata',
-      'Freeze metadata',
-      'Open in TMDBTMDB 101',
-      'Open in IMDbtt000001',
-      'Show in Log',
-      'Move…',
-      'Clean up…',
-      'Remove Title…',
-    ])
+    expect(names).toEqual(['Add Version…', 'Refresh metadata', 'Freeze metadata', 'Open in TMDBTMDB 101', 'Open in IMDbtt000001', 'Show in Log', 'Move…', 'Clean up…', 'Remove Title…'])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title…' }))
 
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Title' })

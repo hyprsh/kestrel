@@ -121,59 +121,95 @@ async function openSeries() {
   return { state, grid }
 }
 
-describe('the episodes table', () => {
-  it('shows a row per episode of the open season and a state per Slot with a Version', async () => {
+describe('the episode list', () => {
+  it('shows a row per episode of the open season and a chip per Slot with a Version, its full state in the tooltip', async () => {
     const { grid } = await openSeries()
-    expect(within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' })).toBeInTheDocument()
-    expect(within(grid).getByRole('button', { name: 'Season 1 episode 1 4K: Wanted' })).toBeInTheDocument()
-    expect(within(grid).getByRole('button', { name: 'Season 1 episode 2 Standard: Unreleased' })).toBeInTheDocument()
-    expect(within(grid).getByRole('columnheader', { name: 'Standard' })).toBeInTheDocument()
-    expect(within(grid).getByRole('columnheader', { name: '4K' })).toBeInTheDocument()
+    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
+    expect(within(pilot).getByTitle('Standard: Have')).toHaveTextContent('STD')
+    expect(within(pilot).getByTitle(/^4K: Wanted \d+ d$/)).toHaveTextContent('4K')
+    const cat = within(grid).getByRole('row', { name: /Cat's in the Bag/ })
+    expect(within(cat).getByTitle('Standard: not aired')).toHaveAttribute('data-state', 'unreleased')
+    expect(within(grid).queryByRole('columnheader', { name: 'Standard' })).not.toBeInTheDocument() // no Slot has a column
     expect(within(grid).getByText('—')).toBeInTheDocument() // the second episode has no air date yet
-    // Specials are another season, not rows of this table.
-    expect(within(grid).queryByRole('button', { name: /Season 0 episode 1/ })).not.toBeInTheDocument()
+    // Specials are another season, not rows of this list.
+    expect(within(grid).queryByRole('row', { name: /Good Cop Bad Cop/ })).not.toBeInTheDocument()
     await pickSeason('Specials')
-    expect(within(grid).getByRole('button', { name: 'Season 0 episode 1 Standard: Unmonitored' })).toBeInTheDocument()
+    const special = within(grid).getByRole('row', { name: /Good Cop Bad Cop/ })
+    expect(within(special).getByTitle('Standard: Not monitored')).toHaveAttribute('data-state', 'unmonitored')
+    expect(special).toHaveAttribute('data-monitored', 'off')
   })
 
-  it('is operated entirely from the keyboard: arrows move, Space toggles an episode, x ticks it', async () => {
+  it('has a bookmark toggle on every row that monitors the episode or stops', async () => {
     const { state, grid } = await openSeries()
-    // The Version controls above the pane's Series section have their own tab stops: start at the last control before the table.
+    const toggle = within(grid).getByRole('button', { name: 'Stop monitoring S01E01' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(toggle)
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } }]))
+    const off = await within(grid).findByRole('button', { name: 'Monitor S01E01' })
+    expect(off).toHaveAttribute('aria-pressed', 'false')
+    expect(within(grid).getByRole('row', { name: /Pilot/ })).toHaveAttribute('data-monitored', 'off')
+    // The click did not open the row.
+    expect(within(grid).queryByRole('list', { name: 'Slots of S01E01' })).not.toBeInTheDocument()
+  })
+
+  it('opens a row in place on click, one at a time, listing every Slot, and closes it again', async () => {
+    const { grid } = await openSeries()
+    await userEvent.click(within(grid).getByText('Pilot'))
+    const slots = within(grid).getByRole('list', { name: 'Slots of S01E01' })
+    expect(within(slots).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(slots).getByText('Standard')).toBeInTheDocument()
+    expect(within(slots).getByText('Have')).toBeInTheDocument()
+    expect(within(slots).getByText(/^Wanted \u00b7 \d+ d$/)).toBeInTheDocument()
+    expect(within(slots).getByText('not searched yet')).toBeInTheDocument()
+    expect(within(slots).getByRole('button', { name: 'Search 4K' })).toBeInTheDocument()
+    expect(within(grid).getByRole('row', { name: /Pilot/ })).toHaveAttribute('data-open')
+
+    // Another row opens and the first closes.
+    await userEvent.click(within(grid).getByText("Cat's in the Bag..."))
+    expect(within(grid).queryByRole('list', { name: 'Slots of S01E01' })).not.toBeInTheDocument()
+    expect(within(grid).getByRole('list', { name: 'Slots of S01E02' })).toBeInTheDocument()
+    await userEvent.click(within(grid).getByRole('button', { name: 'Close S01E02' }))
+    expect(within(grid).queryByRole('list', { name: 'Slots of S01E02' })).not.toBeInTheDocument()
+  })
+
+  it('is operated from the keyboard: arrows and j/k move rows, Enter opens, Space ticks, x ticks too', async () => {
+    const { grid } = await openSeries()
+    // The controls above the list have their own tab stops: start at the last one before it.
     await act(async () => screen.getByRole('button', { name: 'Find an episode' }).focus())
     await userEvent.tab() // the open season's actions
-    await userEvent.tab() // the Name column's resize handle
-    await userEvent.tab() // the table's one tab stop
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toHaveFocus()
+    await userEvent.tab() // the list's one tab stop: its first row
+    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
+    expect(pilot).toHaveFocus()
 
-    // Right moves along the row onto the Standard cell; Space there toggles the episode's monitoring.
-    await userEvent.keyboard('{ArrowRight}')
-    expect(within(grid).getByRole('button', { name: /Season 1 episode 1 Standard/ })).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    expect(within(grid).getByRole('list', { name: 'Slots of S01E01' })).toBeInTheDocument()
+    await userEvent.keyboard('{Enter}')
+    expect(within(grid).queryByRole('list', { name: 'Slots of S01E01' })).not.toBeInTheDocument()
+
     await userEvent.keyboard(' ')
-    await waitFor(() => expect(state.get().sent).toHaveLength(1))
-    expect(state.get().sent[0]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } })
-
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toBeChecked()
     await userEvent.keyboard('{ArrowDown}')
-    expect(within(grid).getByRole('button', { name: /Season 1 episode 2 Standard/ })).toHaveFocus()
-    await userEvent.keyboard('{ArrowLeft}')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' })).toHaveFocus()
+    expect(within(grid).getByRole('row', { name: /Cat's in the Bag/ })).toHaveFocus()
     await userEvent.keyboard('x')
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' })).toBeChecked()
+    await userEvent.keyboard('k')
+    expect(pilot).toHaveFocus()
 
-    // The keys stayed inside the table: the Library selection did not move.
+    // The keys stayed inside the list: the Library selection did not move.
     expect(screen.getByRole('option', { name: /breaking bad/i, selected: true })).toBeInTheDocument()
 
-    await userEvent.keyboard('{Home}')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toHaveFocus()
     await userEvent.keyboard('{End}')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' })).toHaveFocus()
+    expect(within(grid).getByRole('row', { name: /Cat's in the Bag/ })).toHaveFocus()
+    await userEvent.keyboard('{Home}')
+    expect(pilot).toHaveFocus()
   })
 
-  it('changes the monitoring mode from the detail pane', async () => {
+  it('changes the monitoring mode from the Monitored button of the header', async () => {
     const { state } = await openSeries()
-    await userEvent.click(await screen.findByRole('button', { name: /^(Monitoring|Not monitored)/ }))
-    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Not monitored' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Monitoring: / }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: /^Not monitored/ }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'titles', body: { series_monitor: 'none' } }]))
-    await waitFor(() => expect(screen.getByRole('button', { name: /^(Monitoring|Not monitored)/ })).toHaveTextContent('Not monitored'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Monitoring: / })).toHaveTextContent('Not monitored'))
   })
 
   it('is not shown for a Movie', async () => {

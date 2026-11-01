@@ -82,7 +82,7 @@ describe("a Movie's Files table on its Title page", () => {
     expect(within(pane).getByText(/^Wanted 12 days · not searched yet$/)).toBeInTheDocument()
     expect(within(pane).getByRole('button', { name: 'Search for the Standard file now' })).toBeInTheDocument()
     expect(within(pane).queryByRole('button', { name: 'Standard file details' })).toBeNull()
-    expect(within(pane).getByText('Wanted · 12 days')).toBeInTheDocument()
+    expect(within(pane).getByTitle('Standard: Wanted 12 days')).toBeInTheDocument() // the header's chip
   })
 
   it('shows a downloading Slot as percent and time left', async () => {

@@ -58,6 +58,8 @@ export function fakeSeries() {
   const lib = fakeLibrary([r])
   const state = {
     mode: 'all' as Mode,
+    newSeasons: true,
+    specials: false,
     episodes: [
       episode(1, 0, 1, 'Good Cop Bad Cop'),
       episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 120), '4k': cell('wanted') } }),
@@ -67,7 +69,11 @@ export function fakeSeries() {
   }
   const seasons = () => [0, 1].map((n) => ({ number: n, monitored: state.episodes.some((e) => e.season === n && e.monitored) }))
   server.use(
-    http.get('/titles/{id}', ({ response }) => response(200).json(detail(r, { kind: 'series', tvdb_id: 81189, series_status: 'ended', series_monitor: state.mode, seasons: seasons() }))),
+    http.get('/titles/{id}', ({ response }) =>
+      response(200).json(
+        detail(r, { kind: 'series', tvdb_id: 81189, series_status: 'ended', series_monitor: state.mode, monitor_new_seasons: state.newSeasons, monitor_specials: state.specials, seasons: seasons() }),
+      ),
+    ),
     http.get('/titles/{id}/episodes', ({ response }) => response(200).json({ items: state.episodes })),
     http.post('/titles/{id}/episodes/monitor', async ({ request, response }) => {
       const body = await request.json()
@@ -85,7 +91,9 @@ export function fakeSeries() {
       const body = await request.json()
       state.sent.push({ path: 'titles', body })
       if (body.series_monitor) state.mode = body.series_monitor
-      return response(200).json(detail(r, { kind: 'series', series_monitor: state.mode, seasons: seasons() }))
+      if (body.monitor_new_seasons !== undefined) state.newSeasons = body.monitor_new_seasons
+      if (body.monitor_specials !== undefined) state.specials = body.monitor_specials
+      return response(200).json(detail(r, { kind: 'series', series_monitor: state.mode, monitor_new_seasons: state.newSeasons, monitor_specials: state.specials, seasons: seasons() }))
     }),
   )
   return { ...state, lib, get: () => state }

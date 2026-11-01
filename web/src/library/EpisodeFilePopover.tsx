@@ -3,28 +3,12 @@ import type { components } from '../api/schema.gen'
 import { Badge, Button, Popover, StatusDot } from '@hyprsh/design'
 import { cx } from '../ui'
 import { dotOf, size, type Dot } from './bits'
-import type { CellLike } from './cellDetail'
 import { audioLine, qualityLine, type MediaFacts } from './media'
 import { lastSearchLine } from './WantedLine'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
 type EpisodeFile = components['schemas']['EpisodeFile']
 type CustomFormat = components['schemas']['CustomFormatMatch']
-
-/** Size, quality and Score of a cell's file, joined for a line of text. */
-function facts(cell: CellLike | null): string[] {
-  const out: string[] = []
-  if (cell?.score != null) out.push(`Score ${cell.score}`)
-  if (cell?.file?.quality) out.push(cell.file.quality)
-  if (cell?.file) out.push(size(cell.file.size))
-  return out
-}
-
-/** The hover tooltip of an episode cell: its state, then the file's facts and path. */
-export function cellTitle(slot: string, state: string, cell: CellLike | null): string {
-  const head = [`${slot}: ${state}`, ...facts(cell)].join(' · ')
-  return cell?.file ? `${head}\n${cell.file.path}` : head
-}
 
 /** What the popover knows of a file; the fields an Episode's file and a Movie's FileSummary share. */
 type FileFacts = MediaFacts & {
@@ -230,14 +214,5 @@ export function EpisodeFilePopover({
       trigger={trigger}
       onUpgrade={onUpgrade}
     />
-  )
-}
-
-/** The popover of a cell with no file, for touch where its hover title is out of reach: what its colour says. */
-export function CellPopover({ label, text, trigger }: { label: string; text: string; trigger: ReactElement }) {
-  return (
-    <Popover trigger={trigger} label={`${label} state`} position="bottom-end" width={240}>
-      <p className="label-13 whitespace-pre-line text-gray-1000">{text}</p>
-    </Popover>
   )
 }

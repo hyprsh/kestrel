@@ -9,7 +9,8 @@ import { plural } from '../format'
 import { RowList } from '../layout/RowList'
 import { ago, span, useNow } from '../time'
 import { useReport } from '../toasts'
-import { dotOf, size, slotKeys, slotLabel, versionStatus } from './bits'
+import { dotOf, size, versionStatus } from './bits'
+import { slotName, slotsOf } from './slots'
 import { DeleteFile } from './DeleteFiles'
 import { FileDetailsPopover } from './EpisodeFilePopover'
 import { expandCodes, codeRuns } from './cellDetail'
@@ -34,13 +35,13 @@ const unmonitored = (t: TitleDetail) => (t.kind === 'movie' ? !t.monitored : t.s
  */
 export function VersionRows({ title, profiles, profileName, onManualSearch }: Props) {
   const downloads = useTitleDownloads(title.id)
-  const versions = slotKeys.flatMap((k) => title.versions.filter((v) => v.slot === k))
+  const versions = slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
   if (versions.length === 0) return null
   return (
     // One Version fills the row; two or more sit side by side, for a Series and a Movie alike.
     <section aria-label="Versions" className={`my-6 grid grid-cols-1 gap-3 ${versions.length > 1 ? '@2xl:grid-cols-2' : ''}`}>
       {versions.map((v) => (
-        <RowList key={v.id} aria-label={slotLabel[v.slot]}>
+        <RowList key={v.id} aria-label={slotName(v.slot)}>
           <VersionCard {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads.slot(v.slot)} />
         </RowList>
       ))}
@@ -60,7 +61,7 @@ function VersionMenu({ title, version: v, profiles, profileName, onManualSearch,
   const cancel = useCancelDownloads()
   const [mode, setMode] = useState<'switch' | 'remove' | 'delete' | null>(null)
   const movie = title.kind === 'movie'
-  const name = slotLabel[v.slot]
+  const name = slotName(v.slot)
   return (
     <>
       <DotsMenu aria-label={`${name} Version actions`}>
@@ -123,7 +124,7 @@ function VersionMenu({ title, version: v, profiles, profileName, onManualSearch,
 /** One Slot's card: its name, Profile, state and menu on top; below, what the Version holds, what it is downloading, and its offer. */
 function VersionCard({ version: v, downloads, ...rest }: Props & { version: Version; downloads: SlotDownloads | null }) {
   const { title } = rest
-  const name = slotLabel[v.slot]
+  const name = slotName(v.slot)
   const movie = title.kind === 'movie'
   const [whyOpen, setWhyOpen] = useState(false)
   const wanted = v.state === 'wanted' && !downloads
@@ -176,7 +177,7 @@ function VersionWanted({ title, version: v, open, onOpenChange, onManualSearch, 
 /** A Series Version's coverage: a bar and "X of Y episodes", which count every released episode, monitored or not, with the size. */
 function SeriesHolds({ version: v }: { version: Version }) {
   const c = v.coverage
-  const name = slotLabel[v.slot]
+  const name = slotName(v.slot)
   if (!c) return null
   const released = c.filled + c.wanted + c.unmonitored
   const notMonitored = c.unmonitored > 0 ? `${c.unmonitored} not monitored` : null
@@ -218,7 +219,7 @@ function MovieStateLabel({ version: v, downloads }: { version: Version; download
 /** A Movie Version's one next action, an icon beside the menu: cancel the download, search now, or the file's details. */
 function MovieAction({ version: v, downloads, ...rest }: Props & { version: Version; downloads: SlotDownloads | null }) {
   const { title } = rest
-  const name = slotLabel[v.slot]
+  const name = slotName(v.slot)
   const search = useSearchVersion(title, v.id)
   const cancel = useCancelDownloads()
   const f = v.file

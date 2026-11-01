@@ -36,6 +36,9 @@ export const useSetMovieMonitored = (titleId: number) => usePatchTitle(titleId, 
 /** Sets a Series' monitoring mode. */
 export const useSetSeriesMonitor = (titleId: number) => usePatchTitle(titleId, (mode: SeriesMonitor) => ({ series_monitor: mode }))
 
+/** Sets one of a Series' two monitoring switches: whether new seasons are monitored, and whether Specials follow the mode. */
+export const useSetSeriesMonitorOptions = (titleId: number) => usePatchTitle(titleId, (v: { monitor_new_seasons: boolean } | { monitor_specials: boolean }) => v)
+
 /** Freezes or unfreezes a Title's metadata: a frozen Title is never refreshed. */
 export const useSetFrozen = (titleId: number) => usePatchTitle(titleId, (frozen: boolean) => ({ metadata_frozen: frozen }))
 

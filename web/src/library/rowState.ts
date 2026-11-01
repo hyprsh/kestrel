@@ -103,7 +103,7 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
     const since = r.wanted_since ? `Wanted for ${days(now - Date.parse(r.wanted_since))}` : 'Wanted'
     return { text: `${which(wanted)}${since} · ${searched(r.searched_at, now)}`, tone: 'warning' }
   }
-  if (vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored')) return { text: 'Unmonitored', tone: 'quiet' }
+  if (vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored')) return { text: 'Not monitored', tone: 'quiet' }
   if (vs.some((x) => x.v.state === 'unreleased') && !vs.some((x) => x.v.state === 'filled')) return { text: 'Not out yet', tone: 'quiet' }
   return { text: holding(r, vs, now, opts.size ?? false), tone: 'quiet' }
 }
@@ -119,6 +119,12 @@ function holding(r: TitleRow, vs: ReturnType<typeof kept>, now: number, withSize
   const parts = [r.primary_title !== r.title ? r.primary_title : null, slots, withSize && r.size > 0 ? bytes(r.size) : null, added]
   const text = parts.filter(Boolean).join(' · ')
   return text ? text[0].toUpperCase() + text.slice(1) : 'Filled'
+}
+
+/** Whether a Title is monitored: a Movie or a Series whose Versions are not all unmonitored (a Series with the mode Not monitored). */
+export const isMonitoredRow = (r: TitleRow) => {
+  const vs = kept(r)
+  return !(vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored'))
 }
 
 /** The Slots as the dots show them: a Wanted Version a Grab is filling is downloading. */

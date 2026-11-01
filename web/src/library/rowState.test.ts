@@ -84,6 +84,6 @@ describe('the state line of a Library row', () => {
     const translated = row(2, 'Salt and Iron', 'Sel et fer', { slots: { standard: slot('filled'), '4k': null }, wanted_since: null, added_at: '2026-10-16T12:00:00Z' })
     expect(stateLine(translated, [], now)).toEqual({ text: 'Sel et fer · added 1 d ago', tone: 'quiet' })
     expect(stateLine(row(3, 'Glass', 'Glass', { slots: { standard: slot('unreleased'), '4k': null }, wanted_since: null }), [], now).text).toBe('Not out yet')
-    expect(stateLine(row(4, 'Wren', 'Wren', { slots: { standard: slot('unmonitored'), '4k': null }, wanted_since: null }), [], now).text).toBe('Unmonitored')
+    expect(stateLine(row(4, 'Wren', 'Wren', { slots: { standard: slot('unmonitored'), '4k': null }, wanted_since: null }), [], now).text).toBe('Not monitored')
   })
 })

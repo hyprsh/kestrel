@@ -4,28 +4,28 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueue } from '../api/queue'
 import { ApiError, useEpisodes, type Episode, type TitleDetail } from '../api/queries'
 import { useDisplay } from '../display/useDisplay'
-import { useColumnOrder } from '../layout/columnOrder'
-import { useColumnWidths } from '../layout/columnWidths'
 import { LoadingRegion } from '../loading'
-import { slotKeys } from './bits'
-import { ColumnsMenu, SeasonMenu, TickedBar, useEpisodeActions } from './EpisodeActions'
+import { SeasonMenu, TickedBar, useEpisodeActions } from './EpisodeActions'
 import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
-import { EpisodeMatrix, airedKey } from './EpisodeMatrix'
+import { EpisodeList } from './EpisodeList'
 import { useEpisodeView } from './episodeView'
 import { bySeason, defaultSeason, episodeCode, isUnaired, matchesFilter, orderEpisodes, orderSeasons, seasonName, type EpisodeFilter } from './episodes'
 import { grabsByEpisode } from './cellDetail'
 import { SeasonGrid } from './SeasonGrid'
+import { slotsOf } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 
 const noEpisodes: Episode[] = []
 
 /**
- * What a Series adds to its Title page, below its Versions: the Seasons at a glance (a square per episode and Slot, a row per
- * season that opens it), then the open season: a toolbar (its name, a filter, Find an episode, Reset Columns while the columns changed), the episodes × Slots
- * table and, while episodes are ticked, their floating bar. The open season and the found episode live in the address bar (episodeView.ts).
+ * What a Series adds to its Title page, below its Versions: the Seasons at a glance (a monitoring bookmark and one strip of
+ * squares per season, a row that opens it), then the open season: a toolbar (its name, a filter, Find an episode, the season's
+ * actions), the episode list (a chip per Slot) and, while episodes are ticked, their floating bar. The Slots come from the
+ * Title's Versions, any number. The open season and the found episode live in the address bar (episodeView.ts).
  */
 export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; onManualSearch?: (t: ManualSearchTarget) => void }) {
-  const slots = slotKeys.filter((k) => title.versions.some((v) => v.slot === k))
+  const slotList = useMemo(() => slotsOf(title), [title])
+  const slots = useMemo(() => slotList.map((s) => s.key), [slotList])
   const { display, ready } = useDisplay()
   const query = useEpisodes(title.id)
   const loaded = query.data
@@ -33,8 +33,6 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const grouped = useMemo(() => bySeason(episodes), [episodes])
   const seasons = useMemo(() => orderSeasons([...grouped.keys()], display.season_order), [grouped, display.season_order])
   const view = useEpisodeView(title.id)
-  const columns = useColumnWidths('episodes')
-  const order = useColumnOrder('episodes', [airedKey, ...slots])
   const queue = useQueue()
   const grabs = useMemo(() => grabsByEpisode(queue.data, title.id), [queue.data, title.id])
   const season = view.season !== null && grouped.has(view.season) ? view.season : defaultSeason(seasons, display.seasons_open)
@@ -113,7 +111,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const showField = finding || find.text !== ''
   return (
     <>
-      <SeasonGrid seasons={seasons} episodes={grouped} slots={slots} open={season} onOpen={(n) => view.set(n, null)} actions={actions} />
+      <SeasonGrid seasons={seasons} episodes={grouped} slots={slotList} open={season} onOpen={(n) => view.set(n, null)} actions={actions} />
       <section aria-label={`${name} episodes`} className="mt-6">
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h3 className="heading-16">{name}</h3>
@@ -133,22 +131,19 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
                 <Search aria-hidden className="size-4" />
               </Button>
             )}
-            <ColumnsMenu columns={columns} order={order} />
             <SeasonMenu actions={actions} season={season} episodes={inSeason} label="Season actions" />
           </div>
         </div>
         {shown.length === 0 && !folds ? (
           <p className="copy-13 text-gray-900">No episodes match.</p>
         ) : (
-          <EpisodeMatrix
+          <EpisodeList
             season={season}
             episodes={shown}
-            slots={slots}
-            columnOrder={order}
+            slots={slotList}
             actions={actions}
             found={found}
             grabs={grabs}
-            columnWidths={columns}
             fold={folds ? { episodes: unaired, expanded: open, onToggle: () => setUnairedOpen(!open), atStart: display.season_order === 'newest_first' } : undefined}
           />
         )}

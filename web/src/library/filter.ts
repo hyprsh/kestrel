@@ -60,7 +60,7 @@ export function libraryQualifiers(profiles: readonly ProfileChoice[]): Facet[] {
         wanted: { label: 'Wanted', description: 'No file, or one that no longer fits its Profile' },
         filled: { label: 'Filled', description: 'Has a file' },
         downloading: { label: 'Downloading', description: 'A Grab is on its way' },
-        unmonitored: { label: 'Unmonitored', description: 'Not searched for' },
+        unmonitored: { label: 'Not monitored', description: 'Not searched for' },
         unreleased: { label: 'Unreleased', description: 'Not out yet' },
         long_missing: { label: 'Long Missing', description: 'Wanted for more than 90 days' },
       },
@@ -99,7 +99,7 @@ export const stateTabs = [
   { value: 'long_missing', label: 'Long Missing' },
   { value: 'downloading', label: 'Downloading' },
   { value: 'unreleased', label: 'Unreleased' },
-  { value: 'unmonitored', label: 'Unmonitored' },
+  { value: 'unmonitored', label: 'Not monitored' },
 ] as const
 
 export type StateTab = (typeof stateTabs)[number]['value']

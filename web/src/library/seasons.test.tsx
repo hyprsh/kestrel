@@ -43,10 +43,13 @@ describe('the Seasons at a glance on the Title page', () => {
       within(region)
         .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
         .map((b) => b.getAttribute('aria-label')),
-    ).toEqual(['Specials: Standard not monitored; 4K not monitored', 'Season 1: Standard 2 of 2; 4K 2 of 2', 'Season 2: Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted, open'])
+    ).toEqual(['Specials: not monitored', 'Season 1: Standard 2 of 2; 4K 2 of 2', 'Season 2: Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted, open'])
     expect(within(region).getByRole('button', { name: /^Season 2:/ })).toHaveAttribute('aria-current', 'true')
-    expect(within(region).getByRole('button', { name: /^Season 2:/ })).toHaveTextContent('0/2 · 2 Wanted')
-    expect(within(region).getByRole('button', { name: /^Season 1:/ })).toHaveTextContent('2/2')
+    // One chip per Slot with its count, amber while Wanted.
+    expect(within(region).getByTitle('Standard 1 of 2, 1 Wanted')).toHaveTextContent('STD 1/2')
+    expect(within(region).getByTitle('4K 0 of 2, 2 Wanted')).toHaveTextContent('4K 0/2')
+    expect(within(region).getByTitle('4K 0 of 2, 2 Wanted')).toHaveAttribute('data-wanted')
+    expect(within(region).getByTitle('Standard 2 of 2')).not.toHaveAttribute('data-wanted')
     expect(within(region).getByRole('button', { name: /^Specials:/ })).toHaveTextContent('not monitored')
     expect(within(region).getByText('Not monitored')).toBeInTheDocument() // the legend
     expect(screen.getByRole('heading', { name: 'Season 2' })).toBeInTheDocument()
@@ -151,7 +154,7 @@ describe('the Seasons at a glance on the Title page', () => {
 
     await userEvent.click(fold)
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
-    expect(within(grid).getByRole('button', { name: 'Season 1 episode 2 Standard: Unreleased' })).toHaveTextContent('Nov 2')
+    expect(within(grid).getByRole('row', { name: /Cat/ })).toHaveTextContent('Nov 2')
     await userEvent.click(within(grid).getByRole('button', { name: 'Hide the episodes not aired yet' }))
     expect(within(grid).queryByRole('checkbox', { name: 'Tick Season 1 episode 4' })).not.toBeInTheDocument()
 
@@ -190,7 +193,7 @@ describe('the Seasons at a glance on the Title page', () => {
 
     await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
     const menu = screen.getByRole('menu', { name: 'Actions for Season 1' })
-    const items = ['Search Season', 'Manual Search Season Standard…', 'Manual Search Season 4K…', 'Stop Monitoring Season', 'Delete Standard Season’s Files…', 'Delete 4K Season’s Files…']
+    const items = ['Search Season', 'Manual Search Season Standard…', 'Manual Search Season 4K…', 'Delete Standard Season’s Files…', 'Delete 4K Season’s Files…']
     expect(
       within(menu)
         .getAllByRole('menuitem')
@@ -213,8 +216,7 @@ describe('the Seasons at a glance on the Title page', () => {
     await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
     expect(within(region).getByRole('button', { name: 'Actions for Season 1' }).closest('[data-menu-open]')).not.toBeNull()
     await userEvent.keyboard('{Escape}')
-    await userEvent.click(within(region).getByRole('button', { name: 'Actions for Season 1' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Stop Monitoring Season' }))
+    await userEvent.click(within(region).getByRole('button', { name: 'Stop monitoring Season 1' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'seasons/1', body: { monitored: false } }]))
     expect(params().get('season')).toBeNull() // acting on a row does not open it
   })
@@ -225,22 +227,43 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(within(row).getByRole('button', { name: 'Search S01E01' }).textContent).toBe('')
   })
 
-  it('offers Reset Columns in the toolbar’s table options only while the widths differ, and resets them', async () => {
-    localStorage.setItem('kestrel.columns.episodes', JSON.stringify({ name: 300 }))
-    await openSeries()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Table options' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Reset Columns' }))
-
-    expect(localStorage.getItem('kestrel.columns.episodes')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Table options' })).not.toBeInTheDocument()
+  it('monitors and unmonitors a whole season from the bookmark that starts its row, which is dimmed while off', async () => {
+    const { state } = await openSeries()
+    const region = screen.getByRole('region', { name: 'Seasons' })
+    const stop = within(region).getByRole('button', { name: 'Stop monitoring Season 1' })
+    expect(stop).toHaveAttribute('aria-pressed', 'true')
+    expect(stop.closest('[data-monitored]')).toHaveAttribute('data-monitored', 'on')
+    await userEvent.click(stop)
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'seasons/1', body: { monitored: false } }]))
+    const start = await within(region).findByRole('button', { name: 'Monitor Season 1' })
+    expect(start).toHaveAttribute('aria-pressed', 'false')
+    expect(start.closest('[data-monitored]')).toHaveAttribute('data-monitored', 'off')
+    expect(within(region).getByRole('button', { name: /^Season 1:/ })).toHaveTextContent('not monitored')
+    expect(within(region).getByRole('button', { name: 'Monitor Specials' })).toBeInTheDocument() // Specials start off
+    await userEvent.click(start)
+    await waitFor(() => expect(state.get().sent[1]).toEqual({ path: 'seasons/1', body: { monitored: true } }))
   })
 
-  it('monitors and unmonitors a whole season from its menu', async () => {
-    const { state } = await openSeries()
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Stop Monitoring Season' }))
-    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'seasons/1', body: { monitored: false } }]))
+  it('draws one strip of squares per season with each episode’s combined state over every Slot, and a legend for them', async () => {
+    const state = fakeSeries()
+    const none = { standard: cell('unreleased'), '4k': cell('unreleased') }
+    state.get().episodes = [
+      episode(1, 1, 1, 'Both', { cells: filled }),
+      episode(2, 1, 2, 'Some', { cells: { standard: cell('filled', 100), '4k': cell('wanted') } }),
+      episode(3, 1, 3, 'All wanted', { cells: { standard: cell('wanted'), '4k': cell('wanted') } }),
+      episode(4, 1, 4, 'Moving', { cells: { standard: cell('wanted'), '4k': cell('downloading') } }),
+      episode(5, 1, 5, 'Later', { air_date: '2999-01-01', cells: none }),
+      episode(6, 1, 6, 'Off', { monitored: false, cells: { standard: cell('unmonitored'), '4k': cell('unmonitored') } }),
+    ]
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('grid', { name: 'Episodes' })
+    const region = screen.getByRole('region', { name: 'Seasons' })
+    const row = within(region).getByRole('button', { name: /^Season 1:/ })
+    expect(Array.from(row.querySelectorAll('[data-square]')).map((q) => q.getAttribute('data-square'))).toEqual(['filled', 'partial', 'wanted', 'downloading', 'unreleased', 'unmonitored'])
+    // No per-Slot strips: a single strip, whatever the Slot count.
+    expect(row.querySelectorAll('[data-square]')).toHaveLength(6)
+    for (const l of ['Every Slot has it', 'Some Slots Wanted', 'All Wanted', 'Downloading', 'Not aired', 'Not monitored']) expect(within(region).getByText(l)).toBeInTheDocument()
   })
 })
 

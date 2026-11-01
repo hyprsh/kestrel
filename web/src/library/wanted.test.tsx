@@ -77,7 +77,7 @@ describe('the Library filter, typed', () => {
     expect(await status('All')).toHaveTextContent(/^All3$/)
     expect(await status('Wanted')).toHaveTextContent(/^Wanted2$/)
     expect(await status('Long Missing')).toHaveTextContent(/^Long Missing1$/)
-    expect(await status('Unmonitored')).toHaveTextContent(/^Unmonitored0$/)
+    expect(await status('Not monitored')).toHaveTextContent(/^Not monitored0$/)
     await userEvent.keyboard('{Escape}')
 
     await userEvent.type(filter(), 'pad is:wanted ')

@@ -1,5 +1,5 @@
 import { Entity, Note, Skeleton } from '@hyprsh/design'
-import { forwardRef, type ReactNode } from 'react'
+import { forwardRef, Fragment, type ReactNode } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
 import { plural } from '../format'
@@ -9,7 +9,8 @@ import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { MovieSection } from './MovieSection'
 import { TitleHistory } from './TitleHistory'
-import { MonitoringMenu, TitleActions } from './TitleActions'
+import { MonitoringLine, MutedFrame } from './MonitorButton'
+import { TitleActions } from './TitleActions'
 import { TitleBadges } from './TitleBadges'
 import { VersionRows } from './VersionRows'
 
@@ -100,33 +101,39 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
     title.certification,
     rated(title.ratings) ? <Ratings ratings={title.ratings} compact /> : null,
     title.kind === 'movie' && title.original_language ? `Original ${title.original_language.toUpperCase()}` : null,
-    title.kind === 'series' || !title.monitored ? <MonitoringMenu title={title} /> : null,
   ].filter((m) => m !== null && m !== '')
 
+  const muted = title.kind === 'movie' && !title.monitored
+  const Frame = muted ? MutedFrame : Fragment
   return (
     <div className="@container">
-      <div className="flex gap-5 max-sm:gap-3">
-        <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="title" />
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h2 className="heading-32 min-w-0 flex-1 basis-48 max-sm:heading-24">{title.title}</h2>
-            <TitleActions title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
-          </div>
-          {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
-          <div className="label-14 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-gray-900">
-            {meta.map((m, i) => (
-              <span key={i}>{i < meta.length - 1 ? <>{m}&nbsp;·</> : m}</span>
-            ))}
-          </div>
-          <TitleBadges title={title} />
-          {title.requests.map((r) => (
-            <div key={r.id} className="copy-13 text-gray-900">
-              Requested by {r.requester_name} via {sourceName(r.source)}
+      <Frame>
+        <div className="flex gap-5 max-sm:gap-3">
+          <span data-muted={muted ? '' : undefined} className={`shrink-0 self-start ${muted ? 'opacity-70 grayscale' : ''}`}>
+            <TitlePoster id={title.id} hasPoster={title.has_poster} alt={`${title.title} poster`} size="title" />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h2 className={`heading-32 min-w-0 flex-1 basis-48 max-sm:heading-24 ${muted ? 'text-gray-900' : ''}`}>{title.title}</h2>
+              <TitleActions title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
             </div>
-          ))}
-          {title.overview && <p className="copy-14 line-clamp-2 max-w-prose text-gray-900">{title.overview}</p>}
+            {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
+            <div className="label-14 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-gray-900">
+              {meta.map((m, i) => (
+                <span key={i}>{i < meta.length - 1 ? <>{m}&nbsp;·</> : m}</span>
+              ))}
+            </div>
+            <MonitoringLine title={title} />
+            <TitleBadges title={title} />
+            {title.requests.map((r) => (
+              <div key={r.id} className="copy-13 text-gray-900">
+                Requested by {r.requester_name} via {sourceName(r.source)}
+              </div>
+            ))}
+            {title.overview && <p className="copy-14 line-clamp-2 max-w-prose text-gray-900">{title.overview}</p>}
+          </div>
         </div>
-      </div>
+      </Frame>
 
       <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
       {title.kind === 'series' ? <SeriesSection title={title} onManualSearch={onManualSearch} /> : <MovieSection title={title} profileName={profileName} onManualSearch={onManualSearch} />}

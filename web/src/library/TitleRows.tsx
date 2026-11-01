@@ -1,3 +1,4 @@
+// chrome: domain-visual
 // The Library's list: a cursor listbox of rich rows. A row has its tick box, the poster, the title and year, a line
 // saying why the Title is in its state (toned by it), the Slot dots and the size on disk.
 import { Entity } from '@hyprsh/design'
@@ -8,7 +9,8 @@ import { SkeletonRow } from '../loading'
 import { TitlePoster } from '../poster'
 import type { Selection } from '../selection'
 import { KindIcon, size, SlotDots } from './bits'
-import { shownSlots, stateLine, toneText } from './rowState'
+import { isMonitoredRow, shownSlots, stateLine, toneText } from './rowState'
+import { MonitorMark } from './MonitorToggle'
 import { TickBox } from './TickBox'
 
 export function TitleRows({
@@ -69,6 +71,7 @@ export function TitleRows({
         {rows.map((r, i) => {
           const g = grabs.get(r.id) ?? []
           const line = stateLine(r, g, now)
+          const monitored = isMonitoredRow(r)
           return (
             <Entity
               key={r.id}
@@ -79,18 +82,24 @@ export function TitleRows({
               aria-selected={i === index}
               current={i === index && !phone}
               data-nav={`lib-${i + navOffset}`}
-              className={phone ? 'min-h-16' : undefined}
+              data-monitored={monitored ? 'on' : 'off'}
+              className={`${phone ? 'min-h-16' : ''} ${monitored ? '' : 'bg-background-200'}`}
               left={
                 <>
                   {ticks && <TickBox selection={selection} id={r.id} name={r.title} tabIndex={-1} />}
-                  <TitlePoster id={r.id} hasPoster={r.has_poster} size={phone ? 'md' : 'sm'} />
+                  <span className={monitored ? 'contents' : 'opacity-55'}>
+                    <TitlePoster id={r.id} hasPoster={r.has_poster} size={phone ? 'md' : 'sm'} />
+                  </span>
                 </>
               }
               right={
                 <span className="flex flex-col items-end gap-1.5">
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-2">
                     <KindIcon kind={r.kind} className="shrink-0 text-gray-900" />
                     <SlotDots slots={shownSlots(r, g)} />
+                    <span title={monitored ? 'Monitored' : 'Not monitored'} data-monitor-mark={monitored ? 'on' : 'off'}>
+                      <MonitorMark monitored={monitored} />
+                    </span>
                   </span>
                   {!phone && <span className="label-12 text-gray-900 tabular-nums">{r.size > 0 ? size(r.size) : '—'}</span>}
                 </span>
@@ -100,7 +109,9 @@ export function TitleRows({
                 fill
                 title={
                   <span className="block truncate">
-                    <span data-title>{r.title}</span>
+                    <span data-title className={monitored ? '' : 'text-gray-900'}>
+                      {r.title}
+                    </span>
                     {r.year ? <span className="ml-1.5 font-normal text-gray-900">{r.year}</span> : null}
                   </span>
                 }

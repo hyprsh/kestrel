@@ -3,7 +3,6 @@
 import { useCancelGrab, useQueue, type QueueItem } from '../api/queue'
 import { percent } from '../format'
 import { useReport } from '../toasts'
-import type { SlotKey } from './bits'
 
 /** What the Grabs of one Slot add up to: the overall percent (null when the client knows no size) and the longest time left. */
 export type SlotDownloads = { items: QueueItem[]; pct: number | null; eta: number | null }
@@ -21,7 +20,7 @@ export function downloadsOf(items: QueueItem[]): SlotDownloads {
 /** This Title's active Grabs: all of them, and by Slot. The queue is filtered by `title_id`. */
 export function useTitleDownloads(titleId: number) {
   const items = (useQueue().data ?? []).filter((i) => i.title_id === titleId)
-  const slot = (k: SlotKey) => {
+  const slot = (k: string) => {
     const mine = items.filter((i) => i.slot === k)
     return mine.length > 0 ? downloadsOf(mine) : null
   }
