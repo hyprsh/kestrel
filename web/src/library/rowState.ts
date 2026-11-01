@@ -8,7 +8,7 @@ import type { QueueItem } from '../api/queue'
 import { percent } from '../format'
 import { ago, clockTime, span } from '../time'
 import { expandCodes } from './cellDetail'
-import { size as bytes, slotKeys, slotLabel, type SlotKey } from './bits'
+import { size as bytes, slotLabel, type SlotKey } from './bits'
 
 export type Tone = 'error' | 'warning' | 'info' | 'quiet'
 
@@ -63,10 +63,8 @@ function episodes(g: QueueItem): string {
   return e.length <= 1 ? (e[0] ?? 'Episodes') : `${e[0]}–${e[e.length - 1]}`
 }
 
-type Slot = NonNullable<TitleRow['slots']['standard']>
-
-/** The Title's Versions with their Slots, Standard first. */
-const kept = (r: TitleRow) => slotKeys.flatMap((k) => (r.slots[k] ? [{ slot: k, v: r.slots[k] as Slot }] : []))
+/** The Title's Versions with their Slots, in Slot order. */
+const kept = (r: TitleRow) => r.slot_states.map((v) => ({ slot: v.slot as SlotKey, v }))
 
 /** Whether a Grab fills a Version that has nothing yet (or a misfit), rather than Upgrading a file. */
 const filling = (g: QueueItem) => !g.is_upgrade

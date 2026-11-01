@@ -3425,6 +3425,17 @@ export interface components {
              */
             next_search_at?: string | null;
         };
+        /** @description One Slot of a Title with its Version's state. */
+        SlotStateEntry: {
+            slot: components["schemas"]["Slot"];
+            /** @description The Slot's display name ("Standard", "4K"). */
+            label: string;
+            /** Format: int64 */
+            version_id: number;
+            profile: string;
+            state: components["schemas"]["SlotState"];
+            long_missing: boolean;
+        };
         TitleRow: {
             /** Format: int64 */
             id: number;
@@ -3438,10 +3449,16 @@ export interface components {
             has_poster: boolean;
             /** @description A Movie's flag; a Series is monitored unless its `series_monitor` is `none`. */
             monitored: boolean;
+            /**
+             * @deprecated
+             * @description Deprecated, use `slot_states`. The fixed Standard and 4K shape, kept for v1 compatibility.
+             */
             slots: {
                 standard: components["schemas"]["SlotSummary"] | null;
                 "4k": components["schemas"]["SlotSummary"] | null;
             };
+            /** @description The Slots the Title has a Version in, in Slot order, each with its Version's state. Prefer this to `slots`. */
+            slot_states: components["schemas"]["SlotStateEntry"][];
             /** Format: date-time */
             wanted_since: string | null;
             /** Format: date-time */

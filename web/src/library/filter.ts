@@ -8,7 +8,7 @@ import { kindQualifier, type Facet } from '../filter/qualifiers'
 import { slotKeys, slotLabel } from './bits'
 import { parseCode, splitCode } from './episodeCode'
 
-type Version = NonNullable<TitleRow['slots']['standard']>
+type Version = TitleRow['slot_states'][number]
 
 /** A Profile as the filter needs it: Versions name it by key, people by name. */
 type Profile = { key: string; name: string }
@@ -124,7 +124,7 @@ export function withTab(text: string, tab: StateTab, qualifiers: readonly Facet[
   return tab === 'all' ? out : withValue(out, 'is', tab, qualifiers)
 }
 
-const versions = (r: TitleRow) => [r.slots.standard, r.slots['4k']].filter((s): s is Version => s !== null)
+const versions = (r: TitleRow): Version[] => r.slot_states
 
 /** Whether a Title has one value of a qualifier. A `profile:` value is a name or a key, in any case. `grabbing` holds the Titles with a Grab on its way. */
 function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[], grabbing: ReadonlySet<number>): boolean {
@@ -136,7 +136,7 @@ function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[],
       if (v === 'unmonitored') return !r.monitored // the Title's flag, whatever its files say
       return versions(r).some((s) => (v === 'long_missing' ? s.long_missing : s.state === v))
     case 'slot':
-      return r.slots[v as keyof TitleRow['slots']] !== null
+      return r.slot_states.some((s) => s.slot === v)
     case 'profile': {
       const lower = v.toLowerCase()
       const keys = profiles.filter((p) => p.name.toLowerCase() === lower).map((p) => p.key)

@@ -4771,9 +4771,28 @@ components:
           format: date-time
           nullable: true
           description: When a Wanted Version is next searched. Only a Wanted Version has it here.
+    SlotStateEntry:
+      type: object
+      description: One Slot of a Title with its Version's state.
+      required: [slot, label, version_id, profile, state, long_missing]
+      properties:
+        slot:
+          $ref: "#/components/schemas/Slot"
+        label:
+          type: string
+          description: The Slot's display name ("Standard", "4K").
+        version_id:
+          type: integer
+          format: int64
+        profile:
+          type: string
+        state:
+          $ref: "#/components/schemas/SlotState"
+        long_missing:
+          type: boolean
     TitleRow:
       type: object
-      required: [id, kind, title, primary_title, year, has_poster, monitored, slots, wanted_since, added_at, size, searched_at, wanted_episodes]
+      required: [id, kind, title, primary_title, year, has_poster, monitored, slots, slot_states, wanted_since, added_at, size, searched_at, wanted_episodes]
       properties:
         id:
           type: integer
@@ -4797,6 +4816,8 @@ components:
           description: A Movie's flag; a Series is monitored unless its `series_monitor` is `none`.
         slots:
           type: object
+          deprecated: true
+          description: Deprecated, use `slot_states`. The fixed Standard and 4K shape, kept for v1 compatibility.
           required: [standard, 4k]
           properties:
             standard:
@@ -4807,6 +4828,11 @@ components:
               allOf:
                 - $ref: "#/components/schemas/SlotSummary"
               nullable: true
+        slot_states:
+          type: array
+          description: The Slots the Title has a Version in, in Slot order, each with its Version's state. Prefer this to `slots`.
+          items:
+            $ref: "#/components/schemas/SlotStateEntry"
         wanted_since:
           type: string
           format: date-time

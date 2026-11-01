@@ -247,6 +247,12 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 		out.WantedEpisodes = &oapi.WantedEpisodes{Wanted: w.Wanted, LongMissing: w.LongMissing, Seasons: w.Seasons}
 	}
 	out.Slots.Standard, out.Slots.N4k = summary(r.Slots[slot.Standard]), summary(r.Slots[slot.FourK])
+	out.SlotStates = []oapi.SlotStateEntry{}
+	for _, sl := range slot.All {
+		if s := r.Slots[sl]; s != nil {
+			out.SlotStates = append(out.SlotStates, oapi.SlotStateEntry{Slot: slotToAPI(sl), Label: sl.Name(), VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing})
+		}
+	}
 	return out
 }
 

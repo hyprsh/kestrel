@@ -4760,6 +4760,20 @@ type Slot string
 // Clients tolerate new values.
 type SlotState string
 
+// SlotStateEntry One Slot of a Title with its Version's state.
+type SlotStateEntry struct {
+	// Label The Slot's display name ("Standard", "4K").
+	Label       string `json:"label"`
+	LongMissing bool   `json:"long_missing"`
+	Profile     string `json:"profile"`
+	Slot        Slot   `json:"slot"`
+
+	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
+	// Clients tolerate new values.
+	State     SlotState `json:"state"`
+	VersionId int64     `json:"version_id"`
+}
+
 // SlotSummary defines model for SlotSummary.
 type SlotSummary struct {
 	// LastSearch What the last search of a Wanted Version found. Only a Wanted Version has it here (the Overview lists those); null when it was never searched.
@@ -5219,7 +5233,13 @@ type TitleRow struct {
 	SearchedAt *time.Time `json:"searched_at"`
 
 	// Size Bytes the files of its Versions take on disk, 0 when it holds none.
-	Size  int64 `json:"size"`
+	Size int64 `json:"size"`
+
+	// SlotStates The Slots the Title has a Version in, in Slot order, each with its Version's state. Prefer this to `slots`.
+	SlotStates []SlotStateEntry `json:"slot_states"`
+
+	// Slots Deprecated, use `slot_states`. The fixed Standard and 4K shape, kept for v1 compatibility.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Slots struct {
 		N4k      *SlotSummary `json:"4k"`
 		Standard *SlotSummary `json:"standard"`
