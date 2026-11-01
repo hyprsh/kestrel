@@ -1,12 +1,14 @@
 // chrome: domain-visual
 // The month calendar of Upcoming's side panel: a weekday header, the weeks of one month (Monday first), today highlighted,
-// days with releases marked by a blue dot under the number. Every day is a button named by its date; choosing one scrolls the agenda to it.
+// days with releases marked by a blue dot under the number, and the week the Agenda shows shaded. Every day is a button named by its
+// date; choosing one scrolls the agenda to it.
 // No component of the design library draws a calendar (ADR 0017).
 import { Button } from '@hyprsh/design'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { dayString } from '../api/upcoming'
 import { plural } from '../format'
 import { cx } from '../ui'
+import { addDays } from './state'
 
 /** A month as its first day, YYYY-MM-01. */
 export const monthOf = (day: string) => `${day.slice(0, 7)}-01`
@@ -40,27 +42,30 @@ export function gridDays(month: string): string[] {
   return Array.from({ length: count }, (_, i) => dayString(0, new Date(first.getFullYear(), first.getMonth(), 1 - lead + i, 12)))
 }
 
+/** Whether a day is in the week that starts on `monday`. */
+const inWeek = (day: string, monday: string) => day >= monday && day <= addDays(monday, 6)
+
 const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const name = (day: string) => at(day).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
 /**
- * `releases` counts the entries by day; a day with some gets a dot. The month's name is the group's label, and the
- * previous and next buttons move `month` (a YYYY-MM-01 day).
+ * `releases` counts the entries by day; a day with some gets a dot. `week` is the Monday of the week the Agenda shows, shaded.
+ * The month's name is the group's label, and the previous and next buttons move `month` (a YYYY-MM-01 day).
  */
 export function MonthCalendar({
   month,
   today,
+  week,
   releases,
   onMonth,
   onPick,
-  onToday,
 }: {
   month: string
   today: string
+  week: string
   releases: ReadonlyMap<string, number>
   onMonth: (month: string) => void
   onPick: (day: string) => void
-  onToday: () => void
 }) {
   const title = at(month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   return (
@@ -68,9 +73,6 @@ export function MonthCalendar({
       <div className="flex items-center justify-between">
         <h2 className="label-14 font-semibold">{title}</h2>
         <span className="flex items-center gap-0.5">
-          <Button variant="tertiary" size="tiny" onClick={onToday}>
-            Today
-          </Button>
           <Button variant="tertiary" size="tiny" svgOnly aria-label="Previous month" onClick={() => onMonth(shiftMonth(month, -1))}>
             <ChevronLeft />
           </Button>
@@ -79,7 +81,7 @@ export function MonthCalendar({
           </Button>
         </span>
       </div>
-      <div role="group" aria-label={`${title}; days with releases have a dot`} className="grid grid-cols-7 gap-0.5 text-center">
+      <div role="group" aria-label={`${title}; the shown week is shaded, days with releases have a dot`} className="grid grid-cols-7 gap-0.5 text-center">
         {weekdays.map((w, i) => (
           <span key={i} aria-hidden className="label-12 flex h-7 items-center justify-center text-gray-900">
             {w}
@@ -95,7 +97,8 @@ export function MonthCalendar({
               size="tiny"
               aria-label={`${name(day)}${day === today ? ', today' : ''}${n > 0 ? `, ${plural(n, 'release')}` : ''}`}
               aria-current={day === today ? 'date' : undefined}
-              className={cx('relative w-full tabular-nums', !inMonth && day !== today && 'text-gray-700')}
+              data-week={inWeek(day, week) || undefined}
+              className={cx('relative w-full tabular-nums', !inMonth && day !== today && 'text-gray-700', inWeek(day, week) && day !== today && 'bg-gray-alpha-200')}
               onClick={() => onPick(day)}
             >
               {Number(day.slice(8))}

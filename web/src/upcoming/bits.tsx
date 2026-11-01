@@ -1,22 +1,16 @@
-// What Upcoming and the Overview's Coming section draw alike: the state badges of an entry and the
-// markers, release badges and one-line summary of it.
+// The state badges of a Title with no date yet, and the markers of an episode.
 import { Badge, Button, Progress } from '@hyprsh/design'
 import { Check } from 'lucide-react'
-import type { ReactNode } from 'react'
 import type { QueueItem } from '../api/queue'
 import type { UpcomingItem, UpcomingSlot } from '../api/upcoming'
 import { percent } from '../format'
 import { phases } from '../grabs/phase'
 import { slotLabel, type SlotKey } from '../library/bits'
-import { episodeCode, resolutionOf, standing, wantedFor, type Standing, type Tally } from './state'
+import { resolutionOf, standing, wantedFor, type Standing } from './state'
 
-const releaseLabel = { theatrical: 'In cinemas', digital: 'Digital', physical: 'Physical' } as const
 const markerLabel = { series_premiere: 'Series premiere', season_premiere: 'Season premiere', season_finale: 'Season finale', special: 'Special' } as const
 
 const slotName = (slot: string) => slotLabel[slot as SlotKey] ?? slot
-
-/** "24 Oct" for a YYYY-MM-DD day. */
-const shortDate = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' })
 
 /** One Version's state as a badge, with a download's live progress beside it. */
 function StandingBadge({ slot, st, prefix, now }: { slot: UpcomingSlot; st: Standing; prefix: boolean; now: number }) {
@@ -63,15 +57,6 @@ function StandingBadge({ slot, st, prefix, now }: { slot: UpcomingSlot; st: Stan
   }
 }
 
-/**
- * Where an entry stands in each Slot it has a Version in: Not out yet, Wanted for how long (red once
- * Long Missing), downloading with live progress off the queue, or Imported with its quality and Slot.
- * With two Slots each badge names its own.
- */
-export function StateBadges({ item, queue, now, onSearch }: { item: UpcomingItem; queue: readonly QueueItem[]; now: number; onSearch?: (slots: UpcomingSlot[]) => void }) {
-  return <Standings title={item} slots={item.slots} queue={queue} now={now} onSearch={onSearch} />
-}
-
 /** The same badges for a Title that is not an entry (a Title with no date yet). */
 export function Standings({
   title,
@@ -116,56 +101,6 @@ export function Standings({
   )
 }
 
-/** A group's episodes added up, per Slot: "5 Imported", "3 Wanted 2 days", "1 Long missing". */
-export function TallyBadges({ tallies, now }: { tallies: Tally[]; now: number }) {
-  const prefix = tallies.length > 1
-  const badges: ReactNode[] = []
-  for (const t of tallies) {
-    const lead = prefix ? `${slotName(t.slot)} · ` : ''
-    if (t.imported) {
-      badges.push(
-        <Badge key={`${t.slot}-i`} variant="green" contrast="low" size="sm" icon={<Check />}>
-          {lead}
-          {t.imported} Imported
-        </Badge>,
-      )
-    }
-    if (t.grabbed) {
-      badges.push(
-        <Badge key={`${t.slot}-g`} variant="blue" contrast="low" size="sm">
-          {lead}
-          {t.grabbed} Downloading
-        </Badge>,
-      )
-    }
-    if (t.wanted - t.long > 0) {
-      badges.push(
-        <Badge key={`${t.slot}-w`} variant="amber" contrast="low" size="sm">
-          {lead}
-          {t.wanted - t.long} Wanted{t.since && t.long === 0 ? ` ${wantedFor(t.since, now)}` : ''}
-        </Badge>,
-      )
-    }
-    if (t.long) {
-      badges.push(
-        <Badge key={`${t.slot}-l`} variant="red" contrast="low" size="sm">
-          {lead}
-          {t.long} Long missing
-        </Badge>,
-      )
-    }
-    if (t.notOut) {
-      badges.push(
-        <Badge key={`${t.slot}-n`} variant="gray" contrast="low" size="sm">
-          {lead}
-          {t.notOut} Not out yet
-        </Badge>,
-      )
-    }
-  }
-  return <span className="flex flex-wrap items-center gap-1.5">{badges}</span>
-}
-
 /** Premiere, finale and Specials marks of an episode. */
 export function Markers({ markers }: { markers: UpcomingItem['markers'] }) {
   return (
@@ -175,52 +110,6 @@ export function Markers({ markers }: { markers: UpcomingItem['markers'] }) {
           {markerLabel[m] ?? m}
         </Badge>
       ))}
-    </>
-  )
-}
-
-/** A Movie's release badge and, until it is out, when it becomes searchable; the release that makes it searchable says so. */
-export function MovieNotes({ item }: { item: UpcomingItem }) {
-  return (
-    <>
-      {item.release_type && (
-        <Badge variant="blue" contrast="low" size="sm">
-          {releaseLabel[item.release_type]}
-        </Badge>
-      )}
-      {item.searchable && (
-        <Badge variant="teal" contrast="low" size="sm" title="This release makes the Movie searchable">
-          Searchable
-        </Badge>
-      )}
-      {!item.released && <span className="label-12 text-gray-900">{item.searchable_from ? `searchable from ${shortDate(item.searchable_from)}` : 'no search date yet'}</span>}
-    </>
-  )
-}
-
-/** The Movie's other release dates: "in cinemas since 3 Oct, physical 12 Dec". */
-export function otherDates(item: UpcomingItem, today: string): string {
-  const names = { theatrical: 'in cinemas', digital: 'digital', physical: 'physical' } as const
-  return item.dates
-    .filter((d) => d.release_type !== item.release_type)
-    .map((d) => `${names[d.release_type]} ${d.date <= today ? 'since ' : ''}${shortDate(d.date)}`)
-    .join(', ')
-}
-
-/** "S02E04 · Episode name", or the Movie's year. */
-export function EntryName({ item }: { item: UpcomingItem }) {
-  if (item.kind === 'series') {
-    return (
-      <>
-        <span className="font-semibold">{item.title}</span> <span className="text-gray-900">{episodeCode(item.season!, item.episode!)}</span>
-        {item.episode_name ? <span className="text-gray-900"> · {item.episode_name}</span> : null}
-      </>
-    )
-  }
-  return (
-    <>
-      <span className="font-semibold">{item.title}</span>
-      {item.year ? <span className="text-gray-900"> {item.year}</span> : null}
     </>
   )
 }

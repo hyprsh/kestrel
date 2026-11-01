@@ -1,25 +1,55 @@
 // chrome: domain-visual
-// The Agenda's drawing: a heading per day (the date and a muted "tomorrow") over one bordered card of that day's rows.
-// Everything else in Upcoming is design components and layout.
-import { Entity, Skeleton } from '@hyprsh/design'
+// The Agenda's drawing: per day, a date column (weekday, big number, how far away) beside one bordered card of that day's
+// rows; a muted line for the stretches with nothing; the week header with its four stat cards. Everything else in Upcoming is
+// design components and layout.
+import { Button, Skeleton } from '@hyprsh/design'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ReactNode, Ref } from 'react'
 import { PosterSkeleton } from '../poster'
+import { weekdayShort, type WeekStats } from './state'
 
-/** The Agenda: a list of days, 20px apart. */
-export function AgendaTimeline({ children }: { children: ReactNode }) {
+/** The Agenda: a list of day blocks and quiet lines, 14px apart (a phone's day sections, 4). */
+export function AgendaTimeline({ compact, children }: { compact: boolean; children: ReactNode }) {
   return (
-    <ul aria-label="Agenda" className="flex flex-col gap-5">
+    <ol aria-label="Agenda" className={compact ? 'flex flex-col' : 'flex flex-col gap-3.5'}>
       {children}
-    </ul>
+    </ol>
   )
 }
 
-/** A day's heading: the date, with how far away it is in muted text beside it. */
-export function DayHeading({ date, away, isToday, headingRef }: { date: string; away: string; isToday: boolean; headingRef?: Ref<HTMLHeadingElement> }) {
+/** A day on a desktop: its date at the left, the card of its rows at the right. */
+export function DayBlock({ day, num, away, isToday, children, ...rest }: { day: string; num: number; away: string; isToday: boolean; children: ReactNode } & Record<`data-${string}`, string>) {
   return (
-    <h2 ref={headingRef} aria-current={isToday ? 'date' : undefined} className="heading-16">
-      {date} <span className="label-14 font-normal text-gray-900">{away}</span>
-    </h2>
+    <li className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4" {...rest}>
+      <div aria-hidden className="flex flex-col items-start pt-2.5">
+        <span className={`label-12 font-semibold uppercase ${isToday ? 'text-gray-1000' : 'text-gray-900'}`}>{weekdayShort(day)}</span>
+        <span className="heading-24 tabular-nums">{num}</span>
+        <span className="label-12 text-gray-900">{away}</span>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </li>
+  )
+}
+
+/** A phone's day section: the date and how far away it is over its rows. */
+export function PhoneDay({ heading, away, children, ...rest }: { heading: string; away: string; children: ReactNode } & Record<`data-${string}`, string>) {
+  return (
+    <li {...rest}>
+      <h2 className="label-13 px-4 pt-3 pb-1.5 font-semibold">
+        {heading} <span className="font-normal text-gray-900">{away}</span>
+      </h2>
+      {children}
+    </li>
+  )
+}
+
+/** The line for days with nothing: "Nothing on Tue 3, Fri 6 – Sun 8", under the date column on a desktop. */
+export function QuietLine({ text, compact, ...rest }: { text: string; compact: boolean } & Record<`data-${string}`, string>) {
+  return (
+    <li className={compact ? 'px-4 py-2' : 'grid grid-cols-[64px_minmax(0,1fr)] gap-x-4'} {...rest}>
+      {!compact && <span />}
+      <span className="label-13 px-0.5 py-1 text-gray-900">{text}</span>
+    </li>
   )
 }
 
@@ -36,27 +66,67 @@ export function AgendaEdge({ edgeRef, loading, end, loadingText, endText }: { ed
 }
 
 /** The bordered card that holds one day's rows. */
-export function DayCard({ children }: { children: ReactNode }) {
-  return <div className="overflow-hidden rounded-md shadow-border">{children}</div>
+export function DayCard({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <ul aria-label={label} className="overflow-hidden rounded-md shadow-border">
+      {children}
+    </ul>
+  )
 }
 
-/** The Agenda while Upcoming loads: three days, each with a heading and a row or two. */
+/** The week header: "This week", its dates and ‹ Today › on one line, the four stat cards under it. */
+export function WeekHeader({ title, range, stats, onPrev, onToday, onNext }: { title: string; range: string; stats: WeekStats; onPrev: () => void; onToday: () => void; onNext: () => void }) {
+  return (
+    <section aria-label="Week" className="flex flex-col gap-2.5 px-8 pt-6 pb-3">
+      <div className="flex items-baseline gap-3">
+        <h2 className="heading-20">{title}</h2>
+        <span className="label-14 text-gray-900">{range}</span>
+        <span className="flex-1" />
+        <Button variant="tertiary" size="small" svgOnly aria-label="Previous week" onClick={onPrev}>
+          <ChevronLeft />
+        </Button>
+        <Button variant="secondary" size="small" onClick={onToday}>
+          Today
+        </Button>
+        <Button variant="tertiary" size="small" svgOnly aria-label="Next week" onClick={onNext}>
+          <ChevronRight />
+        </Button>
+      </div>
+      <ul aria-label="The week in numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat n={stats.episodes} label={stats.episodes === 1 ? 'episode airing' : 'episodes airing'} />
+        <Stat n={stats.movies} label={stats.movies === 1 ? 'Movie released' : 'Movies released'} />
+        <Stat n={stats.searching} label="searched when out" tone="text-amber-900" />
+        <Stat n={stats.imported} label="already in the Library" tone="text-green-900" />
+      </ul>
+    </section>
+  )
+}
+
+function Stat({ n, label, tone = '' }: { n: number; label: string; tone?: string }) {
+  return (
+    <li className="flex min-w-0 flex-col gap-0.5 rounded-md px-4 py-3 shadow-border">
+      <span className={`heading-24 tabular-nums ${tone}`}>{n}</span>
+      <span className="label-13 text-gray-900">{label}</span>
+    </li>
+  )
+}
+
+/** The Agenda while Upcoming loads: three days, each with a date and a row or two. */
 export function TimelineSkeleton() {
   return (
     <div aria-busy="true">
-      <AgendaTimeline>
+      <AgendaTimeline compact={false}>
         {[2, 1, 2].map((rows, d) => (
-          <li key={d} aria-hidden className="flex flex-col gap-2">
-            <Skeleton width={96} height={20} />
-            <DayCard>
-              <Entity.List className="@container">
-                {Array.from({ length: rows }, (_, i) => (
-                  <Entity key={i} left={<PosterSkeleton size="sm" />}>
-                    <Entity.Content fill title={<Skeleton width={`${45 + (((i + d) * 15) % 30)}%`} height={16} />} description={<Skeleton width="30%" height={14} />} />
-                  </Entity>
-                ))}
-              </Entity.List>
-            </DayCard>
+          <li key={d} aria-hidden className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4">
+            <Skeleton width={40} height={48} />
+            <div className="overflow-hidden rounded-md shadow-border">
+              {Array.from({ length: rows }, (_, i) => (
+                <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
+                  <PosterSkeleton size="sm" />
+                  <Skeleton width={`${45 + (((i + d) * 15) % 30)}%`} height={16} />
+                </div>
+              ))}
+            </div>
           </li>
         ))}
       </AgendaTimeline>

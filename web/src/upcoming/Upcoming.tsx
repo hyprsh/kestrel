@@ -1,13 +1,13 @@
-// Upcoming: a timeline around today. It opens on the months from 14 days back to 60 ahead and loads a month more when
-// the reader nears either end; the calendar and the agenda follow each other by month. The view opens at the Today marker, and every entry says where it stands: not out, Wanted, downloading
-// or Imported. j/k and Enter move and open (a group opens or closes), and
-// `t` goes back to today.
+// Upcoming: the agenda, week by week around today, or the month. The agenda opens on the months from 14 days back to 60 ahead and loads a month more
+// when the reader nears either end; the side panel's calendar, the week header and the agenda follow each other. Every entry says
+// where it stands: waiting for its release, downloading, Imported, out and not found, or not monitored. j/k and Enter move and open,
+// and `t` goes back to today.
 import { Button, DotsMenu, EmptyState, Entity, MenuItem, MenuSection, Note } from '@hyprsh/design'
-import { CalendarClock, CalendarDays, CalendarRange, ChevronDown, ChevronRight, Clapperboard, List } from 'lucide-react'
+import { CalendarDays, Clock, EyeOff, History } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useReport } from '../toasts'
-import { useQueue, type QueueItem } from '../api/queue'
+import { useQueue } from '../api/queue'
 import { dayString, localDay, useAgendaChunks, type UndatedItem, type UpcomingItem, type UpcomingSlot } from '../api/upcoming'
 import { plural } from '../format'
 import { useKey, useListNav } from '../keys'
@@ -16,17 +16,19 @@ import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
 import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
 import { usePhone } from '../responsive'
-import { stackedRow, stackedRight } from '../layout/RowList'
 import { useNow } from '../time'
-import { cx } from '../ui'
-import { EntryName, Markers, MovieNotes, otherDates, StateBadges, Standings, TallyBadges } from './bits'
+import { AgendaRow } from './AgendaRow'
+import { Standings } from './bits'
+import { DisplayButton, useDisplayMode } from './displayMode'
 import { upcomingFilter, upcomingQualifiers } from './filter'
 import { useSeededQuery } from './filters'
-import { airTime, buildDays, daysAway, episodeRange, headingDate, inView, navRows, tally, undatedKey, upcomingKey, views, type Block, type Day, type ViewKey } from './state'
 import { gridDays, MonthCalendar, monthEnd, monthOf, monthsBetween, shiftMonth } from './MonthCalendar'
-import { AgendaEdge, AgendaTimeline, DayCard, DayHeading, TimelineSkeleton } from './Timeline'
+import { MonthView } from './MonthView'
+import { addDays, buildSegments, daysAway, headingDate, inView, navRows, undatedKey, upcomingKey, views, weekStart, weekRange, weekStats, weekTitle, type ViewKey } from './state'
+import { AgendaEdge, AgendaTimeline, DayBlock, DayCard, PhoneDay, QuietLine, TimelineSkeleton, WeekHeader } from './Timeline'
 import { TitlePoster } from '../poster'
 import { UndatedList, UndatedRow } from './UndatedList'
+import { WeekStrip } from './WeekStrip'
 
 const BACK = 14
 const AHEAD = 60
@@ -34,13 +36,11 @@ const AHEAD = 60
 const EMPTY_RUN = 3
 const LIMIT = 36
 // While a scroll is ours (a jump to a day, to today, or keeping the place after a chunk lands), scroll events and the
-// month the agenda is over are not the reader's doing.
+// week the agenda is over are not the reader's doing.
 const LOCK_MS = 600
-// A view with a range of its own shows only that range, so it loads nothing more.
-const ranged: readonly ViewKey[] = ['next30', 'week', 'recent']
 
-// A Views row's icon; Everything is no view at all (the whole window).
-const viewIcons: Record<ViewKey, React.ReactNode> = { next30: <CalendarRange />, week: <CalendarDays />, wanted: <Clapperboard />, recent: <CalendarClock /> }
+// A Views row's icon.
+const viewIcons: Record<ViewKey, React.ReactNode> = { all: <CalendarDays />, wanted: <Clock />, recent: <History />, unmonitored: <EyeOff /> }
 
 const reasonText = {
   no_air_date: (u: UndatedItem) => `${plural(u.episodes, 'episode')} without an air date`,
@@ -66,22 +66,29 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const today = dayString()
 
   const phone = usePhone()
-  // A view narrows the agenda to a range or a state; none chosen shows the whole window.
-  const [view, setView] = useState<ViewKey | null>(null)
+  const [chosen, setDisplay] = useDisplayMode()
+  // A phone has no Month.
+  const display = phone ? 'agenda' : chosen
+  // A view narrows the entries to a state or a range; Everything is the whole window.
+  const [view, setView] = useState<ViewKey>('all')
   const matching = useMemo(() => timeline.items.filter(passes), [timeline.items, passes])
   const counts = useMemo(() => Object.fromEntries(views.map((v) => [v.key, matching.filter((i) => inView(v.key, today, i)).length])) as Record<ViewKey, number>, [matching, today])
-  const items = useMemo(() => (view ? matching.filter((i) => inView(view, today, i)) : matching), [matching, view, today])
-  const undated = useMemo(() => (view ? [] : timeline.undated.filter(passes)), [timeline.undated, passes, view])
+  const items = useMemo(() => matching.filter((i) => inView(view, today, i)), [matching, view, today])
+  const undated = useMemo(() => (view === 'all' ? timeline.undated.filter(passes) : []), [timeline.undated, passes, view])
 
-  // The calendar shows a month; the window grows to cover it. A day is underlined when an entry falls on it.
+  // The calendar shows a month; the window grows to cover it. A day is dotted when an entry falls on it.
   const [month, setMonth] = useState(() => monthOf(today))
+  // The day the agenda is at (the first one under its top edge, or the one asked for): its week is the one the header and the
+  // calendar show.
+  const [shown, setShown] = useState(today)
+  const week = weekStart(shown)
   // A day the agenda is to scroll to once the months holding it have loaded.
   const [wanted, setWanted] = useState<{ day: string; behavior: ScrollBehavior } | null>(null)
   const releases = useMemo(() => {
     const m = new Map<string, number>()
-    for (const i of matching) m.set(localDay(i), (m.get(localDay(i)) ?? 0) + 1)
+    for (const i of items) m.set(localDay(i), (m.get(localDay(i)) ?? 0) + 1)
     return m
-  }, [matching])
+  }, [items])
   const cover = useCallback((first: string, last: string) => {
     setLo((l) => (first < l ? first : l))
     setHi((h) => (last > h ? last : h))
@@ -91,22 +98,22 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     const grid = gridDays(next)
     cover(monthOf(grid[0]), monthOf(grid[grid.length - 1]))
     setMonth(next)
+    setShown(next)
     setWanted({ day: next, behavior: 'instant' })
   }
-  // The agenda scrolling into another month brings the calendar along.
-  const followMonth = useCallback(
-    (next: string) => {
+  // The agenda scrolling to another day brings the calendar and the header along.
+  const followDay = useCallback(
+    (day: string) => {
+      const next = monthOf(day)
       const grid = gridDays(next)
       cover(monthOf(grid[0]), monthOf(grid[grid.length - 1]))
       setMonth(next)
+      setShown(day)
     },
     [cover],
   )
-  const days = useMemo(() => withToday(buildDays(items), today), [items, today])
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
-  const rows = useMemo(() => navRows(days, undated, open), [days, undated, open])
-  const todayAt = days.findIndex((d) => d.day === today)
-  const anchorDay = days[Math.max(0, todayAt - 1)]?.day
+  const segments = useMemo(() => buildSegments(items, today), [items, today])
+  const rows = useMemo(() => navRows(items, undated), [items, undated])
   const indexOf = useMemo(() => new Map(rows.map((r, i) => [r.key, i])), [rows])
 
   // The cursor starts on the first row of today or later, and stays on its row as rows come and go.
@@ -119,8 +126,6 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const sel = found >= 0 ? found : Math.min(start, Math.max(0, rows.length - 1))
   const select = (i: number) => rows[i] && setSelKey(rows[i].key)
 
-  // The view opens on the day before today, so today sits just below the top with the last day above it.
-  const anchorRef = useRef<HTMLHeadingElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lockedUntil = useRef(0)
   const touched = useRef(false)
@@ -150,15 +155,24 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     box.scrollTo?.({ top: Math.max(0, top), behavior })
     if (behavior !== 'smooth') measure()
   }
-  const scrollToToday = (behavior: ScrollBehavior) => scrollTo(anchorRef.current, behavior)
-  const scrollToDay = (day: string, behavior: ScrollBehavior) => scrollTo(scrollRef.current?.querySelector(`[data-day="${day}"]`), behavior)
+  // The block that holds a day, or the next one after it: a day with nothing is inside a quiet line.
+  const blockFor = (day: string) => segments.find((s) => s.to >= day)
+  const scrollToDay = (day: string, behavior: ScrollBehavior) => {
+    const seg = blockFor(day)
+    if (seg) scrollTo(scrollRef.current?.querySelector(`[data-day="${seg.from}"]`), behavior)
+  }
   const [settled, setSettled] = useState(false)
   useEffect(() => {
-    if (settled || loading) return
-    scrollToToday('instant')
-    setSettled(true)
+    if (!loading) setSettled(true)
+  }, [loading])
+  // The agenda opens on today (the first block that is not over), once its months have answered and it has been drawn.
+  const positioned = useRef(false)
+  useLayoutEffect(() => {
+    if (!settled || display !== 'agenda' || positioned.current || !scrollRef.current) return
+    positioned.current = true
+    scrollToDay(today, 'instant')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the first months have answered
-  }, [loading, settled])
+  }, [settled, display])
 
   // A chunk that lands above the view pushes it down; put the first day in view back where it was.
   useLayoutEffect(() => {
@@ -173,11 +187,11 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
       }
     }
     measure()
-  }, [days, settled, wanted, measure])
+  }, [segments, settled, wanted, measure])
 
-  // Reading the agenda: the first day under the top edge names the month the calendar shows. Not while we scroll ourselves.
-  const follow = useRef(followMonth)
-  follow.current = followMonth
+  // Reading the agenda: the first day under the top edge names the week the header and the calendar show. Not while we scroll ourselves.
+  const follow = useRef(followDay)
+  follow.current = followDay
   useEffect(() => {
     const box = scrollRef.current
     if (!box) return
@@ -187,7 +201,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     }
     box.addEventListener('scroll', onScroll, { passive: true })
     return () => box.removeEventListener('scroll', onScroll)
-  }, [measure])
+  }, [measure, display, settled])
   useEffect(() => {
     const box = scrollRef.current
     if (!box || typeof IntersectionObserver === 'undefined') return
@@ -200,19 +214,20 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
           else over.delete(day)
         }
         if (!touched.current || performance.now() < lockedUntil.current || over.size === 0) return
-        follow.current(monthOf([...over].sort()[0]))
+        follow.current([...over].sort()[0])
       },
       { root: box, rootMargin: '0px 0px -75% 0px' },
     )
     for (const el of box.querySelectorAll('[data-day]')) io.observe(el)
     return () => io.disconnect()
-  }, [days, settled])
+  }, [segments, settled, display])
 
-  // Near either end, the next month loads. A view with a range of its own loads nothing; Wanted only looks ahead.
+  // Near either end, the next month loads. Recently out looks at the past fortnight only and loads nothing; Wanted only looks ahead.
   const topEdge = useRef<HTMLDivElement>(null)
   const bottomEdge = useRef<HTMLDivElement>(null)
-  const loadsUp = settled && view === null
-  const loadsDown = settled && (view === null || !ranged.includes(view))
+  const agenda = display === 'agenda'
+  const loadsUp = settled && agenda && (view === 'all' || view === 'unmonitored')
+  const loadsDown = settled && agenda && view !== 'recent'
   const [near, setNear] = useState({ top: false, bottom: false })
   useEffect(() => {
     const box = scrollRef.current
@@ -237,49 +252,60 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     else if (loadsDown && near.bottom && !bottomEnd) setHi(shiftMonth(hi, 1))
   }, [loading, wanted, loadsUp, loadsDown, near, topEnd, bottomEnd, lo, hi])
 
-  // A day asked for (the calendar's, a month's first) is scrolled to once the months holding it have loaded: the day
-  // itself, or the next one with entries.
+  // A day asked for (the calendar's, a week's first) is scrolled to once the months holding it have loaded: the block that
+  // holds it, or the next one with entries.
   useEffect(() => {
     if (!wanted || loading || !settled) return
-    const target = days.find((d) => d.day >= wanted.day)
-    if (target) {
-      scrollToDay(target.day, wanted.behavior)
-      const row = rows.find((r) => r.day === target.day)
-      if (row) setSelKey(row.key)
+    if (agenda) {
+      const seg = blockFor(wanted.day)
+      if (seg) {
+        scrollToDay(wanted.day, wanted.behavior)
+        const row = rows.find((r) => r.day >= wanted.day && r.day !== '')
+        if (row) setSelKey(row.key)
+      }
     }
     setWanted(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the request or the loaded data changes
-  }, [wanted, loading, settled, days])
+  }, [wanted, loading, settled, segments, agenda])
 
   // Another view starts from the top of its own range.
   useEffect(() => {
     scrollRef.current?.scrollTo?.({ top: 0 })
   }, [view])
 
-  const toggle = (set: ReadonlySet<string>, key: string) => {
-    const next = new Set(set)
-    if (!next.delete(key)) next.add(key)
-    return next
-  }
   const openRow = (i: number) => {
     const row = rows[i]
-    if (!row) return
-    if (row.type === 'group') setOpen((o) => toggle(o, row.key))
-    else onOpenTitle(row.titleId)
+    if (row) onOpenTitle(row.titleId)
   }
   useListNav('up', rows.length, sel, select, openRow)
   const jumpToday = () => {
     setSelKey(rows[start]?.key ?? null)
     setMonth(monthOf(today))
-    scrollToToday('smooth')
+    setShown(today)
+    if (agenda) scrollToDay(today, 'smooth')
+    else setWanted({ day: today, behavior: 'instant' })
   }
   useKey('t', jumpToday)
-  // A day of the calendar scrolls the agenda to that day, or to the next day with entries when nothing is due on it,
-  // loading its month first when it is not there yet.
+  // A day of the calendar (or a week's first) scrolls the agenda to that day, or to the next day with entries when nothing is due
+  // on it, loading its months first when they are not there yet. The header names its week at once.
   const goToDay = (day: string) => {
-    cover(monthOf(day), monthOf(day))
-    if (monthOf(day) !== month) setMonth(monthOf(day))
+    cover(monthOf(day), monthOf(addDays(day, 6)))
+    setMonth(monthOf(day))
+    setShown(day)
     setWanted({ day, behavior: 'smooth' })
+  }
+  // The Month display's day number and "+N more" switch to the Agenda at that day.
+  const agendaAt = (day: string) => {
+    setDisplay('agenda')
+    positioned.current = true
+    cover(monthOf(day), monthOf(addDays(day, 6)))
+    setMonth(monthOf(day))
+    setShown(day)
+    setWanted({ day, behavior: 'instant' })
+  }
+  const changeDisplay = (next: 'agenda' | 'month') => {
+    if (next === 'agenda') agendaAt(shown)
+    else setDisplay(next)
   }
   useKey('/', (e) => {
     e.preventDefault()
@@ -291,7 +317,26 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     void report(Promise.all(slots.map((slot) => search.mutateAsync({ versionId: slot.version_id, scope }))), { started: `Search started for ${item.title}`, failed: `Could not search ${item.title}` })
   }
 
-  const nothing = timeline.anyData && !loading && items.length === 0 && undated.length === 0
+  const nothing = agenda && timeline.anyData && !loading && items.length === 0 && undated.length === 0
+  const stats = useMemo(() => weekStats(items, week, queue), [items, week, queue])
+  const row = (item: UpcomingItem) => {
+    const key = upcomingKey(item)
+    const index = indexOf.get(key) ?? 0
+    return (
+      <AgendaRow
+        key={key}
+        item={item}
+        queue={queue}
+        today={today}
+        now={now}
+        current={sel === index}
+        index={index}
+        compact={phone}
+        onOpen={() => (select(index), onOpenTitle(item.title_id))}
+        onSearch={onSearch(item)}
+      />
+    )
+  }
   return (
     <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
       <SidePanel
@@ -307,269 +352,140 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
           <FilterBar id="upcoming-filter" label="Filter Upcoming" placeholder="Filter titles, e.g. kind:series  /" value={query} onChange={onQuery} qualifiers={upcomingQualifiers} menus={false} />
         }
         controls={
-          <FacetFilterButton
-            query={query}
-            onQuery={onQuery}
-            qualifiers={upcomingQualifiers}
-            // A phone's panel shows no Views, so they are the first section of its Filter menu.
-            lead={
-              phone ? (
-                <MenuSection title="Views">
-                  <MenuItem role="radio" checked={view === null} onSelect={() => setView(null)} suffix={<span className="tabular-nums text-gray-900">{matching.length}</span>}>
-                    Everything
-                  </MenuItem>
-                  {views.map((v) => (
-                    <MenuItem key={v.key} role="radio" checked={view === v.key} onSelect={() => setView(v.key)} suffix={<span className="tabular-nums text-gray-900">{counts[v.key]}</span>}>
-                      {v.label}
-                    </MenuItem>
-                  ))}
-                </MenuSection>
-              ) : undefined
-            }
-            leadActive={phone && view ? 1 : 0}
-          />
+          <>
+            <FacetFilterButton
+              query={query}
+              onQuery={onQuery}
+              qualifiers={upcomingQualifiers}
+              // A phone's panel shows no Views, so they are the first section of its Filter menu.
+              lead={
+                phone ? (
+                  <MenuSection title="Views">
+                    {views.map((v) => (
+                      <MenuItem key={v.key} role="radio" checked={view === v.key} onSelect={() => setView(v.key)} suffix={<span className="tabular-nums text-gray-900">{counts[v.key]}</span>}>
+                        {v.label}
+                      </MenuItem>
+                    ))}
+                  </MenuSection>
+                ) : undefined
+              }
+              leadActive={phone && view !== 'all' ? 1 : 0}
+            />
+            {!phone && <DisplayButton mode={display} onMode={changeDisplay} />}
+          </>
         }
-        chips={<FilterChips chips={filterChips(query, onQuery, upcomingQualifiers)} />}
+        chips={
+          <>
+            <FilterChips chips={filterChips(query, onQuery, upcomingQualifiers)} />
+            {phone && <WeekStrip week={week} today={today} shown={shown} releases={releases} onPick={goToDay} />}
+          </>
+        }
         views={
           <>
             <SidePanelViews>
-              <SidePanelView icon={<List />} current={view === null} count={matching.length} onSelect={() => setView(null)}>
-                Everything
-              </SidePanelView>
               {views.map((v) => (
                 <SidePanelView key={v.key} icon={viewIcons[v.key]} current={view === v.key} count={counts[v.key]} onSelect={() => setView(v.key)}>
                   {v.label}
                 </SidePanelView>
               ))}
             </SidePanelViews>
-            <MonthCalendar month={month} today={today} releases={releases} onMonth={showMonth} onPick={goToDay} onToday={jumpToday} />
+            {agenda && <MonthCalendar month={month} today={today} week={week} releases={releases} onMonth={showMonth} onPick={goToDay} />}
           </>
         }
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-          <div className="flex flex-col gap-5 p-4 sm:px-8 sm:py-6">
-            {timeline.failed && <Note variant="error">Upcoming could not be loaded.</Note>}
-            {settled && loadsUp && !nothing && <AgendaEdge edgeRef={topEdge} loading={timeline.pending[0]} end={topEnd} loadingText="Loading earlier days…" endText="Nothing earlier" />}
-            {nothing && (
-              <div className="my-4">
-                {query.trim() === '' ? (
-                  <EmptyState description="Nothing is due in this window." />
-                ) : (
-                  <EmptyState description="Nothing matches the filter.">
-                    <Button variant="secondary" size="small" onClick={() => onQuery('')}>
-                      Show everything
-                    </Button>
-                  </EmptyState>
-                )}
-              </div>
-            )}
-            {!settled && <TimelineSkeleton />}
-            {settled && (
-              <AgendaTimeline>
-                {days.map((d) => {
-                  return (
-                    <DayBlock
-                      key={d.day}
-                      day={d}
-                      today={today}
-                      headingRef={d.day === anchorDay ? anchorRef : undefined}
-                      rowFor={(b) => (
-                        <BlockRows
-                          key={b.key}
-                          block={b}
-                          queue={queue}
-                          now={now}
-                          today={today}
-                          sel={sel}
-                          indexOf={indexOf}
-                          open={open}
-                          onSelect={(i) => {
-                            select(i)
-                            openRow(i)
-                          }}
-                          onToggleOpen={(k) => setOpen((o) => toggle(o, k))}
-                          onSearch={onSearch}
-                        />
-                      )}
-                    />
-                  )
-                })}
-              </AgendaTimeline>
-            )}
-            {settled && loadsDown && !nothing && (
-              <AgendaEdge edgeRef={bottomEdge} loading={timeline.pending[timeline.pending.length - 1]} end={bottomEnd} loadingText="Loading later days…" endText="Nothing later" />
-            )}
-
-            {undated.length > 0 && (
-              <section aria-labelledby="no-date-yet" className="flex flex-col gap-2">
-                <h2 id="no-date-yet" className="heading-16">
-                  {`No date yet · ${undated.length}`}
-                </h2>
-                <UndatedList>
-                  {undated.map((u) => {
-                    const i = indexOf.get(undatedKey(u)) ?? 0
-                    return (
-                      <UndatedRow
-                        key={undatedKey(u)}
-                        index={i}
-                        sel={sel}
-                        onSelect={() => (select(i), openRow(i))}
-                        left={<TitlePoster id={u.title_id} hasPoster={u.has_poster} size="sm" />}
-                        right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
+        {display === 'month' && (
+          <MonthView month={month} today={today} items={items} queue={queue} onMonth={showMonth} onToday={() => showMonth(monthOf(today))} onDay={agendaAt} onOpenTitle={onOpenTitle} />
+        )}
+        {agenda && !phone && (
+          <WeekHeader title={weekTitle(today, week)} range={weekRange(week)} stats={stats} onPrev={() => goToDay(addDays(week, -7))} onToday={jumpToday} onNext={() => goToDay(addDays(week, 7))} />
+        )}
+        {agenda && (
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+            <div className="flex flex-col gap-5 p-4 sm:px-8 sm:py-3">
+              {timeline.failed && <Note variant="error">Upcoming could not be loaded.</Note>}
+              {settled && loadsUp && !nothing && <AgendaEdge edgeRef={topEdge} loading={timeline.pending[0]} end={topEnd} loadingText="Loading earlier days…" endText="Nothing earlier" />}
+              {nothing && (
+                <div className="my-4">
+                  {query.trim() === '' && view === 'all' ? (
+                    <EmptyState description="Nothing is due in this window." />
+                  ) : (
+                    <EmptyState description={view === 'all' ? 'Nothing matches the filter.' : 'Nothing in this view.'}>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        onClick={() => {
+                          onQuery('')
+                          setView('all')
+                        }}
                       >
-                        <Entity.Content
-                          fill
-                          title={
-                            <>
-                              {u.title}
-                              {u.year ? <span className="font-normal text-gray-900"> {u.year}</span> : null}
-                            </>
-                          }
-                          description={`${u.network ? `${u.network} · ` : ''}${reasonText[u.reason](u)}`}
-                        />
-                      </UndatedRow>
+                        Show everything
+                      </Button>
+                    </EmptyState>
+                  )}
+                </div>
+              )}
+              {!settled && <TimelineSkeleton />}
+              {settled && (
+                <AgendaTimeline compact={phone}>
+                  {(nothing ? [] : segments).map((seg) => {
+                    const mark = { 'data-day': seg.from, 'data-week': seg.week }
+                    if (seg.type === 'quiet') return <QuietLine key={seg.key} text={seg.text} compact={phone} {...mark} />
+                    const away = daysAway(today, seg.from)
+                    const label = headingDate(seg.from)
+                    return phone ? (
+                      <PhoneDay key={seg.key} heading={label} away={away} {...mark}>
+                        <ul aria-label={label}>{seg.items.map(row)}</ul>
+                      </PhoneDay>
+                    ) : (
+                      <DayBlock key={seg.key} day={seg.from} num={Number(seg.from.slice(8))} away={away} isToday={seg.from === today} {...mark}>
+                        <DayCard label={label}>{seg.items.map(row)}</DayCard>
+                      </DayBlock>
                     )
                   })}
-                </UndatedList>
-              </section>
-            )}
+                </AgendaTimeline>
+              )}
+              {settled && loadsDown && !nothing && (
+                <AgendaEdge edgeRef={bottomEdge} loading={timeline.pending[timeline.pending.length - 1]} end={bottomEnd} loadingText="Loading later days…" endText="Nothing later" />
+              )}
+
+              {undated.length > 0 && (
+                <section aria-labelledby="no-date-yet" className="flex flex-col gap-2">
+                  <h2 id="no-date-yet" className="heading-16">
+                    {`No date yet · ${undated.length}`}
+                  </h2>
+                  <UndatedList>
+                    {undated.map((u) => {
+                      const i = indexOf.get(undatedKey(u)) ?? 0
+                      return (
+                        <UndatedRow
+                          key={undatedKey(u)}
+                          index={i}
+                          sel={sel}
+                          onSelect={() => (select(i), openRow(i))}
+                          left={<TitlePoster id={u.title_id} hasPoster={u.has_poster} size="sm" />}
+                          right={<Standings title={{ kind: u.kind, title_id: u.title_id, season: null, episode: null }} slots={u.slots} queue={queue} now={now} />}
+                        >
+                          <Entity.Content
+                            fill
+                            title={
+                              <>
+                                {u.title}
+                                {u.year ? <span className="font-normal text-gray-900"> {u.year}</span> : null}
+                              </>
+                            }
+                            description={`${u.network ? `${u.network} · ` : ''}${reasonText[u.reason](u)}`}
+                          />
+                        </UndatedRow>
+                      )
+                    })}
+                  </UndatedList>
+                </section>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
-  )
-}
-
-/** The days with entries, plus today even when nothing is due on it, so the Today marker is always there. */
-function withToday(days: Day[], today: string): Day[] {
-  if (days.some((d) => d.day === today)) return days
-  const at = days.findIndex((d) => d.day > today)
-  const marker: Day = { day: today, blocks: [] }
-  return at < 0 ? [...days, marker] : [...days.slice(0, at), marker, ...days.slice(at)]
-}
-
-function DayBlock({ day, today, headingRef, rowFor }: { day: Day; today: string; headingRef?: React.RefObject<HTMLHeadingElement | null>; rowFor: (b: Block) => React.ReactNode }) {
-  const isToday = day.day === today
-  const date = headingDate(day.day)
-  return (
-    <li className="flex flex-col gap-2" data-day={day.day}>
-      <DayHeading headingRef={headingRef} date={date} away={daysAway(today, day.day)} isToday={isToday} />
-      {day.blocks.length === 0 ? (
-        <p className="label-13 text-gray-900">Nothing else is due today.</p>
-      ) : (
-        <DayCard>
-          <Entity.List aria-label={date} className="@container">
-            {day.blocks.map((b) => rowFor(b))}
-          </Entity.List>
-        </DayCard>
-      )}
-    </li>
-  )
-}
-
-type RowProps = {
-  queue: readonly QueueItem[]
-  now: number
-  today: string
-  sel: number
-  indexOf: ReadonlyMap<string, number>
-  open: ReadonlySet<string>
-  onSelect: (index: number) => void
-  onToggleOpen: (key: string) => void
-  onSearch: (item: UpcomingItem) => (slots: UpcomingSlot[]) => void
-}
-
-function BlockRows({ block, ...p }: { block: Block } & RowProps) {
-  if (block.type === 'entry') {
-    return <Entry item={block.item} id={block.key} {...p} />
-  }
-  const first = block.items[0]
-  const expanded = p.open.has(block.key)
-  const index = p.indexOf.get(block.key) ?? 0
-  const at = airTime(first)
-  return (
-    <>
-      <Entity
-        as="button"
-        current={p.sel === index}
-        data-nav={`up-${index}`}
-        className={stackedRow}
-        rightClassName={stackedRight}
-        onClick={() => p.onSelect(index)}
-        left={<TitlePoster id={first.title_id} hasPoster={first.has_poster} size="sm" />}
-        right={
-          <>
-            <TallyBadges tallies={tally(block.items, p.queue)} now={p.now} />
-            <Button
-              variant="tertiary"
-              size="tiny"
-              svgOnly
-              aria-expanded={expanded}
-              aria-label={`${expanded ? 'Hide' : 'Show'} the ${plural(block.items.length, 'episode')} of ${first.title}`}
-              onClick={() => p.onToggleOpen(block.key)}
-            >
-              {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-            </Button>
-          </>
-        }
-      >
-        <Entity.Content
-          fill
-          title={
-            <>
-              <span className="font-semibold">{first.title}</span>{' '}
-              <span className="font-normal text-gray-900">
-                {episodeRange(block.items)} · {plural(block.items.length, 'episode')}
-              </span>
-            </>
-          }
-          description={
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              {first.network && <span>{first.network}</span>}
-              {at && <span className="tabular">{at}</span>}
-              <Markers markers={[...new Set(block.items.flatMap((i) => i.markers))]} />
-            </span>
-          }
-        />
-      </Entity>
-      {expanded && block.items.map((item) => <Entry key={upcomingKey(item)} item={item} id={upcomingKey(item)} child {...p} />)}
-    </>
-  )
-}
-
-/** One entry: poster, name, context and state badges. */
-function Entry({ item, id, child, ...p }: { item: UpcomingItem; id: string; child?: boolean } & RowProps) {
-  const at = airTime(item)
-  const others = item.kind === 'movie' ? otherDates(item, p.today) : ''
-  const imported = item.slots.length > 0 && item.slots.every((s) => s.state === 'imported')
-  const search = p.onSearch(item)
-  const index = p.indexOf.get(id) ?? 0
-  return (
-    <Entity
-      as="button"
-      current={p.sel === index}
-      data-nav={`up-${index}`}
-      data-imported={imported || undefined}
-      className={cx(stackedRow, imported && 'opacity-60', child && 'pl-10')}
-      rightClassName={stackedRight}
-      onClick={() => p.onSelect(index)}
-      left={child ? undefined : <TitlePoster id={item.title_id} hasPoster={item.has_poster} size="sm" />}
-      right={<StateBadges item={item} queue={p.queue} now={p.now} onSearch={search} />}
-    >
-      <Entity.Content
-        fill
-        title={<EntryName item={item} />}
-        description={
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {item.network && <span>{item.network}</span>}
-            {at && <span className="tabular">{at}</span>}
-            {item.kind === 'movie' ? <MovieNotes item={item} /> : <Markers markers={item.markers} />}
-          </span>
-        }
-      >
-        {others && <div className="label-12 text-gray-900">{others}</div>}
-      </Entity.Content>
-    </Entity>
   )
 }

@@ -6,7 +6,7 @@ import { api } from './client'
 import type { components } from './schema.gen'
 
 type RawItem = components['schemas']['UpcomingItem']
-type Added = 'has_poster' | 'network' | 'overview' | 'air_at' | 'markers' | 'slots' | 'searchable' | 'dates' | 'episode_id'
+type Added = 'has_poster' | 'network' | 'overview' | 'air_at' | 'markers' | 'slots' | 'searchable' | 'dates' | 'episode_id' | 'monitored'
 /** An entry with everything the API added to it after its first version, which every answer carries now. */
 export type UpcomingItem = Omit<RawItem, Added> & Required<Pick<RawItem, Added>>
 export type UndatedItem = components['schemas']['UndatedItem']
@@ -39,11 +39,12 @@ const filled = (i: RawItem): UpcomingItem => ({
   searchable: false,
   dates: [],
   episode_id: null,
+  monitored: true,
   ...i,
 })
 
-async function fetchAgenda(from: string, to: string) {
-  const { data, error } = await api.GET('/upcoming', { params: { query: { from, to } } })
+async function fetchAgenda(from: string, to: string, unmonitored = false) {
+  const { data, error } = await api.GET('/upcoming', { params: { query: { from, to, ...(unmonitored ? { unmonitored } : {}) } } })
   if (!data) throw error
   // The server orders by air date; air times can move an entry to another local day, so order again (stable).
   const items = data.items.map(filled).sort((a, b) => localDay(a).localeCompare(localDay(b)))
@@ -61,13 +62,13 @@ export function useUpcoming(days: number) {
 export type AgendaChunk = { from: string; to: string }
 
 /**
- * The timeline as chunks (a month each, `to` included), each its own query so a chunk is fetched once and the
+ * The timeline as chunks (a month each, `to` included, unmonitored entries too), each its own query so a chunk is fetched once and the
  * others stay on screen while one loads. `items` are the chunks' entries in order, `undated` the Titles with no
  * date yet (the same in every answer), and `pending` and `counts` say per chunk whether it has not answered and how many entries it holds.
  */
 export function useAgendaChunks(chunks: readonly AgendaChunk[]) {
   const results = useQueries({
-    queries: chunks.map((c) => ({ queryKey: ['titles', 'upcoming', c.from, c.to], queryFn: () => fetchAgenda(c.from, c.to) })),
+    queries: chunks.map((c) => ({ queryKey: ['titles', 'upcoming', c.from, c.to, 'unmonitored'], queryFn: () => fetchAgenda(c.from, c.to, true) })),
   })
   const signature = results.map((r) => `${r.status}${r.dataUpdatedAt}`).join()
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `results` is a new array on every render; the signature says when it changed
