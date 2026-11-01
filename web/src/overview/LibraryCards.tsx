@@ -39,6 +39,7 @@ export function QualityCard({ stats }: { stats: Stats }) {
             )
           })}
           <Legend items={classes.map((label, i) => ({ label, className: mark.quality[i] }))} />
+          {stats.below_cutoff > 0 && <p className="label-12 m-0 text-gray-900">{`${plural(stats.below_cutoff, 'file')} below their Profile's cutoff: Upgrades wanted.`}</p>}
           <ChartTable caption="Library quality" head={['Slot', 'Files', ...names]} rows={slots.map((q) => [slotLabel[q.slot as SlotKey], q.files, q.remux_bluray, q.web_dl, q.webrip_or_lower])} />
         </>
       )}

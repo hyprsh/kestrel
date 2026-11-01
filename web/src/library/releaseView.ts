@@ -1,7 +1,8 @@
 // What Manual search shows of a Release, worked out from the API's Release: the segments, the rejected summary, the
 // best fit, what a Release covers and replaces, the sort. No React in here.
 import type { Release } from '../api/grabs'
-import { manualSearchSortLabels } from './bits'
+import { sizeRange } from '../profiles/ladder'
+import { manualSearchSortLabels, size } from './bits'
 
 export type Cover = NonNullable<Release['covers']>[number]
 
@@ -191,16 +192,20 @@ const codeLabels: Record<string, string> = {
   episode_not_listed: 'naming an unlisted episode',
   season_not_listed: 'naming an unlisted season',
   original_only: 'in the original language only',
+  size: 'outside the size limit',
 }
 
 /** How the rejected Releases group by their first rejection: "23 German only", "6 below the cutoff"; the biggest group first. */
 export function rejectedSummary(items: Release[]): { total: number; groups: string[] } {
   const rejected = items.filter((r) => !fitsProfile(r))
   const by = new Map<string, Release[]>()
-  for (const r of rejected) by.set(r.rejections[0].code, [...(by.get(r.rejections[0].code) ?? []), r])
+  // A size rejection is "over" or "under" the limit, which the server says in its message: those are two groups.
+  const groupOf = (r: Release) => (r.rejections[0].code === 'size' ? `size:${r.rejections[0].message}` : r.rejections[0].code)
+  for (const r of rejected) by.set(groupOf(r), [...(by.get(groupOf(r)) ?? []), r])
   const groups = [...by.entries()]
     .sort(([, a], [, b]) => b.length - a.length)
     .map(([code, rs]) => {
+      if (code.startsWith('size:')) return `${rs.length} ${code.slice(5).toLowerCase()}`
       const langs = new Set(rs.map((r) => r.languages.join(', ')))
       if (code === 'language' && langs.size === 1 && rs[0].languages.length === 1) return `${rs.length} ${rs[0].languages[0]} only`
       return `${rs.length} ${codeLabels[code] ?? code.replaceAll('_', ' ')}`
@@ -208,9 +213,25 @@ export function rejectedSummary(items: Release[]): { total: number; groups: stri
   return { total: rejected.length, groups }
 }
 
+/** "1 – 10 GB per episode": the size limit the Profile puts on the Release; null when it sets none. */
+function sizeLimitText(r: Release): string | null {
+  const range = sizeRange(r.size_limit)
+  return range && `${range} per ${r.size_limit?.per_episode ? 'episode' : 'Movie'}`
+}
+
+/** What the Size row of an opened Release says: its size, and that it is within the Profile's limit when there is one. */
+export function sizeLine(r: Release): string {
+  const limit = sizeLimitText(r)
+  return limit && !r.rejections.some((x) => x.code === 'size') ? `${size(r.size)} · within ${limit}` : size(r.size)
+}
+
 /** What a rejected Release's opened row says grabbing it means. */
 export function rejectionAdvice(r: Release): string {
   if (rejectionBlocked(r)) return 'Kestrel never grabs this one.'
+  if (r.rejections.some((x) => x.code === 'size')) {
+    const limit = sizeLimitText(r)
+    return `Its size is ${size(r.size)}${limit ? `, and the Profile takes ${limit}` : ''}. You can still grab it; Kestrel imports it like any other.`
+  }
   if (r.rejections.some((x) => x.code === 'language' || x.code === 'resolution')) {
     return 'You can still grab it. Kestrel will import it, but it does not fit the Profile, so the Version stays Wanted and any fitting Release replaces it.'
   }

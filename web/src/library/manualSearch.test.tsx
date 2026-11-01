@@ -308,6 +308,41 @@ describe('manual search', () => {
       expect(within(table).queryByText(/Why it scores/)).not.toBeInTheDocument()
     })
 
+    it('says the size is within the Profile’s limit, and what a Release over it was rejected for', async () => {
+      const limit = { per_episode: true, min: 1 * gb, max: 10 * gb }
+      const items = [
+        release('top', 'Show.S05E04.1080p.WEB-DL-TOP', { score: 500, season: 5, episodes: [4] }),
+        release('ep', 'Show.S05E05.1080p.WEB-DL-NTb', { score: 100, size: 6.3 * gb, season: 5, episodes: [5], size_limit: limit }),
+        release('big', 'Show.S05E06.1080p.WEB-DL-FAT', {
+          score: 90,
+          size: 14 * gb,
+          season: 5,
+          episodes: [6],
+          size_limit: limit,
+          rejections: [{ code: 'size', message: 'Over the size limit', overridable: true }],
+        }),
+        release('tiny', 'Show.S05E07.1080p.WEB-DL-TINY', {
+          score: 80,
+          size: 0.2 * gb,
+          season: 5,
+          episodes: [7],
+          size_limit: limit,
+          rejections: [{ code: 'size', message: 'Under the size limit', overridable: true }],
+        }),
+      ]
+      fakeSearch(items)
+      const table = await openManualSearch()
+      await userEvent.click(within(table).getByText('Show.S05E05.1080p.WEB-DL-NTb'))
+      expect(await screen.findByText('6.3 GB · within 1 – 10 GB per episode')).toBeInTheDocument()
+      expect(within(table).getByRole('button', { name: /2 rejected/ })).toHaveTextContent('2 rejected · 1 over the size limit · 1 under the size limit')
+
+      await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+      await userEvent.click(within(table).getByText('Show.S05E06.1080p.WEB-DL-FAT'))
+      const open = screen.getByText(/^Rejected: Over the size limit/)
+      expect(open).toHaveTextContent('Its size is 14.0 GB, and the Profile takes 1 – 10 GB per episode. You can still grab it')
+      expect(screen.getByRole('button', { name: 'Grab Anyway…' })).toBeInTheDocument()
+    })
+
     it('lists each Custom Format with its points that add up to the Score, the group and the indexer grabs', async () => {
       fakeSearch(seriesReleases())
       await openManualSearch()

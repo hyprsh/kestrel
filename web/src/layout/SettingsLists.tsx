@@ -1,4 +1,5 @@
 // chrome: layout
+import { Check } from 'lucide-react'
 import type { HTMLAttributes, ReactNode } from 'react'
 
 /** The head of the indexer list: the column names over the rows, in the rows' grid. */
@@ -80,7 +81,7 @@ export function ProfileCard({ name, uses, action, selected, children }: { name: 
 export function QualityChip({ tone = 'plain', title, children }: { tone?: 'plain' | 'cutoff' | 'no'; title?: string; children: ReactNode }) {
   const look = tone === 'cutoff' ? 'bg-gray-1000 text-background-100' : tone === 'no' ? 'text-gray-700 line-through shadow-[inset_0_0_0_1px_var(--gray-alpha-300)]' : 'bg-gray-100'
   return (
-    <span title={title} className={`label-12 inline-flex h-[22px] items-center rounded px-2 whitespace-nowrap ${look}`}>
+    <span title={title} data-tone={tone} className={`label-12 inline-flex h-[22px] items-center rounded px-2 whitespace-nowrap ${look}`}>
       {children}
     </span>
   )
@@ -111,6 +112,32 @@ export function QualityList({ children }: { children: ReactNode }) {
   return <ul className="flex flex-col overflow-hidden rounded-md shadow-border [&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-gray-alpha-200">{children}</ul>
 }
 
-export function QualityItem({ cutoff, children }: { cutoff?: boolean; children: ReactNode }) {
-  return <li className={`label-13 flex items-center gap-2.5 px-3 py-2 ${cutoff ? 'bg-gray-100' : ''}`}>{children}</li>
+export function QualityItem({
+  cutoff,
+  dragging,
+  children,
+  ...rest
+}: { cutoff?: boolean; dragging?: boolean; children: ReactNode } & Pick<HTMLAttributes<HTMLLIElement>, 'draggable' | 'onDragStart' | 'onDragEnd' | 'onDragOver' | 'onDrop'>) {
+  return (
+    <li {...rest} className={`label-13 flex items-center gap-2.5 px-3 py-2 ${cutoff ? 'bg-gray-100' : ''} ${dragging ? 'opacity-50' : ''}`}>
+      {children}
+    </li>
+  )
+}
+
+/** The tick box of a quality in the Profile sheet: dark with a check when the Profile accepts the quality. */
+export function QualityBox({ checked, label, disabled, onToggle }: { checked: boolean; label: string; disabled?: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onToggle}
+      className={`inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] ${checked ? 'bg-gray-1000 text-background-100' : 'shadow-[inset_0_0_0_1px_var(--gray-alpha-500)]'}`}
+    >
+      {checked && <Check aria-hidden className="size-3" />}
+    </button>
+  )
 }

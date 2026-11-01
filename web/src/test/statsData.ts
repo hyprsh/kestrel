@@ -44,6 +44,7 @@ export function stats(over: Partial<Stats> = {}): Stats {
       { slot: 'standard', files: 100, remux_bluray: 22, web_dl: 64, webrip_or_lower: 14 },
       { slot: '4k', files: 60, remux_bluray: 10, web_dl: 48, webrip_or_lower: 2 },
     ],
+    below_cutoff: 12,
     release_groups: [
       { name: 'NTb', files: 18 },
       { name: 'FLUX', files: 9 },
@@ -85,6 +86,7 @@ export const emptyStats = (range: Stats['range'] = '30d'): Stats =>
     best_indexer_id: null,
     download_client: { name: null, state: 'none', completed: 0, failed: 0, avg_bytes_per_second: null, current_bytes_per_second: null, median_download_seconds: null, speed_per_day: [] },
     quality: [],
+    below_cutoff: 0,
     release_groups: [],
     requests: { total: 0, searching: 0, median_fulfil_seconds: null, requesters: [] },
     storage: { disks: [], free_bytes: 0, total_bytes: 0, growth_bytes_per_week: null, series_share: null, months_until_full: null },

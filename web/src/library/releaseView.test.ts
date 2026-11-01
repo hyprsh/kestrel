@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Release } from '../api/grabs'
-import { ageLong, ageShort, coverRange, deltaText, rejectedSummary, signed, whyLine } from './releaseView'
+import { ageLong, ageShort, coverRange, deltaText, rejectionAdvice, rejectedSummary, signed, sizeLine, whyLine } from './releaseView'
 
 const rel = (over: Partial<Release> = {}): Release => ({
   release_id: 'x',
@@ -40,6 +40,31 @@ describe('release view', () => {
       rel(),
     ]
     expect(rejectedSummary(items)).toEqual({ total: 3, groups: ['2 German only', '1 blocklisted'] })
+  })
+
+  it('groups the Releases over and under the size limit apart, after the others by count', () => {
+    const over = { code: 'size' as const, message: 'Over the size limit', overridable: true }
+    const under = { code: 'size' as const, message: 'Under the size limit', overridable: true }
+    const items = [
+      ...Array(12)
+        .fill(0)
+        .map(() => rel({ rejections: [over] })),
+      rel({ rejections: [under] }),
+      rel({ rejections: [lang] }),
+      rel({ rejections: [lang] }),
+    ]
+    expect(rejectedSummary(items)).toEqual({ total: 15, groups: ['12 over the size limit', '2 English only', '1 under the size limit'] })
+  })
+
+  it('says a Release is within the Profile’s size limit, per episode or per Movie, and not for one rejected for its size', () => {
+    const GB = 1024 ** 3
+    const limit = { per_episode: true, min: GB, max: 10 * GB }
+    expect(sizeLine(rel({ size: 6.3 * GB, size_limit: limit }))).toBe('6.3 GB · within 1 – 10 GB per episode')
+    expect(sizeLine(rel({ size: 6.3 * GB, size_limit: { per_episode: false, max: 30 * GB } }))).toBe('6.3 GB · within up to 30 GB per Movie')
+    expect(sizeLine(rel({ size: 6.3 * GB }))).toBe('6.3 GB')
+    const rejected = rel({ size: 14 * GB, size_limit: limit, rejections: [{ code: 'size', message: 'Over the size limit', overridable: true }] })
+    expect(sizeLine(rejected)).toBe('14.0 GB')
+    expect(rejectionAdvice(rejected)).toBe('Its size is 14.0 GB, and the Profile takes 1 – 10 GB per episode. You can still grab it; Kestrel imports it like any other.')
   })
 
   it('writes the episodes a list of covers holds as runs per season', () => {

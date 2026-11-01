@@ -24,6 +24,7 @@ import {
   rejectionBlocked,
   score,
   signed,
+  sizeLine,
   whyLine,
 } from './releaseView'
 
@@ -241,7 +242,7 @@ export function ReleaseDetail({
   const lines = coverLines(x)
   const facts: [string, ReactNode][] = []
   if (lines.length > 0) facts.push(['Covers', lines.map((l) => <div key={l}>{l}</div>)])
-  facts.push(['Quality', qualityLine(x) || x.quality], ['Audio', audioLine(x) || 'Unknown'], ['Size', size(x.size)])
+  facts.push(['Quality', qualityLine(x) || x.quality], ['Audio', audioLine(x) || 'Unknown'], ['Size', sizeLine(x)])
   facts.push(['Published', `${published(x.published_at)}, ${ageLong(x.published_at)} ago`])
   facts.push(['Indexer', x.grabs ? `${x.indexer} · ${x.grabs.toLocaleString('en-US')} grabs` : x.indexer])
   if (x.group) facts.push(['Group', x.group])

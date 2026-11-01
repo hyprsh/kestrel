@@ -231,8 +231,19 @@ describe('Library quality, Storage, release groups and Requests', () => {
     expect(within(card).getByRole('group', { name: 'Standard: 22% Remux or BluRay, 64% WEB-DL, 14% WEBRip or lower' })).toBeInTheDocument()
     expect(within(card).getByRole('group', { name: '4K: 17% Remux or BluRay, 80% WEB-DL, 3% WEBRip or lower' })).toBeInTheDocument()
     expect(card).toHaveTextContent('Remux / BluRayWEB-DLWEBRip / lower')
-    expect(card).not.toHaveTextContent('cutoff')
+    expect(card).toHaveTextContent("12 files below their Profile's cutoff: Upgrades wanted.")
     expect(within(card).getByRole('table', { name: 'Library quality' })).toBeInTheDocument()
+  })
+
+  it('leaves the cutoff line out when no file is below its Profile’s cutoff, and says 1 file for one', async () => {
+    fakeStats(() => stats({ below_cutoff: 0 }))
+    const { unmount } = renderOverview()
+    const card = await screen.findByRole('region', { name: 'Library quality' })
+    expect(card).not.toHaveTextContent('cutoff')
+    unmount()
+    fakeStats(() => stats({ below_cutoff: 1 }))
+    renderOverview()
+    expect(await screen.findByText("1 file below their Profile's cutoff: Upgrades wanted.")).toBeInTheDocument()
   })
 
   it('shows a bar per Root folder and the growth line', async () => {
