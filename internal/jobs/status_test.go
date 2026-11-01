@@ -142,6 +142,7 @@ func TestWhileAPassRunsTheSearchStatusSaysWhatItSearchesAndHowManyReleasesItHasS
 		current  *acquire.Target
 		releases int
 		grabbed  int
+		item     int
 	}
 	var during []seen
 	season := 5
@@ -149,8 +150,9 @@ func TestWhileAPassRunsTheSearchStatusSaysWhatItSearchesAndHowManyReleasesItHasS
 		observed: func(o acquire.Observer, title int64) {
 			o.Searching(acquire.Target{TitleID: title, Title: "Title", Slot: "Standard", Season: &season, Episodes: []string{"S05E01"}})
 			o.Releases(10 * int(title))
+			o.Releases(1)
 			p := r.Search().Pass
-			during = append(during, seen{p.Current, p.ReleasesSeen, p.Grabbed})
+			during = append(during, seen{p.Current, p.ReleasesSeen, p.Grabbed, p.CurrentReleases})
 		},
 		outcome: func(title int64, v []int64) (acquire.Outcome, error) {
 			if title == 1 {
@@ -174,15 +176,18 @@ func TestWhileAPassRunsTheSearchStatusSaysWhatItSearchesAndHowManyReleasesItHasS
 	if c := during[0].current; c == nil || c.TitleID != 1 || c.Slot != "Standard" || c.Season == nil || *c.Season != 5 || len(c.Episodes) != 1 {
 		t.Errorf("current during the first item = %+v, want Title 1, Standard, season 5 and one episode", c)
 	}
-	if during[0].releases != 10 || during[0].grabbed != 0 || during[1].releases != 30 || during[1].grabbed != 1 {
-		t.Errorf("counters seen = %+v, want releases 10 then 30 and the Grab counted once the first item is done", during)
+	if during[0].releases != 11 || during[0].grabbed != 0 || during[1].releases != 32 || during[1].grabbed != 1 {
+		t.Errorf("counters seen = %+v, want releases 11 then 32 and the Grab counted once the first item is done", during)
+	}
+	if during[0].item != 11 || during[1].item != 21 {
+		t.Errorf("current item's releases = %d then %d, want 11 then 21 (reset by each Searching)", during[0].item, during[1].item)
 	}
 	got := r.Search()
 	if got.Pass != nil {
 		t.Errorf("pass after the run = %+v, want none", got.Pass)
 	}
-	if got.Last == nil || got.Last.ReleasesSeen != 30 || got.Last.Grabbed != 1 || got.Last.Searched != 2 {
-		t.Errorf("last pass = %+v, want 30 Releases seen, 1 Grab, 2 searched", got.Last)
+	if got.Last == nil || got.Last.ReleasesSeen != 32 || got.Last.Grabbed != 1 || got.Last.Searched != 2 {
+		t.Errorf("last pass = %+v, want 32 Releases seen, 1 Grab, 2 searched", got.Last)
 	}
 }
 

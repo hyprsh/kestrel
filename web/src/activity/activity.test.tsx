@@ -332,7 +332,7 @@ describe('Activity', () => {
       http.get('/search/status', ({ response }) =>
         response(200).json({
           due: { versions: 12, episodes: 0, upgrades: 0 },
-          pass: passOf({ done: 3, total: 12, releases_seen: 40, current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [] } }),
+          pass: passOf({ done: 3, total: 12, releases_seen: 40, current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [], releases_seen: 12 } }),
           next_pass_at: null,
           last_pass: null,
           upgrades_per_pass: 5,
@@ -345,7 +345,7 @@ describe('Activity', () => {
     const region = await screen.findByRole('region', { name: 'Searching · 12' })
     expect(region).toHaveTextContent('Searching Wanted')
     expect(region).toHaveTextContent('3 of 12 Wanted')
-    expect(region).toHaveTextContent('Now: Breaking Bad · S05 · Standard')
+    expect(region).toHaveTextContent('Now: Breaking Bad · S05 · Standard · 12 releases')
     expect(within(region).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
     expect(region).toHaveTextContent('40 releases checked · 0 Grabs so far')
     expect(region).toHaveTextContent('12 Wanted waiting')

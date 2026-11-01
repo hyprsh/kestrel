@@ -17,7 +17,7 @@ const status = (over: Partial<SearchStatus> = {}): SearchStatus => ({
   ...over,
 })
 
-const current = { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: ['S05E01', 'S05E02'] }
+const current = { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: ['S05E01', 'S05E02'], releases_seen: 12 }
 
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString()
 
@@ -28,7 +28,7 @@ describe('the search progress row', () => {
 
     const row = screen.getByLabelText('Search pass')
     expect(row).toHaveTextContent('Searching Wanted')
-    expect(row).toHaveTextContent('Now: Breaking Bad · S05 · Standard')
+    expect(row).toHaveTextContent('Now: Breaking Bad · S05 · Standard · 12 releases')
     expect(within(row).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
     expect(row).toHaveTextContent('4 of 12 Wanted · about 8 min left')
     expect(row).toHaveTextContent('418 releases checked · 1 Grab so far')
@@ -41,6 +41,18 @@ describe('the search progress row', () => {
 
     expect(screen.getByLabelText('Search pass')).toHaveTextContent('1 of 12 Wanted')
     expect(screen.getByLabelText('Search pass')).not.toHaveTextContent('left')
+  })
+
+  it('leaves the count off the Now line until a Release is checked', () => {
+    render(<SearchProgress status={status({ pass: passOf({ current: { ...current, releases_seen: 0 } }) })} />)
+
+    expect(screen.getByLabelText('Search pass')).not.toHaveTextContent('Standard · 0 release')
+  })
+
+  it('leaves the count off the Now line until a Release is checked', () => {
+    render(<SearchProgress status={status({ pass: passOf({ current: { ...current, releases_seen: 0 } }) })} />)
+
+    expect(screen.getByLabelText('Search pass')).not.toHaveTextContent('Standard · 0 release')
   })
 
   it('has no Now line between items', () => {

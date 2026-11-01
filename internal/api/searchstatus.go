@@ -53,7 +53,7 @@ func (s *server) searchStatus(ctx context.Context) (oapi.SearchStatus, error) {
 			UpgradesDone: p.UpgradesDone, UpgradesTotal: p.UpgradesTotal,
 		}
 		if c := p.Current; c != nil {
-			out.Pass.Current = &oapi.SearchTarget{TitleId: c.TitleID, Title: c.Title, HasPoster: c.HasPoster, Slot: c.Slot, Season: c.Season, Episodes: append([]string{}, c.Episodes...)}
+			out.Pass.Current = &oapi.SearchTarget{TitleId: c.TitleID, Title: c.Title, HasPoster: c.HasPoster, Slot: c.Slot, Season: c.Season, Episodes: append([]string{}, c.Episodes...), ReleasesSeen: p.CurrentReleases}
 		}
 	}
 	if l := js.Last; l != nil {

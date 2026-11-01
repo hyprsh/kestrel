@@ -5493,7 +5493,7 @@ components:
           description: The Upgrade searches it will make, at most `upgrades_per_pass`; 0 until the Wanted ones are done.
     SearchTarget:
       type: object
-      required: [title_id, title, has_poster, slot, season, episodes]
+      required: [title_id, title, has_poster, slot, season, episodes, releases_seen]
       properties:
         title_id:
           type: integer
@@ -5515,6 +5515,9 @@ components:
           description: The Wanted episodes searched, as `S05E01` codes (at most 50); empty for a Movie.
           items:
             type: string
+        releases_seen:
+          type: integer
+          description: The Releases the indexers returned for this search so far; climbs season by season for a Series.
     SearchPassResult:
       type: object
       required: [finished_at, searched, grabbed, releases_seen, upgrades, duration_ms]

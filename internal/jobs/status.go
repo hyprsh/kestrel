@@ -43,6 +43,8 @@ type SearchPass struct {
 	Done, Total int
 	// Current is what is being searched now; nil between items.
 	Current *acquire.Target
+	// CurrentReleases are the Releases checked for Current so far.
+	CurrentReleases int
 	// ReleasesSeen are the Releases the indexers returned and the pass has
 	// evaluated so far, and Grabbed the Grabs it has made.
 	ReleasesSeen, Grabbed int
@@ -95,6 +97,7 @@ func (t *searchTracker) Searching(target acquire.Target) {
 	defer t.mu.Unlock()
 	if t.st.Pass != nil {
 		t.st.Pass.Current = &target
+		t.st.Pass.CurrentReleases = 0
 	}
 }
 
@@ -104,6 +107,7 @@ func (t *searchTracker) Releases(n int) {
 	t.cur.ReleasesSeen += n
 	if t.st.Pass != nil {
 		t.st.Pass.ReleasesSeen = t.cur.ReleasesSeen
+		t.st.Pass.CurrentReleases += n
 	}
 }
 

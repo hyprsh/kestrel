@@ -128,12 +128,12 @@ describe('the Search job row on Health', () => {
       started_at: new Date(Date.now() - 4 * 60_000).toISOString(),
       releases_seen: 418,
       grabbed: 1,
-      current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [] },
+      current: { title_id: 7, title: 'Breaking Bad', has_poster: false, slot: 'Standard', season: 5, episodes: [], releases_seen: 12 },
     })
     const r = await row()
 
     expect(r).toHaveTextContent('Searching Wanted')
-    expect(r).toHaveTextContent('Now: Breaking Bad · S05 · Standard')
+    expect(r).toHaveTextContent('Now: Breaking Bad · S05 · Standard · 12 releases')
     expect(within(r).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
     expect(r).toHaveTextContent('4 of 12 Wanted · about 8 min left')
     expect(r).toHaveTextContent('418 releases checked · 1 Grab so far')

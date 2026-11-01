@@ -28,11 +28,11 @@ function timeLeft(p: Pass, now: number): string | null {
   return per > 0 ? `about ${span(per * (phase.total - phase.done))} left` : null
 }
 
-/** "Breaking Bad · S05 · Standard": what is searched now, from the Title's name to its Slot. */
+/** "Breaking Bad · S05 · Standard · 12 releases": what is searched now, from the Title's name to the Releases checked for it. */
 function nowParts(c: NonNullable<Pass['current']>): string[] {
   const where =
     c.season != null ? `S${String(c.season).padStart(2, '0')}` : c.episodes.length > 0 ? c.episodes.slice(0, 3).join(', ') + (c.episodes.length > 3 ? ` +${c.episodes.length - 3}` : '') : null
-  return [c.title, where, c.slot].filter((x): x is string => Boolean(x))
+  return [c.title, where, c.slot, c.releases_seen > 0 ? plural(c.releases_seen, 'release') : null].filter((x): x is string => Boolean(x))
 }
 
 /** The running pass as one row: the progress of the Wanted Versions, then of the Upgrade searches. */

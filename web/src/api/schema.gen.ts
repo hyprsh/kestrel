@@ -3851,6 +3851,8 @@ export interface components {
             season: number | null;
             /** @description The Wanted episodes searched, as `S05E01` codes (at most 50); empty for a Movie. */
             episodes: string[];
+            /** @description The Releases the indexers returned for this search so far; climbs season by season for a Series. */
+            releases_seen: number;
         };
         SearchPassResult: {
             /** Format: date-time */

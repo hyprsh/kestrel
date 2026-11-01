@@ -3741,6 +3741,9 @@ type SearchTarget struct {
 	// HasPoster Whether `GET /titles/{id}/poster` has a poster for the Title.
 	HasPoster bool `json:"has_poster"`
 
+	// ReleasesSeen The Releases the indexers returned for this search so far; climbs season by season for a Series.
+	ReleasesSeen int `json:"releases_seen"`
+
 	// Season The season searched when it is one season of a Series; null for a Movie or several seasons.
 	Season *int `json:"season"`
 
