@@ -1,11 +1,10 @@
 import { Button, DestructiveActionModal, Input, Note, Select, Sheet, Toggle } from '@hyprsh/design'
 import { GripVertical } from 'lucide-react'
-import { useState, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { ProfileDetail } from '../api/downloads'
 import { ApiError, useDeleteProfile, usePatchProfile, type Profile, type ProfilePatch } from '../api/queries'
 import { plural } from '../format'
 import { QualityBox, QualityItem, QualityList } from '../layout/SettingsLists'
-import { SettingRow, SettingsCard } from '../layout/SettingsPage'
 import { useReport } from '../toasts'
 import { fromGb, moved, qualityLabel, sameLadder, toGb, type Kind, type ProfileOverlay, type ProfileQuality } from './ladder'
 
@@ -112,7 +111,7 @@ function overlayOf(d: Draft, start: Draft, detail: ProfileDetail): { overlay: Pr
 export function ProfileSheet({ profile: p, detail, declared, onClose }: { profile: Profile; detail?: ProfileDetail; declared: boolean; onClose: () => void }) {
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} modal>
-      <Sheet.Content side="right" aria-label={`Edit ${p.name}`}>
+      <Sheet.Content side="right" className="w-[92%] max-w-[440px]!" aria-label={`Edit ${p.name}`}>
         <Sheet.Header>
           <Sheet.Title>{p.name}</Sheet.Title>
         </Sheet.Header>
@@ -259,15 +258,11 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
           </span>
           <span className="label-12 text-gray-900">Kestrel stops upgrading once a file reaches the cutoff and its Score.</span>
         </div>
-        <SettingsCard>
-          <SettingRow stacked label="Enabled" help="A disabled Profile is not offered for new Versions, and its defaults are cleared.">
+        <div className="label-13 flex flex-col gap-3">
+          <Kv label="Enabled">
             <Toggle aria-label="Enabled" checked={draft.enabled} disabled={declared} onChange={(enabled) => set({ enabled })} />
-          </SettingRow>
-          <SettingRow
-            stacked
-            label="Good enough at"
-            help={detail.below_cutoff > 0 ? `${plural(detail.below_cutoff, 'file')} below the cutoff in this Profile.` : 'A file of this quality or a better one is not upgraded.'}
-          >
+          </Kv>
+          <Kv label="Good enough at">
             <Select
               size="small"
               aria-label="Good enough at"
@@ -284,28 +279,38 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
                   </option>
                 ))}
             </Select>
-          </SettingRow>
-          <SettingRow stacked label="Upgrade until Score" help="Once a file is at the cutoff and has this Score, Kestrel stops looking for a better one. Empty leaves only the cutoff.">
-            <Input size="small" aria-label="Upgrade until Score" inputMode="numeric" className="w-32" value={draft.until} disabled={declared} onChange={(e) => set({ until: e.target.value })} />
-          </SettingRow>
-          <SettingRow stacked label="Minimum Score" help={`A Release scoring under this is rejected. TRaSH has ${scoring.trash_min_score}.`}>
+          </Kv>
+          <Kv label="Upgrade until Score">
+            <Input
+              size="small"
+              aria-label="Upgrade until Score"
+              inputMode="numeric"
+              placeholder="No limit"
+              className="w-32"
+              value={draft.until}
+              disabled={declared}
+              onChange={(e) => set({ until: e.target.value })}
+            />
+          </Kv>
+          <Kv label="Minimum Score">
             <Input
               size="small"
               aria-label="Minimum Score"
               inputMode="numeric"
               className="w-32"
+              title={`TRaSH has ${scoring.trash_min_score}`}
               value={draft.minScore}
               disabled={declared || ladder.length === 0}
               onChange={(e) => set({ minScore: e.target.value })}
             />
-          </SettingRow>
-          <SettingRow stacked label="Size per episode" help="A Series Release outside this, per episode, is rejected. You can still grab it. Empty is no limit.">
+          </Kv>
+          <Kv label="Size per episode">
             <SizeFields label="Size per episode" value={draft.episode} disabled={declared} onChange={(episode) => set({ episode })} />
-          </SettingRow>
-          <SettingRow stacked label="Size per Movie" help="A Movie Release outside this is rejected. You can still grab it. Empty is no limit.">
+          </Kv>
+          <Kv label="Size per Movie">
             <SizeFields label="Size per Movie" value={draft.movie} disabled={declared} onChange={(movie) => set({ movie })} />
-          </SettingRow>
-          <SettingRow stacked label="Audio" help={p.language_rule === 'original' ? 'The Title’s Original Language audio.' : 'What a Release with only the Original Language audio does.'}>
+          </Kv>
+          <Kv label="Audio">
             {p.language_rule === 'primary' ? (
               <Select
                 size="small"
@@ -316,10 +321,14 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
                 options={originalChoices}
               />
             ) : (
-              <span className="label-14">Title’s Original Language audio</span>
+              <span>Title’s Original Language audio</span>
             )}
-          </SettingRow>
-        </SettingsCard>
+          </Kv>
+        </div>
+        <p className="label-12 -mt-3 text-gray-900">
+          A Release outside the sizes is rejected, and you can still grab it. A file of the cutoff quality or better, with the Upgrade until Score, is not upgraded.
+          {detail.below_cutoff > 0 && ` ${plural(detail.below_cutoff, 'file')} below the cutoff in this Profile.`}
+        </p>
         <div className="flex flex-col gap-1.5">
           <h4 className="label-14 font-semibold">Custom Formats</h4>
           {formats.length === 0 ? (
@@ -382,6 +391,16 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
   )
 }
 
+/** A row of the sheet's settings: its name, then its control. */
+function Kv({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-1 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:items-center sm:gap-x-3">
+      <span>{label}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  )
+}
+
 /** The smallest and largest size, in GB. */
 function SizeFields({ label, value, disabled, onChange }: { label: string; value: [string, string]; disabled: boolean; onChange: (v: [string, string]) => void }) {
   return (
@@ -389,7 +408,7 @@ function SizeFields({ label, value, disabled, onChange }: { label: string; value
       <Input
         size="small"
         aria-label={`${label}, smallest in GB`}
-        placeholder="Smallest"
+        placeholder="No minimum"
         inputMode="decimal"
         className="w-24"
         value={value[0]}
@@ -400,7 +419,7 @@ function SizeFields({ label, value, disabled, onChange }: { label: string; value
       <Input
         size="small"
         aria-label={`${label}, largest in GB`}
-        placeholder="Largest"
+        placeholder="No maximum"
         inputMode="decimal"
         className="w-24"
         value={value[1]}

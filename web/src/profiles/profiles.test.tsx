@@ -422,7 +422,7 @@ describe('Settings', () => {
     expect(within(sheet).getByLabelText('Minimum Score')).toHaveValue('0')
     expect(within(sheet).getByLabelText('Size per episode, smallest in GB')).toHaveValue('1')
     expect(within(sheet).getByLabelText('Size per episode, largest in GB')).toHaveValue('10')
-    expect(within(sheet).getByText('12 files below the cutoff in this Profile.')).toBeInTheDocument()
+    expect(within(sheet).getByText(/12 files below the cutoff in this Profile/)).toBeInTheDocument()
     expect(within(sheet).getByText('Saving rescores 61 files')).toBeInTheDocument()
     expect(within(sheet).getByRole('button', { name: 'Save' })).toBeDisabled()
 
