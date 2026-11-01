@@ -83,7 +83,14 @@ export function TitleRows({
           const line = stateLine(r, g, now)
           const monitored = isMonitoredRow(r)
           const chips = (
-            <SlotChips chips={rowChips(r, g, { single, profileName, now, onOpen: onOpenSlot && ((slot) => onOpenSlot(r, slot)) })} max={phone ? 3 : 4} wrap align="start" tabIndex={-1} label={`${r.title} Slots`} />
+            <SlotChips
+              chips={rowChips(r, g, { single, profileName, now, onOpen: onOpenSlot && ((slot) => onOpenSlot(r, slot)) })}
+              max={phone ? 3 : 4}
+              wrap
+              align="start"
+              tabIndex={-1}
+              label={`${r.title} Slots`}
+            />
           )
           // Unmonitored rows dim their chips with the poster.
           const dimmed = monitored ? 'contents' : 'opacity-60'
