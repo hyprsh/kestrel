@@ -20,6 +20,8 @@ const screens = {
   library: '/library',
   'title-movie': { path: (ids) => `/library/${ids.movie}` },
   'title-series': { path: (ids) => `/library/${ids.series}` },
+  // A Movie with a Version downloading, which the Versions card and the Files row both show.
+  'title-movie-downloading': { path: (ids) => `/library/${ids.downloading ?? ids.movie}` },
   upcoming: '/upcoming',
   requests: '/requests',
   activity: '/activity',
@@ -60,7 +62,7 @@ let overflowed = 0
 try {
   const titles = await h.page.evaluate(async () => (await fetch('api/v1/titles')).json())
   const list = Array.isArray(titles) ? titles : (titles.titles ?? titles.items ?? [])
-  const ids = { movie: list.find((t) => t.kind === 'movie')?.id, series: list.find((t) => t.kind === 'series')?.id }
+  const ids = { movie: list.find((t) => t.kind === 'movie')?.id, series: list.find((t) => t.kind === 'series')?.id, downloading: list.find((t) => t.title === 'Paddington in Peru')?.id }
   if (!ids.movie || !ids.series) throw new Error('the demo has no Movie and Series Title; is it seeded (demo.sh start)?')
 
   for (const name of names.length ? names : Object.keys(screens)) {

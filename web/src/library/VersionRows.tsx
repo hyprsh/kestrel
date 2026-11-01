@@ -34,7 +34,8 @@ export function VersionRows({ title, profiles, profileName, onManualSearch }: Pr
   const versions = slotKeys.flatMap((k) => title.versions.filter((v) => v.slot === k))
   if (versions.length === 0) return null
   return (
-    <section aria-label="Versions" className="my-6 grid grid-cols-1 gap-3 @2xl:grid-cols-2">
+    // One Version fills the row; two or more sit side by side, for a Series and a Movie alike.
+    <section aria-label="Versions" className={`my-6 grid grid-cols-1 gap-3 ${versions.length > 1 ? '@2xl:grid-cols-2' : ''}`}>
       {versions.map((v) => (
         <RowList key={v.id} aria-label={slotLabel[v.slot]}>
           <VersionCard {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads.slot(v.slot)} />
@@ -136,7 +137,7 @@ function VersionCard({ version: v, downloads, ...rest }: Props & { version: Vers
           <Note variant="success" fill size="small" icon={<Download aria-hidden className="size-3.5" />}>
             <span className="flex min-w-0 items-center justify-between gap-3">
               <span className="truncate" title={downloads.items[0].release_name}>
-                {downloadingWhat(downloads)}
+                {downloadingWhat(downloads, movie)}
               </span>
               <span className="hy-num shrink-0">{downloadingProgress(downloads)}</span>
             </span>
@@ -167,10 +168,12 @@ function SeriesHolds({ version: v }: { version: Version }) {
 }
 
 /** What a Slot is downloading, in words: its episodes, else its Release, else how many Grabs. */
-function downloadingWhat({ items }: SlotDownloads): string {
+function downloadingWhat({ items }: SlotDownloads, movie: boolean): string {
+  // A Movie's card header already says "Downloading", so its line is just what is downloading.
+  const word = movie ? '' : 'Downloading '
   const episodes = items.flatMap((i) => i.episodes)
-  if (episodes.length > 0) return `Downloading ${episodes.length > 3 ? `${episodes.slice(0, 3).join(', ')} and ${episodes.length - 3} more` : episodes.join(', ')}`
-  return items.length === 1 ? `Downloading ${items[0].release_name}` : `Downloading ${plural(items.length, 'Release')}`
+  if (episodes.length > 0) return `${word}${episodes.length > 3 ? `${episodes.slice(0, 3).join(', ')} and ${episodes.length - 3} more` : episodes.join(', ')}`
+  return items.length === 1 ? `${word}${items[0].release_name}` : `${word}${plural(items.length, 'Release')}`.trim()
 }
 
 /** "40% · 13 min left", whichever the client knows. */

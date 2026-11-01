@@ -25,7 +25,7 @@ describe("a Title's downloads on its page", () => {
     ])
     const { pane, row: hd } = await openPaddington()
 
-    expect(await within(hd).findByText('Downloading Paddington.2014.1080p-GRP')).toBeInTheDocument()
+    expect(await within(hd).findByText('Paddington.2014.1080p-GRP')).toBeInTheDocument()
     expect(within(hd).getByText('75% · 2 min left')).toBeInTheDocument()
     expect(within(pane).queryByText(/Heat/)).not.toBeInTheDocument()
     expect(within(pane).queryByRole('region', { name: 'Downloading' })).not.toBeInTheDocument()
@@ -87,7 +87,7 @@ describe("a Title's downloads on its page", () => {
     // What the stream's `queue` frames do (live/stream.ts).
     act(() => client.setQueryData(['queue'], [queueItem({ title_id: 1, release_name: 'Paddington.2014.720p-GRP' })]))
 
-    expect(await within(hd).findByText(/Downloading Paddington\.2014\.720p-GRP/)).toBeInTheDocument()
+    expect(await within(hd).findByText(/Paddington\.2014\.720p-GRP/)).toBeInTheDocument()
   })
 })
 
