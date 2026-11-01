@@ -133,6 +133,8 @@ type Cutoffs struct {
 	// ByProfile counts them per Profile key; a Profile with none is absent.
 	ByProfile map[string]int
 	Total     int
+	// ByVersion counts, per Version, the episodes that wait for an Upgrade (a Movie's file counts as one).
+	ByVersion map[int64]int
 }
 
 // BelowCutoff counts the files below their Profile's cutoff under the active snapshot.
@@ -151,7 +153,7 @@ func (s *Service) BelowCutoff(ctx context.Context) (Cutoffs, error) {
 			resolved[p.Key] = sp
 		}
 	}
-	out := Cutoffs{ByProfile: map[string]int{}}
+	out := Cutoffs{ByProfile: map[string]int{}, ByVersion: map[int64]int{}}
 	for _, r := range rows {
 		p := resolved[r.ProfileKey]
 		if p == nil {
@@ -177,6 +179,11 @@ func (s *Service) BelowCutoff(ctx context.Context) (Cutoffs, error) {
 		if !p.AtCutoff(kind, parsed.Quality.Quality.Name, int(r.Score.Int64)) {
 			out.ByProfile[r.ProfileKey]++
 			out.Total++
+			n := int(r.Episodes)
+			if n < 1 {
+				n = 1
+			}
+			out.ByVersion[r.VersionID] += n
 		}
 	}
 	return out, nil

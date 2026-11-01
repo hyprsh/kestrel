@@ -57,9 +57,10 @@ SELECT COUNT(*) FROM versions WHERE profile_key = ?;
 -- name: MaxProfileSort :one
 SELECT COALESCE(MAX(sort), 0) FROM profiles;
 
--- The files that fit their Version, with what the cutoff looks at: the Profile, the kind, the Score and the stored parse.
+-- The files that fit their Version, with what the cutoff looks at: the Profile, the kind, the Score and the stored parse, and the episodes a file holds.
 -- name: CutoffFiles :many
-SELECT v.profile_key, t.kind, f.score, f.parsed_release
+SELECT v.profile_key, t.kind, f.version_id, f.score, f.parsed_release,
+       (SELECT COUNT(*) FROM file_episodes fe WHERE fe.file_id = f.id) AS episodes
 FROM files f
 JOIN versions v ON v.id = f.version_id
 JOIN titles t ON t.id = v.title_id

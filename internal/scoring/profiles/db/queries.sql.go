@@ -29,7 +29,8 @@ func (q *Queries) ClearSlotDefaultSeries(ctx context.Context, slot string) error
 }
 
 const cutoffFiles = `-- name: CutoffFiles :many
-SELECT v.profile_key, t.kind, f.score, f.parsed_release
+SELECT v.profile_key, t.kind, f.version_id, f.score, f.parsed_release,
+       (SELECT COUNT(*) FROM file_episodes fe WHERE fe.file_id = f.id) AS episodes
 FROM files f
 JOIN versions v ON v.id = f.version_id
 JOIN titles t ON t.id = v.title_id
@@ -40,11 +41,13 @@ WHERE m.file_id IS NULL
 type CutoffFilesRow struct {
 	ProfileKey    string
 	Kind          string
+	VersionID     int64
 	Score         sql.NullInt64
 	ParsedRelease sql.NullString
+	Episodes      int64
 }
 
-// The files that fit their Version, with what the cutoff looks at: the Profile, the kind, the Score and the stored parse.
+// The files that fit their Version, with what the cutoff looks at: the Profile, the kind, the Score and the stored parse, and the episodes a file holds.
 func (q *Queries) CutoffFiles(ctx context.Context) ([]CutoffFilesRow, error) {
 	rows, err := q.db.QueryContext(ctx, cutoffFiles)
 	if err != nil {
@@ -57,8 +60,10 @@ func (q *Queries) CutoffFiles(ctx context.Context) ([]CutoffFilesRow, error) {
 		if err := rows.Scan(
 			&i.ProfileKey,
 			&i.Kind,
+			&i.VersionID,
 			&i.Score,
 			&i.ParsedRelease,
+			&i.Episodes,
 		); err != nil {
 			return nil, err
 		}

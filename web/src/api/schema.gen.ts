@@ -3435,6 +3435,20 @@ export interface components {
             profile: string;
             state: components["schemas"]["SlotState"];
             long_missing: boolean;
+            /**
+             * Format: date-time
+             * @description Since when the Version has been Wanted; null while it is not.
+             */
+            wanted_since?: string | null;
+            /**
+             * @description The Version holds a file below its Profile's cutoff (quality or Upgrade-until Score) and the Title is monitored, so an
+             *     Upgrade is wanted. It is not Wanted: the Version is `filled`. Decided as the Upgrade sweep decides it.
+             */
+            upgrade_wanted: boolean;
+            /** @description A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie. */
+            episodes_upgrade?: number | null;
+            /** @description A Movie Version's file (without its Custom Formats); null for a Series Version and for a Version with none. */
+            file?: components["schemas"]["FileSummary"] | null;
             /** @description A Series Version's episodes that hold a file; null for a Movie. */
             episodes_have?: number | null;
             /** @description A Series Version's episodes that have aired; null for a Movie. */

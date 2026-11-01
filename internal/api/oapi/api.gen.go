@@ -4768,6 +4768,12 @@ type SlotStateEntry struct {
 	// EpisodesHave A Series Version's episodes that hold a file; null for a Movie.
 	EpisodesHave *int `json:"episodes_have,omitempty"`
 
+	// EpisodesUpgrade A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie.
+	EpisodesUpgrade *int `json:"episodes_upgrade,omitempty"`
+
+	// File A Movie Version's file (without its Custom Formats); null for a Series Version and for a Version with none.
+	File *FileSummary `json:"file,omitempty"`
+
 	// Label The Slot's display name ("Standard", "4K").
 	Label string `json:"label"`
 
@@ -4782,8 +4788,15 @@ type SlotStateEntry struct {
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
-	State     SlotState `json:"state"`
-	VersionId int64     `json:"version_id"`
+	State SlotState `json:"state"`
+
+	// UpgradeWanted The Version holds a file below its Profile's cutoff (quality or Upgrade-until Score) and the Title is monitored, so an
+	// Upgrade is wanted. It is not Wanted: the Version is `filled`. Decided as the Upgrade sweep decides it.
+	UpgradeWanted bool  `json:"upgrade_wanted"`
+	VersionId     int64 `json:"version_id"`
+
+	// WantedSince Since when the Version has been Wanted; null while it is not.
+	WantedSince *time.Time `json:"wanted_since,omitempty"`
 }
 
 // SlotSummary defines model for SlotSummary.

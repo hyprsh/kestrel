@@ -4774,7 +4774,7 @@ components:
     SlotStateEntry:
       type: object
       description: One Slot of a Title with its Version's state.
-      required: [slot, label, version_id, profile, state, long_missing]
+      required: [slot, label, version_id, profile, state, long_missing, upgrade_wanted]
       properties:
         slot:
           $ref: "#/components/schemas/Slot"
@@ -4790,6 +4790,25 @@ components:
           $ref: "#/components/schemas/SlotState"
         long_missing:
           type: boolean
+        wanted_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: Since when the Version has been Wanted; null while it is not.
+        upgrade_wanted:
+          type: boolean
+          description: |
+            The Version holds a file below its Profile's cutoff (quality or Upgrade-until Score) and the Title is monitored, so an
+            Upgrade is wanted. It is not Wanted: the Version is `filled`. Decided as the Upgrade sweep decides it.
+        episodes_upgrade:
+          type: integer
+          nullable: true
+          description: A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie.
+        file:
+          allOf:
+            - $ref: "#/components/schemas/FileSummary"
+          nullable: true
+          description: A Movie Version's file (without its Custom Formats); null for a Series Version and for a Version with none.
         episodes_have:
           type: integer
           nullable: true

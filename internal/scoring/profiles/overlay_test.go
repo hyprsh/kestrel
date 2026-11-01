@@ -251,4 +251,8 @@ func TestFilesBelowTheCutoffAreCountedPerProfile(t *testing.T) {
 	if c.Total != 2 || c.ByProfile["hd-primary"] != 2 || c.ByProfile["4k-primary"] != 0 {
 		t.Errorf("BelowCutoff = %+v", c)
 	}
+	// Per Version: the Series' two short files (no episodes linked: one each), none for the Movie at its cutoff.
+	if c.ByVersion[sv] != 2 || c.ByVersion[mv] != 0 || c.ByVersion[ov] != 0 {
+		t.Errorf("BelowCutoff by Version = %+v", c.ByVersion)
+	}
 }

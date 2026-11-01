@@ -102,3 +102,33 @@ func (s *server) withWantedSearches(ctx context.Context, rows []oapi.TitleRow) e
 	}
 	return nil
 }
+
+// withUpgrades marks the Versions of the monitored Title rows that wait for an Upgrade: their file is below the Profile's cutoff,
+// by the same decision that counts the Profile's files below it. A Series Version says how many episodes.
+func (s *server) withUpgrades(ctx context.Context, rows []oapi.TitleRow) error {
+	cut, err := s.profiles.BelowCutoff(ctx)
+	if err != nil {
+		return err
+	}
+	if cut.Total == 0 {
+		return nil
+	}
+	for i := range rows {
+		r := &rows[i]
+		if !r.Monitored {
+			continue
+		}
+		for j := range r.SlotStates {
+			e := &r.SlotStates[j]
+			n := cut.ByVersion[e.VersionId]
+			if n == 0 || (r.Kind == oapi.Movie && e.State != oapi.SlotStateFilled) {
+				continue
+			}
+			e.UpgradeWanted = true
+			if r.Kind == oapi.Series {
+				e.EpisodesUpgrade = &n
+			}
+		}
+	}
+	return nil
+}
