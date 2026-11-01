@@ -5,7 +5,6 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
-	"github.com/hyprsh/kestrel/internal/library"
 )
 
 // withSearches puts, on each Version of a Title, what its last search found and when it is next searched.
@@ -70,12 +69,15 @@ func (s *server) withWantedSearches(ctx context.Context, rows []oapi.TitleRow) e
 	if err != nil {
 		return err
 	}
+	next, err := s.library.NextSearchesOf(ctx, ids)
+	if err != nil {
+		return err
+	}
 	for _, r := range rows {
 		entries := map[int64]*oapi.SlotStateEntry{}
 		for i := range r.SlotStates {
 			entries[r.SlotStates[i].VersionId] = &r.SlotStates[i]
 		}
-		var next map[int64]library.NextSearch
 		for _, sl := range []*oapi.SlotSummary{r.Slots.Standard, r.Slots.N4k} {
 			if sl == nil || sl.State != oapi.SlotStateWanted {
 				continue
@@ -85,11 +87,6 @@ func (s *server) withWantedSearches(ctx context.Context, rows []oapi.TitleRow) e
 				sl.LastSearch = &out
 				if e := entries[sl.VersionId]; e != nil {
 					e.LastSearch = &out
-				}
-			}
-			if next == nil {
-				if next, err = s.library.NextSearches(ctx, r.Id); err != nil {
-					return err
 				}
 			}
 			if n, ok := next[sl.VersionId]; ok {

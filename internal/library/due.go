@@ -41,6 +41,29 @@ func (s *Service) NextSearches(ctx context.Context, titleID int64) (map[int64]Ne
 	if err != nil {
 		return nil, err
 	}
+	return nextSearchesOf(rows), nil
+}
+
+// NextSearchesOf returns when each of the given Versions is next searched, in one query for a list of Titles.
+func (s *Service) NextSearchesOf(ctx context.Context, versionIDs []int64) (map[int64]NextSearch, error) {
+	rows, err := db.New(s.st.Read()).ListSearchStates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	want := make(map[int64]bool, len(versionIDs))
+	for _, id := range versionIDs {
+		want[id] = true
+	}
+	kept := rows[:0:0]
+	for _, r := range rows {
+		if want[r.VersionID] {
+			kept = append(kept, db.SearchState(r))
+		}
+	}
+	return nextSearchesOf(kept), nil
+}
+
+func nextSearchesOf(rows []db.SearchState) map[int64]NextSearch {
 	out := map[int64]NextSearch{}
 	earliest := func(cur *time.Time, n sql.NullString) *time.Time {
 		t := optTime(n)
@@ -54,5 +77,5 @@ func (s *Service) NextSearches(ctx context.Context, titleID int64) (map[int64]Ne
 		n.Missing, n.Upgrade = earliest(n.Missing, r.NextMissingAt), earliest(n.Upgrade, r.NextUpgradeAt)
 		out[r.VersionID] = n
 	}
-	return out, nil
+	return out
 }

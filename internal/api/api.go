@@ -8,6 +8,8 @@ package api
 
 import (
 	"context"
+	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/stats"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -123,9 +125,12 @@ type server struct {
 	opts Options
 	// started is when this server was built, for the uptime in the system status.
 	started time.Time
-	auth    *auth
-	plex    *plexSignIn
-	hub     *hub
+	// statsNow and agendas keep the slow answers of GET /stats and GET /upcoming; see dbCache.
+	statsNow dbCache[stats.Result]
+	agendas  dbCache[library.Agenda]
+	auth     *auth
+	plex     *plexSignIn
+	hub      *hub
 
 	plugins     PluginInstances
 	profiles    Profiles
