@@ -195,9 +195,14 @@ describe('the Version rows', () => {
       path: '/data/media/movies/Paddington (2014)/Paddington.mkv',
       size: 8 * 1024 ** 3,
       release_name: 'Paddington.2014.1080p.BluRay',
-      score: null,
+      score: 2290,
       quality: 'Bluray-1080p',
       languages: ['English', 'German'],
+      release_group: 'GRP',
+      custom_formats: [
+        { name: 'Remux Tier 01', points: 2300 },
+        { name: 'x265', points: -10 },
+      ],
       imported_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
     }
     server.use(
@@ -212,7 +217,14 @@ describe('the Version rows', () => {
     expect(await within(hd).findByText('Bluray-1080p · English, German · 8.0 GB')).toBeInTheDocument()
     expect(within(hd).getByText('Imported 3 days ago')).toBeInTheDocument()
     await userEvent.click(within(hd).getByRole('button', { name: 'File details' }))
-    expect(await screen.findByRole('dialog', { name: 'Standard file' })).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
+    const pop = await screen.findByRole('dialog', { name: 'Standard file' })
+    expect(pop).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
+    // The same popover an episode cell opens: audio, group, Score and each Custom Format with its points.
+    expect(within(pop).getByText('English, German')).toBeInTheDocument()
+    expect(within(pop).getByText(/from GRP$/)).toBeInTheDocument()
+    expect(within(pop).getByText('2,290')).toBeInTheDocument()
+    expect(within(pop).getByText('Remux Tier 01 +2300')).toBeInTheDocument()
+    expect(within(pop).getByText('x265 \u221210')).toBeInTheDocument()
   })
 
   it('show a Wanted Movie Version for how many days, with Search now as its one action', async () => {

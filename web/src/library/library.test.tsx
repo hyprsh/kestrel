@@ -329,8 +329,9 @@ describe('the Library detail pane', () => {
 
     const popover = await screen.findByRole('dialog', { name: 'Standard file' })
     expect(popover).toHaveTextContent('/data/media/movies/P/P.mkv')
-    expect(popover).toHaveTextContent('Grabbed as Paddington.2014.1080p.BluRay.x264-GRP')
-    expect(within(popover).getByRole('button', { name: 'Copy to Clipboard' })).toBeInTheDocument()
+    expect(within(popover).getByText('Paddington.2014.1080p.BluRay.x264-GRP')).toBeInTheDocument()
+    expect(within(popover).getByRole('button', { name: 'Copy Path' })).toBeInTheDocument()
+    expect(within(popover).queryByRole('button', { name: 'Upgrade Search' })).not.toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Standard file' })).not.toBeInTheDocument())
   })

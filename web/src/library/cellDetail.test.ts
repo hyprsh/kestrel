@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { queueItem } from '../test/queue'
-import { cell, episode } from '../test/series'
+import { cell, episode, episodeFile } from '../test/series'
 import { cellText, expandCodes, grabOf, grabsByEpisode } from './cellDetail'
 
 const now = Date.parse('2026-10-31T12:00:00Z')
@@ -13,7 +13,7 @@ describe('cellText', () => {
   })
 
   it('gives a filled cell its file’s resolution and size', () => {
-    const file = { id: 1, path: '/tv/x.mkv', size: 3.2 * 1024 ** 3, quality: 'WEBDL-1080p', episode_ids: [1] }
+    const file = episodeFile({ id: 1, path: '/tv/x.mkv', size: 3.2 * 1024 ** 3, quality: 'WEBDL-1080p', episode_ids: [1] })
     expect(text(cell('filled', 100, file))).toBe('1080p · 3.2 GB')
     expect(text(cell('filled'))).toBe('label')
   })

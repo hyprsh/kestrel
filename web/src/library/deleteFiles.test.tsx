@@ -6,7 +6,7 @@ import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
-import { cell, episode, fakeSeries, seriesRow } from '../test/series'
+import { cell, episode, episodeFile, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
 
@@ -125,13 +125,13 @@ describe("deleting a Movie's file", () => {
   })
 })
 
-const double: components['schemas']['EpisodeFile'] = {
+const double = episodeFile({
   id: 70,
   path: '/data/media/tv/Breaking Bad/Season 01/Breaking Bad - S01E01-E02 - [Standard].mkv',
   size: 3 * 2 ** 30,
   quality: 'WEBDL-1080p',
   episode_ids: [2, 3],
-}
+})
 
 /** Breaking Bad (Standard 51, 4K 52) whose Standard pilot and S01E02 share one double-episode file. */
 async function openSeriesWithFiles() {
@@ -209,13 +209,14 @@ describe('deleting files from the episode table', () => {
 
   it('offers Delete file wherever the Slot dot is filled, in a Series kept in 4K only', async () => {
     const state = fakeSeries()
-    const file = (id: number, n: number): components['schemas']['EpisodeFile'] => ({
-      id,
-      path: `/data/media/tv/Breaking Bad/Season 01/Breaking Bad - S01E0${n} - [4K].mkv`,
-      size: 2 ** 30,
-      quality: 'WEBDL-2160p',
-      episode_ids: [n + 1],
-    })
+    const file = (id: number, n: number) =>
+      episodeFile({
+        id,
+        path: `/data/media/tv/Breaking Bad/Season 01/Breaking Bad - S01E0${n} - [4K].mkv`,
+        size: 2 ** 30,
+        quality: 'WEBDL-2160p',
+        episode_ids: [n + 1],
+      })
     state.get().episodes = [
       episode(2, 1, 1, 'Pilot', { cells: { standard: null, '4k': cell('filled', 120, file(80, 1)) } }),
       episode(3, 1, 2, "Cat's in the Bag...", { cells: { standard: null, '4k': cell('wanted') } }),

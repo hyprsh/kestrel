@@ -10,6 +10,15 @@ type Mode = components['schemas']['SeriesMonitor']
 
 type EpisodeFile = components['schemas']['EpisodeFile']
 
+/** An episode file with the facts a Movie's file has; `over` sets what a test cares about. */
+export const episodeFile = (over: Partial<EpisodeFile> & Pick<EpisodeFile, 'id' | 'path' | 'size' | 'quality' | 'episode_ids'>): EpisodeFile => ({
+  release_name: 'Breaking.Bad.S01E01.1080p.WEB-DL.DD5.1.H.264-NTb',
+  languages: [],
+  imported_at: '2024-10-20T12:00:00Z',
+  custom_formats: [],
+  ...over,
+})
+
 export const cell = (state: components['schemas']['SlotState'], score: number | null = null, file: EpisodeFile | null = null) => ({ state, score, file })
 
 export const episode = (id: number, season: number, number: number, name: string, over: Partial<Episode> = {}): Episode => ({

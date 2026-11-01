@@ -9,9 +9,9 @@ import { plural } from '../format'
 import { RowList } from '../layout/RowList'
 import { ago, span, useNow } from '../time'
 import { useReport } from '../toasts'
-import { coverageSegments, size, slotKeys, slotLabel, versionStatus } from './bits'
+import { coverageSegments, dotOf, size, slotKeys, slotLabel, versionStatus } from './bits'
 import { DeleteFile } from './DeleteFiles'
-import { FilePopover } from './EpisodeFilePopover'
+import { FileDetailsPopover } from './EpisodeFilePopover'
 import { IconAction } from './IconAction'
 import { ProfilePicker, RemoveConfirm } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
@@ -198,10 +198,11 @@ function MovieAction({ version: v, downloads, ...rest }: Props & { version: Vers
   if (downloads) return <IconAction icon={X} size="small" label={`Cancel the ${name} download`} disabled={cancel.pending} onClick={() => void cancel.run(downloads.items, false)} />
   if (f)
     return (
-      <FilePopover
+      <FileDetailsPopover
         label={`${name} file`}
-        path={f.path}
-        grabbedAs={f.release_name}
+        heading={name}
+        dot={dotOf('filled', false)}
+        file={f}
         trigger={
           <Button svgOnly variant="tertiary" size="small" aria-label="File details" title="File details">
             <FileVideo aria-hidden className="size-4" />

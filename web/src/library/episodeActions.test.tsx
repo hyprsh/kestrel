@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
-import { cell, episode, fakeSeries, pickSeason } from '../test/series'
+import { cell, episode, episodeFile, fakeSeries, pickSeason } from '../test/series'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
 
@@ -12,7 +12,7 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 type Posted = { version: number; body: unknown }
 
-const file = { id: 70, path: '/media/tv/Breaking Bad/Season 01/S01E01.mkv', size: 2 ** 30, quality: 'WEBDL-1080p', episode_ids: [2] }
+const file = episodeFile({ id: 70, path: '/media/tv/Breaking Bad/Season 01/S01E01.mkv', size: 2 ** 30, quality: 'WEBDL-1080p', episode_ids: [2] })
 
 /** Breaking Bad (Standard 51, 4K 52) with Search now and Manual search answered and recorded. */
 async function openSeries() {
