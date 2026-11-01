@@ -43,14 +43,14 @@ const rowsOf = (grid: HTMLElement) =>
 beforeEach(() => localStorage.clear())
 
 describe('season order in the episode table', () => {
-  it('lists Specials, then Season 1, 2 and 3 in the Seasons, and the oldest episode first, by default', async () => {
+  it('lists Specials, then Season 1, 2 and 3 in the Seasons, opens the first with something Wanted, and the oldest episode first, by default', async () => {
     serveDisplay()
     fakeLongSeries()
     const grid = await openGrid()
     expect(await tabsOf()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
-    expect(rowsOf(grid)).toEqual(['Season 3 episode 1', 'Season 3 episode 2']) // the latest season is open
-    await pickSeason('Season 1')
-    expect(rowsOf(screen.getByRole('grid', { name: 'Episodes' }))).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
+    expect(rowsOf(grid)).toEqual(['Season 1 episode 1', 'Season 1 episode 2']) // the first season with something Wanted is open
+    await pickSeason('Season 3')
+    expect(rowsOf(screen.getByRole('grid', { name: 'Episodes' }))).toEqual(['Season 3 episode 1', 'Season 3 episode 2'])
   })
 
   it('lists Season 3 first, then 2, 1 and Specials, with the newest episode first, with newest first', async () => {
