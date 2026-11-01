@@ -79,10 +79,10 @@ describe('the episodes loading Skeleton', () => {
 })
 
 describe('the file of an episode cell', () => {
-  it('says the quality and size of a filled cell on its one line, and what a Wanted one still lacks', async () => {
+  it('says the resolution and size of a filled cell on its one line, and what a Wanted one still lacks', async () => {
     const { grid } = await openSeries()
     const pilot = rowOf(grid, 'Season 1 episode 1')
-    expect(within(pilot).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' })).toHaveTextContent('WEBDL-1080p · 2.0 GB')
+    expect(within(pilot).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' })).toHaveTextContent('1080p · 2.0 GB')
     expect(within(pilot).getByRole('button', { name: 'Season 1 episode 1 4K: Wanted' })).toHaveTextContent(/^Wanted/)
   })
 
@@ -103,6 +103,11 @@ describe('the file of an episode cell', () => {
     const pop = await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })
     expect(within(pop).getByText(pilotPath)).toBeInTheDocument()
     expect(within(pop).getByText(/holds 2 episodes/)).toBeInTheDocument()
+    expect(within(pop).getByText('S01E01 · Standard')).toBeInTheDocument()
+    expect(within(pop).getByText('WEBDL-1080p')).toBeInTheDocument()
+    expect(within(pop).getByText('2.0 GB')).toBeInTheDocument()
+    expect(within(pop).getByText('120')).toBeInTheDocument()
+    expect(within(pop).getByRole('button', { name: 'Upgrade Search' })).toBeInTheDocument()
     await user.click(within(pop).getByRole('button', { name: 'Copy to Clipboard' }))
     expect(await navigator.clipboard.readText()).toBe(pilotPath)
     expect(within(pop).getByText('Copied to clipboard')).toBeInTheDocument()

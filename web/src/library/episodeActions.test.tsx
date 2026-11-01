@@ -67,12 +67,35 @@ describe('whose menu is open', () => {
 describe('searching from the episode table', () => {
   afterEach(() => localStorage.clear())
 
-  it('has Search and Manual… on every row, not hidden in a menu', async () => {
+  it('has one Search button on every row, and the rest of its actions in its ⋯ menu', async () => {
     const { grid } = await openSeries()
     for (const code of ['S01E01', 'S01E02']) {
-      expect(within(grid).getByRole('button', { name: `Manual search ${code}` })).toBeVisible()
-      expect(within(grid).getAllByRole('button', { name: new RegExp(`^(Search|Upgrade) ${code}$`) })).toHaveLength(1)
+      expect(within(grid).getAllByRole('button', { name: new RegExp(`^Search ${code}$`) })).toHaveLength(1)
+      expect(within(grid).queryByRole('button', { name: `Manual search ${code}` })).not.toBeInTheDocument()
     }
+    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
+    const menu = screen.getByRole('menu', { name: 'Actions for Season 1 episode 1' })
+    const items = ['Manual Search Standard…', 'Manual Search 4K…', 'Stop Monitoring', 'Show in Log', 'Delete Standard Files…', 'Delete 4K Files…']
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual(items.map((t) => expect.stringContaining(t)))
+  })
+
+  it('starts and stops monitoring an episode from its menu', async () => {
+    const { grid, state } = await openSeries()
+    await choose(grid, 'Actions for Season 1 episode 1', 'Stop Monitoring')
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } }]))
+    await choose(grid, 'Actions for Season 1 episode 1', 'Start Monitoring')
+    await waitFor(() => expect(state.get().sent).toHaveLength(2))
+    expect(state.get().sent[1]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [2], monitored: true } })
+  })
+
+  it('opens the Log on the Series from an episode’s menu', async () => {
+    const { grid } = await openSeries()
+    await choose(grid, 'Actions for Season 1 episode 1', 'Show in Log')
+    await waitFor(() => expect(location.pathname + location.search).toBe('/log?q=title%3A%22Breaking+Bad%22'))
   })
 
   it('searches one episode from its Search button, in each Slot that wants it', async () => {
@@ -100,22 +123,19 @@ describe('searching from the episode table', () => {
   it('cannot search an episode nothing wants', async () => {
     const { grid } = await openSeries()
     expect(within(grid).getByRole('button', { name: 'Search S01E02' })).toBeDisabled()
-    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 2' }))
-    expect(screen.getByRole('menuitem', { name: 'Search' })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('opens Manual search for one episode in the Slot chosen from Manual…', async () => {
+  it('opens Manual search for one episode in the Slot chosen from its menu', async () => {
     const { grid, manual } = await openSeries()
 
-    await userEvent.click(within(grid).getByRole('button', { name: 'Manual search S01E01' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: '4K' }))
+    await choose(grid, 'Actions for Season 1 episode 1', 'Manual Search 4K…')
 
     const pane = await screen.findByRole('region', { name: 'Manual search' })
     await waitFor(() => expect(manual).toEqual([{ version: 52, body: { season: 1, episode_ids: [2] } }]))
     expect(within(pane).getByText('S01E01')).toBeInTheDocument()
   })
 
-  it('shows Upgrade on an episode with a file and nothing Wanted, and it opens Manual search on the Slot holding the file', async () => {
+  it('offers Upgrade Search in the popover of a cell with a file, and it opens Manual search on that Slot', async () => {
     const state = fakeSeries()
     state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 120, file), '4k': cell('unreleased') } })]
     const manual: Posted[] = []
@@ -128,22 +148,22 @@ describe('searching from the episode table', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
-    expect(within(grid).queryByRole('button', { name: 'Search S01E01' })).not.toBeInTheDocument()
+    expect(within(grid).getByRole('button', { name: 'Search S01E01' })).toBeDisabled()
 
-    await userEvent.click(within(grid).getByRole('button', { name: 'Upgrade S01E01' }))
+    await userEvent.click(within(grid).getByRole('button', { name: 'Season 1 episode 1 Standard: Filled' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Season 1 episode 1 Standard file' })).getByRole('button', { name: 'Upgrade Search' }))
 
     await screen.findByRole('region', { name: 'Manual search' })
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1, episode_ids: [2] } }]))
   })
 
-  it('searches the Wanted episodes of the season, and opens Manual search for it from the buttons above the table', async () => {
+  it('searches the Wanted episodes of the season, and opens Manual search for it from the season menu', async () => {
     const { searched, manual } = await openSeries()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Search Season 1' }))
+    await choose(null, 'Actions for Season 1', 'Search Season')
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { season: 1 } }]))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Actions for Season 1' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Manual search season… Standard' }))
+    await choose(null, 'Actions for Season 1', 'Manual Search Season Standard…')
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1 } }]))
     expect(within(await screen.findByRole('region', { name: 'Manual search' })).getByText('Season 1')).toBeInTheDocument()
   })
@@ -161,22 +181,21 @@ describe('searching from the episode table', () => {
     await user.keyboard('{/Shift}')
     expect(screen.getByRole('toolbar', { name: '2 episodes ticked' })).toHaveTextContent('2 ticked')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Search Now' }))
+    await userEvent.click(within(screen.getByRole('toolbar', { name: '2 episodes ticked' })).getByRole('button', { name: 'Search' }))
 
     // Only the 4K pilot is Wanted among the two.
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { episode_ids: [2] } }]))
   })
 
-  it('opens Manual search for the ticked episodes and unmonitors them from the bar', async () => {
+  it('opens Manual search for the ticked episodes and stops monitoring them from the bar’s menu', async () => {
     const { grid, manual, state } = await openSeries()
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Unmonitor' }))
+    await choose(null, 'More actions for the ticked episodes', 'Stop Monitoring')
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2, 3], monitored: false } }]))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Manual search 2 episodes' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Standard' }))
+    await choose(null, 'More actions for the ticked episodes', 'Manual Search Standard…')
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1, episode_ids: [2, 3] } }]))
   })
 
@@ -201,12 +220,6 @@ describe('searching from the episode table', () => {
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
   })
 
-  it('ticks from the row menu', async () => {
-    const { grid } = await openSeries()
-    await choose(grid, 'Actions for Season 1 episode 1', 'Tick')
-    expect(screen.getByRole('toolbar', { name: 'S01E01 ticked' })).toBeInTheDocument()
-  })
-
   it('opens a row menu from the keyboard and Escape closes it, back on the cell', async () => {
     const { grid } = await openSeries()
     const cell = within(grid).getByRole('button', { name: 'Season 1 episode 1 4K: Wanted' })
@@ -214,7 +227,7 @@ describe('searching from the episode table', () => {
 
     await userEvent.keyboard('{Shift>}{F10}{/Shift}')
     const menu = screen.getByRole('menu', { name: 'Actions for Season 1 episode 1' })
-    expect(within(menu).getByRole('menuitem', { name: 'Search' })).toHaveFocus()
+    expect(within(menu).getAllByRole('menuitem')[0]).toHaveFocus()
     await userEvent.keyboard('{Escape}')
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()

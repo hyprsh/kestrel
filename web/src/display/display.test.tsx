@@ -30,15 +30,11 @@ async function openGrid() {
   return screen.findByRole('grid', { name: 'Episodes' })
 }
 
-/** The seasons in the season menu, in order. */
-const tabsOf = async () => {
-  await userEvent.click(screen.getByRole('button', { name: /^Seasons: / }))
-  const names = within(screen.getByRole('menu'))
-    .getAllByRole('menuitemradio')
-    .map((t) => t.textContent?.replace(/\d\/\d$/, ''))
-  await userEvent.keyboard('{Escape}')
-  return names
-}
+/** The seasons in the Seasons at a glance, in order. */
+const tabsOf = async () =>
+  within(screen.getByRole('region', { name: 'Seasons' }))
+    .getAllByRole('button')
+    .map((b) => b.getAttribute('aria-label')?.split(':')[0])
 const rowsOf = (grid: HTMLElement) =>
   within(grid)
     .getAllByRole('checkbox', { name: /^Tick Season/ })
@@ -47,7 +43,7 @@ const rowsOf = (grid: HTMLElement) =>
 beforeEach(() => localStorage.clear())
 
 describe('season order in the episode table', () => {
-  it('lists Season 1, 2, 3 and then Specials in the season menu, and the oldest episode first, by default', async () => {
+  it('lists Season 1, 2, 3 and then Specials in the Seasons, and the oldest episode first, by default', async () => {
     serveDisplay()
     fakeLongSeries()
     const grid = await openGrid()

@@ -1,6 +1,6 @@
-import { type ReactElement } from 'react'
+import { Fragment, type ReactElement } from 'react'
 import type { components } from '../api/schema.gen'
-import { Popover, Snippet } from '@hyprsh/design'
+import { Button, Popover, Snippet } from '@hyprsh/design'
 import { size } from './bits'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
@@ -57,10 +57,69 @@ export function FilePopover({
   )
 }
 
-/** The popover of a filled episode cell: its file's path and facts. `trigger` is the cell itself. */
-export function EpisodeFilePopover({ label, cell, file, trigger }: { label: string; cell: EpisodeCell; file: EpisodeFile; trigger: ReactElement }) {
+/**
+ * The popover of a filled episode cell: its quality, Score and size, the path in a Snippet (its Copy button is Copy Path),
+ * and Upgrade Search, which opens Manual search on this Slot where a better Release can be picked. `heading` names the cell ("S05E01 · Standard").
+ * The API holds no audio, import date or release group of a file, so the popover says no more than it knows.
+ */
+export function EpisodeFilePopover({
+  label,
+  heading,
+  cell,
+  file,
+  trigger,
+  onUpgrade,
+}: {
+  label: string
+  heading: string
+  cell: EpisodeCell
+  file: EpisodeFile
+  trigger: ReactElement
+  onUpgrade?: () => void
+}) {
   const others = file.episode_ids.length
-  return <FilePopover label={`${label} file`} path={file.path} note={[...facts(cell), ...(others > 1 ? [`This file holds ${others} episodes`] : [])].join(' · ')} trigger={trigger} />
+  const rows: [string, string][] = [
+    ...(file.quality ? ([['Quality', file.quality]] as [string, string][]) : []),
+    ['Size', size(file.size)],
+    ...(cell.score != null ? ([['Score', String(cell.score)]] as [string, string][]) : []),
+    ...(others > 1 ? ([['Episodes', `This file holds ${others} episodes`]] as [string, string][]) : []),
+  ]
+  return (
+    <Popover trigger={trigger} label={`${label} file`} position="bottom-end" width={340}>
+      {({ close }) => (
+        <div
+          // The grid's arrows and Space, and the detail's Escape, must not fire; the popover keeps Escape and Tab.
+          onKeyDown={(e) => e.key !== 'Escape' && e.key !== 'Tab' && e.stopPropagation()}
+          className="flex flex-col gap-2.5"
+        >
+          <p className="label-14-strong">{heading}</p>
+          <dl className="label-13 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-y-1">
+            {rows.map(([k, v]) => (
+              <Fragment key={k}>
+                <dt className="text-gray-900">{k}</dt>
+                <dd>{v}</dd>
+              </Fragment>
+            ))}
+          </dl>
+          <Snippet prompt={false} text={file.path} width="100%" />
+          {onUpgrade && (
+            <div>
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => {
+                  close()
+                  onUpgrade()
+                }}
+              >
+                Upgrade Search
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </Popover>
+  )
 }
 
 /** The popover of a cell with no file, for touch where its hover title is out of reach: what its colour says. */

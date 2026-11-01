@@ -176,7 +176,7 @@ export function useEpisodeDeletes(episodes: Episode[]): EpisodeDeletes {
   }
 }
 
-/** The menu items deleting the files of `episodes`, one per Slot when the Series has both. */
+/** The menu items deleting the files of `episodes`, one per Slot when the Series has both: "Delete Files…", "Delete 4K Season's Files…" (`text` is the noun). */
 export function DeleteMenuItems({
   deletes,
   versions,
@@ -191,6 +191,7 @@ export function DeleteMenuItems({
   episodes: Episode[]
   label: string
   scope: EpisodeScope
+  /** What is deleted, as a noun phrase: "Files", "Season's Files". */
   text: string
   /** The episode row or season the menu belongs to; null: the bar for ticked episodes. */
   at: string | null
@@ -199,7 +200,7 @@ export function DeleteMenuItems({
     const has = deletes.has(v, episodes)
     return (
       <Menu.Item key={`delete-${v.slot}`} disabled={!has} description={has ? undefined : 'No file to delete'} onSelect={() => deletes.ask(v, episodes, label, scope, at)}>
-        {versions.length > 1 ? `${text} ${slotLabel[v.slot]}` : text}
+        {versions.length > 1 ? `Delete ${slotLabel[v.slot]} ${text}…` : `Delete ${text}…`}
       </Menu.Item>
     )
   })

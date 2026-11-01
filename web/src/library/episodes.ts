@@ -60,3 +60,56 @@ export function bySeason(episodes: Episode[]): Map<number, Episode[]> {
 
 /** The season a Series' Title page opens on: the latest one, or Specials when that is all it has. */
 export const defaultSeason = (seasons: number[]): number => Math.max(0, ...seasons)
+
+type CellState = NonNullable<Episode['cells'][SlotKey]>['state']
+
+/** How one Slot stands in a season: a state per episode (the squares of the season grid) and the counts the row says in words. */
+export type SlotTally = { slot: SlotKey; states: CellState[]; filled: number; downloading: number; wanted: number; unaired: number; unmonitored: number; counted: number }
+
+/** `counted` is what the fill count measures against: the episodes out and monitored. */
+export function slotTally(episodes: Episode[], slot: SlotKey): SlotTally {
+  const states = episodes.map((e) => e.cells[slot]?.state ?? 'unmonitored')
+  const n = (s: CellState) => states.filter((x) => x === s).length
+  return {
+    slot,
+    states,
+    filled: n('filled'),
+    downloading: n('downloading'),
+    wanted: n('wanted'),
+    unaired: n('unreleased'),
+    unmonitored: n('unmonitored'),
+    counted: states.length - n('unreleased') - n('unmonitored'),
+  }
+}
+
+/** The tally as a short count: "8/10", "12/13 · 1 Wanted", or "not monitored" when the season holds nothing to count. */
+export function tallyCount(t: SlotTally): string {
+  if (t.counted === 0 && t.filled === 0) return t.unaired > 0 && t.unmonitored === 0 ? 'not aired' : 'not monitored'
+  return `${t.filled}/${t.counted}${t.wanted > 0 ? ` · ${t.wanted} Wanted` : ''}`
+}
+
+/** The filters of the open season's table. */
+export type EpisodeFilter = 'all' | 'missing' | 'downloading' | 'unaired'
+
+const statesOf = (e: Episode, slots: SlotKey[]) => slots.map((s) => e.cells[s]?.state)
+
+/** Whether an episode shows under a filter: Missing is Wanted in some Slot, Downloading is downloading in some Slot, Not aired is not out in some Slot. */
+export function matchesFilter(e: Episode, slots: SlotKey[], filter: EpisodeFilter): boolean {
+  const states = statesOf(e, slots)
+  switch (filter) {
+    case 'missing':
+      return states.includes('wanted')
+    case 'downloading':
+      return states.includes('downloading')
+    case 'unaired':
+      return states.includes('unreleased')
+    default:
+      return true
+  }
+}
+
+/** An episode that is not out in any Slot yet: the table folds these into one row. */
+export const isUnaired = (e: Episode, slots: SlotKey[]) => {
+  const states = statesOf(e, slots).filter((s) => s !== undefined)
+  return states.length > 0 && states.every((s) => s === 'unreleased')
+}

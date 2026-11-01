@@ -1,4 +1,5 @@
 import { Button, Checkbox, StatusDot, Table, TableBody, TableCell, TableHead, TableHeader, TableRoot, TableRow } from '@hyprsh/design'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Episode } from '../api/queries'
 import { useColumnWidths } from '../layout/columnWidths'
@@ -7,19 +8,33 @@ import { usePhone } from '../responsive'
 import type { QueueItem } from '../api/queue'
 import { dotOf, faintDot, slotLabel, versionStatus, type SlotKey } from './bits'
 import { RowDeleteConfirm } from './DeleteFiles'
-import { EpisodeMenu, EpisodeTick, RowButtons, type EpisodeActions } from './EpisodeActions'
+import { EpisodeMenu, EpisodeTick, RowSearch, type EpisodeActions } from './EpisodeActions'
 import { CellPopover, EpisodeFilePopover, cellTitle } from './EpisodeFilePopover'
 import { EpisodeName } from './EpisodeName'
-import { cellText, grabOf } from './cellDetail'
-import { episodeRow } from './episodes'
+import { cellText, grabOf, monthDay } from './cellDetail'
+import { episodeCode, episodeRow } from './episodes'
 import { rowActionsShown } from './IconAction'
 
 /** The key of the Aired column in the column order; the Slots' keys are their own. */
 export const airedKey = 'aired'
 
+/** The episodes not aired yet, folded into one row of the table under `episodes`: `expanded` has them among the rows, with this row to fold them again. */
+export type UnairedFold = { episodes: Episode[]; expanded: boolean; onToggle: () => void; atStart: boolean }
+
+/** "6 more, not aired yet (S05E11 – S05E16, from Nov 2)": what the fold row says. */
+function foldText(eps: Episode[]): string {
+  const numbers = eps.map((e) => e.number)
+  const first = eps.find((e) => e.number === Math.min(...numbers))!
+  const last = eps.find((e) => e.number === Math.max(...numbers))!
+  const dates = eps.flatMap((e) => (e.air_date ? [e.air_date] : [])).sort()
+  const codes = first === last ? episodeCode(first) : `${episodeCode(first)} – ${episodeCode(last)}`
+  return `${eps.length} more, not aired yet (${codes}${dates.length > 0 ? `, from ${monthDay(dates[0])}` : ''})`
+}
+
 /**
- * The open season's episodes × Slots: a row per episode with a tick box, its code, name and air date, a state per Slot that
- * has a Version, and visible Search (Upgrade on an episode with a file) and Manual… buttons. It is one grid with a roving
+ * The open season's episodes × Slots: a row per episode with a tick box, its code, name and air date, a short state per Slot that
+ * has a Version (its full detail in the cell's tooltip, a file's in the popover a click opens), and on hover a Search button and
+ * the ⋯ menu of the episode. It is one grid with a roving
  * focus: arrows (or h/j/k/l) move between the tick box and the Slot cells, Space on a Slot cell toggles the episode's
  * monitoring, Space on the tick box ticks it, x ticks (X a range), s searches, m opens Manual search, Shift+F10 or the menu
  * key opens the row's menu, and Home and End jump to the first and last row. `found` is the episode the Find field
@@ -34,6 +49,7 @@ export function EpisodeMatrix({
   found,
   grabs,
   columnWidths,
+  fold,
 }: {
   season: number
   episodes: Episode[]
@@ -46,6 +62,7 @@ export function EpisodeMatrix({
   grabs: Map<string, QueueItem>
   /** The widths of the resizable columns, kept by the screen (layout/columnWidths.tsx), which also offers the reset. */
   columnWidths: Pick<ReturnType<typeof useColumnWidths>, 'widths' | 'onChange'>
+  fold?: UnairedFold
 }) {
   const grid = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ row: 0, col: 0 })
@@ -157,7 +174,7 @@ export function EpisodeMatrix({
                   onClick={() => (ticked === episodes.length ? selection.clear() : selection.checkAll())}
                 />
               </TableHead>
-              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={360} minWidth={180} maxWidth={720} className="px-2">
+              <TableHead columnKey="name" resizable={!phone} truncate={phone} width={360} minWidth={phone ? 120 : 180} maxWidth={720} className="px-2">
                 Name
               </TableHead>
               {/* Takes the rest of the row, so the table is as wide as its card and the other columns sit at its right edge (a phone's Name does that). */}
@@ -174,12 +191,13 @@ export function EpisodeMatrix({
                   </TableHead>
                 )
               })}
-              <TableHead align="right" className="px-2 sr-only">
-                Search
+              <TableHead align="right" className="w-17 px-2 max-sm:w-13 max-sm:px-1">
+                <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
+            {fold?.atStart && <FoldRow fold={fold} columns={columns + 4} rowIndex={2} />}
             {episodes.map((ep, i) => (
               <EpisodeRow
                 key={ep.id}
@@ -187,6 +205,7 @@ export function EpisodeMatrix({
                 slots={slots}
                 order={columnOrder.order}
                 index={i}
+                rowIndex={i + 2 + (fold?.atStart ? 1 : 0)}
                 columns={columns + 4}
                 tab={tab}
                 ticked={selection.has(ep.id)}
@@ -198,10 +217,44 @@ export function EpisodeMatrix({
                 onMenuOpenChange={menuOf(episodeRow(ep.id))}
               />
             ))}
+            {fold && !fold.atStart && <FoldRow fold={fold} columns={columns + 4} rowIndex={episodes.length + 2} />}
           </TableBody>
         </Table>
       </TableRoot>
     </div>
+  )
+}
+
+/** The colour of a cell's text: Wanted amber and downloading blue, as the dots beside them are; the rest plain or quiet. */
+const stateText: Record<string, string> = { filled: '', wanted: 'text-amber-900', downloading: 'text-blue-900', unreleased: 'text-gray-900', unmonitored: 'text-gray-900' }
+
+/** What the tooltip of a cell adds to its state and file: the air date of a Wanted or unaired episode, a download's progress. */
+function moreOf(cell: Episode['cells'][SlotKey], episode: Episode, text: string | null, state: string): string {
+  if (!cell || cell.file) return ''
+  if (cell.state === 'wanted' && episode.air_date) return `\nAired ${monthDay(episode.air_date)}`
+  if (cell.state === 'unreleased' && episode.air_date) return `\nAirs ${monthDay(episode.air_date)}`
+  return text && text !== state ? `\n${text}` : ''
+}
+
+/** The row that folds the episodes not aired yet away, and brings them back. */
+function FoldRow({ fold, columns, rowIndex }: { fold: UnairedFold; columns: number; rowIndex: number }) {
+  const Icon = fold.expanded ? ChevronUp : ChevronDown
+  return (
+    <TableRow aria-rowindex={rowIndex}>
+      <TableCell colSpan={columns} truncate className="px-2">
+        <Button
+          variant="tertiary"
+          size="small"
+          className="max-w-full"
+          aria-expanded={fold.expanded}
+          title={foldText(fold.episodes)}
+          prefix={<Icon aria-hidden className="size-3.5" />}
+          onClick={fold.onToggle}
+        >
+          <span className="min-w-0 truncate">{fold.expanded ? 'Hide the episodes not aired yet' : foldText(fold.episodes)}</span>
+        </Button>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -210,6 +263,7 @@ function EpisodeRow({
   slots,
   order,
   index,
+  rowIndex,
   columns,
   tab,
   ticked,
@@ -224,6 +278,7 @@ function EpisodeRow({
   slots: SlotKey[]
   order: string[]
   index: number
+  rowIndex: number
   columns: number
   tab: (row: number, col: number) => number
   ticked: boolean
@@ -238,15 +293,13 @@ function EpisodeRow({
   const phone = usePhone()
   return (
     <>
-      <TableRow aria-rowindex={index + 2} data-episode={episode.id} data-menu-open={menuOpen ? '' : undefined} selected={ticked} current={found} className="group/row">
+      <TableRow aria-rowindex={rowIndex} data-episode={episode.id} data-menu-open={menuOpen ? '' : undefined} selected={ticked} current={found} className="group/row">
         <TableCell className="px-2">
           <EpisodeTick actions={actions} episode={episode} cell={`${index}-0`} tabIndex={tab(index, 0)} onFocus={() => onFocus(0)} />
         </TableCell>
         <TableCell truncate={phone} className="px-2">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="label-12-mono shrink-0 text-gray-900">
-              {episode.season}x{String(episode.number).padStart(2, '0')}
-            </span>
+            <span className="label-12-mono shrink-0 text-gray-900">E{String(episode.number).padStart(2, '0')}</span>
             <EpisodeName episode={episode} />
           </span>
         </TableCell>
@@ -265,7 +318,7 @@ function EpisodeRow({
           const state = cell ? versionStatus(cell.state).label : 'no Version'
           const dot = dotOf(cell ? cell.state : null, false)
           const text = cellText(cell, episode, grabOf(grabs, s, episode), state)
-          const title = cellTitle(slotLabel[s], state, cell) + (text && text !== state && !cell?.file ? `\n${text}` : '')
+          const title = cellTitle(slotLabel[s], state, cell) + moreOf(cell, episode, text, state)
           const button = (
             <Button
               variant="tertiary"
@@ -278,13 +331,23 @@ function EpisodeRow({
               onFocus={() => onFocus(c + 1)}
               prefix={<StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden className={dot.faint ? faintDot : undefined} />}
             >
-              <span className={`min-w-0 truncate max-sm:sr-only ${cell?.state === 'unmonitored' ? 'text-gray-900' : ''}`}>{text ?? '—'}</span>
+              <span className={`min-w-0 truncate max-sm:sr-only ${cell ? stateText[cell.state] : 'text-gray-900'}`}>{text ?? '—'}</span>
             </Button>
           )
           return (
             <TableCell key={s} className="px-2">
               {cell?.file ? (
-                <EpisodeFilePopover label={`${label} ${slotLabel[s]}`} cell={cell} file={cell.file} trigger={button} />
+                <EpisodeFilePopover
+                  label={`${label} ${slotLabel[s]}`}
+                  heading={`${episodeCode(episode)} · ${slotLabel[s]}`}
+                  cell={cell}
+                  file={cell.file}
+                  trigger={button}
+                  onUpgrade={() => {
+                    const v = actions.versions.find((x) => x.slot === s)
+                    if (v) actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, episodeCode(episode))
+                  }}
+                />
               ) : phone ? (
                 // No hover on a phone: a tap says what the state means.
                 <CellPopover label={`${label} ${slotLabel[s]}`} text={title} trigger={button} />
@@ -294,9 +357,9 @@ function EpisodeRow({
             </TableCell>
           )
         })}
-        <TableCell align="right" className="px-2">
-          <span className={`flex items-center justify-end gap-1 ${rowActionsShown}`}>
-            <RowButtons actions={actions} episode={episode} />
+        <TableCell align="right" className="px-2 max-sm:px-1">
+          <span className={`flex items-center justify-end gap-1 max-sm:gap-0 ${rowActionsShown}`}>
+            <RowSearch actions={actions} episode={episode} />
             <EpisodeMenu actions={actions} episode={episode} onOpenChange={onMenuOpenChange} />
           </span>
         </TableCell>

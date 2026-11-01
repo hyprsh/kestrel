@@ -12,26 +12,27 @@ describe('cellText', () => {
     expect(text(null)).toBeNull()
   })
 
-  it('gives a filled cell its file’s quality and size', () => {
+  it('gives a filled cell its file’s resolution and size', () => {
     const file = { id: 1, path: '/tv/x.mkv', size: 3.2 * 1024 ** 3, quality: 'WEBDL-1080p', episode_ids: [1] }
-    expect(text(cell('filled', 100, file))).toBe('WEBDL-1080p · 3.2 GB')
+    expect(text(cell('filled', 100, file))).toBe('1080p · 3.2 GB')
     expect(text(cell('filled'))).toBe('label')
   })
 
-  it('says how long ago a Wanted episode aired', () => {
-    expect(text(cell('wanted'))).toBe('Wanted · aired 3 d ago')
+  it('says how many days a Wanted episode has been out', () => {
+    expect(text(cell('wanted'))).toBe('Wanted · 3 d')
     expect(text(cell('wanted'), ep({ air_date: null }))).toBe('label')
   })
 
   it('shows a download’s progress and time left, and Importing once it is imported', () => {
     const grab = queueItem({ phase: 'downloading', bytes_total: 1000, bytes_left: 600, eta: 780 })
-    expect(text(cell('downloading'), ep(), grab)).toBe('40 % · 13 min')
+    expect(text(cell('downloading'), ep(), grab)).toBe('40% · 13 min')
     expect(text(cell('downloading'), ep(), { ...grab, phase: 'importing' })).toBe('Importing')
     expect(text(cell('downloading'))).toBe('label')
   })
 
-  it('gives an unreleased episode its air date', () => {
-    expect(text(cell('unreleased'), ep({ air_date: '2026-11-04' }))).toBe('Not out yet · Nov 4')
+  it('gives an unreleased episode its air date, or says it is not aired', () => {
+    expect(text(cell('unreleased'), ep({ air_date: '2026-11-04' }))).toBe('Nov 4')
+    expect(text(cell('unreleased'), ep({ air_date: null }))).toBe('Not aired')
   })
 })
 

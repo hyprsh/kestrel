@@ -160,7 +160,7 @@ describe('deleting files from the episode table', () => {
   it("deletes an episode's file, naming every episode the shared file holds", async () => {
     const { grid, sent } = await openSeriesWithFiles()
 
-    await choose(grid, 'Actions for Season 1 episode 1', 'Delete file Standard')
+    await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
     const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Breaking Bad - S01E01-E02 - [Standard].mkv')
     expect(confirm).toHaveTextContent('3.0 GB')
@@ -177,7 +177,7 @@ describe('deleting files from the episode table', () => {
     const { grid, sent } = await openSeriesWithFiles()
     const pilot = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })
 
-    await choose(grid, 'Actions for Season 1 episode 1', 'Delete file Standard')
+    await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
 
     const confirm = within(grid).getByRole('dialog', { name: 'Delete files' })
     expect(confirm.closest('tr')?.previousElementSibling).toContainElement(pilot)
@@ -193,7 +193,7 @@ describe('deleting files from the episode table', () => {
   it("asks under the season's buttons, above the table, for a season's files", async () => {
     const { grid } = await openSeriesWithFiles()
 
-    await choose(null, 'Actions for Season 1', "Delete season's files Standard")
+    await choose(null, 'Actions for Season 1', "Delete Standard Season's Files…")
 
     const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(grid.contains(confirm)).toBe(false)
@@ -204,7 +204,7 @@ describe('deleting files from the episode table', () => {
   it('cannot delete a file a Slot does not have', async () => {
     const { grid } = await openSeriesWithFiles()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
-    expect(screen.getByRole('menuitem', { name: 'Delete file 4K' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Delete 4K Files…' })).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('offers Delete file wherever the Slot dot is filled, in a Series kept in 4K only', async () => {
@@ -238,18 +238,18 @@ describe('deleting files from the episode table', () => {
 
     expect(within(grid).getByRole('button', { name: 'Season 1 episode 1 4K: Filled' })).toBeInTheDocument()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
-    expect(screen.getByRole('menuitem', { name: 'Delete file' })).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Delete Files…' })).not.toHaveAttribute('aria-disabled', 'true')
     await userEvent.keyboard('{Escape}')
 
     expect(within(grid).getByRole('button', { name: 'Season 1 episode 2 4K: Wanted' })).toBeInTheDocument()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 2' }))
-    expect(screen.getByRole('menuitem', { name: 'Delete file' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Delete Files…' })).toHaveAttribute('aria-disabled', 'true')
   })
 
   it("deletes a season's files from the season's menu, blocklisting their Release", async () => {
     const { sent } = await openSeriesWithFiles()
 
-    await choose(null, 'Actions for Season 1', "Delete season's files Standard")
+    await choose(null, 'Actions for Season 1', "Delete Standard Season's Files…")
     await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete and blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'season=1&blocklist=true' }]))
@@ -258,9 +258,9 @@ describe('deleting files from the episode table', () => {
   it('deletes the files of the ticked episodes', async () => {
     const { grid, sent } = await openSeriesWithFiles()
 
-    await choose(grid, 'Actions for Season 1 episode 2', 'Tick')
+    await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
     const bar = screen.getByRole('toolbar', { name: 'S01E02 ticked' })
-    await choose(null, 'More actions for the ticked episodes', 'Delete files Standard')
+    await choose(null, 'More actions for the ticked episodes', 'Delete Standard Files…')
     expect(screen.getByRole('dialog', { name: 'Delete files' })).toHaveTextContent('S01E01 shares a file with it')
     expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument() // in the bar for ticked episodes
     expect(bar).toContainElement(screen.getByRole('dialog', { name: 'Delete files' }))

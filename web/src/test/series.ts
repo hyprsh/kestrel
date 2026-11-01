@@ -77,8 +77,7 @@ export function fakeSeries() {
   return { ...state, lib, get: () => state }
 }
 
-/** Opens the season menu of a Series' Title page and picks a season by its name ("Season 1", "Specials"). */
+/** Opens a season of a Series' Title page by its name ("Season 1", "Specials") from the Seasons at a glance. */
 export async function pickSeason(name: string) {
-  await userEvent.click(screen.getByRole('button', { name: /^Seasons: / }))
-  await userEvent.click(await screen.findByRole('menuitemradio', { name: new RegExp(`^${name}\\b`) }))
+  await userEvent.click(screen.getByRole('button', { name: new RegExp(`^${name}:`) }))
 }
