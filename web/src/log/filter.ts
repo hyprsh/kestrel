@@ -2,7 +2,7 @@
 // structured GET /events parameters. The grammar is the design's (parseQuery).
 import type { LogFilter } from '../api/log'
 import type { TitleRow } from '../api/queries'
-import { valuesOf, type Query } from '@hyprsh/design'
+import { parseQuery, termText, valuesOf, type Query } from '@hyprsh/design'
 import type { Facet } from '../filter/qualifiers'
 import { slotKeys, type SlotKey } from '../library/bits'
 
@@ -11,6 +11,8 @@ const groups: Record<string, readonly string[]> = {
   grabs: ['grab', 'grab_failed', 'grab_canceled', 'grab_downloading', 'grab_completed'],
   imports: ['import', 'import_episode', 'import_rejected', 'import_stalled'],
   adoption: ['adoption', 'adoption_scanned'],
+  errors: ['grab_failed', 'import_rejected', 'blocklist'],
+  warnings: ['import_stalled', 'health_raised', 'original_offered'],
   failures: ['grab_failed', 'import_rejected', 'import_stalled', 'blocklist', 'health_raised'],
 }
 
@@ -20,6 +22,8 @@ const groupText: Record<string, { label: string; description: string }> = {
   grabs: { label: 'Grabs', description: 'Every step of a Grab, from grabbed to downloaded' },
   imports: { label: 'Imports', description: 'Imported, rejected or stalled Imports' },
   adoption: { label: 'Adoption', description: 'Adopted and scanned files' },
+  errors: { label: 'Errors', description: 'Failed Grabs, rejected Imports and blocklisting' },
+  warnings: { label: 'Warnings', description: 'Stalled Imports, raised warnings and offered originals' },
   failures: { label: 'Failures', description: 'Failed Grabs, rejected and stalled Imports, blocklisting and warnings' },
 }
 
@@ -29,13 +33,21 @@ export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: r
     {
       name: 'kind',
       label: 'Kind',
-      help: 'What happened, or a group: grabs, imports, adoption, failures',
+      help: 'What happened, or a group: grabs, imports, adoption, errors, warnings, failures',
       values: [...new Set([...Object.keys(groups), ...Object.keys(kinds)])],
       excludable: true,
       options: { ...Object.fromEntries(Object.entries(kinds).map(([k, label]) => [k, { label }])), ...groupText },
     },
     { name: 'slot', help: 'Events about a Version in that Slot', values: slotKeys, excludable: true },
     { name: 'title', label: 'Title', help: 'Events about a Title, by name; quote names with spaces', suggestions: titles, excludable: true },
+    {
+      name: 'sort',
+      label: 'Sort',
+      single: 'Newest first',
+      help: 'Order the Log: oldest turns it round',
+      values: ['oldest'],
+      options: { oldest: { label: 'Oldest first' } },
+    },
     { name: 'routine', help: 'Show routine events, such as a download starting', values: yesNo, excludable: true },
   ]
 }
@@ -67,4 +79,50 @@ export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
     excludeTitleIds: named(negated('title')),
     routine: routine ? (routine.values.at(-1) === 'yes') !== routine.excluded : false,
   }
+}
+
+/** Whether a parsed filter asks for the oldest events first (`sort:oldest`). */
+export const oldestFirst = (q: Query) => q.terms.some((t) => t.name === 'sort' && t.values[0] === 'oldest')
+
+/**
+ * A view of the Log: a name, an icon key and the filter it stands for. `terms` are the qualifier terms it sets, as typed;
+ * `routine` says it shows routine events, so its count includes them.
+ */
+export type LogView = { key: string; label: string; terms: string; kinds: readonly string[] | null; routine: boolean }
+
+export const logViews: readonly LogView[] = [
+  { key: 'everything', label: 'Everything', terms: '', kinds: null, routine: false },
+  { key: 'errors', label: 'Errors', terms: 'kind:errors', kinds: groups.errors, routine: false },
+  { key: 'warnings', label: 'Warnings', terms: 'kind:warnings', kinds: groups.warnings, routine: false },
+  { key: 'grabs', label: 'Grabs', terms: 'kind:grabs', kinds: groups.grabs, routine: false },
+  { key: 'imports', label: 'Imports', terms: 'kind:imports', kinds: groups.imports, routine: false },
+  { key: 'searches', label: 'Searches', terms: 'kind:search routine:yes', kinds: ['search'], routine: true },
+]
+
+/** The Log's `query` for a view: its terms, keeping the sort of `query`. */
+export function viewQuery(view: LogView, query: string, qualifiers: readonly Facet[]): string {
+  const sort = parseQuery(query, qualifiers).terms.find((t) => t.name === 'sort')
+  return [view.terms, sort ? termText(sort) : ''].filter(Boolean).join(' ')
+}
+
+/** The view a filter is exactly: the same terms and no free text, apart from the sort; none when it is something else. */
+export function currentView(query: string, qualifiers: readonly Facet[]): LogView | undefined {
+  const parsed = parseQuery(query, qualifiers)
+  if (parsed.text.trim() !== '') return undefined
+  const key = (terms: readonly { name: string; values: readonly string[]; excluded: boolean }[]) =>
+    terms
+      .filter((t) => t.name !== 'sort')
+      .map((t) => `${t.excluded ? '-' : ''}${t.name}:${[...t.values].sort().join(',')}`)
+      .sort()
+      .join(' ')
+  const here = key(parsed.terms)
+  return logViews.find((v) => key(parseQuery(v.terms, qualifiers).terms) === here)
+}
+
+/** How many events a view shows, from the summary's per-kind counts; Everything is every kind that is not routine. */
+export function viewCount(view: LogView, counts: readonly { kind: string; count: number; routine: boolean }[]): number {
+  return counts
+    .filter((c) => (view.kinds ? view.kinds.includes(c.kind) : !c.routine))
+    .filter((c) => view.routine || !c.routine)
+    .reduce((n, c) => n + c.count, 0)
 }

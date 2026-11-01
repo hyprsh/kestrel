@@ -1,22 +1,26 @@
 // The Log: what Kestrel did, filtered by one field of qualifiers (kind:, slot:, title:,
 // routine:) and free text, with routine events hidden until asked for; and the Blocklist view,
 // where an entry can be removed.
-import { Badge, Button, DotsMenu, EmptyState, Entity, Link, MenuItem, Note, Pager, Table, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
+import { Badge, Button, DotsMenu, EmptyState, Entity, Link, MenuDivider, MenuItem, MenuSection, Note, Pager, Table, parseQuery, termText, withValue, type BadgeProps } from '@hyprsh/design'
+import { ArrowDownToLine, CircleAlert, FileCheck, List, Search, TriangleAlert } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { useBlocklist, useEvents, useUnblock, type LogEvent } from '../api/log'
+import { useBlocklist, useEvents, useEventsSummary, useUnblock, type EventsSummary, type LogEvent } from '../api/log'
 import { useTitles } from '../api/queries'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
-import { FacetFilterButton } from '../layout/FilterButton'
-import { ScreenBar, ViewSwitcher } from '../layout/ScreenBar'
+import { filterChips } from '../filter/chips'
+import type { Facet } from '../filter/qualifiers'
+import { FacetFilterButton, SortButton } from '../layout/FilterButton'
+import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
 import { PagerStrip } from '../layout/PagerStrip'
 import { useKey, useListNav } from '../keys'
 import { useColumnWidths } from '../layout/columnWidths'
 import { SkeletonRow, SkeletonRows, TableSkeletonRows } from '../loading'
 import { usePageParam } from '../place'
 import { usePhone } from '../responsive'
+import { useNow } from '../time'
 import { useReport } from '../toasts'
-import { logFilter, logQualifiers } from './filter'
+import { currentView, logFilter, logQualifiers, logViews, oldestFirst, viewCount, viewQuery } from './filter'
 
 type Tone = NonNullable<BadgeProps['variant']>
 
@@ -51,36 +55,150 @@ const kindLabels = Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, 
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
+const viewIcons: Record<string, ReactNode> = {
+  everything: <List />,
+  errors: <CircleAlert />,
+  warnings: <TriangleAlert />,
+  grabs: <ArrowDownToLine />,
+  imports: <FileCheck />,
+  searches: <Search />,
+}
+
 /** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
 export function Log({ query, onQuery }: { query: string; onQuery: (query: string) => void }) {
-  const phone = usePhone()
-  const [view, setView] = useState<'log' | 'blocklist'>('log')
+  const [blocklist, setBlocklist] = useState(false)
   const [, setPage] = usePageParam()
   const widths = useColumnWidths('log')
-  const switcher = (
-    <ViewSwitcher
-      label="Log"
-      current={view}
-      onChange={(v) => {
-        setView(v)
-        setPage(1)
+  // The Blocklist is a page of its own, reached from the "…" menu; any view of the panel goes back to the Log.
+  const showBlocklist = (on: boolean) => {
+    setBlocklist(on)
+    setPage(1)
+  }
+  return blocklist ? (
+    <Blocklist
+      query={query}
+      onQuery={onQuery}
+      widths={widths}
+      onBack={() => showBlocklist(false)}
+      onView={(q) => {
+        onQuery(q)
+        showBlocklist(false)
       }}
-      views={[
-        { value: 'log', label: 'Log' },
-        { value: 'blocklist', label: 'Blocklist' },
-      ]}
+    />
+  ) : (
+    <Events query={query} onQuery={onQuery} widths={widths} onBlocklist={() => showBlocklist(true)} />
+  )
+}
+
+/** The footer line: how far back the Log goes, and how long routine events are kept; what is not known is left out. */
+function retention(summary: EventsSummary | undefined, now: number): string | null {
+  if (!summary) return null
+  const parts = []
+  if (summary.oldest) {
+    const days = Math.max(1, Math.ceil((now - new Date(summary.oldest).getTime()) / 86_400_000))
+    parts.push(days === 1 ? 'Today' : `Last ${days} days`)
+  }
+  if (summary.routine_days > 0) parts.push(`routine kept ${summary.routine_days} days`)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
+/**
+ * The Log's side panel, shared by its two pages: the name with the "…" menu, the filter, Filter and Sort, the chips, the
+ * Views and the footer. The Blocklist shows only the name, the menu and the Views, since its list is not filtered.
+ * On a phone the Views are in the "…" menu, since the panel is only a header there.
+ */
+function LogPanel({
+  query,
+  onQuery,
+  onView,
+  qualifiers,
+  filtered,
+  onFilter,
+  widths,
+  blocklist,
+  onBlocklist,
+}: {
+  query: string
+  onQuery: (query: string) => void
+  /** Chooses a view: its filter, as the new query. */
+  onView: (query: string) => void
+  qualifiers: readonly Facet[]
+  /** Whether the list can be filtered (the Log, not the Blocklist). */
+  filtered: boolean
+  onFilter?: ReactNode
+  widths: ReturnType<typeof useColumnWidths>
+  blocklist: { showing: boolean; onBack: () => void } | { showing: false; onBack?: undefined }
+  onBlocklist?: () => void
+}) {
+  const phone = usePhone()
+  const summary = useEventsSummary()
+  const counts = summary.data?.counts
+  const chosen = blocklist.showing ? undefined : currentView(query, qualifiers)
+  const countOf = (v: (typeof logViews)[number]) => (counts ? viewCount(v, counts) : undefined)
+  const now = useNow()
+  const foot = retention(summary.data, now)
+  return (
+    <SidePanel
+      title="Log"
+      actions={
+        <DotsMenu aria-label="Log actions" width={220}>
+          {blocklist.showing ? (
+            <MenuItem onSelect={blocklist.onBack}>Back to the Log</MenuItem>
+          ) : (
+            <>
+              {!phone && (
+                <MenuItem disabled={widths.isDefault} onSelect={widths.reset}>
+                  Reset column widths
+                </MenuItem>
+              )}
+              <MenuItem onSelect={() => onBlocklist?.()}>Blocklist</MenuItem>
+            </>
+          )}
+          {phone && (
+            <>
+              <MenuDivider />
+              <MenuSection title="Views">
+                {logViews.map((v) => (
+                  <MenuItem key={v.key} role="radio" checked={chosen?.key === v.key} suffix={countOf(v)?.toLocaleString()} onSelect={() => onView(viewQuery(v, query, qualifiers))}>
+                    {v.label}
+                  </MenuItem>
+                ))}
+              </MenuSection>
+            </>
+          )}
+        </DotsMenu>
+      }
+      filter={filtered ? onFilter : undefined}
+      controls={
+        filtered ? (
+          <>
+            <FacetFilterButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+            <SortButton query={query} onQuery={onQuery} qualifiers={qualifiers} />
+          </>
+        ) : undefined
+      }
+      chips={filtered ? <FilterChips chips={filterChips(query, onQuery, qualifiers)} /> : undefined}
+      views={
+        <SidePanelViews>
+          {logViews.map((v) => {
+            const n = countOf(v)
+            return (
+              <SidePanelView
+                key={v.key}
+                icon={viewIcons[v.key]}
+                current={chosen?.key === v.key}
+                count={n === undefined ? undefined : <span className={v.key === 'errors' && n > 0 ? 'text-red-900' : undefined}>{n.toLocaleString()}</span>}
+                onSelect={() => onView(viewQuery(v, query, qualifiers))}
+              >
+                {v.label}
+              </SidePanelView>
+            )
+          })}
+        </SidePanelViews>
+      }
+      footer={foot ? <span>{foot}</span> : undefined}
     />
   )
-  // A phone shows no table, so there are no column widths to reset.
-  const menu =
-    view === 'log' && !phone ? (
-      <DotsMenu aria-label="Log actions" width={200}>
-        <MenuItem disabled={widths.isDefault} onSelect={widths.reset}>
-          Reset column widths
-        </MenuItem>
-      </DotsMenu>
-    ) : undefined
-  return view === 'log' ? <Events query={query} onQuery={onQuery} widths={widths} view={switcher} menu={menu} /> : <Blocklist view={switcher} menu={menu} />
 }
 
 /** What a skeleton row sizes its cells by: the Log's three columns. */
@@ -104,7 +222,7 @@ function useTitleNames() {
   return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
 }
 
-function Events({ query, onQuery, widths, view, menu }: { query: string; onQuery: (query: string) => void; widths: ReturnType<typeof useColumnWidths>; view: ReactNode; menu: ReactNode }) {
+function Events({ query, onQuery, widths, onBlocklist }: { query: string; onQuery: (query: string) => void; widths: ReturnType<typeof useColumnWidths>; onBlocklist: () => void }) {
   const phone = usePhone()
   const [sel, setSel] = useState(0)
   const { list: titles, names } = useTitleNames()
@@ -115,7 +233,11 @@ function Events({ query, onQuery, widths, view, menu }: { query: string; onQuery
   const events = useEvents(logFilter(parsed, titles ?? []), !byTitle || titles !== undefined)
 
   const [page, setPage] = usePageParam()
-  const shown = useMemo(() => (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? ''])), [events.data, parsed.text, names])
+  const oldest = oldestFirst(parsed)
+  const shown = useMemo(() => {
+    const matching = (events.data ?? []).filter((e) => matchText(parsed.text, [e.message, names.get(e.title_id ?? -1) ?? '']))
+    return oldest ? matching.reverse() : matching
+  }, [events.data, parsed.text, names, oldest])
 
   // A page past the last one (a filter that shrank the list, a stale address) shows the last page.
   const shownPage = Math.min(page, Math.max(1, Math.ceil(shown.length / PAGE_SIZE)))
@@ -137,87 +259,97 @@ function Events({ query, onQuery, widths, view, menu }: { query: string; onQuery
     document.getElementById('log-filter')?.focus()
   })
 
+  const panel = (
+    <LogPanel
+      query={query}
+      onQuery={filterTo}
+      onView={filterTo}
+      qualifiers={qualifiers}
+      filtered
+      onFilter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter, e.g. kind:failures  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
+      widths={widths}
+      blocklist={{ showing: false }}
+      onBlocklist={onBlocklist}
+    />
+  )
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ScreenBar
-        view={view}
-        menu={menu}
-        filter={<FilterBar id="log-filter" label="Filter the Log" placeholder="Filter events, e.g. kind:failures  /" value={query} onChange={filterTo} qualifiers={qualifiers} menus={false} />}
-        controls={<FacetFilterButton query={query} onQuery={filterTo} qualifiers={qualifiers} />}
-      />
-      <div className="min-h-0 flex-1 overflow-auto">
-        {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
-        {events.data && shown.length === 0 && (
-          <div className="p-4">
-            <EmptyState description="Nothing in the Log matches." />
-          </div>
-        )}
-        {phone ? (
-          // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
-          <div className="p-4">
-            <Entity.List aria-label="Events" aria-busy={events.isPending || undefined}>
-              {events.isPending && [0, 1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} index={i} />)}
-              {pageRows.map((e, i) => (
-                <PhoneEvent
-                  key={e.id}
-                  e={e}
-                  index={i}
-                  sel={sel}
-                  onSelect={() => setSel(i)}
-                  title={names.get(e.title_id ?? -1)}
-                  onFilter={(name, value) => filterTo(withValue(query, name, value, qualifiers))}
-                />
-              ))}
-            </Entity.List>
-          </div>
-        ) : (
-          <Table.Root>
-            {/* The widths are measured from the first rows, so the loading table (skeleton rows) is a table of its own. */}
-            <Table
-              key={events.isPending ? 'loading' : 'ready'}
-              aria-label="Events"
-              aria-busy={events.isPending || undefined}
-              stickyHeader
-              columnWidths={widths.widths}
-              onColumnWidthsChange={widths.onChange}
-            >
-              <Table.Header>
-                <Table.Row>
-                  <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="when" width={176} minWidth={120} maxWidth={320}>
-                    When
-                  </Table.Head>
-                  <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="kind" width={128} minWidth={96} maxWidth={240}>
-                    Kind
-                  </Table.Head>
-                  {/* The message column takes the rest of the row, so When and Kind are what resize it; its text still wraps. */}
-                  <Table.Head className="label-12-strong" truncate>
-                    Event
-                  </Table.Head>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body bordered interactive>
-                {events.isPending && <TableSkeletonRows columns={eventColumns} />}
+    <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
+      {panel}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-auto">
+          {events.isError && <Note variant="error">The Log could not be loaded.</Note>}
+          {events.data && shown.length === 0 && (
+            <div className="p-4">
+              <EmptyState description="Nothing in the Log matches." />
+            </div>
+          )}
+          {phone ? (
+            // A phone has no room for three columns: each event is a stacked row, its message wrapping under the kind and the time.
+            <div className="p-4">
+              <Entity.List aria-label="Events" aria-busy={events.isPending || undefined}>
+                {events.isPending && [0, 1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} index={i} />)}
                 {pageRows.map((e, i) => (
-                  <EventRow
+                  <PhoneEvent
                     key={e.id}
                     e={e}
                     index={i}
-                    selected={i === sel}
-                    title={names.get(e.title_id ?? -1)}
+                    sel={sel}
                     onSelect={() => setSel(i)}
+                    title={names.get(e.title_id ?? -1)}
                     onFilter={(name, value) => filterTo(withValue(query, name, value, qualifiers))}
                   />
                 ))}
-              </Table.Body>
-            </Table>
-          </Table.Root>
+              </Entity.List>
+            </div>
+          ) : (
+            <Table.Root>
+              {/* The widths are measured from the first rows, so the loading table (skeleton rows) is a table of its own. */}
+              <Table
+                key={events.isPending ? 'loading' : 'ready'}
+                aria-label="Events"
+                aria-busy={events.isPending || undefined}
+                stickyHeader
+                columnWidths={widths.widths}
+                onColumnWidthsChange={widths.onChange}
+              >
+                <Table.Header>
+                  <Table.Row>
+                    <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="when" width={176} minWidth={120} maxWidth={320}>
+                      When
+                    </Table.Head>
+                    <Table.Head className="label-12-strong" resizable={!events.isPending} columnKey="kind" width={128} minWidth={96} maxWidth={240}>
+                      Kind
+                    </Table.Head>
+                    {/* The message column takes the rest of the row, so When and Kind are what resize it; its text still wraps. */}
+                    <Table.Head className="label-12-strong" truncate>
+                      Event
+                    </Table.Head>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body bordered interactive>
+                  {events.isPending && <TableSkeletonRows columns={eventColumns} />}
+                  {pageRows.map((e, i) => (
+                    <EventRow
+                      key={e.id}
+                      e={e}
+                      index={i}
+                      selected={i === sel}
+                      title={names.get(e.title_id ?? -1)}
+                      onSelect={() => setSel(i)}
+                      onFilter={(name, value) => filterTo(withValue(query, name, value, qualifiers))}
+                    />
+                  ))}
+                </Table.Body>
+              </Table>
+            </Table.Root>
+          )}
+        </div>
+        {shown.length > PAGE_SIZE && (
+          <PagerStrip>
+            <Pager aria-label="Log pages" page={shownPage} pageSize={PAGE_SIZE} total={shown.length} onPageChange={toPage} />
+          </PagerStrip>
         )}
       </div>
-      {shown.length > PAGE_SIZE && (
-        <PagerStrip>
-          <Pager aria-label="Log pages" page={shownPage} pageSize={PAGE_SIZE} total={shown.length} onPageChange={toPage} />
-        </PagerStrip>
-      )}
     </div>
   )
 }
@@ -288,7 +420,19 @@ function EventRow({
   )
 }
 
-function Blocklist({ view, menu }: { view: ReactNode; menu: ReactNode }) {
+function Blocklist({
+  query,
+  onQuery,
+  widths,
+  onBack,
+  onView,
+}: {
+  query: string
+  onQuery: (query: string) => void
+  widths: ReturnType<typeof useColumnWidths>
+  onBack: () => void
+  onView: (query: string) => void
+}) {
   const phone = usePhone()
   const list = useBlocklist()
   const unblock = useUnblock()
@@ -298,11 +442,13 @@ function Blocklist({ view, menu }: { view: ReactNode; menu: ReactNode }) {
   const [sel, setSel] = useState(0)
   const items = list.data ?? []
   useListNav('block', items.length, sel, setSel)
+  const { list: titles } = useTitleNames()
+  const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))]), [titles])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ScreenBar view={view} menu={menu} />
-      <div className="min-h-0 flex-1 overflow-auto">
+    <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
+      <LogPanel query={query} onQuery={onQuery} onView={onView} qualifiers={qualifiers} filtered={false} widths={widths} blocklist={{ showing: true, onBack }} />
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
         {list.data && items.length === 0 && (
           <div className="p-4">
             <EmptyState description="The Blocklist is empty." />

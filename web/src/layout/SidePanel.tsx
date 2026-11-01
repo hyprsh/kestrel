@@ -120,18 +120,28 @@ export function SidePanelViews({ children }: { children: ReactNode }) {
   )
 }
 
-/** One row of SidePanelViews: an optional icon, the name, and a count at the right; `current` marks the chosen one. */
+/**
+ * One row of SidePanelViews: an optional icon, the name at the left, and a count at the right edge; `current` marks the chosen
+ * one (the Button's raised look, with `aria-current`). The count is part of the row's name, so a screen reader hears "Errors, 3".
+ */
 export function SidePanelView({ icon, count, current = false, onSelect, children }: { icon?: ReactNode; count?: ReactNode; current?: boolean; onSelect: () => void; children: ReactNode }) {
   return (
     <Button
       variant={current ? 'secondary' : 'tertiary'}
       size="small"
+      width="100%"
       aria-current={current ? 'true' : undefined}
       prefix={icon}
-      suffix={count === undefined ? undefined : <span className="tabular-nums">{count}</span>}
+      className="h-[34px] justify-start font-normal aria-[current=true]:font-medium [&_.hy-btn\_\_label]:flex [&_.hy-btn\_\_label]:min-w-0 [&_.hy-btn\_\_label]:flex-1 [&_.hy-btn\_\_label]:items-center [&_.hy-btn\_\_label]:justify-between [&_.hy-btn\_\_label]:gap-2 [&_.hy-btn\_\_label]:text-left"
       onClick={onSelect}
     >
-      {children}
+      <span className="truncate">{children}</span>
+      {count !== undefined && (
+        <span className="label-12 shrink-0 tabular-nums text-gray-900">
+          <span className="sr-only">, </span>
+          {count}
+        </span>
+      )}
     </Button>
   )
 }

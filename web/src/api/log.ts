@@ -51,6 +51,20 @@ export function useEvents(f: LogFilter, enabled = true) {
   })
 }
 
+export type EventsSummary = components['schemas']['EventsSummary']
+
+/** What the Log holds: events per kind, the oldest one's time and how long routine events are kept (GET /events/summary). */
+export function useEventsSummary() {
+  return useQuery({
+    queryKey: ['log', 'summary'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/events/summary')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
 export function useBlocklist() {
   return useQuery({
     queryKey: ['blocklist'],
