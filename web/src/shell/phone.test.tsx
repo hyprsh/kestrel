@@ -50,7 +50,7 @@ describe('the shell on a phone', () => {
         .getAllByRole('button')
         .map((b) => b.textContent),
     ).toEqual(['Overview', 'Library', 'Upcoming', 'Activity', 'More', ''])
-    expect(within(tabs).getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument() // the accessory
+    expect(within(tabs).getByRole('button', { name: 'Search or add' })).toBeInTheDocument() // the accessory
     expect(within(tabs).getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('button', { name: 'Kestrel, go to Overview' })).not.toBeInTheDocument() // the rail is gone
 
@@ -77,7 +77,7 @@ describe('the shell on a phone', () => {
 
   it('has a search button that opens the command menu, with no keyboard shortcut needed', async () => {
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Search or run a command' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Search or add' }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 

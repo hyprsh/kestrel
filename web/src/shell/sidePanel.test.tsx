@@ -32,7 +32,7 @@ describe('the desktop shell without a top bar', () => {
     expect(within(panel).getByRole('button', { name: 'Library actions' })).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: 'Add Title' })).toBeInTheDocument()
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Search or run a command' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Search or add' })).not.toBeInTheDocument()
   })
 
   it('shows an active filter as a chip that removes it, and counts it in Filter', async () => {
@@ -68,11 +68,11 @@ describe('the desktop shell without a top bar', () => {
 
   it('opens the command menu from the rail search button, on any screen', async () => {
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: /^Search or run a command \(/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Search or add \(/ }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await userEvent.click(screen.getByRole('button', { name: 'Log' }))
-    await userEvent.click(screen.getByRole('button', { name: /^Search or run a command \(/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Search or add \(/ }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 })

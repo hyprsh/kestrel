@@ -27,6 +27,14 @@ const screens = {
   log: '/log',
   ...Object.fromEntries(settings.map((s) => [`settings-${s}`, `/settings/${s}`])),
   about: '/about',
+  // The command menu with a query no Library Title matches, which leads with Add.
+  'menu-add': {
+    path: '/',
+    prepare: async (h) => {
+      await h.page.locator('[aria-label^="Search or add"]').locator('visible=true').first().click()
+      await h.page.keyboard.type('qqzxv')
+    },
+  },
   more: { path: '/', phoneOnly: true, prepare: async (h) => h.page.getByRole('button', { name: 'More' }).click() },
 }
 
@@ -63,7 +71,7 @@ try {
       if (s.phoneOnly && w > 390) continue
       await h.page.setViewportSize({ width: w, height: ht })
       await h.page.goto(h.base + (typeof s.path === 'function' ? s.path(ids) : s.path), { waitUntil: 'domcontentloaded' })
-      await h.page.locator('[aria-label^="Search or run a command"]').first().waitFor()
+      await h.page.locator('[aria-label^="Search or add"]').first().waitFor()
       await wait(800)
       if (s.prepare) {
         await s.prepare(h)

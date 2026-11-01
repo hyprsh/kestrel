@@ -4,7 +4,7 @@ import { About } from '../about/About'
 import { Activity } from '../activity/Activity'
 import { useRunningNow, type Running } from '../activity/running'
 import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, LogOut, Plus, ScrollText, Search, Settings } from 'lucide-react'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -175,7 +175,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: adoptionLabel(adoptionState), keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
       { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
-      ...(canLogout ? [{ id: 'logout', label: 'Log out', keywords: 'sign out', run: () => logout.mutate(undefined) }] : []),
+      ...(canLogout ? [{ id: 'logout', label: 'Log Out', keywords: 'sign out logout', run: () => logout.mutate(undefined) }] : []),
     ],
     [cycle, onRunSetup, canLogout, logout, searchAllWanted, toasts, watchSearch, openCleanup, adoptionState],
   )
@@ -258,16 +258,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           <SidePanelPhoneContext.Provider value={phoneExtras}>
             <div className="flex h-full">
               {!phone && (
-                <Rail
-                  screen={screen}
-                  onSelect={setScreen}
-                  running={running}
-                  onOpenRunning={() => goPath('/health/jobs')}
-                  theme={theme}
-                  onTheme={setTheme}
-                  onAdd={() => setMenu({ mode: 'add' })}
-                  onSearch={() => setMenu({ mode: 'root' })}
-                />
+                <Rail screen={screen} onSelect={setScreen} running={running} onOpenRunning={() => goPath('/health/jobs')} theme={theme} onTheme={setTheme} onSearch={() => setMenu({ mode: 'root' })} />
               )}
               <div className="flex min-w-0 flex-1 flex-col">
                 {!panelScreens.includes(screen) &&
@@ -384,7 +375,6 @@ function Rail({
   onSelect,
   theme,
   onTheme,
-  onAdd,
   onSearch,
   running,
   onOpenRunning,
@@ -393,13 +383,10 @@ function Rail({
   onSelect: (key: string) => void
   theme: Theme
   onTheme: (theme: Theme) => void
-  onAdd: () => void
   onSearch: () => void
   running: Running[]
   onOpenRunning: () => void
 }) {
-  const logout = useLogout()
-  const auth = useAuth()
   const attention = useAttention().data
   const needs = attention?.count ?? 0
   return (
@@ -409,10 +396,8 @@ function Rail({
           <KestrelLogo />
         </Button>
       </span>
-      <RailButton label={`Add Title (${MOD} K)`} onClick={onAdd}>
-        <Plus />
-      </RailButton>
-      <RailButton label={`Search or run a command (${MOD} K)`} onClick={onSearch}>
+      {/* One entry point: the command menu searches the Library and, with "Add Title…", the Movies and Series to add. */}
+      <RailButton label={`Search or add (${MOD} K)`} onClick={onSearch}>
         <Search />
       </RailButton>
       <Separator className="my-1 w-6" />
@@ -435,12 +420,6 @@ function Rail({
       <RailButton label={about.label} active={screen === about.key} onClick={() => onSelect(about.key)}>
         {about.icon}
       </RailButton>
-      {/* A proxy-authenticated request has no session to end; the portal owns logging out. */}
-      {auth.data?.state === 'ok' && auth.data.me.method === 'session' && (
-        <RailButton label="Log out" onClick={() => logout.mutate(undefined)}>
-          <LogOut />
-        </RailButton>
-      )}
     </RailFrame>
   )
 }

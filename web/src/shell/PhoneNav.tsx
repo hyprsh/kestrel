@@ -25,7 +25,7 @@ export function PhoneTabBar({
   onSearch: () => void
 }) {
   return (
-    <TabBar label="Screens" value={moreActive ? undefined : screen} onChange={onSelect} minimizeOnScroll accessory={{ label: 'Search or run a command', icon: <Search />, onClick: onSearch }}>
+    <TabBar label="Screens" value={moreActive ? undefined : screen} onChange={onSelect} minimizeOnScroll accessory={{ label: 'Search or add', icon: <Search />, onClick: onSearch }}>
       {tabs.map((t) => (
         <TabBar.Item key={t.key} value={t.key} label={t.label} icon={t.icon} badge={t.badge} badgeTone={t.badgeTone} badgeLabel={t.badgeLabel} />
       ))}
@@ -77,7 +77,7 @@ export function MoreSheet({
         </div>
         {onLogout && (
           <Entity as="button" left={<LogOut />} onClick={onLogout}>
-            <Entity.Content title="Log out" fill />
+            <Entity.Content title="Log Out" fill />
           </Entity>
         )}
         <div className="flex px-2 pt-2">
