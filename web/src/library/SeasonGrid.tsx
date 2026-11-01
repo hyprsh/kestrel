@@ -71,13 +71,13 @@ export function SeasonGrid({
           const isOpen = n === open
           return (
             <div key={n} className="border-b border-gray-alpha-200 last:border-b-0">
-              <div data-menu-open={menuSeason === n ? '' : undefined} className={`group/row flex items-start hover:bg-gray-100 ${isOpen ? 'bg-gray-100' : ''}`}>
+              <div data-menu-open={menuSeason === n ? '' : undefined} className={`group/row flex items-center hover:bg-gray-100 ${isOpen ? 'bg-gray-100' : ''}`}>
                 <button
                   type="button"
                   aria-label={`${name}: ${tallies.map(say).join('; ')}${isOpen ? ', open' : ''}`}
                   aria-current={isOpen ? 'true' : undefined}
                   onClick={() => onOpen(n)}
-                  className={`flex min-w-0 flex-1 cursor-pointer items-start gap-3 py-2 pl-4 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-color)`}
+                  className={`flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-2 pl-4 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-color)`}
                 >
                   <span className={`label-14 w-16 shrink-0 whitespace-nowrap ${isOpen ? 'font-semibold' : ''}`}>{name}</span>
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -94,7 +94,7 @@ export function SeasonGrid({
                     ))}
                   </span>
                 </button>
-                <span className={`flex shrink-0 items-center gap-1 py-1.5 pr-2 pl-2 max-sm:gap-0 max-sm:pl-1 max-sm:pr-1 ${rowActionsShown}`}>
+                <span className={`flex shrink-0 items-center gap-1 pr-2 pl-2 max-sm:gap-0 max-sm:pl-1 max-sm:pr-1 ${rowActionsShown}`}>
                   <SeasonSearch actions={actions} season={n} episodes={episodes.get(n) ?? []} />
                   <SeasonMenu actions={actions} season={n} episodes={episodes.get(n) ?? []} onOpenChange={(o) => setMenuSeason(o ? n : null)} />
                 </span>
