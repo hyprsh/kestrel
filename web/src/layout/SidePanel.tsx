@@ -53,7 +53,7 @@ export function SidePanel({
   if (phone)
     return (
       <header className="flex shrink-0 flex-col gap-2.5 border-b border-gray-alpha-200 bg-background-200 px-4 pt-3 pb-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex h-8 items-center gap-2">
           <h1 className="heading-20 min-w-0 flex-1 truncate">{title}</h1>
           {extras}
           {actions}
@@ -70,7 +70,7 @@ export function SidePanel({
   return (
     <aside aria-label={title} className={`flex min-h-0 shrink-0 flex-col border-r border-gray-alpha-200 bg-background-200 ${widthClass[width]}`}>
       <div className="flex shrink-0 flex-col gap-2.5 pt-3.5 pr-3 pb-2.5 pl-4">
-        <div className="flex items-center gap-2">
+        <div className="flex h-8 items-center gap-2">
           <h1 className="heading-20 min-w-0 flex-1 truncate">{title}</h1>
           {actions}
         </div>
@@ -78,7 +78,7 @@ export function SidePanel({
         {controls && <div className="flex items-center gap-2">{controls}</div>}
         {chips}
       </div>
-      {views && <div className="shrink-0 px-2 pb-3">{views}</div>}
+      {views && <div className="min-h-0 shrink overflow-y-auto px-2 pb-3">{views}</div>}
       {children ? <div className="relative flex min-h-0 flex-1 flex-col border-t border-gray-alpha-200 bg-background-100">{children}</div> : <div className="flex-1" />}
       {footer && <footer className="label-12 flex shrink-0 items-center justify-between gap-3 border-t border-gray-alpha-200 px-4 py-2 text-gray-900">{footer}</footer>}
     </aside>
@@ -110,11 +110,20 @@ export function FilterChips({ chips }: { chips: readonly FilterChip[] }) {
   )
 }
 
+/**
+ * The look of one row of a panel's list (Views, Settings' sections): 34px, left aligned, the name at the left and the count
+ * at the right edge, the current one raised. A row is a Button (or ButtonLink) with these props, so every panel's rows match.
+ */
+export const panelRowClass = String.raw`h-[34px] justify-start font-normal aria-[current=true]:font-medium [&_.hy-btn\_\_label]:flex [&_.hy-btn\_\_label]:min-w-0 [&_.hy-btn\_\_label]:flex-1 [&_.hy-btn\_\_label]:items-center [&_.hy-btn\_\_label]:justify-between [&_.hy-btn\_\_label]:gap-2 [&_.hy-btn\_\_label]:text-left`
+
+/** The title over a run of a panel's rows ("Views", or a Settings group): small and muted. */
+export const panelRowsTitleClass = 'label-12 px-2.5 py-1 text-gray-900'
+
 /** The "Views" section of a panel: a short list of named pages or presets of the screen (Log's Errors, Upcoming's This week). */
 export function SidePanelViews({ children }: { children: ReactNode }) {
   return (
     <nav aria-label="Views" className="flex flex-col gap-0.5">
-      <span className="label-12 px-2.5 py-1 text-gray-900">Views</span>
+      <span className={panelRowsTitleClass}>Views</span>
       {children}
     </nav>
   )
@@ -126,15 +135,7 @@ export function SidePanelViews({ children }: { children: ReactNode }) {
  */
 export function SidePanelView({ icon, count, current = false, onSelect, children }: { icon?: ReactNode; count?: ReactNode; current?: boolean; onSelect: () => void; children: ReactNode }) {
   return (
-    <Button
-      variant={current ? 'secondary' : 'tertiary'}
-      size="small"
-      width="100%"
-      aria-current={current ? 'true' : undefined}
-      prefix={icon}
-      className="h-[34px] justify-start font-normal aria-[current=true]:font-medium [&_.hy-btn\_\_label]:flex [&_.hy-btn\_\_label]:min-w-0 [&_.hy-btn\_\_label]:flex-1 [&_.hy-btn\_\_label]:items-center [&_.hy-btn\_\_label]:justify-between [&_.hy-btn\_\_label]:gap-2 [&_.hy-btn\_\_label]:text-left"
-      onClick={onSelect}
-    >
+    <Button variant={current ? 'secondary' : 'tertiary'} size="small" width="100%" aria-current={current ? 'true' : undefined} prefix={icon} className={panelRowClass} onClick={onSelect}>
       <span className="truncate">{children}</span>
       {count !== undefined && (
         <span className="label-12 shrink-0 tabular-nums text-gray-900">
