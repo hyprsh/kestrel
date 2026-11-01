@@ -72,6 +72,8 @@ type PluginInstances interface {
 	Delete(ctx context.Context, id int64) error
 	Create(ctx context.Context, in instances.New) (instances.Instance, error)
 	Test(ctx context.Context, p plugin.Plugin, conn plugin.Connection, check bool) (plugin.TestResult, error)
+	// Observe records the outcome of a call to an instance as its last check.
+	Observe(ctx context.Context, id int64, err error)
 }
 
 // Profiles is the household's language settings and the Profiles.

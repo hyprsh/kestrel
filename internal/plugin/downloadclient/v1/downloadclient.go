@@ -36,6 +36,25 @@ type Client interface {
 	Remove(ctx context.Context, conn plugin.Connection, clientID string, deleteData bool) error
 }
 
+// StatusReporter is an optional part of a download client adapter: what the
+// client says about itself right now, for Settings. An adapter that does not
+// implement it still works; the host falls back to its Test.
+type StatusReporter interface {
+	Status(ctx context.Context, conn plugin.Connection) (Status, error)
+}
+
+// Status is a client's live state.
+type Status struct {
+	// Version is the client's own version ("4.3.2"); empty when it does not say.
+	Version string `json:"version"`
+	// Downloading counts the jobs of the queue that are actively downloading.
+	Downloading int `json:"downloading"`
+	// Queued counts the jobs of the queue that are waiting or paused.
+	Queued int `json:"queued"`
+	// FreeBytes is the free space where the client downloads to; nil when unknown.
+	FreeBytes *int64 `json:"free_bytes"`
+}
+
 // PayloadKind says what AddRequest.Data holds.
 type PayloadKind string
 

@@ -471,3 +471,53 @@ func wantCode(t *testing.T, err error, want plugin.Code) {
 		t.Fatalf("want %s error, got %v", want, err)
 	}
 }
+
+func TestStatusCountsTheQueueAndReadsVersionAndFreeSpace(t *testing.T) {
+	// The recorded queue: 2 downloading; Queued, Paused, Propagating and the encrypted (Paused) one wait.
+	srv := serveFixtures(t, nil)
+	st, err := sabnzbd.New(nil).Status(ctx(), srv.conn(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Version != "4.5.1" || st.Downloading != 2 || st.Queued != 4 || st.FreeBytes != nil {
+		t.Fatalf("%+v free=%v", st, st.FreeBytes)
+	}
+
+	queue := func(body string) map[string]func(http.ResponseWriter, *http.Request) {
+		return map[string]func(http.ResponseWriter, *http.Request){
+			"queue": func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) },
+		}
+	}
+	for name, c := range map[string]struct {
+		body string
+		want *int64
+	}{
+		"normalised":  {`{"queue":{"slots":[],"diskspace1":"1.50","diskspace1_norm":"1.5 T"}}`, ptr(int64(1.5 * (1 << 40)))},
+		"gb only":     {`{"queue":{"slots":[],"diskspace1":"2.00"}}`, ptr(int64(2 << 30))},
+		"unparseable": {`{"queue":{"slots":[],"diskspace1":"n/a","diskspace1_norm":"lots"}}`, nil},
+		"absent":      {`{"queue":{"slots":[]}}`, nil},
+	} {
+		got, err := sabnzbd.New(nil).Status(ctx(), serveFixtures(t, queue(c.body)).conn(key))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got.Downloading != 0 || got.Queued != 0 || !reflect.DeepEqual(got.FreeBytes, c.want) {
+			t.Errorf("%s: %+v free=%v, want %v", name, got, got.FreeBytes, c.want)
+		}
+	}
+
+	// A wrong key is an auth error, not a zeroed status.
+	if _, err := sabnzbd.New(nil).Status(ctx(), srv.conn("wrong")); plugin.AsError(err).Code != plugin.CodeAuth {
+		t.Errorf("wrong key: %v", err)
+	}
+}
+
+func TestTestReportsTheVersion(t *testing.T) {
+	srv := serveFixtures(t, nil)
+	res, err := sabnzbd.New(nil).Test(ctx(), srv.conn(key))
+	if err != nil || res.Version != "4.5.1" || res.Message != "SABnzbd 4.5.1" {
+		t.Fatalf("%+v %v", res, err)
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
