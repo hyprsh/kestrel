@@ -1,0 +1,114 @@
+package slots_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
+)
+
+func aliasesOf(t *testing.T, s *slots.Service, id slot.Slot) []string {
+	t.Helper()
+	m, err := s.Aliases(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m[id]
+}
+
+func TestRenamingALabelKeepsTheOldOneAsAnAlias(t *testing.T) {
+	s, _ := newService(t)
+	ctx := context.Background()
+	orig := "Original"
+	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &orig}); err != nil {
+		t.Fatal(err)
+	}
+	if got := aliasesOf(t, s, "standard"); len(got) != 1 || got[0] != "Standard" {
+		t.Errorf("aliases = %v", got)
+	}
+	// Taking the old label back drops it from the aliases.
+	back := "Standard"
+	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &back}); err != nil {
+		t.Fatal(err)
+	}
+	if got := aliasesOf(t, s, "standard"); len(got) != 1 || got[0] != "Original" {
+		t.Errorf("aliases after renaming back = %v", got)
+	}
+	// A change that leaves the label alone adds none.
+	on := true
+	if _, err := s.Update(ctx, "4k", slots.Patch{OnForNew: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if got := aliasesOf(t, s, "4k"); len(got) != 0 {
+		t.Errorf("4k aliases = %v", got)
+	}
+}
+
+func TestACaseOnlyRenameAddsNoAlias(t *testing.T) {
+	s, _ := newService(t)
+	l := "STANDARD"
+	if _, err := s.Update(context.Background(), "standard", slots.Patch{Label: &l}); err != nil {
+		t.Fatal(err)
+	}
+	if got := aliasesOf(t, s, "standard"); len(got) != 0 {
+		t.Errorf("aliases = %v", got)
+	}
+}
+
+func TestACheckedPatchWritesNothingAndCountsTheFiles(t *testing.T) {
+	s, st := newService(t)
+	ctx := context.Background()
+	addVersion(t, st, 1, "standard")
+	if _, err := st.Write().Exec(`INSERT INTO files (version_id, path, size, release_name, imported_at) SELECT id, '/m/a.mkv', 1, 'a', 'x' FROM versions`); err != nil {
+		t.Fatal(err)
+	}
+	l := "Original"
+	got, err := s.Check(ctx, "standard", slots.Patch{Label: &l})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Label != "Original" {
+		t.Errorf("checked = %+v", got)
+	}
+	if cur := list(t, s)[0]; cur.Label != "Standard" {
+		t.Errorf("Check saved: %+v", cur)
+	}
+	if n, err := s.Files(ctx, "standard"); err != nil || n != 1 {
+		t.Errorf("Files = %d, %v", n, err)
+	}
+	bad := "4K"
+	if _, err := s.Check(ctx, "standard", slots.Patch{Label: &bad}); err == nil {
+		t.Error("Check accepted a taken label")
+	}
+}
+
+func TestARelabelCallsTheHookOnceSaved(t *testing.T) {
+	s, _ := newService(t)
+	ctx := context.Background()
+	var got []slot.Slot
+	s.OnRelabel(func(_ context.Context, id slot.Slot) { got = append(got, id) })
+	l := "Original"
+	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &l}); err != nil {
+		t.Fatal(err)
+	}
+	on := true
+	if _, err := s.Update(ctx, "4k", slots.Patch{OnForNew: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "standard" {
+		t.Errorf("hook calls = %v", got)
+	}
+	// A Config File that renames a Slot by id does too.
+	got = nil
+	err := s.Declare(ctx, []slots.Declared{{ID: "standard", Label: "Everyday", DefaultMovies: "hd-primary", OnForNew: true}, {ID: "4k", Label: "4K", OnForNew: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "standard" {
+		t.Errorf("hook calls after Declare = %v", got)
+	}
+	if a := aliasesOf(t, s, "standard"); len(a) != 2 {
+		t.Errorf("aliases = %v", a)
+	}
+}
