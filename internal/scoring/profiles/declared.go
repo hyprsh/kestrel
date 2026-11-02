@@ -125,6 +125,11 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 		if err != nil {
 			return err
 		}
+		// A fresh install has none of the six (ADR 0026): the file declares them into being, as shipped, and the loop
+		// below applies what it says.
+		if rows, err = s.insertMissingBuiltins(ctx, q, rows, primary); err != nil {
+			return err
+		}
 		for _, r := range rows {
 			cur, err := fromRow(r)
 			if err != nil {
@@ -179,5 +184,53 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 			}
 		}
 		return nil
+	})
+}
+
+// insertMissingBuiltins makes each builtin Profile the rows lack, enabled and as shipped, and returns the rows again.
+func (s *Service) insertMissingBuiltins(ctx context.Context, q *db.Queries, rows []db.Profile, primary Language) ([]db.Profile, error) {
+	have := map[string]bool{}
+	for _, r := range rows {
+		have[r.Key] = true
+	}
+	var inserted bool
+	for i, p := range Builtin() {
+		if have[p.Key] {
+			continue
+		}
+		movies, series, _ := p.Backing(primary)
+		if err := q.InsertBuiltinProfile(ctx, db.InsertBuiltinProfileParams{
+			Key: p.Key, Name: p.Name, Sort: int64(i + 1), Any: b2i(p.Any), ReleaseFamily: string(p.Family), LanguageRule: p.RuleKey(),
+			MinHeight: int64(p.MinHeight), MaxHeight: int64(p.MaxHeight), TrashProfileMovies: movies, TrashProfileSeries: series,
+		}); err != nil {
+			return nil, err
+		}
+		inserted = true
+	}
+	if !inserted {
+		return rows, nil
+	}
+	return q.ListProfiles(ctx)
+}
+
+// EnsureBuiltin makes the builtin Profiles the database lacks, as shipped. A fresh install has none (ADR 0026); a Config
+// File that declares the Profiles needs them there before the Slots name them. declared is the Primary Language the file
+// declares, empty for the stored one.
+func (s *Service) EnsureBuiltin(ctx context.Context, declared Language) error {
+	region, _, err := s.Region(ctx)
+	if err != nil {
+		return err
+	}
+	primary := region.Primary
+	if declared != "" {
+		primary = declared
+	}
+	return s.write(ctx, func(q *db.Queries) error {
+		rows, err := q.ListProfiles(ctx)
+		if err != nil {
+			return err
+		}
+		_, err = s.insertMissingBuiltins(ctx, q, rows, primary)
+		return err
 	})
 }

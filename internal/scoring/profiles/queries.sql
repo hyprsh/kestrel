@@ -46,6 +46,12 @@ INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_h
     movie_min_size, movie_max_size, episode_min_size, episode_max_size)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+-- name: InsertBuiltinProfile :exec
+-- One of the six builtin Profiles that a fresh install does not seed (ADR 0026), made when a Config File declares them.
+INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
+    trash_profile_movies, trash_profile_series, original_language, custom)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, 'reject', 0);
+
 -- name: DeleteCustomProfile :execrows
 DELETE FROM profiles WHERE key = ? AND custom = 1;
 

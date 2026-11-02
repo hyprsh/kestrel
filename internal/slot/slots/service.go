@@ -424,8 +424,11 @@ func plan(cur []slot.Record, want []Declared) (set, dropped []slot.Record, err e
 // CheckDeclared applies the Slot rules to a Config File's Slots and writes
 // nothing: the rules of the API, valid Profile keys, and that no Slot the file
 // leaves out still holds Versions.
-func (s *Service) CheckDeclared(ctx context.Context, want []Declared) error {
-	return s.declare(ctx, want, false)
+//
+// A file that declares the Profiles brings them with it: declaredProfiles are their keys, which a default may name before
+// they are stored (a fresh install has none, ADR 0026). Nil when the file declares none.
+func (s *Service) CheckDeclared(ctx context.Context, want []Declared, declaredProfiles []string) error {
+	return s.declare(ctx, want, false, declaredProfiles)
 }
 
 // CheckDefaultKinds is nil when each default a Config File names applies to its kind under the saved Profiles. A file that
@@ -447,10 +450,10 @@ func (s *Service) CheckDefaultKinds(ctx context.Context, want []Declared) error 
 // removed if it is empty, and startup fails if it holds Versions. It writes
 // only what differs, so the same file twice writes nothing.
 func (s *Service) Declare(ctx context.Context, want []Declared) error {
-	return s.declare(ctx, want, true)
+	return s.declare(ctx, want, true, nil)
 }
 
-func (s *Service) declare(ctx context.Context, want []Declared, apply bool) error {
+func (s *Service) declare(ctx context.Context, want []Declared, apply bool, declaredProfiles []string) error {
 	var relabeled []slot.Slot
 	err := s.write(ctx, func(q *db.Queries) error {
 		cur, err := list(ctx, q)
@@ -464,11 +467,20 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool) erro
 		if err := slot.CheckSet(set); err != nil {
 			return err
 		}
+		stored := func(field string, keys ...string) error {
+			var missing []string
+			for _, k := range keys {
+				if !slices.Contains(declaredProfiles, k) {
+					missing = append(missing, k)
+				}
+			}
+			return profileKeys(ctx, q, field, false, missing...)
+		}
 		for _, r := range set {
-			if err := profileKeys(ctx, q, "default_movies", false, r.DefaultMovies); err != nil {
+			if err := stored("default_movies", r.DefaultMovies); err != nil {
 				return err
 			}
-			if err := profileKeys(ctx, q, "default_series", false, r.DefaultSeries); err != nil {
+			if err := stored("default_series", r.DefaultSeries); err != nil {
 				return err
 			}
 		}

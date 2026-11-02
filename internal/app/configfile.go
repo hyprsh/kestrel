@@ -131,6 +131,14 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.declareDisplay(ctx, patch) },
 		})
 	}
+	// A fresh install has none of the six builtin Profiles (ADR 0026), and a Slot's default must name one: a file that
+	// declares the Profiles makes them first, then the Slots and the Profiles' settings apply as before.
+	if f.Profiles != nil {
+		out = append(out, section{
+			check: func(context.Context) error { return nil },
+			apply: func(ctx context.Context) error { return d.profiles.EnsureBuiltin(ctx, declaredPrimary(f)) },
+		})
+	}
 	// The Slots go first: a Profile a Slot names as its default can't be disabled, so the file's new
 	// defaults must be in place before it switches the old ones off.
 	if f.Slots != nil {
@@ -140,7 +148,7 @@ func (d declarer) sections() []section {
 		}
 		out = append(out, section{
 			check: func(ctx context.Context) error {
-				if err := slotsError(d.slots.CheckDeclared(ctx, want)); err != nil {
+				if err := slotsError(d.slots.CheckDeclared(ctx, want, slices.Collect(maps.Keys(f.Profiles)))); err != nil {
 					return err
 				}
 				// A file that declares the Profiles checks the defaults against them; else against the saved ones.

@@ -86,3 +86,19 @@ func TestIDFor(t *testing.T) {
 		}
 	}
 }
+
+func TestMissingDefaultsNamesEverySlotOnForNewTitlesWithoutOne(t *testing.T) {
+	set := []slot.Record{
+		{ID: "standard", Label: "Standard", DefaultMovies: "hd", OnForNew: true},
+		{ID: "4k", Label: "4K"},
+		{ID: "remux", Label: "Remux", OnForNew: true},
+	}
+	var got []string
+	for _, m := range slot.MissingDefaults(set) {
+		got = append(got, m.Message())
+	}
+	want := []string{"Standard has no default Profile for Series", "Remux has no default Profile for Movies", "Remux has no default Profile for Series"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("MissingDefaults = %v, want %v", got, want)
+	}
+}

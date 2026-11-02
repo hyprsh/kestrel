@@ -37,7 +37,7 @@ func NewDeclared(opts Options, d Deps) *Declared {
 		settings: cfg,
 		write:    db.New(opts.Store.Write()),
 		cost:     cost,
-		setup:    setupSources{settings: cfg, plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders},
+		setup:    setupSources{settings: cfg, plugins: d.Plugins, profiles: d.Profiles, slots: d.Slots, rootFolders: d.RootFolders},
 	}
 }
 
@@ -118,7 +118,11 @@ func declaredProxy(p configfile.ReverseProxy) proxyConfig {
 // un-completes it.
 func (d *Declared) CompleteSetup(ctx context.Context) error {
 	st, err := d.setup.state(ctx)
-	if err != nil || st.Completed || len(missingSections(st)) > 0 {
+	if err != nil || st.Completed {
+		return err
+	}
+	gaps, err := d.setup.slotGaps(ctx)
+	if err != nil || len(missingSections(st, gaps)) > 0 {
 		return err
 	}
 	return d.settings.Put(ctx, setupCompletedKey, []byte("true"))
