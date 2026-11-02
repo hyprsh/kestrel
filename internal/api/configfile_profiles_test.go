@@ -50,6 +50,22 @@ func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
 	}
 }
 
+// A fresh install has no Profiles and one Slot; a file that declares profiles and slots gets exactly what it declares.
+func TestAFileDeclaringProfilesAndSlotsOnAFreshInstallGetsExactlyThose(t *testing.T) {
+	t.Parallel()
+	in := newFreshInstance(t, "")
+	in.mustDeclare(declaredProfiles)
+	b := in.setUp()
+	got := profileMap(t, b)
+	if len(got) != 6 || !got["hd-original"].Enabled || got["hd-primary"].Enabled || !got["4k-primary"].DefaultMovies {
+		t.Errorf("profiles = %+v", got)
+	}
+	slots := b.valid("GET", "/slots", "").Body
+	if !strings.Contains(slots, `"id":"4k"`) || !strings.Contains(slots, `"default_series":"hd-original"`) {
+		t.Errorf("slots = %s", slots)
+	}
+}
+
 func TestDeclaredProfilesAcceptAReleaseFamilyAndANamedLanguage(t *testing.T) {
 	t.Parallel()
 	in := newInstance(t, "")

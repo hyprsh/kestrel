@@ -162,6 +162,9 @@ func migrate(ctx context.Context, db *sql.DB, migrations fs.FS, dir string) erro
 			return err
 		}
 	}
+	if err := recordInstallOrigin(ctx, db, current, latest); err != nil {
+		return err
+	}
 	if _, err := p.Up(ctx); err != nil {
 		return fmt.Errorf("store: migrate: %w", err)
 	}
@@ -295,4 +298,33 @@ func newestBackup(dir string) string {
 		return filepath.Join(dir, backupDir, names[0])
 	}
 	return ""
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// freshSeedsMigration is the migration that drops the seeded Profiles and 4K Slot of a fresh install. It reads
+// install_origin, so that table is recorded only when it is about to run.
+const freshSeedsMigration = 51
+
+// recordInstallOrigin tells migration 00051 whether the database is a fresh install (no schema yet) or an upgrade, as the
+// table install_origin that the migration drops. The first answer stays: a run that stopped part way leaves the table, and
+// the next run must not call that database an upgrade.
+func recordInstallOrigin(ctx context.Context, db *sql.DB, current, latest int64) error {
+	if latest < freshSeedsMigration || current >= freshSeedsMigration {
+		return nil
+	}
+	for _, q := range []string{
+		"CREATE TABLE IF NOT EXISTS install_origin (fresh INTEGER NOT NULL) STRICT",
+		fmt.Sprintf("INSERT INTO install_origin (fresh) SELECT %d WHERE NOT EXISTS (SELECT 1 FROM install_origin)", boolInt(current == 0)),
+	} {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			return fmt.Errorf("store: record install origin: %w", err)
+		}
+	}
+	return nil
 }

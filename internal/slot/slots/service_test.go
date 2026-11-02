@@ -228,7 +228,7 @@ func TestADeclaredSetBringsTheSlotsToTheFilesState(t *testing.T) {
 		{ID: "standard", Label: "Everyday", DefaultMovies: "any-primary", DefaultSeries: "hd-primary", OnForNew: true},
 		declared("Remux", false),
 	}
-	if err := s.CheckDeclared(ctx, want); err != nil {
+	if err := s.CheckDeclared(ctx, want, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Declare(ctx, want); err != nil {
@@ -263,7 +263,7 @@ func TestDroppingANonEmptySlotFromTheFileFailsNamingItAndItsVersions(t *testing.
 	ctx := context.Background()
 	addVersion(t, st, 1, "4k")
 	addVersion(t, st, 2, "4k")
-	err := s.CheckDeclared(ctx, []slots.Declared{{ID: "standard", Label: "Standard", OnForNew: true}})
+	err := s.CheckDeclared(ctx, []slots.Declared{{ID: "standard", Label: "Standard", OnForNew: true}}, nil)
 	if err == nil || !strings.Contains(err.Error(), `"4k"`) || !strings.Contains(err.Error(), "2 Versions") {
 		t.Errorf("err = %v, want it to name the Slot 4k and its 2 Versions", err)
 	}
@@ -287,7 +287,7 @@ func TestADeclaredSetObeysTheSameRules(t *testing.T) {
 		"a bad id":               {{ID: "Not An Id", Label: "A", OnForNew: true}},
 		"the same id twice":      {{ID: "a", Label: "A", OnForNew: true}, {ID: "a", Label: "B"}},
 	} {
-		if err := s.CheckDeclared(ctx, want); err == nil {
+		if err := s.CheckDeclared(ctx, want, nil); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
 	}

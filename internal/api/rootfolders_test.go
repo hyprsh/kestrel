@@ -186,6 +186,33 @@ func TestFinishSetupWhenEverySectionIsDone(t *testing.T) {
 	}
 }
 
+func TestFinishSetupNamesASlotWithoutADefaultForAKind(t *testing.T) {
+	t.Parallel()
+	sab, idx := fakeSAB(t), fakeIndexer(t)
+	data := t.TempDir()
+	b := newInstance(t, "", withSABAndNewznab(t), func(o *app.Options) { o.DataDir = data }).setUp()
+	mkdirs(t, data+"/media/movies", data+"/media/tv")
+
+	b.valid("POST", "/plugin-instances", sabBody(sab.URL, sabKey, ""))
+	b.valid("POST", "/plugin-instances", newznabBody("Geek", idx.URL, nzbKey, ""))
+	b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"},"root_folders":{"movies":["`+data+`/media/movies"],"series":["`+data+`/media/tv"]}}`)
+	b.trashPass(t)
+	b.valid("PATCH", "/slots/standard", `{"default_series":""}`)
+
+	r := b.do("POST", "/setup/complete", "")
+	if r.Status != 422 || !strings.Contains(r.Body, "Standard") || !strings.Contains(r.Body, "Series") {
+		t.Fatalf("complete = %d %s, want 422 naming Standard and Series", r.Status, r.Body)
+	}
+	if s := decode[setupJSON](t, b.valid("GET", "/setup", "")); s.Completed {
+		t.Errorf("setup = %+v", s)
+	}
+
+	b.valid("PATCH", "/slots/standard", `{"default_series":"hd-primary"}`)
+	if r := b.valid("POST", "/setup/complete", ""); r.Status != 204 {
+		t.Fatalf("complete after the default is back = %d %s", r.Status, r.Body)
+	}
+}
+
 func TestRootFoldersHaveOnlyMoviesAndSeries(t *testing.T) {
 	t.Parallel()
 	b, data := dataDirInstance(t)

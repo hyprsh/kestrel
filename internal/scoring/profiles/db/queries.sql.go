@@ -109,6 +109,42 @@ func (q *Queries) DeleteCustomProfile(ctx context.Context, key string) (int64, e
 	return result.RowsAffected()
 }
 
+const insertBuiltinProfile = `-- name: InsertBuiltinProfile :exec
+INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
+    trash_profile_movies, trash_profile_series, original_language, custom)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, 'reject', 0)
+`
+
+type InsertBuiltinProfileParams struct {
+	Key                string
+	Name               string
+	Sort               int64
+	Any                int64
+	ReleaseFamily      string
+	LanguageRule       string
+	MinHeight          int64
+	MaxHeight          int64
+	TrashProfileMovies string
+	TrashProfileSeries string
+}
+
+// One of the six builtin Profiles that a fresh install does not seed (ADR 0026), made when a Config File declares them.
+func (q *Queries) InsertBuiltinProfile(ctx context.Context, arg InsertBuiltinProfileParams) error {
+	_, err := q.db.ExecContext(ctx, insertBuiltinProfile,
+		arg.Key,
+		arg.Name,
+		arg.Sort,
+		arg.Any,
+		arg.ReleaseFamily,
+		arg.LanguageRule,
+		arg.MinHeight,
+		arg.MaxHeight,
+		arg.TrashProfileMovies,
+		arg.TrashProfileSeries,
+	)
+	return err
+}
+
 const insertCustomProfile = `-- name: InsertCustomProfile :exec
 INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
     trash_profile_movies, trash_profile_series, original_language, custom,
