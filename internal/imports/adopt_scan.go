@@ -733,7 +733,7 @@ func (a *Adoption) accepts(e *env, class probe.Class) func(profiles.Profile) boo
 // for the whole entry.
 func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probed, dir string) (PlanFile, string, error) {
 	base := strings.TrimSuffix(filepath.Base(f.path), filepath.Ext(f.path))
-	slot, guessed := a.slotFor(e, library.Movie, titleFolderOf(en), base, f.info)
+	slot, guessed := a.slotFor(e, library.Movie, title, base, f.info)
 
 	// The Profile is the Version's own, else Profile resolution picks one.
 	var ver *library.Version

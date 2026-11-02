@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"github.com/hyprsh/kestrel/internal/imports"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -80,5 +81,39 @@ func TestAnUnlabelledFileIsGuessedFromItsResolution(t *testing.T) {
 	f := a.rows(t, "matched")[0].Files[0]
 	if f.SlotGuessed != true || f.Slot != "standard" {
 		t.Errorf("file = %+v", f)
+	}
+}
+
+// The file names below are the ones Kestrel writes, so Adoption reads back what Import wrote.
+func TestAdoptionReadsTheLabelOfAnEpisodeFileKestrelNamed(t *testing.T) {
+	t.Parallel()
+	a := newAdopting(t)
+	title := imports.Title{Name: "Breaking Bad", Year: 2008, TVDBID: 81189}
+	name, err := imports.EpisodeFileName(title, "4K", imports.Episode{Season: 1, First: 1, Last: 1}, imports.FileFacts{}, ".mkv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The content says 1080p: only the label can send it to the 4K Slot.
+	a.putTV(t, bbFolder+"/Season 01/"+name, "standard")
+	a.scan(t)
+	row := a.rowOf(t, bbFolder)
+	if len(row.Files) != 1 || row.Files[0].Slot != "4k" || row.Files[0].SlotGuessed {
+		t.Errorf("files = %+v", row.Files)
+	}
+}
+
+func TestAdoptionReadsTheLabelOfALooseMovieFileKestrelNamed(t *testing.T) {
+	t.Parallel()
+	a := newAdopting(t)
+	title := imports.Title{Name: "Paddington", Year: 2014, TMDBID: 116149}
+	name, err := imports.MovieFileName(title, "4K", imports.FileFacts{}, ".mkv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.put(t, name, "x")
+	a.scan(t)
+	rows := a.rows(t, "matched")
+	if len(rows) != 1 || len(rows[0].Files) != 1 || rows[0].Files[0].Slot != "4k" || rows[0].Files[0].SlotGuessed {
+		t.Errorf("rows = %+v", rows)
 	}
 }

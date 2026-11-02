@@ -14,17 +14,15 @@ import (
 var episodeCodeRx = regexp.MustCompile(`(?i)^S\d+E\d+(?:-E\d+)? - `)
 
 // labelAt is the text of the first bracket at the fixed place of a Slot label
-// (ADR 0024): right after `<folder name> - ` in a Movie's file name, and
-// right after `<series folder> - SxxEyy - ` in an episode's. base is the file
-// name without extension. It is "" when the file does not follow that shape,
-// so the same words later in the name, such as `[German]` or `[Remux-2160p]`
-// after the label, never pick a Slot.
-func labelAt(base, folder string, series bool) string {
-	if folder == "" {
-		return ""
-	}
-	prefix := folder + " - "
-	if len(base) < len(prefix) || !strings.EqualFold(base[:len(prefix)], prefix) {
+// (ADR 0024): right after the Title's name up to the label, as Kestrel writes
+// it (labelPrefix), and for an episode after its `SxxEyy - ` code. base is the
+// file name without extension; a loose file reads the same as one in a folder.
+// It is "" when the file does not follow that shape, so the same words later in
+// the name, such as `[German]` or `[Remux-2160p]` after the label, never pick a
+// Slot.
+func labelAt(t Title, base string, series bool) string {
+	prefix, err := labelPrefix(t, series)
+	if err != nil || len(base) < len(prefix) || !strings.EqualFold(base[:len(prefix)], prefix) {
 		return ""
 	}
 	rest := base[len(prefix):]
@@ -65,18 +63,8 @@ func chooseSlot(set []slot.Record, aliases map[slot.Slot][]string, label string,
 	return slot.Standard, true
 }
 
-// titleFolderOf is the Title folder of an entry: the entry itself when it is
-// a folder. A loose file has none, so its label is not read.
-func titleFolderOf(en entry) string {
-	if en.IsDir {
-		return en.Name
-	}
-	return ""
-}
-
-// slotFor is the Slot of a file of the entry. folder is the Title folder whose
-// name its own name starts with.
-func (a *Adoption) slotFor(e *env, kind library.Kind, folder, base string, info probe.Info) (Slot, bool) {
+// slotFor is the Slot of a file of the entry: the label its name carries, else a guess.
+func (a *Adoption) slotFor(e *env, kind library.Kind, title Title, base string, info probe.Info) (Slot, bool) {
 	covers := func(r slot.Record) bool {
 		key := r.Default(release.KindMovie)
 		if kind == library.Series {
@@ -89,5 +77,5 @@ func (a *Adoption) slotFor(e *env, kind library.Kind, folder, base string, info 
 		}
 		return false
 	}
-	return chooseSlot(e.slots, e.aliases, labelAt(base, folder, kind == library.Series), covers)
+	return chooseSlot(e.slots, e.aliases, labelAt(title, base, kind == library.Series), covers)
 }

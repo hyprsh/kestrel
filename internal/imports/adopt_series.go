@@ -367,7 +367,7 @@ func (a *Adoption) byNameSeries(ctx context.Context, en entry, files []probed) (
 // skip reason for the whole entry.
 func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, f probed, dir string) (PlanFile, string, error) {
 	base := strings.TrimSuffix(filepath.Base(f.path), filepath.Ext(f.path))
-	slot, guessed := a.slotFor(e, library.Series, titleFolderOf(en), base, f.info)
+	slot, guessed := a.slotFor(e, library.Series, title, base, f.info)
 
 	rel, _ := filepath.Rel(en.Root, f.path)
 	rel = filepath.ToSlash(rel)

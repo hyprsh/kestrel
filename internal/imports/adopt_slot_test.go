@@ -1,36 +1,67 @@
 package imports
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
 
+func TestLabelAtReadsTheLabelOfTheNamesKestrelWrites(t *testing.T) {
+	film := Title{Name: "Film", Year: 2020, TMDBID: 1}
+	show := Title{Name: "Show", Year: 2020, TVDBID: 2}
+	facts := FileFacts{Release: release.ParsedRelease{ReleaseGroup: "GRP"}}
+	base := func(name string, err error) string {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSuffix(name, ".mkv")
+	}
+	for _, label := range []string{"4K", "Standard", "Kids + Dub", "German"} {
+		if got := labelAt(film, base(MovieFileName(film, label, facts, ".mkv")), false); got != label {
+			t.Errorf("a Movie file of the label %q reads as %q", label, got)
+		}
+		for _, ep := range []Episode{{Season: 1, First: 2, Last: 2}, {Season: 1, First: 2, Last: 3}, {Season: 0, First: 1, Last: 1}} {
+			if got := labelAt(show, base(EpisodeFileName(show, label, ep, facts, ".mkv")), true); got != label {
+				t.Errorf("an episode file %+v of the label %q reads as %q", ep, label, got)
+			}
+		}
+	}
+	// A loose file reads the same: the name carries the label, not the folder.
+	loose := base(MovieFileName(film, "4K", facts, ".mkv"))
+	if got := labelAt(film, strings.ToLower(loose), false); !strings.EqualFold(got, "4K") {
+		t.Errorf("a loose Movie file in other case reads as %q", got)
+	}
+}
+
 func TestLabelAtReadsOnlyTheFixedPosition(t *testing.T) {
-	const film = "Film (2020) {tmdb-1}"
-	const show = "Show (2020) {tvdb-2}"
+	film := Title{Name: "Film", Year: 2020, TMDBID: 1}
+	show := Title{Name: "Show", Year: 2020, TVDBID: 2}
 	tests := []struct {
-		name         string
-		base, folder string
-		series       bool
-		want         string
+		name   string
+		base   string
+		title  Title
+		series bool
 	}{
-		{"a movie label", film + " - [4K][Remux-2160p][German][h265]-GRP", film, false, "4K"},
-		{"only a language bracket", film + " - [German][Bluray-1080p]-GRP", film, false, "German"},
-		{"ignores the folder's case", "film (2020) {tmdb-1} - [Standard][x]", film, false, "Standard"},
-		{"the label is not first", film + " - [Remux-2160p][4K]", film, false, "Remux-2160p"},
-		{"no bracket after the prefix", film + " - 4K", film, false, ""},
-		{"the label sits elsewhere", "Other - [4K]", film, false, ""},
-		{"a label with a space", film + " - [Kids + Dub][Bluray-1080p]", film, false, "Kids + Dub"},
-		{"an episode", show + " - S01E02 - [Original][WEBDL-1080p]-GRP", show, true, "Original"},
-		{"an episode range", show + " - S01E02-E03 - [4K][WEBDL-2160p]", show, true, "4K"},
-		{"an episode without a label", show + " - S01E02 - Pilot [4K]", show, true, ""},
-		{"a series file named like a movie", show + " - [4K]", show, true, ""},
-		{"no folder", "Film - [4K]", "", false, ""},
+		{"the label is not first", "Film (2020) {tmdb-1} - [Remux-2160p][4K]", film, false},
+		{"no bracket after the prefix", "Film (2020) {tmdb-1} - 4K", film, false},
+		{"another title", "Other (2020) {tmdb-9} - [4K]", film, false},
+		{"an episode without a label", "Show (2020) - S01E02 - Pilot [4K]", show, true},
+		{"a series file named like a movie", "Show (2020) - [4K]", show, true},
+		{"the folder name of a Series is not the file prefix", "Show (2020) {tvdb-2} - S01E02 - [4K]", show, true},
 	}
 	for _, tt := range tests {
-		if got := labelAt(tt.base, tt.folder, tt.series); got != tt.want {
-			t.Errorf("%s: labelAt(%q) = %q, want %q", tt.name, tt.base, got, tt.want)
+		got := labelAt(tt.title, tt.base, tt.series)
+		if tt.name == "the label is not first" {
+			if got != "Remux-2160p" {
+				t.Errorf("%s: labelAt(%q) = %q, want the first bracket", tt.name, tt.base, got)
+			}
+			continue
+		}
+		if got != "" {
+			t.Errorf("%s: labelAt(%q) = %q, want none", tt.name, tt.base, got)
 		}
 	}
 }

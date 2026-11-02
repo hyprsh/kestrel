@@ -121,6 +121,31 @@ func EpisodeFileName(t Title, label string, ep Episode, f FileFacts, ext string)
 	return fileName(t, yearPart(t.Year)+code, label, f, ext)
 }
 
+// labelMark stands in for a label to find where a file name's label starts.
+const labelMark = "\x00"
+
+// labelPrefix is what a file of the Title's name starts with before its Slot
+// label, built by the code that writes the names: `Title (Year) {tmdb-N} - ` for
+// a Movie, and `Title (Year) - ` for a Series, whose episode code comes next.
+func labelPrefix(t Title, series bool) (string, error) {
+	var name string
+	var err error
+	if series {
+		name, err = EpisodeFileName(t, labelMark, Episode{Season: 1, First: 1, Last: 1}, FileFacts{}, ".mkv")
+	} else {
+		name, err = MovieFileName(t, labelMark, FileFacts{}, ".mkv")
+	}
+	if err != nil {
+		return "", err
+	}
+	if series {
+		name, _, _ = strings.Cut(name, " - S01E01")
+		return name + " - ", nil
+	}
+	name, _, _ = strings.Cut(name, "["+labelMark)
+	return name, nil
+}
+
 // SubtitleFileName names a subtitle sidecar `<stem>.<lang>[.forced][.sdh].<ext>`
 // for the video file whose name without extension is stem. An empty or
 // untagged language is `und`. When taken reports that a candidate already
