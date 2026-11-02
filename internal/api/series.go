@@ -105,6 +105,10 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 			versionOf[v.Slot] = v.ID
 		}
 	}
+	order, err := s.slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
 	cell := func(c *library.EpisodeCell, sl slot.Slot) *oapi.EpisodeCell {
 		if c == nil {
 			return nil
@@ -135,7 +139,10 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 			oe.AirDate = &openapi_types.Date{Time: *e.AirDate}
 		}
 		episodeID = e.ID
-		oe.Cells.Standard, oe.Cells.N4k = cell(e.Cells[slot.Standard], slot.Standard), cell(e.Cells[slot.FourK], slot.FourK)
+		oe.Cells = make(map[string]*oapi.EpisodeCell, len(order))
+		for _, sl := range order {
+			oe.Cells[sl.ID.Key()] = cell(e.Cells[sl.ID], sl.ID)
+		}
 		out.Items = append(out.Items, oe)
 	}
 	return oapi.ListEpisodes200JSONResponse(out), nil

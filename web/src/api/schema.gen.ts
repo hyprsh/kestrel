@@ -3370,10 +3370,12 @@ export interface components {
              */
             air_date: string | null;
             monitored: boolean;
-            /** @description One cell per Slot, `null` where the Title has no Version. */
+            /**
+             * @description One cell per Slot, keyed by the Slot's `id` (`GET /slots`), `null` where the Title has no Version in it.
+             *     Every Slot is a key, so a client reads the cells in Slot order from the Slot list.
+             */
             cells: {
-                standard: components["schemas"]["EpisodeCell"] | null;
-                "4k": components["schemas"]["EpisodeCell"] | null;
+                [key: string]: components["schemas"]["EpisodeCell"] | null;
             };
             /** @description The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode. */
             primary_name: string;

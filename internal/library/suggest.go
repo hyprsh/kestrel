@@ -29,16 +29,16 @@ type Suggestion struct {
 	Slots []SuggestedSlot
 }
 
-// Suggest computes the add panel's preselection, shared with Requests: every
+// Suggest computes the add panel's preselection, in the Slot order given, shared with Requests: every
 // Slot with a default Profile for the kind, resolved by Profile resolution
 // (PRD Settled 8).
-func Suggest(all []profiles.Profile, kind Kind) Suggestion {
+func Suggest(all []profiles.Profile, order []slot.Slot, kind Kind) Suggestion {
 	var s Suggestion
 	rk := release.KindMovie
 	if kind == Series {
 		rk = release.KindSeries
 	}
-	for _, sl := range slot.All {
+	for _, sl := range order {
 		hasDefault := false
 		for _, p := range all {
 			if p.Enabled && p.Slot == sl && p.Default(rk) {

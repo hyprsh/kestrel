@@ -4693,17 +4693,13 @@ components:
           type: boolean
         cells:
           type: object
-          description: One cell per Slot, `null` where the Title has no Version.
-          required: [standard, 4k]
-          properties:
-            standard:
-              allOf:
-                - $ref: "#/components/schemas/EpisodeCell"
-              nullable: true
-            4k:
-              allOf:
-                - $ref: "#/components/schemas/EpisodeCell"
-              nullable: true
+          description: |
+            One cell per Slot, keyed by the Slot's `id` (`GET /slots`), `null` where the Title has no Version in it.
+            Every Slot is a key, so a client reads the cells in Slot order from the Slot list.
+          additionalProperties:
+            allOf:
+              - $ref: "#/components/schemas/EpisodeCell"
+            nullable: true
         primary_name:
           type: string
           description: The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode.

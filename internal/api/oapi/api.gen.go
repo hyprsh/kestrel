@@ -2650,13 +2650,11 @@ type Episode struct {
 	// AirDate The TheTVDB air date.
 	AirDate *openapi_types.Date `json:"air_date"`
 
-	// Cells One cell per Slot, `null` where the Title has no Version.
-	Cells struct {
-		N4k      *EpisodeCell `json:"4k"`
-		Standard *EpisodeCell `json:"standard"`
-	} `json:"cells"`
-	Id        int64 `json:"id"`
-	Monitored bool  `json:"monitored"`
+	// Cells One cell per Slot, keyed by the Slot's `id` (`GET /slots`), `null` where the Title has no Version in it.
+	// Every Slot is a key, so a client reads the cells in Slot order from the Slot list.
+	Cells     map[string]*EpisodeCell `json:"cells"`
+	Id        int64                   `json:"id"`
+	Monitored bool                    `json:"monitored"`
 
 	// Name The original title; kept for older clients, the same as `original_name`.
 	Name   string `json:"name"`

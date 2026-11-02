@@ -162,11 +162,15 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
+	order, err := s.slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
 	in, err := s.library.InLibrary(ctx, kind, []int{r.TmdbId})
 	if err != nil {
 		return nil, err
 	}
-	sug := library.Suggest(all, kind)
+	sug := library.Suggest(all, slotIDs(order), kind)
 	certCountry, cert := rel.Certification(region.Country)
 	out := oapi.LookupDetail{
 		Kind: oapi.TitleKind(kind), TmdbId: tmdbID, Title: name, Year: intPtr(year), Overview: overview,
@@ -222,7 +226,8 @@ func datePtr(t *time.Time) *openapi_types.Date {
 	return &openapi_types.Date{Time: *t}
 }
 
-func rowToAPI(r library.Row) oapi.TitleRow {
+// rowToAPI lists a row's Slot states in Slot order, each with the Slot's stored label.
+func rowToAPI(r library.Row, order []slot.Record) oapi.TitleRow {
 	out := oapi.TitleRow{
 		Id: r.ID, Kind: oapi.TitleKind(r.Kind), Title: r.Title, PrimaryTitle: r.PrimaryTitle, Year: intPtr(r.Year),
 		HasPoster: r.HasPoster, Monitored: r.Monitored, WantedSince: r.WantedSince, AddedAt: r.AddedAt, Size: r.Size, SearchedAt: r.SearchedAt,
@@ -231,9 +236,9 @@ func rowToAPI(r library.Row) oapi.TitleRow {
 		out.WantedEpisodes = &oapi.WantedEpisodes{Wanted: w.Wanted, LongMissing: w.LongMissing, Seasons: w.Seasons}
 	}
 	out.SlotStates = []oapi.SlotStateEntry{}
-	for _, sl := range slot.All {
-		if s := r.Slots[sl]; s != nil {
-			e := oapi.SlotStateEntry{Slot: slotToAPI(sl), Label: sl.Name(), VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing, WantedSince: s.WantedSince, EpisodesHave: s.EpisodesHave, EpisodesAired: s.EpisodesAired}
+	for _, rec := range order {
+		if s := r.Slots[rec.ID]; s != nil {
+			e := oapi.SlotStateEntry{Slot: slotToAPI(rec.ID), Label: rec.Label, VersionId: s.VersionID, Profile: s.Profile, State: oapi.SlotState(s.State), LongMissing: s.LongMissing, WantedSince: s.WantedSince, EpisodesHave: s.EpisodesHave, EpisodesAired: s.EpisodesAired}
 			out.SlotStates = append(out.SlotStates, e)
 		}
 	}
@@ -279,6 +284,10 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 	if err != nil {
 		return nil, err
 	}
+	order, err := s.slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := oapi.TitleList{Items: []oapi.TitleRow{}}
 	if offset > len(rows) {
 		offset = len(rows)
@@ -290,7 +299,7 @@ func (s *server) ListTitles(ctx context.Context, r oapi.ListTitlesRequestObject)
 		end = len(rows)
 	}
 	for _, row := range rows[offset:end] {
-		out.Items = append(out.Items, rowToAPI(row))
+		out.Items = append(out.Items, rowToAPI(row, order))
 	}
 	if err := s.withWantedSearches(ctx, out.Items); err != nil {
 		return nil, err
