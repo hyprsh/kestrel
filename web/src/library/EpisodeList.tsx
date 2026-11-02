@@ -33,7 +33,7 @@ const MAX_CHIPS = 4
 
 /**
  * The open season's episodes: one row each with a tick box, the monitoring bookmark, its code, name and air date, then a chip
- * per Slot (STD, 4K, ...; the full state in its tooltip). The Slots come from `slots`, any number of them; no Slot has a column.
+ * per Slot (STD, 4K, ...; the full state in its tooltip) under one "Slots" column. The Slots come from `slots`, any number of them.
  * Each chip is a button: its popover is that one Slot (its file, its search, its download or its monitoring). On hover a row
  * shows Search and a small ⋯ menu (Show in Log, Delete Files).
  *
@@ -173,7 +173,7 @@ export function EpisodeList({
               </TableHead>
               <TableHead className="px-2 max-sm:hidden">Aired</TableHead>
               <TableHead align="right" className="px-2 max-sm:hidden">
-                {slots.map((s) => s.short).join(' · ')}
+                Slots
               </TableHead>
               <TableHead align="right" className="w-17 px-2 max-sm:w-13 max-sm:px-1">
                 <span className="sr-only">Actions</span>

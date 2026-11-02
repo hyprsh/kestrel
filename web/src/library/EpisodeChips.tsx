@@ -13,7 +13,8 @@ import { slotDetail } from './slotDetail'
 /**
  * An episode's chips, one per Slot, each a button whose popover is that Slot alone: a file's details (with Upgrade Search), the
  * last search of a Wanted Slot with Search and Manual Search, a download's progress with View in Activity, or Monitor for one
- * that is not monitored. A Slot the Title has no Version in is a plain chip.
+ * that is not monitored. A Slot the Title has no Version in is a plain chip. Every chip carries its Slot's short name, however
+ * many Slots there are.
  */
 export function EpisodeChips({
   episode,
@@ -41,7 +42,7 @@ export function EpisodeChips({
     const grab = grabOf(grabs, s.key, episode)
     const d = slotDetail(episode, s.key, s.name, grab)
     const cell = cellOf(episode, s.key)
-    const base = { key: s.key, short: slots.length > 1 ? s.short : '', state: d.state, tip: d.tip }
+    const base = { key: s.key, short: s.short, state: d.state, tip: d.tip }
     if (!cell) return base
     const label = `${code} ${s.name}`
     const heading = `${code} · ${s.name}`

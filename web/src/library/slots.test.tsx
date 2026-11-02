@@ -65,6 +65,21 @@ describe('a Series with four Slots', () => {
     expect(Array.from(off.querySelectorAll('[data-slot]')).map((c) => c.getAttribute('data-state'))).toEqual(['unmonitored', 'unmonitored', 'unmonitored', 'unmonitored'])
   })
 
+  it.each([
+    ['one Slot', ['standard'], ['STD']],
+    ['two Slots', ['standard', '4k'], ['STD', '4K']],
+  ])('has the one column header "Slots" and a labelled chip in every row with %s', async (_, slotList, labels) => {
+    const state = await openFourSlotSeries(slotList)
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('wanted') }) })]
+    const grid = await show()
+
+    expect(within(grid).getByRole('columnheader', { name: 'Slots' })).toBeInTheDocument()
+    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
+    const chips = Array.from(within(pilot).getByRole('group', { name: 'S01E01 Slots' }).querySelectorAll('[data-slot]'))
+    expect(chips.map((c) => c.textContent)).toEqual(labels) // no bare dot, whatever the number of Slots
+    chips.forEach((c) => expect(c).toHaveAccessibleName(/: /))
+  })
+
   it('folds the Slots past four into a +N chip whose tooltip lists them', async () => {
     const state = await openFourSlotSeries([...keys, 'kids', 'mobile'])
     state.get().episodes = [
