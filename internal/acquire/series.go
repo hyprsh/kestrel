@@ -284,8 +284,12 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	out.asked = true
 	entries := map[string]*entry{}
 	var all []*entry
-	var plans []GrabPlan
+	var sent []GrabPlan
+	var failed []failedSend
+	var errs []error
+	listed := episodes
 	left := in.Versions
+	paused, checked := false, false
 	for _, g := range s.groupsOf(ctx) {
 		round := Input{Versions: cloneVersions(left), SeasonsFinished: in.SeasonsFinished}
 		add := func(found []*entry) {
@@ -321,44 +325,55 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		}
 		if !upgrade {
 			planUnlisted(&round, d, episodes, now, scope)
-			round.Versions = dropPlanned(round.Versions, plans)
+			round.Versions = dropPlanned(round.Versions, sent)
 		}
 		got := s.plan(round)
-		plans = append(plans, got...)
-		if left = leftover(left, got); len(left) == 0 {
+		if !checked {
+			// Pause Grabs is checked once, before the first Grab. While it is on nothing is sent, and what
+			// would be grabbed still counts as covered.
+			var err error
+			if paused, err = s.grabsPaused(ctx); err != nil {
+				out.found(all)
+				return out, err
+			}
+			checked = true
+		}
+		done := got
+		if !paused {
+			// Each round grabs what it plans, so a Grab that cannot be sent leaves its episodes to the next group.
+			done = nil
+			for _, plan := range got {
+				e := entries[entryKey(plan.Candidate)]
+				eps, err := s.placeholdersFor(ctx, d.ID, plan.Covers, episodes)
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
+				episodes = eps
+				ids, _ := coveredBy(e.cand.Parsed, episodes, plan.Slot)
+				ids = onlyPlanned(ids, plan.Covers, episodes)
+				gr, err := s.send(ctx, outgoing{
+					titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
+					episodes: ids, upgrade: plan.Upgrade, by: GrabbedBySearch,
+				})
+				if err != nil {
+					failed = append(failed, failedSend{plan, err})
+					continue
+				}
+				out.Grabbed = append(out.Grabbed, gr)
+				done = append(done, plan)
+			}
+		}
+		sent = append(sent, done...)
+		if left = leftover(left, done); len(left) == 0 {
 			break
 		}
 	}
 	out.found(all)
 	if !upgrade {
-		planUnlisted(&in, d, episodes, now, scope)
+		planUnlisted(&in, d, listed, now, scope)
 	}
-	if paused, err := s.grabsPaused(ctx); err != nil {
-		return out, err
-	} else if paused {
-		plans = nil
-	}
-	var errs []error
-	for _, plan := range plans {
-		e := entries[entryKey(plan.Candidate)]
-		eps, err := s.placeholdersFor(ctx, d.ID, plan.Covers, episodes)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		episodes = eps
-		ids, _ := coveredBy(e.cand.Parsed, episodes, plan.Slot)
-		ids = onlyPlanned(ids, plan.Covers, episodes)
-		g, err := s.send(ctx, outgoing{
-			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
-			episodes: ids, upgrade: plan.Upgrade, by: GrabbedBySearch,
-		})
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		out.Grabbed = append(out.Grabbed, g)
-	}
+	errs = append(errs, sendErrors(failed, sent)...)
 	errs = append(errs, s.noteOffers(ctx, d, versionOf, in, entries, episodes))
 	return out, errors.Join(errs...)
 }

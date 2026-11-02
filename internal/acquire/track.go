@@ -372,11 +372,14 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 	obs.Searching(targetOf(sub.detail, in))
 	out.asked = true
 	// The indexers are asked by Indexer Priority: each group only while the earlier ones left a Version with
-	// nothing to grab, and its Releases count only for what was left (ADR 0025).
+	// nothing grabbed, and its Releases count only for what was left (ADR 0025). Each round grabs what it plans,
+	// so a Grab that cannot be sent leaves its Version to the next group.
 	var entries []*entry
-	var plans []GrabPlan
+	var sent []GrabPlan
+	var failed []failedSend
 	byRelease := map[string]*entry{}
 	left := in.Versions
+	paused, checked := false, false
 	for _, g := range s.groupsOf(ctx) {
 		found, failures, err := s.candidates(ctx, sub, library.Scope{}, g, fromCache)
 		if err != nil {
@@ -392,30 +395,39 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 		}
 		entries = append(entries, found...)
 		got := s.plan(round)
-		plans = append(plans, got...)
-		if left = leftover(left, got); len(left) == 0 {
+		if !checked {
+			// Pause Grabs is checked once, before the first Grab. While it is on nothing is sent, and what
+			// would be grabbed still counts as covered.
+			if paused, err = s.grabsPaused(ctx); err != nil {
+				out.found(entries)
+				return out, err
+			}
+			checked = true
+		}
+		done := got
+		if !paused {
+			done = nil
+			for _, plan := range got {
+				e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
+				if e == nil {
+					continue
+				}
+				gr, err := s.grab(ctx, slotVersion[plan.Slot], e.id, false)
+				if err != nil {
+					failed = append(failed, failedSend{plan, err})
+					continue
+				}
+				out.Grabbed = append(out.Grabbed, gr)
+				done = append(done, plan)
+			}
+		}
+		sent = append(sent, done...)
+		if left = leftover(left, done); len(left) == 0 {
 			break
 		}
 	}
 	out.found(entries)
-	if paused, err := s.grabsPaused(ctx); err != nil {
-		return out, err
-	} else if paused {
-		plans = nil
-	}
-	var errs []error
-	for _, plan := range plans {
-		e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
-		if e == nil {
-			continue
-		}
-		g, err := s.grab(ctx, slotVersion[plan.Slot], e.id, false)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		out.Grabbed = append(out.Grabbed, g)
-	}
+	errs := sendErrors(failed, sent)
 	errs = append(errs, s.noteOffers(ctx, sub.detail, slotVersion, in, byRelease, nil))
 	return out, errors.Join(errs...)
 }

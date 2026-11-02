@@ -73,3 +73,26 @@ func leftover(vs []Version, plans []GrabPlan) []Version {
 	}
 	return out
 }
+
+// failedSend is a planned Grab that could not be sent, and why.
+type failedSend struct {
+	plan GrabPlan
+	err  error
+}
+
+// sendErrors are the errors of the Grabs that could not be sent whose units no
+// Grab sent from a later group covers: a unit the next group filled is no
+// failure of the search.
+func sendErrors(failed []failedSend, sent []GrabPlan) []error {
+	var out []error
+	for _, f := range failed {
+		v := Version{Slot: f.plan.Slot}
+		for _, r := range f.plan.Covers {
+			v.Units = append(v.Units, Unit{Ref: r})
+		}
+		if len(leftover([]Version{v}, sent)) > 0 {
+			out = append(out, f.err)
+		}
+	}
+	return out
+}

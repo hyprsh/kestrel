@@ -262,3 +262,48 @@ func TestTheNextGroupIsAskedOnlyForTheEpisodesTheFirstLeft(t *testing.T) {
 		t.Errorf("from Beta: %v, want episodes 7 to 10", names)
 	}
 }
+
+func TestEpisodesWhoseGrabsFailAreGrabbedFromTheNextGroup(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	r.withBetaAt(t, 2)
+	d, v := tenEpisodes()
+	id := r.addSeries(t, d, v, library.MonitorAll)
+	det, err := r.lib.Get(ctx, id, library.View{Country: "US", Now: r.clock.now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n := 1; n <= 10; n++ {
+		name := fmt.Sprintf("Night.Show.S01E%02d.1080p.WEB-DL.H264-GRP", n)
+		for _, ix := range []*ixfake.Indexer{r.idx, r.idx2} {
+			err := ix.Publish(indexer.Release{
+				Title: name, TVDBID: 5001, Season: "1", Episode: fmt.Sprint(n), Size: 2 << 30,
+				PublishDate: r.clock.now.Add(-time.Hour), Categories: []int{5040},
+			}, []byte("<nzb>"+name+"</nzb>"))
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	r.idx.Exhaust(plugin.LimitGrab, time.Minute) // Alpha finds the episodes but cannot hand over their NZBs
+
+	out, err := r.svc.SearchNew(ctx, id, []int64{det.Versions[0].ID})
+	if err != nil {
+		t.Fatalf("err = %v, want none once Beta filled every episode", err)
+	}
+	if r.asked2.Load() == 0 {
+		t.Fatal("Beta was not asked for the episodes Alpha's Grabs left")
+	}
+	got := map[string]string{}
+	for _, g := range out.Grabbed {
+		got[g.ReleaseName] = g.IndexerName
+	}
+	if len(out.Grabbed) != 10 || len(got) != 10 {
+		t.Fatalf("grabbed %d: %v, want the ten episodes once each", len(out.Grabbed), got)
+	}
+	for name, from := range got {
+		if from != "Beta" {
+			t.Errorf("%s grabbed from %s, want Beta", name, from)
+		}
+	}
+}
