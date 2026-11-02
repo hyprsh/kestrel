@@ -265,14 +265,36 @@ type feedDoc struct {
 			Offset int `xml:"offset,attr"`
 			Total  int `xml:"total,attr"`
 		} `xml:"response"`
-		APILimits *struct {
-			APICurrent  int `xml:"apicurrent,attr"`
-			APIMax      int `xml:"apimax,attr"`
-			GrabCurrent int `xml:"grabcurrent,attr"`
-			GrabMax     int `xml:"grabmax,attr"`
-		} `xml:"apilimits"`
-		Items []itemEl `xml:"item"`
+		APILimits *apiLimits `xml:"apilimits"`
+		Items     []itemEl   `xml:"item"`
 	} `xml:"channel"`
+}
+
+// apiLimits is the newznab:apilimits element. Indexers disagree on attribute
+// case (apicurrent or apiCurrent), and encoding/xml matches attribute names
+// case-sensitively, so the attributes are matched by hand.
+type apiLimits struct {
+	APICurrent, APIMax, GrabCurrent, GrabMax int
+}
+
+func (l *apiLimits) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	for _, a := range start.Attr {
+		v, err := strconv.Atoi(a.Value)
+		if err != nil {
+			continue
+		}
+		switch {
+		case strings.EqualFold(a.Name.Local, "apicurrent"):
+			l.APICurrent = v
+		case strings.EqualFold(a.Name.Local, "apimax"):
+			l.APIMax = v
+		case strings.EqualFold(a.Name.Local, "grabcurrent"):
+			l.GrabCurrent = v
+		case strings.EqualFold(a.Name.Local, "grabmax"):
+			l.GrabMax = v
+		}
+	}
+	return d.Skip()
 }
 
 type itemEl struct {
