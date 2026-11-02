@@ -242,6 +242,8 @@ List all six Profiles or none: `hd-primary`, `hd-original`, `any-primary`, `any-
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`           | `true` or `false`.                                                                                                                                                                                                                                                              |
 | `original_language` | What the Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject`, `offer` it for approval in Needs attention, or `accept`. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). |
+| `release_family`    | Optional. The Profile's Release Family: `bluray-web`, `remux-web`, `web` or `sqp`. Left out, the Profile keeps its own (the six start as `bluray-web`). Any is only `bluray-web`.                                                                                               |
+| `language_rule`     | Optional. `primary`, `original`, or one named language: `en`, `de` or `fr`. Left out, the Profile keeps its own. A named-language Profile takes `original_language` like a `primary` one, judged against its own language.                                                      |
 | `default_movies`    | Ignored: the defaults for new Titles belong to the Slots (see `slots`). Kestrel logs a warning at startup naming each Profile that still sets it.                                                                                                                               |
 | `default_series`    | Ignored, like `default_movies`.                                                                                                                                                                                                                                                 |
 
@@ -249,6 +251,7 @@ List all six Profiles or none: `hd-primary`, `hd-original`, `any-primary`, `any-
 
 The rules of Settings > Profiles hold across the six:
 
+- An enabled Profile's recipe needs a TRaSH profile for Movies and for Series in the language its rule names, under the Primary Language the file declares (else the saved one). Kestrel never falls back to another language, so German WEB, French Remux for Series and SQP for Series are refused, and so is Any with anything but `bluray-web` ([ADR 0026](../adr/0026-profiles-are-recipes-backed-by-trash.md)).
 - An Original-Language Profile (`*-original`) always rejects.
 - A Profile that a Slot names as its default stays enabled: declare the new default in `slots` before switching the old one off.
 

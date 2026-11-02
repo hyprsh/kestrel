@@ -322,3 +322,9 @@ func loadGroup(fsys fs.FS, file string, d *appData) (*cfGroup, error) {
 	}
 	return g, nil
 }
+
+// HasBackingProfile reports whether the snapshot holds the TRaSH profile file (without .json) for a kind.
+func (s *Snapshot) HasBackingProfile(kind release.Kind, name string) bool {
+	d := s.apps[kind]
+	return d != nil && d.profiles[name] != nil
+}

@@ -9,6 +9,7 @@ type profileJSON struct {
 	Key                string `json:"key"`
 	Name               string `json:"name"`
 	Slot               string `json:"slot"`
+	ReleaseFamily      string `json:"release_family"`
 	LanguageRule       string `json:"language_rule"`
 	OriginalLanguage   string `json:"original_language"`
 	OriginalFallback   bool   `json:"original_fallback"`
@@ -185,6 +186,43 @@ func TestChangingThePrimaryLanguageRepointsProfiles(t *testing.T) {
 	if setup = b.valid("GET", "/setup", "").Body; !strings.Contains(setup, `"language":"done"`) {
 		t.Errorf("setup after saving: %s", setup)
 	}
+}
+
+func TestProfilesShowTheirReleaseFamilyAndLanguageRule(t *testing.T) {
+	t.Parallel()
+	b := newInstance(t, "").setUp()
+	raw := b.valid("GET", "/profiles", "").Body
+	if got := strings.Count(raw, `"release_family":"bluray-web"`); got != 6 {
+		t.Errorf("%d Profiles are Bluray + WEB, want all 6: %s", got, raw)
+	}
+	// A named-language Remux Profile, as a Config File declares one.
+	if _, err := b.in.st.Write().Exec(`UPDATE profiles SET release_family = 'remux-web', language_rule = 'de',
+		trash_profile_movies = 'german-hd-remux-web', trash_profile_series = 'german-hd-remux-web' WHERE key = 'hd-original'`); err != nil {
+		t.Fatal(err)
+	}
+	m := profileMap(t, b)
+	if o := m["hd-original"]; o.ReleaseFamily != "remux-web" || o.LanguageRule != "de" || o.TrashProfileMovies != "german-hd-remux-web" {
+		t.Errorf("hd-original = %+v", o)
+	}
+}
+
+func TestChangingThePrimaryLanguageIsRefusedNamingTheProfilesThatWouldLoseTheirBackingProfile(t *testing.T) {
+	t.Parallel()
+	b := newInstance(t, "").setUp()
+	// HD is Remux + WEB under English, which French has no Series profile for.
+	if _, err := b.in.st.Write().Exec(`UPDATE profiles SET release_family = 'remux-web',
+		trash_profile_movies = 'remux-web-1080p', trash_profile_series = 'remux-web-1080p' WHERE key = 'hd-primary'`); err != nil {
+		t.Fatal(err)
+	}
+	r := b.do("PATCH", "/settings", `{"language_region":{"primary_language":"fr"}}`)
+	if r.Status != 422 || !strings.Contains(r.Body, `"field":"primary_language"`) || !strings.Contains(r.Body, "HD (Remux + WEB") {
+		t.Errorf("PATCH French = %d %s, want a 422 naming HD", r.Status, r.Body)
+	}
+	if s := decode[settingsJSON](t, b.valid("GET", "/settings", "")); s.LanguageRegion.PrimaryLanguage != "en" || s.LanguageRegion.PendingLanguage != "" {
+		t.Errorf("a refused change was queued: %+v", s.LanguageRegion)
+	}
+	// German has a Remux profile for both kinds, so it goes through.
+	b.valid("PATCH", "/settings", `{"language_region":{"primary_language":"de"}}`)
 }
 
 func TestProviderKeyOverridesAreSavedWithTheSettingsAndNeverShownAgain(t *testing.T) {

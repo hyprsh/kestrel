@@ -25,6 +25,7 @@ type Slot = components['schemas']['Slot']
 const profile = (key: string, name: string, rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
   key,
   name,
+  release_family: 'bluray-web',
   language_rule: rule,
   original_language: 'reject',
   original_fallback: false,

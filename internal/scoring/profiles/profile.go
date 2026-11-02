@@ -8,6 +8,8 @@ package profiles
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
@@ -20,8 +22,12 @@ type Profile struct {
 	Key  string
 	Name string
 	// Any accepts SD too.
-	Any  bool
-	Rule scoring.LanguageRule
+	Any bool
+	// Family is the Release Family: Bluray + WEB, Remux + WEB, WEB or SQP (ADR 0026).
+	Family scoring.ReleaseFamily
+	Rule   scoring.LanguageRule
+	// Named is the language of a NamedLanguage rule, and empty otherwise.
+	Named Language
 	// MinHeight and MaxHeight bound the resolutions it accepts (Settled 2); they are the only
 	// resolution rule.
 	MinHeight, MaxHeight int
@@ -46,9 +52,87 @@ func (p Profile) UHD() bool { return p.MinHeight >= 2160 }
 
 // Spec is the scoring.ProfileSpec of the Profile under a Primary Language.
 func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
-	return scoring.ProfileSpec{
-		UHD: p.UHD(), Any: p.Any, Rule: p.Rule, Primary: primary, OriginalChoice: p.OriginalChoice, Overlay: p.overlay(),
+	spec := scoring.ProfileSpec{
+		UHD: p.UHD(), Any: p.Any, Family: p.Family, Rule: p.Rule, Primary: primary, OriginalChoice: p.OriginalChoice, Overlay: p.overlay(),
 	}
+	if p.Rule == scoring.NamedLanguage {
+		spec.Language = p.Named.Release()
+	}
+	return spec
+}
+
+// RuleKey is the Profile's language rule as the API and the Config File name it: primary, original, or the
+// named language's code (en, de or fr).
+func (p Profile) RuleKey() string {
+	switch p.Rule {
+	case scoring.OriginalLanguage:
+		return "original"
+	case scoring.NamedLanguage:
+		return string(p.Named)
+	}
+	return "primary"
+}
+
+// ParseRule is the language rule a key names, and the named language when it is one; false for a key that is none.
+func ParseRule(key string) (scoring.LanguageRule, Language, bool) {
+	switch key {
+	case "primary":
+		return scoring.PrimaryLanguage, "", true
+	case "original":
+		return scoring.OriginalLanguage, "", true
+	case string(English), string(German), string(French):
+		return scoring.NamedLanguage, Language(key), true
+	}
+	return 0, "", false
+}
+
+// NoBackingError says no TRaSH profile backs a Profile's recipe for some kind in the language its rule names (ADR 0026).
+type NoBackingError struct {
+	Profile string // the Profile's name
+	Recipe  string
+	Kinds   []release.Kind
+}
+
+func (e *NoBackingError) Error() string {
+	names := make([]string, len(e.Kinds))
+	for i, k := range e.Kinds {
+		names[i] = "Series"
+		if k == release.KindMovie {
+			names[i] = "Movies"
+		}
+	}
+	return fmt.Sprintf("%s (%s) has no TRaSH profile for %s", e.Profile, e.Recipe, strings.Join(names, " and "))
+}
+
+// Backing names the TRaSH profiles that back the Profile under a Primary Language, for Movies and for Series.
+// A recipe is valid only when both kinds have one: the error is a *NoBackingError naming the kinds that have none.
+func (p Profile) Backing(primary Language) (movies, series string, err error) {
+	spec := p.Spec(primary.Release())
+	movies, okM := scoring.BackingProfile(spec, release.KindMovie)
+	series, okS := scoring.BackingProfile(spec, release.KindSeries)
+	if okM && okS {
+		return movies, series, nil
+	}
+	e := &NoBackingError{Profile: p.Name, Recipe: p.recipeName(primary)}
+	if !okM {
+		e.Kinds = append(e.Kinds, release.KindMovie)
+	}
+	if !okS {
+		e.Kinds = append(e.Kinds, release.KindSeries)
+	}
+	return "", "", e
+}
+
+// recipeName is the recipe in words: the Release Family and the language.
+func (p Profile) recipeName(primary Language) string {
+	lang := "the Primary Language " + primary.Release().Name
+	switch p.Rule {
+	case scoring.OriginalLanguage:
+		lang = "the Original Language"
+	case scoring.NamedLanguage:
+		lang = p.Named.Release().Name
+	}
+	return p.Family.Name() + ", " + lang
 }
 
 // overlay is the Overlay the Spec carries: nil when the household set nothing.
@@ -64,7 +148,7 @@ func (p Profile) overlay() *scoring.Overlay {
 // Backing TRaSH names are the English household's.
 func Builtin() []Profile {
 	mk := func(key, name string, uhd, isAny bool, rule scoring.LanguageRule) Profile {
-		p := Profile{Key: key, Name: name, Any: isAny, Rule: rule, Enabled: true, OriginalChoice: scoring.OriginalReject}
+		p := Profile{Key: key, Name: name, Any: isAny, Family: scoring.FamilyBlurayWeb, Rule: rule, Enabled: true, OriginalChoice: scoring.OriginalReject}
 		p.MinHeight, p.MaxHeight = scoring.HeightBounds(uhd, isAny)
 		return p
 	}
@@ -105,7 +189,7 @@ func ResolveAccepting(all []Profile, kind release.Kind, sl slot.Record, accepts 
 		return r, err
 	}
 	for _, p := range all {
-		if p.Enabled && p.Any && p.Rule == r.Rule && accepts(p) {
+		if p.Enabled && p.Any && p.Rule == r.Rule && p.Named == r.Named && accepts(p) {
 			return p, nil
 		}
 	}

@@ -966,19 +966,19 @@ func (e PluginFieldType) Valid() bool {
 
 // Defines values for PrimaryLanguage.
 const (
-	De PrimaryLanguage = "de"
-	En PrimaryLanguage = "en"
-	Fr PrimaryLanguage = "fr"
+	PrimaryLanguageDe PrimaryLanguage = "de"
+	PrimaryLanguageEn PrimaryLanguage = "en"
+	PrimaryLanguageFr PrimaryLanguage = "fr"
 )
 
 // Valid indicates whether the value is a known member of the PrimaryLanguage enum.
 func (e PrimaryLanguage) Valid() bool {
 	switch e {
-	case De:
+	case PrimaryLanguageDe:
 		return true
-	case En:
+	case PrimaryLanguageEn:
 		return true
-	case Fr:
+	case PrimaryLanguageFr:
 		return true
 	default:
 		return false
@@ -987,16 +987,49 @@ func (e PrimaryLanguage) Valid() bool {
 
 // Defines values for ProfileLanguageRule.
 const (
-	Original ProfileLanguageRule = "original"
-	Primary  ProfileLanguageRule = "primary"
+	ProfileLanguageRuleDe       ProfileLanguageRule = "de"
+	ProfileLanguageRuleEn       ProfileLanguageRule = "en"
+	ProfileLanguageRuleFr       ProfileLanguageRule = "fr"
+	ProfileLanguageRuleOriginal ProfileLanguageRule = "original"
+	ProfileLanguageRulePrimary  ProfileLanguageRule = "primary"
 )
 
 // Valid indicates whether the value is a known member of the ProfileLanguageRule enum.
 func (e ProfileLanguageRule) Valid() bool {
 	switch e {
-	case Original:
+	case ProfileLanguageRuleDe:
 		return true
-	case Primary:
+	case ProfileLanguageRuleEn:
+		return true
+	case ProfileLanguageRuleFr:
+		return true
+	case ProfileLanguageRuleOriginal:
+		return true
+	case ProfileLanguageRulePrimary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileReleaseFamily.
+const (
+	BlurayWeb ProfileReleaseFamily = "bluray-web"
+	RemuxWeb  ProfileReleaseFamily = "remux-web"
+	Sqp       ProfileReleaseFamily = "sqp"
+	Web       ProfileReleaseFamily = "web"
+)
+
+// Valid indicates whether the value is a known member of the ProfileReleaseFamily enum.
+func (e ProfileReleaseFamily) Valid() bool {
+	switch e {
+	case BlurayWeb:
+		return true
+	case RemuxWeb:
+		return true
+	case Sqp:
+		return true
+	case Web:
 		return true
 	default:
 		return false
@@ -3457,8 +3490,8 @@ type OfferedRelease struct {
 	Size   int64 `json:"size"`
 }
 
-// OriginalLanguageChoice What a Primary-Language Profile does with a Release that has the Title's Original Language but
-// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+// OriginalLanguageChoice What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+// Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
 // attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 // Original-Language Profiles.
 type OriginalLanguageChoice string
@@ -3802,7 +3835,9 @@ type Profile struct {
 	// Key Example: hd-primary
 	Key string `json:"key"`
 
-	// LanguageRule Which audio the Profile requires.
+	// LanguageRule Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
+	// Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
+	// `original_language` choice as a `primary` one, judged against its own language.
 	LanguageRule ProfileLanguageRule `json:"language_rule"`
 	MaxHeight    int                 `json:"max_height"`
 	MinHeight    int                 `json:"min_height"`
@@ -3815,11 +3850,15 @@ type Profile struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	OriginalFallback bool `json:"original_fallback"`
 
-	// OriginalLanguage What a Primary-Language Profile does with a Release that has the Title's Original Language but
-	// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+	// OriginalLanguage What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+	// Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
 	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 	// Original-Language Profiles.
 	OriginalLanguage OriginalLanguageChoice `json:"original_language"`
+
+	// ReleaseFamily Which kind of Releases the Profile goes after, as TRaSH groups them: `bluray-web` (Bluray + WEB),
+	// `remux-web` (Remux + WEB), `web` or `sqp`. Any is always `bluray-web`.
+	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
 
 	// Slot Deprecated: a Profile belongs to no Slot (any Profile can fill any Slot). For v1 clients this is derived
 	// from the Slots: the first Slot, in order, that names the Profile as its default for either kind. Left out
@@ -3834,8 +3873,14 @@ type Profile struct {
 	TrashProfileSeries string `json:"trash_profile_series"`
 }
 
-// ProfileLanguageRule Which audio the Profile requires.
+// ProfileLanguageRule Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
+// Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
+// `original_language` choice as a `primary` one, judged against its own language.
 type ProfileLanguageRule string
+
+// ProfileReleaseFamily Which kind of Releases the Profile goes after, as TRaSH groups them: `bluray-web` (Bluray + WEB),
+// `remux-web` (Remux + WEB), `web` or `sqp`. Any is always `bluray-web`.
+type ProfileReleaseFamily string
 
 // ProfileCreate defines model for ProfileCreate.
 type ProfileCreate struct {
@@ -3938,8 +3983,8 @@ type ProfilePatch struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	OriginalFallback *bool `json:"original_fallback,omitempty"`
 
-	// OriginalLanguage What a Primary-Language Profile does with a Release that has the Title's Original Language but
-	// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+	// OriginalLanguage What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+	// Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
 	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 	// Original-Language Profiles.
 	OriginalLanguage *OriginalLanguageChoice `json:"original_language,omitempty"`

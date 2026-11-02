@@ -17,7 +17,48 @@ const (
 	PrimaryLanguage LanguageRule = iota
 	// OriginalLanguage requires the Title's Original Language.
 	OriginalLanguage
+	// NamedLanguage requires one named language (ProfileSpec.Language), whatever the household's
+	// Primary Language is (ADR 0026).
+	NamedLanguage
 )
+
+// ReleaseFamily is which kind of Releases a Profile goes after, as TRaSH groups them (ADR 0026).
+// The empty value is Bluray + WEB.
+type ReleaseFamily string
+
+const (
+	FamilyBlurayWeb ReleaseFamily = "bluray-web"
+	FamilyRemuxWeb  ReleaseFamily = "remux-web"
+	FamilyWeb       ReleaseFamily = "web"
+	FamilySQP       ReleaseFamily = "sqp"
+)
+
+// ReleaseFamilies lists the families in display order.
+var ReleaseFamilies = []ReleaseFamily{FamilyBlurayWeb, FamilyRemuxWeb, FamilyWeb, FamilySQP}
+
+// Valid reports whether f is one of the four families.
+func (f ReleaseFamily) Valid() bool { return slices.Contains(ReleaseFamilies, f) }
+
+// Name is the family as people say it.
+func (f ReleaseFamily) Name() string {
+	switch f.OrDefault() {
+	case FamilyRemuxWeb:
+		return "Remux + WEB"
+	case FamilyWeb:
+		return "WEB"
+	case FamilySQP:
+		return "SQP"
+	}
+	return "Bluray + WEB"
+}
+
+// OrDefault is f, or Bluray + WEB for the empty value.
+func (f ReleaseFamily) OrDefault() ReleaseFamily {
+	if f == "" {
+		return FamilyBlurayWeb
+	}
+	return f
+}
 
 // OriginalChoice is what a Primary-Language Profile does with a Release that
 // has the Title's Original Language but no Primary-Language audio: reject it,
@@ -71,13 +112,17 @@ type ProfileSpec struct {
 	// UHD marks a Profile that takes only 4K; it is backed by the UHD TRaSH profile.
 	UHD bool
 	// Any marks an Any Profile, which accepts SD too, up to 1080p.
-	Any  bool
-	Rule LanguageRule
+	Any bool
+	// Family is the Release Family; the empty value is Bluray + WEB.
+	Family ReleaseFamily
+	Rule   LanguageRule
+	// Language is the named language of a NamedLanguage rule: English, German or French.
+	Language release.Language
 	// Primary is the household's Primary Language: English, German or French.
 	Primary release.Language
 	// OriginalChoice is what happens to a Release with the Title's Original
 	// Language but no Primary audio; the zero value rejects it. Only
-	// meaningful with PrimaryLanguage.
+	// meaningful with PrimaryLanguage and NamedLanguage.
 	OriginalChoice OriginalChoice
 	// Overlay is what the household set on top of TRaSH's data (ADR 0023);
 	// nil leaves TRaSH's order and acceptance and sets no limit.
@@ -199,6 +244,12 @@ func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
 	if spec.Any && spec.UHD {
 		return nil, fmt.Errorf("%w: Any takes SD up to 1080p, not 4K", ErrUnsupportedProfile)
 	}
+	if !spec.Family.OrDefault().Valid() {
+		return nil, fmt.Errorf("%w: no Release Family %q", ErrUnsupportedProfile, spec.Family)
+	}
+	if spec.Any && spec.Family.OrDefault() != FamilyBlurayWeb {
+		return nil, fmt.Errorf("%w: Any is only Bluray + WEB", ErrUnsupportedProfile)
+	}
 	if spec.Rule == OriginalLanguage {
 		spec.OriginalChoice = OriginalReject // no choice on Original-Language Profiles
 	}
@@ -206,9 +257,9 @@ func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
 	p.MinHeight, p.MaxHeight = HeightBounds(spec.UHD, spec.Any)
 	for _, a := range apps {
 		d := s.apps[a.kind]
-		name, err := backingName(spec, a.kind)
-		if err != nil {
-			return nil, err
+		name, ok := BackingProfile(spec, a.kind)
+		if !ok {
+			return nil, fmt.Errorf("%w: no %s profile backs %s", ErrUnsupportedProfile, a.dir, spec.describe())
 		}
 		bp, ok := d.profiles[name]
 		if !ok {
@@ -264,41 +315,88 @@ func (d *appData) formatsFor(bp *backingProfile) []scoredFormat {
 	return out
 }
 
-// backingName is the Settled 5 table: the TRaSH profile file backing a
-// (Primary Language, language rule, kind, Slot). Any uses the HD file.
-func backingName(spec ProfileSpec, kind release.Kind) (string, error) {
-	uhd := spec.UHD
-	pick := func(hd, uhdName string) string {
-		if uhd {
-			return uhdName
-		}
-		return hd
+// BackingProfile answers which TRaSH profile backs the recipe for a kind: the file name (without .json),
+// or false when there is none (ADR 0026). Every other module asks this to decide what to offer; a recipe
+// is offered only where it has a backing profile for every kind. It never falls back to another language.
+//
+// The language is the household's for Primary, the named one for NamedLanguage and English for Original,
+// except that a French household's Bluray + WEB Original Profile keeps its MULTi.VO profiles, which is
+// what it was backed by before Release Families. Any is Bluray + WEB, HD and SD only.
+func BackingProfile(spec ProfileSpec, kind release.Kind) (string, bool) {
+	family := spec.Family.OrDefault()
+	if spec.Any && (family != FamilyBlurayWeb || spec.UHD) {
+		return "", false
 	}
-	english := func() string {
-		if kind == release.KindMovie {
-			return pick("hd-bluray-web", "uhd-bluray-web")
+	lang, variant := spec.Primary, "vf"
+	switch spec.Rule {
+	case OriginalLanguage:
+		lang = release.LangEnglish
+		if family == FamilyBlurayWeb && spec.Primary == release.LangFrench {
+			lang, variant = release.LangFrench, "vo"
 		}
-		return pick("web-1080p", "web-2160p")
+	case NamedLanguage:
+		lang = spec.Language
 	}
-	switch spec.Primary {
+	pick := func(hd, uhd string) (string, bool) {
+		if spec.UHD {
+			return uhd, true
+		}
+		return hd, true
+	}
+	switch lang {
 	case release.LangEnglish:
-		return english(), nil
+		switch family {
+		case FamilyBlurayWeb:
+			if kind == release.KindMovie {
+				return pick("hd-bluray-web", "uhd-bluray-web")
+			}
+			return pick("web-1080p", "web-2160p")
+		case FamilyRemuxWeb:
+			return pick("remux-web-1080p", "remux-web-2160p")
+		case FamilyWeb:
+			return pick("web-1080p", "web-2160p")
+		case FamilySQP:
+			if kind == release.KindMovie {
+				return pick("sqp-1-1080p", "sqp-1-2160p")
+			}
+		}
 	case release.LangGerman:
-		if spec.Rule == OriginalLanguage {
-			return english(), nil
+		switch family {
+		case FamilyBlurayWeb:
+			return pick("german-hd-bluray-web", "german-uhd-bluray-web")
+		case FamilyRemuxWeb:
+			return pick("german-hd-remux-web", "german-uhd-remux-web")
 		}
-		return pick("german-hd-bluray-web", "german-uhd-bluray-web"), nil
 	case release.LangFrench:
-		variant := "vf"
-		if spec.Rule == OriginalLanguage {
-			variant = "vo"
+		switch {
+		case family == FamilyBlurayWeb && kind == release.KindMovie:
+			return pick("french-multi-"+variant+"-hd-bluray-web", "french-multi-"+variant+"-uhd-bluray-web")
+		case family == FamilyBlurayWeb:
+			return pick("french-multi-"+variant+"-bluray-web-1080p", "french-multi-"+variant+"-bluray-web-2160p")
+		case family == FamilyRemuxWeb && kind == release.KindMovie:
+			return pick("french-multi-"+variant+"-hd-remux-web", "french-multi-"+variant+"-uhd-remux-web")
 		}
-		if kind == release.KindMovie {
-			return pick("french-multi-"+variant+"-hd-bluray-web", "french-multi-"+variant+"-uhd-bluray-web"), nil
-		}
-		return pick("french-multi-"+variant+"-bluray-web-1080p", "french-multi-"+variant+"-bluray-web-2160p"), nil
 	}
-	return "", fmt.Errorf("%w: Primary Language %q", ErrUnsupportedProfile, spec.Primary.Name)
+	return "", false
+}
+
+// describe names the recipe for an error.
+func (s ProfileSpec) describe() string {
+	rule := "the Primary Language " + s.Primary.Name
+	switch s.Rule {
+	case OriginalLanguage:
+		rule = "the Original Language"
+	case NamedLanguage:
+		rule = s.Language.Name
+	}
+	res := "HD"
+	switch {
+	case s.UHD:
+		res = "4K"
+	case s.Any:
+		res = "Any"
+	}
+	return fmt.Sprintf("%s, %s, %s", res, s.Family.Name(), rule)
 }
 
 var sdQualities = []string{"SDTV", "DVD", "WEBDL-480p", "WEBRip-480p", "Bluray-480p", "Bluray-576p"}

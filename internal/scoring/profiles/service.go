@@ -152,9 +152,9 @@ func New(st *store.Store, s *settings.Settings) *Service {
 }
 
 func fromRow(r db.Profile) (Profile, error) {
-	rule := scoring.PrimaryLanguage
-	if r.LanguageRule == "original" {
-		rule = scoring.OriginalLanguage
+	rule, named, ok := ParseRule(r.LanguageRule)
+	if !ok {
+		return Profile{}, fmt.Errorf("profiles: %s has the language rule %q", r.Key, r.LanguageRule)
 	}
 	series, err := prefsOf(r.SeriesQualities)
 	if err != nil {
@@ -165,7 +165,7 @@ func fromRow(r db.Profile) (Profile, error) {
 		return Profile{}, fmt.Errorf("profiles: %s movie_qualities: %w", r.Key, err)
 	}
 	return Profile{
-		Key: r.Key, Name: r.Name, Any: r.Any == 1, Rule: rule,
+		Key: r.Key, Name: r.Name, Any: r.Any == 1, Family: scoring.ReleaseFamily(r.ReleaseFamily), Rule: rule, Named: named,
 		MinHeight: int(r.MinHeight), MaxHeight: int(r.MaxHeight),
 		Enabled: r.Enabled == 1, OriginalChoice: scoring.OriginalChoice(r.OriginalLanguage),
 		TrashMovies: r.TrashProfileMovies, TrashSeries: r.TrashProfileSeries,
@@ -336,6 +336,16 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 				return err
 			}
 		}
+		if !cur.Enabled && next.Enabled {
+			// A Profile is enabled only where its recipe has a backing profile.
+			region, _, err := s.Region(ctx)
+			if err != nil {
+				return err
+			}
+			if _, _, err := next.Backing(region.Primary); err != nil {
+				return invalid("enabled", err.Error()+" under the Primary Language "+region.Primary.Release().Name)
+			}
+		}
 		if err := q.SetProfileEnabled(ctx, db.SetProfileEnabledParams{Enabled: b2i(next.Enabled), Key: key}); err != nil {
 			return err
 		}
@@ -448,12 +458,6 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		}
 		next.Country = *p.Country
 	}
-	var snap *scoring.Snapshot
-	if s.live != nil {
-		snap = s.live.Current()
-	} else if snap, err = scoring.Embedded(); err != nil {
-		return Region{}, err
-	}
 	err = s.write(ctx, func(q *db.Queries) error {
 		rows, err := q.ListProfiles(ctx)
 		if err != nil {
@@ -463,15 +467,16 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		if err != nil {
 			return err
 		}
+		if err := checkBacked(all, next.Primary); err != nil {
+			return err
+		}
 		for _, p := range all {
-			sp, err := snap.Profile(p.Spec(next.Primary.Release()))
+			movies, series, err := p.Backing(next.Primary)
 			if err != nil {
-				return fmt.Errorf("profiles: back %s under %s: %w", p.Key, next.Primary, err)
+				continue // disabled: it keeps its backing profiles until it is enabled where it has one
 			}
 			if err := q.SetProfileTrash(ctx, db.SetProfileTrashParams{
-				TrashProfileMovies: sp.BackingProfile(release.KindMovie),
-				TrashProfileSeries: sp.BackingProfile(release.KindSeries),
-				Key:                p.Key,
+				TrashProfileMovies: movies, TrashProfileSeries: series, Key: p.Key,
 			}); err != nil {
 				return err
 			}
@@ -486,6 +491,32 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		return Region{}, err
 	}
 	return next, nil
+}
+
+// checkBacked is nil when every enabled Profile has a backing profile for both kinds under the Primary Language.
+// Else it is a *ValidationError on primary_language naming each enabled Profile that would lose it (ADR 0026).
+func checkBacked(all []Profile, primary Language) error {
+	var lost []string
+	for _, p := range all {
+		if _, _, err := p.Backing(primary); err != nil && p.Enabled {
+			lost = append(lost, err.Error())
+		}
+	}
+	if len(lost) == 0 {
+		return nil
+	}
+	return invalid("primary_language", "Kestrel has no TRaSH profile for "+primary.Release().Name+" to back: "+strings.Join(lost, "; ")+
+		". Disable them or change their recipe first")
+}
+
+// CheckPrimary applies SetRegion's backing rule to a Primary Language without saving anything: a *ValidationError
+// naming each enabled Profile that would lose its backing profile (ADR 0026). The API asks it before it queues a change.
+func (s *Service) CheckPrimary(ctx context.Context, primary Language) error {
+	all, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+	return checkBacked(all, primary)
 }
 
 const maxNameLength = 40

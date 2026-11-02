@@ -47,7 +47,7 @@ func (s *Service) Create(ctx context.Context, name, copyKey string) (Profile, er
 		_, _ = rand.Read(b[:])
 		key := "custom-" + hex.EncodeToString(b[:])
 		if err := q.InsertCustomProfile(ctx, db.InsertCustomProfileParams{
-			Key: key, Name: name, Sort: toInt64(top) + 1, Any: src.Any, LanguageRule: src.LanguageRule,
+			Key: key, Name: name, Sort: toInt64(top) + 1, Any: src.Any, ReleaseFamily: src.ReleaseFamily, LanguageRule: src.LanguageRule,
 			MinHeight: src.MinHeight, MaxHeight: src.MaxHeight, OriginalFallback: src.OriginalFallback,
 			TrashProfileMovies: src.TrashProfileMovies, TrashProfileSeries: src.TrashProfileSeries, OriginalLanguage: src.OriginalLanguage,
 			SeriesQualities: src.SeriesQualities, MovieQualities: src.MovieQualities, SeriesCutoff: src.SeriesCutoff, MovieCutoff: src.MovieCutoff,

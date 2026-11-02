@@ -110,11 +110,11 @@ func (q *Queries) DeleteCustomProfile(ctx context.Context, key string) (int64, e
 }
 
 const insertCustomProfile = `-- name: InsertCustomProfile :exec
-INSERT INTO profiles (key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
     trash_profile_movies, trash_profile_series, original_language, custom,
     series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
     movie_min_size, movie_max_size, episode_min_size, episode_max_size)
-VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertCustomProfileParams struct {
@@ -122,6 +122,7 @@ type InsertCustomProfileParams struct {
 	Name               string
 	Sort               int64
 	Any                int64
+	ReleaseFamily      string
 	LanguageRule       string
 	MinHeight          int64
 	MaxHeight          int64
@@ -147,6 +148,7 @@ func (q *Queries) InsertCustomProfile(ctx context.Context, arg InsertCustomProfi
 		arg.Name,
 		arg.Sort,
 		arg.Any,
+		arg.ReleaseFamily,
 		arg.LanguageRule,
 		arg.MinHeight,
 		arg.MaxHeight,
@@ -169,7 +171,7 @@ func (q *Queries) InsertCustomProfile(ctx context.Context, arg InsertCustomProfi
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+SELECT key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
        trash_profile_movies, trash_profile_series, original_language,
        custom, series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
        movie_min_size, movie_max_size, episode_min_size, episode_max_size
@@ -190,6 +192,7 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 			&i.Name,
 			&i.Sort,
 			&i.Any,
+			&i.ReleaseFamily,
 			&i.LanguageRule,
 			&i.MinHeight,
 			&i.MaxHeight,
@@ -324,6 +327,22 @@ func (q *Queries) SetProfileOverlay(ctx context.Context, arg SetProfileOverlayPa
 		arg.EpisodeMaxSize,
 		arg.Key,
 	)
+	return err
+}
+
+const setProfileRecipe = `-- name: SetProfileRecipe :exec
+UPDATE profiles SET release_family = ?, language_rule = ? WHERE key = ?
+`
+
+type SetProfileRecipeParams struct {
+	ReleaseFamily string
+	LanguageRule  string
+	Key           string
+}
+
+// The Release Family and language rule of a Profile (ADR 0026); the caller sets its backing profiles with SetProfileTrash.
+func (q *Queries) SetProfileRecipe(ctx context.Context, arg SetProfileRecipeParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileRecipe, arg.ReleaseFamily, arg.LanguageRule, arg.Key)
 	return err
 }
 

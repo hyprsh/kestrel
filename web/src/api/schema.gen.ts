@@ -400,13 +400,15 @@ export interface paths {
         /**
          * Change settings
          * @description A JSON merge patch over the sections: send only what changes. Changing `primary_language`
-         *     re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
+         *     re-points the Profiles to their backing TRaSH profiles and, unless the same patch
          *     names `release_date_country`, moves the country to the new language's default. Both change
          *     in the background, in one step with a re-score of every stored file under the new Profiles:
          *     the answer still shows the old `primary_language`, with `pending_primary_language`, until the
          *     `trash` job has finished (see Activity); files are not renamed and nothing is searched. A
          *     second change while one waits replaces it, and a failed re-score changes neither the
-         *     setting nor the Scores. A patch that names a section the Config File declares
+         *     setting nor the Scores. A new `primary_language` that would leave an enabled Profile without a backing TRaSH
+         *     profile (ADR 0026) is a `422 validation` on `primary_language` that names each such Profile, and changes nothing.
+         *     A patch that names a section the Config File declares
          *     (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
          *     nothing, not even its other sections.
          */
@@ -532,7 +534,8 @@ export interface paths {
          *     `ProfileOverlay`); it is a `validation` error when a size's smallest bound is above its largest, a quality list
          *     names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. When `overlay` changes what the Profile does, the Versions under it are re-scored from
          *     what was stored at Import.
-         *     `409 conflict` while the Config File declares `profiles`.
+         *     `409 conflict` while the Config File declares `profiles`. Enabling a Profile whose recipe has no backing
+         *     TRaSH profile under the Primary Language is a `validation` error on `enabled`.
          */
         patch: operations["patchProfile"];
         trace?: never;
@@ -2850,10 +2853,18 @@ export interface components {
              */
             slot?: components["schemas"]["SlotId"];
             /**
-             * @description Which audio the Profile requires.
+             * @description Which kind of Releases the Profile goes after, as TRaSH groups them: `bluray-web` (Bluray + WEB),
+             *     `remux-web` (Remux + WEB), `web` or `sqp`. Any is always `bluray-web`.
              * @enum {string}
              */
-            language_rule: "primary" | "original";
+            release_family: "bluray-web" | "remux-web" | "web" | "sqp";
+            /**
+             * @description Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
+             *     Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
+             *     `original_language` choice as a `primary` one, judged against its own language.
+             * @enum {string}
+             */
+            language_rule: "primary" | "original" | "en" | "de" | "fr";
             original_language: components["schemas"]["OriginalLanguageChoice"];
             /**
              * @deprecated
@@ -2952,8 +2963,8 @@ export interface components {
             overlay?: components["schemas"]["ProfileOverlay"];
         };
         /**
-         * @description What a Primary-Language Profile does with a Release that has the Title's Original Language but
-         *     no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+         * @description What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+         *     Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
          *     attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
          *     Original-Language Profiles.
          * @enum {string}

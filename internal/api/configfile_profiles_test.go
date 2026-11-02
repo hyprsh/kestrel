@@ -50,6 +50,45 @@ func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
 	}
 }
 
+func TestDeclaredProfilesAcceptAReleaseFamilyAndANamedLanguage(t *testing.T) {
+	t.Parallel()
+	in := newInstance(t, "")
+	body := strings.Replace(declaredProfiles, "hd-primary:   {enabled: false, original_fallback: false}",
+		"hd-primary:   {enabled: false, original_fallback: false, release_family: remux-web}", 1)
+	body = strings.Replace(body, "4k-original:  {enabled: true,  original_fallback: false}",
+		"4k-original:  {enabled: true,  original_language: offer, release_family: web, language_rule: de}", 1)
+	in.mustDeclare(strings.Replace(body, "release_family: web, language_rule: de", "release_family: remux-web, language_rule: de", 1))
+	m := profileMap(t, in.setUp())
+	if p := m["hd-primary"]; p.ReleaseFamily != "remux-web" || p.LanguageRule != "primary" || p.TrashProfileMovies != "remux-web-1080p" {
+		t.Errorf("hd-primary = %+v", p)
+	}
+	if p := m["4k-original"]; p.ReleaseFamily != "remux-web" || p.LanguageRule != "de" || p.OriginalLanguage != "offer" || p.TrashProfileSeries != "german-uhd-remux-web" {
+		t.Errorf("4k-original = %+v", p)
+	}
+	if p := m["any-primary"]; p.ReleaseFamily != "bluray-web" {
+		t.Errorf("any-primary = %+v, want the family it was", p)
+	}
+}
+
+func TestAnEnabledDeclaredProfileWithoutABackingProfileFailsStartup(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ name, from, to, want string }{
+		{"German WEB", "4k-original:  {enabled: true,  original_fallback: false}", "4k-original:  {enabled: true, original_fallback: false, release_family: web, language_rule: de}", "profiles.4k-original.release_family"},
+		{"SQP for Series", "4k-original:  {enabled: true,  original_fallback: false}", "4k-original:  {enabled: true, original_fallback: false, release_family: sqp}", "profiles.4k-original.release_family"},
+		{"Any with Remux", "any-primary:  {enabled: true,  original_fallback: true}", "any-primary:  {enabled: true, original_fallback: true, release_family: remux-web}", "profiles.any-primary.release_family"},
+		{"an unknown language", "4k-original:  {enabled: true,  original_fallback: false}", "4k-original:  {enabled: true, original_fallback: false, language_rule: es}", "profiles.4k-original.language_rule"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			in := newInstance(t, "")
+			err := in.declare(declaredAccount+strings.Replace(declaredProfiles, c.from, c.to, 1), "KESTREL_ADMIN_PASSWORD", "correct horse")
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("err = %v, want one naming %s", err, c.want)
+			}
+		})
+	}
+}
+
 func TestAProfileKeyForADefaultIsIgnoredAndWarnedAboutAtStartup(t *testing.T) {
 	t.Parallel()
 	var log bytes.Buffer

@@ -95,6 +95,8 @@ type Slots interface {
 type Profiles interface {
 	Region(ctx context.Context) (profiles.Region, bool, error)
 	List(ctx context.Context) ([]profiles.Profile, error)
+	// CheckPrimary refuses a Primary Language that would leave an enabled Profile without a backing profile.
+	CheckPrimary(ctx context.Context, primary profiles.Language) error
 	Patch(ctx context.Context, key string, p profiles.Patch) (profiles.Profile, error)
 	Create(ctx context.Context, name, copyKey string) (profiles.Profile, error)
 	Delete(ctx context.Context, key string) error

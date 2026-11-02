@@ -269,6 +269,7 @@ type Profile struct {
 	Name               string
 	Sort               int64
 	Any                int64
+	ReleaseFamily      string
 	LanguageRule       string
 	MinHeight          int64
 	MaxHeight          int64

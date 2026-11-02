@@ -1,5 +1,5 @@
 -- name: ListProfiles :many
-SELECT key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+SELECT key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
        trash_profile_movies, trash_profile_series, original_language,
        custom, series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
        movie_min_size, movie_max_size, episode_min_size, episode_max_size
@@ -19,6 +19,10 @@ SELECT id, label FROM slots WHERE default_movies = ?1 OR default_series = ?1 ORD
 -- name: SetProfileTrash :exec
 UPDATE profiles SET trash_profile_movies = ?, trash_profile_series = ? WHERE key = ?;
 
+-- name: SetProfileRecipe :exec
+-- The Release Family and language rule of a Profile (ADR 0026); the caller sets its backing profiles with SetProfileTrash.
+UPDATE profiles SET release_family = ?, language_rule = ? WHERE key = ?;
+
 -- name: SetProfileOverlay :exec
 -- What the household set on top of TRaSH (ADR 0023); NULL is as TRaSH has it, or no limit.
 UPDATE profiles SET series_qualities = ?, movie_qualities = ?, series_cutoff = ?, movie_cutoff = ?, upgrade_until = ?,
@@ -29,11 +33,11 @@ WHERE key = ?;
 UPDATE profiles SET name = ? WHERE key = ?;
 
 -- name: InsertCustomProfile :exec
-INSERT INTO profiles (key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
     trash_profile_movies, trash_profile_series, original_language, custom,
     series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
     movie_min_size, movie_max_size, episode_min_size, episode_max_size)
-VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteCustomProfile :execrows
 DELETE FROM profiles WHERE key = ? AND custom = 1;

@@ -104,6 +104,38 @@ func TestOriginalLanguageFallback(t *testing.T) {
 	}
 }
 
+// A named-language Profile judges the Original Offer against its own language, not the household's.
+func TestNamedLanguageProfileOffersTheOriginalLanguage(t *testing.T) {
+	named := scoring.ProfileSpec{Rule: scoring.NamedLanguage, Language: release.LangGerman, Primary: release.LangEnglish, OriginalChoice: scoring.OriginalOffer}
+	titleFR := scoring.Title{Name: "Un Film", OriginalLanguage: release.LangFrench}
+
+	// The Original Language (English) without German audio is held back as an offer, although it is the Primary Language.
+	v := verdict(t, named, nameEnglish1080, titleEN, nil)
+	if !reflect.DeepEqual(v.Rejections, []scoring.Rejection{scoring.RejectOriginalOnly}) {
+		t.Errorf("English release of an English Title: rejections = %v, want [original_only]", v.Rejections)
+	}
+	// The named language is accepted.
+	if v := verdict(t, named, nameGermanDL, titleEN, nil); !v.Accepted {
+		t.Errorf("German release rejected %v", v.Rejections)
+	}
+	// English audio is neither the named nor this Title's Original Language: a plain language rejection.
+	v = verdict(t, named, nameEnglish1080, titleFR, func(r *scoring.Release) {
+		r.IndexerLanguages = []release.Language{release.LangEnglish}
+	})
+	if !reflect.DeepEqual(v.Rejections, []scoring.Rejection{scoring.RejectLanguage}) {
+		t.Errorf("English release of a French Title: rejections = %v, want [language]", v.Rejections)
+	}
+	// Reject and accept work as they do for a Primary-Language Profile.
+	named.OriginalChoice = scoring.OriginalReject
+	if v := verdict(t, named, nameEnglish1080, titleEN, nil); !reflect.DeepEqual(v.Rejections, []scoring.Rejection{scoring.RejectLanguage}) {
+		t.Errorf("reject: rejections = %v, want [language]", v.Rejections)
+	}
+	named.OriginalChoice = scoring.OriginalAccept
+	if v := verdict(t, named, nameEnglish1080, titleEN, nil); !v.Accepted {
+		t.Errorf("accept: rejected %v", v.Rejections)
+	}
+}
+
 func TestOfferingTheOriginalLanguage(t *testing.T) {
 	offer := germanHD
 	offer.OriginalChoice = scoring.OriginalOffer

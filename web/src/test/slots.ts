@@ -48,6 +48,7 @@ export const seededSlots = (): Slot[] => [slot('standard', 'Standard', 0), slot(
 const profile = (key: string, name: string, over: Partial<Schemas['Profile']> = {}): Schemas['Profile'] => ({
   key,
   name,
+  release_family: 'bluray-web',
   language_rule: 'primary',
   original_language: 'reject',
   original_fallback: false,

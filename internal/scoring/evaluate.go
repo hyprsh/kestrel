@@ -186,7 +186,8 @@ func rejections(rel Release, title Title, p *Profile, v Verdict) []Rejection {
 }
 
 // languageGate checks the Profile's language rule against the Release's
-// languages. A Primary-Language Profile needs the Primary Language; the
+// languages. A Primary-Language Profile needs the Primary Language (a
+// named-language one its named language); the
 // Title's Original Language alone is accepted or, under offer, held back as
 // original_only, depending on the Profile's choice. An Original-Language
 // Profile needs the Original Language and rejects a Title whose Original
@@ -205,7 +206,11 @@ func languageGate(spec ProfileSpec, title Title, languages []release.Language) [
 			return []Rejection{RejectLanguage}
 		}
 	default:
-		if has(spec.Primary) {
+		required := spec.Primary
+		if spec.Rule == NamedLanguage {
+			required = spec.Language // a named-language Profile judges against its own language
+		}
+		if has(required) {
 			return nil
 		}
 		if originalKnown && has(title.OriginalLanguage) {

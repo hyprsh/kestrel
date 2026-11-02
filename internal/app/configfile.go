@@ -142,11 +142,27 @@ func (d declarer) sections() []section {
 	if f.Profiles != nil {
 		want := map[string]profiles.State{}
 		for key, p := range f.Profiles {
-			want[key] = profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
+			st := profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
+			if p.ReleaseFamily != nil {
+				st.Family = *p.ReleaseFamily
+			}
+			if p.LanguageRule != nil {
+				st.Language = *p.LanguageRule
+			}
+			want[key] = st
 		}
 		out = append(out, section{
 			check: func(ctx context.Context) error {
-				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want))); err != nil {
+				// The recipes are backed under the Primary Language the file declares, else the stored one.
+				primary := profiles.Language("")
+				if l := f.LanguageRegion; l != nil {
+					primary = profiles.Language(l.PrimaryLanguage)
+				} else if region, _, err := d.profiles.Region(ctx); err != nil {
+					return err
+				} else {
+					primary = region.Primary
+				}
+				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want, primary))); err != nil {
 					return err
 				}
 				// A Slot's default stays enabled: the Slots the file declares, else the stored ones.

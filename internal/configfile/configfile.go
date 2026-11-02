@@ -76,6 +76,11 @@ type Profile struct {
 	// deprecated OriginalFallback stands in for it (scoring.OriginalChoiceOf).
 	OriginalChoice   *scoring.OriginalChoice `yaml:"original_language"`
 	OriginalFallback *bool                   `yaml:"original_fallback"`
+	// ReleaseFamily is bluray-web, remux-web, web or sqp, and LanguageRule is primary, original or a named
+	// language (en, de or fr); both are the Profile's recipe (ADR 0026). A key the file leaves out keeps the
+	// Profile's own, and Kestrel refuses an enabled Profile whose recipe has no backing TRaSH profile.
+	ReleaseFamily *scoring.ReleaseFamily `yaml:"release_family"`
+	LanguageRule  *string                `yaml:"language_rule"`
 	// DefaultMovies and DefaultSeries are deprecated and ignored: the defaults for new Titles belong to
 	// the Slots (ADR 0024), declared in the `slots` section. They stay parsed so a file written before
 	// still loads, and are not required.

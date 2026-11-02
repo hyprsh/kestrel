@@ -311,7 +311,7 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
             <SizeFields label="Size per Movie" value={draft.movie} disabled={declared} onChange={(movie) => set({ movie })} />
           </Kv>
           <Kv label="Audio">
-            {p.language_rule === 'primary' ? (
+            {p.language_rule !== 'original' ? (
               <Select
                 size="small"
                 aria-label="Audio"
