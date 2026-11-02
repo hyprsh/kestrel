@@ -7,6 +7,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/acquire"
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // ListGrabs is the Activity screen's history: Grabs newest first with how they
@@ -34,7 +35,7 @@ func (s *server) ListGrabs(ctx context.Context, r oapi.ListGrabsRequestObject) (
 		return nil, err
 	}
 	var list []acquire.Record
-	if gf := newGrabText(p.Q, p.Kind, p.Slot, p.Grab); gf.active() {
+	if gf := newGrabText(grabParams{p.Q, p.Kind, p.Slot, p.Grab, p.Day, p.From, p.To, p.Indexer}); gf.active() {
 		// Titles and Slots live in the library, so the text filters run here on the whole history and the
 		// page is cut from what they keep.
 		f.Limit = -1
@@ -91,7 +92,7 @@ func (s *server) GetGrabsSummary(ctx context.Context, r oapi.GetGrabsSummaryRequ
 	if err != nil {
 		return nil, err
 	}
-	if gf := newGrabText(r.Params.Q, r.Params.Kind, r.Params.Slot, r.Params.Grab); gf.active() {
+	if gf := newGrabText(grabParams{r.Params.Q, r.Params.Kind, r.Params.Slot, r.Params.Grab, r.Params.Day, r.Params.From, r.Params.To, r.Params.Indexer}); gf.active() {
 		if all, err = s.keepGrabs(ctx, all, gf); err != nil {
 			return nil, err
 		}
@@ -120,10 +121,45 @@ type grabText struct {
 	kinds map[string]bool
 	slots map[string]bool
 	ids   map[int64]bool
+	// days, from and to are UTC dates ("2006-01-02") the Grab's last state change falls on; from and to are inclusive.
+	days     map[string]bool
+	from, to string
+	indexers map[int64]bool
 }
 
-func newGrabText(q *string, kinds *[]oapi.TitleKind, slots *[]oapi.SlotId, ids *[]int64) grabText {
+// grabParams is the filter parameters of GET /grabs and GET /grabs/summary.
+type grabParams struct {
+	q        *string
+	kinds    *[]oapi.TitleKind
+	slots    *[]oapi.SlotId
+	ids      *[]int64
+	days     *[]openapi_types.Date
+	from, to *openapi_types.Date
+	indexers *[]int64
+}
+
+func newGrabText(p grabParams) grabText {
+	q, kinds, slots, ids := p.q, p.kinds, p.slots, p.ids
 	var g grabText
+	const dayFormat = "2006-01-02"
+	if p.days != nil && len(*p.days) > 0 {
+		g.days = map[string]bool{}
+		for _, d := range *p.days {
+			g.days[d.Format(dayFormat)] = true
+		}
+	}
+	if p.from != nil {
+		g.from = p.from.Format(dayFormat)
+	}
+	if p.to != nil {
+		g.to = p.to.Format(dayFormat)
+	}
+	if p.indexers != nil && len(*p.indexers) > 0 {
+		g.indexers = map[int64]bool{}
+		for _, id := range *p.indexers {
+			g.indexers[id] = true
+		}
+	}
 	if q != nil {
 		g.words = strings.Fields(strings.ToLower(*q))
 	}
@@ -149,11 +185,11 @@ func newGrabText(q *string, kinds *[]oapi.TitleKind, slots *[]oapi.SlotId, ids *
 }
 
 func (g grabText) active() bool {
-	return len(g.words) > 0 || g.kinds != nil || g.slots != nil || g.ids != nil
+	return len(g.words) > 0 || g.kinds != nil || g.slots != nil || g.ids != nil || g.days != nil || g.from != "" || g.to != "" || g.indexers != nil
 }
 
 // keepGrabs keeps, in order, the Grabs that pass every filter in g: each word is found in the Title's name,
-// the Release name or the indexer; the kind and Slot are one of the asked ones.
+// the Release name or the indexer; the kind and Slot are one of the asked ones; the day, indexer and range are the asked ones.
 func (s *server) keepGrabs(ctx context.Context, list []acquire.Record, g grabText) ([]acquire.Record, error) {
 	type titleInfo struct{ name, kind string }
 	titles := map[int64]titleInfo{}
@@ -175,6 +211,15 @@ func (s *server) keepGrabs(ctx context.Context, list []acquire.Record, g grabTex
 	for _, r := range list {
 		if g.ids != nil && !g.ids[r.ID] {
 			continue
+		}
+		if g.indexers != nil && !g.indexers[r.IndexerID] {
+			continue
+		}
+		if g.days != nil || g.from != "" || g.to != "" {
+			day := r.UpdatedAt.UTC().Format("2006-01-02")
+			if (g.days != nil && !g.days[day]) || (g.from != "" && day < g.from) || (g.to != "" && day > g.to) {
+				continue
+			}
 		}
 		t, known := titles[r.TitleID]
 		if g.kinds != nil && (!known || !g.kinds[t.kind]) {

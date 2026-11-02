@@ -655,6 +655,8 @@ type Grab struct {
 	VersionIDs  []int64
 	ReleaseName string
 	IndexerName string
+	// IndexerID is the indexer instance the Release came from.
+	IndexerID   int64
 	Size        int64
 	PublishedAt time.Time
 	Score       int
@@ -688,7 +690,7 @@ type Grab struct {
 
 func grabOf(r db.Grab) Grab {
 	g := Grab{
-		ID: r.ID, TitleID: r.TitleID.Int64, VersionID: r.VersionID.Int64, ReleaseName: r.ReleaseName, IndexerName: r.IndexerName,
+		ID: r.ID, TitleID: r.TitleID.Int64, VersionID: r.VersionID.Int64, ReleaseName: r.ReleaseName, IndexerName: r.IndexerName, IndexerID: r.IndexerID,
 		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String,
 		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt), UpdatedAt: parseTime(r.UpdatedAt),
 	}

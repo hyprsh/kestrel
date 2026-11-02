@@ -6188,6 +6188,10 @@ type ListGrabsParams struct {
 	Kind    *[]TitleKind            `form:"kind,omitempty" json:"kind,omitempty"`
 	Slot    *[]SlotId               `form:"slot,omitempty" json:"slot,omitempty"`
 	Grab    *[]int64                `form:"grab,omitempty" json:"grab,omitempty"`
+	Day     *[]openapi_types.Date   `form:"day,omitempty" json:"day,omitempty"`
+	From    *openapi_types.Date     `form:"from,omitempty" json:"from,omitempty"`
+	To      *openapi_types.Date     `form:"to,omitempty" json:"to,omitempty"`
+	Indexer *[]int64                `form:"indexer,omitempty" json:"indexer,omitempty"`
 	Limit   *int                    `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor  *string                 `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
@@ -6197,10 +6201,14 @@ type ListGrabsParamsState string
 
 // GetGrabsSummaryParams defines parameters for GetGrabsSummary.
 type GetGrabsSummaryParams struct {
-	Q    *string      `form:"q,omitempty" json:"q,omitempty"`
-	Kind *[]TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
-	Slot *[]SlotId    `form:"slot,omitempty" json:"slot,omitempty"`
-	Grab *[]int64     `form:"grab,omitempty" json:"grab,omitempty"`
+	Q       *string               `form:"q,omitempty" json:"q,omitempty"`
+	Kind    *[]TitleKind          `form:"kind,omitempty" json:"kind,omitempty"`
+	Slot    *[]SlotId             `form:"slot,omitempty" json:"slot,omitempty"`
+	Grab    *[]int64              `form:"grab,omitempty" json:"grab,omitempty"`
+	Day     *[]openapi_types.Date `form:"day,omitempty" json:"day,omitempty"`
+	From    *openapi_types.Date   `form:"from,omitempty" json:"from,omitempty"`
+	To      *openapi_types.Date   `form:"to,omitempty" json:"to,omitempty"`
+	Indexer *[]int64              `form:"indexer,omitempty" json:"indexer,omitempty"`
 }
 
 // LookupParams defines parameters for Lookup.
@@ -7991,6 +7999,58 @@ func (siw *ServerInterfaceWrapper) ListGrabs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// ------------- Optional query parameter "day" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "day", r.URL.Query(), &params.Day, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "day"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "day", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "indexer" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "indexer", r.URL.Query(), &params.Indexer, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "indexer"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "indexer", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -8099,6 +8159,58 @@ func (siw *ServerInterfaceWrapper) GetGrabsSummary(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "grab"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grab", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "day" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "day", r.URL.Query(), &params.Day, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "day"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "day", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "indexer" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "indexer", r.URL.Query(), &params.Indexer, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "indexer"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "indexer", Err: err})
 		}
 		return
 	}

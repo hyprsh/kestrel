@@ -12,6 +12,7 @@ import { FilterChips, PanelContent, SidePanel, SidePanelView, SidePanelViews } f
 import { manualSearchPath, useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
 import { activityQualifiers } from './filter'
+import { usePluginInstances } from '../api/queries'
 import { slotNamesOf, useSlotNames } from '../library/slots'
 import { Pipeline, usePipeline, type PipelineData } from './Pipeline'
 import type { Stage } from './stages'
@@ -103,7 +104,9 @@ function footer(total: number, oldest: string | null): string {
 export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
   const pipeline = usePipeline(query)
   const slots = useSlotNames()
-  const activityFacets = useMemo(() => activityQualifiers(slots), [slots])
+  const instances = usePluginInstances().data
+  const indexers = useMemo(() => Object.fromEntries((instances ?? []).filter((i) => i.contract === 'indexer.v1').map((i) => [String(i.id), i.name])), [instances])
+  const activityFacets = useMemo(() => activityQualifiers(slots, indexers), [slots, indexers])
   const phone = usePhone()
   const openPlace = useOpenPlace()
   const panel = {

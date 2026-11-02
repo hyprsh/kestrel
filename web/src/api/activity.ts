@@ -20,8 +20,20 @@ export function useActivity() {
 /** The most a page of Done and Failed Grabs holds; more load as the list is scrolled. */
 const PAGE = 50
 
-/** What narrows the Grab history on the server: the filter's words, kinds, Slots and ids. */
-export type GrabsFilter = { q: string; kind: string[] | null; slot: string[] | null; grab: number[] | null }
+/**
+ * What narrows the Grab history on the server: the filter's words, kinds, Slots and ids, the UTC days the Grabs finished on (`day`,
+ * or the first and last of a range, `from` and `to`) and the indexers (ids) they came from.
+ */
+export type GrabsFilter = {
+  q: string
+  kind: string[] | null
+  slot: string[] | null
+  grab: number[] | null
+  day: string[] | null
+  from: string | null
+  to: string | null
+  indexer: number[] | null
+}
 
 function filterQuery(f: GrabsFilter) {
   return {
@@ -29,6 +41,10 @@ function filterQuery(f: GrabsFilter) {
     ...(f.kind && { kind: f.kind as components['schemas']['TitleKind'][] }),
     ...(f.slot && { slot: f.slot as components['schemas']['SlotId'][] }),
     ...(f.grab && { grab: f.grab }),
+    ...(f.day && { day: f.day }),
+    ...(f.from && { from: f.from }),
+    ...(f.to && { to: f.to }),
+    ...(f.indexer && { indexer: f.indexer }),
   }
 }
 

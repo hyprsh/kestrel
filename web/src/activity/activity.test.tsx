@@ -259,6 +259,60 @@ describe('Activity', () => {
     expect(screen.getByText('Other.Imported-GRP')).toBeInTheDocument()
   })
 
+  it('opens on the Grabs that finished on a day and in a stage from day: and stage:, leaving out what is still in progress', async () => {
+    history.replaceState(null, '', '/activity?q=stage:done+day:2026-10-16')
+    fakeQueue([queueItem({ grab_id: 41, phase: 'downloading', release_name: 'Other.Downloading-GRP' })])
+    const grabs = fakeGrabs([
+      grabEntry({ grab_id: 1, state: 'imported', release_name: 'That.Day-GRP', updated_at: '2026-10-16T09:30:00Z' }),
+      grabEntry({ grab_id: 2, state: 'imported', release_name: 'Next.Day-GRP', updated_at: '2026-10-17T09:30:00Z' }),
+      grabEntry({ grab_id: 3, state: 'failed', failure: 'download_failed', release_name: 'Failed.That.Day-GRP', updated_at: '2026-10-16T10:30:00Z' }),
+    ])
+    renderApp()
+
+    const row = within(await screen.findByRole('region', { name: 'History' })).getByRole('listitem')
+    expect(row).toHaveTextContent('That.Day-GRP')
+    expect(screen.queryByText('Next.Day-GRP')).not.toBeInTheDocument()
+    expect(screen.queryByText('Failed.That.Day-GRP')).not.toBeInTheDocument()
+    expect(screen.queryByText('Other.Downloading-GRP')).not.toBeInTheDocument()
+    expect(grabs.queries.at(-1)?.getAll('day')).toEqual(['2026-10-16'])
+  })
+
+  it('sends an indexer and a range to the server, and names the indexer on its chip', async () => {
+    history.replaceState(null, '', '/activity?q=from:2026-10-02+to:2026-10-31+indexer:3')
+    server.use(
+      http.get('/plugin-instances', ({ response }) =>
+        response(200).json({
+          items: [
+            {
+              id: 3,
+              contract: 'indexer.v1',
+              plugin_id: 'newznab',
+              name: 'altHUB',
+              enabled: true,
+              priority: 1,
+              config: {},
+              secrets_set: [],
+              from_config_file: false,
+              enabled_declared: false,
+              last_check: null,
+            },
+          ],
+          next_cursor: null,
+        }),
+      ),
+    )
+    fakeQueue([])
+    const grabs = fakeGrabs([grabEntry({ grab_id: 1, state: 'imported', release_name: 'In.Range-GRP', updated_at: '2026-10-16T09:30:00Z' })])
+    renderApp()
+
+    expect(await screen.findByText('In.Range-GRP')).toBeInTheDocument()
+    const q = grabs.queries.at(-1)!
+    expect(q.getAll('indexer')).toEqual(['3'])
+    expect(q.get('from')).toBe('2026-10-02')
+    expect(q.get('to')).toBe('2026-10-31')
+    expect(await screen.findByText('altHUB')).toBeInTheDocument()
+  })
+
   it('shows the no-match state for a grab: id that matches nothing', async () => {
     history.replaceState(null, '', '/activity?q=grab:999')
     fakeQueue([queueItem({ grab_id: 41, phase: 'downloading', release_name: 'Other.Downloading-GRP' })])
