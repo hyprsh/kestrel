@@ -170,7 +170,7 @@ export function SuggestionGroup({ name, children }: { name: string; children: Re
 export function SuggestionRow({ name, holds, action }: { name: string; holds: ReactNode; action: ReactNode }) {
   return (
     <Entity right={action}>
-      <Entity.Content fill title={name} description={holds} />
+      <Entity.Content fill title={name} description={<span className="block whitespace-normal">{holds}</span>} />
     </Entity>
   )
 }
