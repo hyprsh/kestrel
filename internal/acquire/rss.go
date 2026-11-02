@@ -3,6 +3,7 @@ package acquire
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"time"
 
@@ -219,7 +220,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 	for _, plan := range plans {
 		e := entries[entryKey(plan.Candidate)]
 		g, err := s.send(ctx, outgoing{
-			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade, by: GrabbedByRSS,
+			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
 		if err != nil {
 			errs = append(errs, err)
@@ -308,7 +309,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 			covers = append(covers, episodeID(episodes, ref))
 		}
 		g, err := s.send(ctx, outgoing{
-			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Series,
+			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
 			episodes: covers, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
 		if err != nil {
@@ -384,4 +385,9 @@ func episodeTitles(p release.ParsedRelease, eps []library.Episode) []string {
 		}
 	}
 	return out
+}
+
+// entryList is the entries of a read, the fallback copies of any one of them.
+func entryList(entries map[string]*entry) []*entry {
+	return slices.Collect(maps.Values(entries))
 }

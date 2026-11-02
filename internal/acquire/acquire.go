@@ -740,8 +740,11 @@ func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string,
 type outgoing struct {
 	titleID, versionID int64
 	e                  *entry
-	slot               Slot
-	media              downloads.Media
+	// copies are the other entries the same read produced for the Title: the
+	// fallbacks when e's NZB cannot be fetched. send also looks in the candidate cache.
+	copies []*entry
+	slot   Slot
+	media  downloads.Media
 	// episodes are the episodes a Series Grab covers.
 	episodes   []int64
 	upgrade    bool
@@ -759,12 +762,8 @@ const (
 
 // send fetches the NZB, adds it to the download client and records the Grab.
 func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
-	e := o.e
-	nzb, err := s.idx.Fetch(ctx, e.raw.IndexerID, e.raw.DownloadURL)
+	e, nzb, err := s.fetchNZB(ctx, o)
 	if err != nil {
-		if errors.Is(err, indexers.ErrNoSuchIndexer) || errors.Is(err, &plugin.Error{Code: plugin.CodeNotFound}) {
-			return Grab{}, ErrReleaseGone
-		}
 		return Grab{}, err
 	}
 	sent, err := s.dl.Add(ctx, downloads.Job{Media: o.media, Name: e.raw.Title, NZB: nzb})
@@ -772,7 +771,8 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 		return Grab{}, err
 	}
 
-	verdict := e.cand.Verdicts[o.slot]
+	// The Grab names the Indexer that delivered; the verdict is the chosen Release's.
+	verdict := o.e.cand.Verdicts[o.slot]
 	why, hasWhy := s.whyOf(ctx, o, verdict.Score)
 	parsed, _ := json.Marshal(e.cand.Parsed)
 	vjson, _ := json.Marshal(verdict)
@@ -815,6 +815,59 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 		Data: grabSentData(o.by),
 	})
 	return g, nil
+}
+
+// fetchNZB fetches the NZB of the chosen Release, else of the same Release from
+// the other Indexers that offered it, by Indexer Priority, and returns the entry
+// that delivered it. When none does it returns the chosen copy's error.
+func (s *Service) fetchNZB(ctx context.Context, o outgoing) (*entry, []byte, error) {
+	var first error
+	for i, e := range append([]*entry{o.e}, s.otherCopies(ctx, o)...) {
+		nzb, err := s.idx.Fetch(ctx, e.raw.IndexerID, e.raw.DownloadURL)
+		if err == nil {
+			return e, nzb, nil
+		}
+		if i == 0 {
+			first = err
+		}
+	}
+	if errors.Is(first, indexers.ErrNoSuchIndexer) || errors.Is(first, &plugin.Error{Code: plugin.CodeNotFound}) {
+		return nil, nil, ErrReleaseGone
+	}
+	return nil, nil, first
+}
+
+// otherCopies are the same Release (by the Blocklist's rule) from other Indexers
+// in the read that produced o and in the candidate cache, off the Blocklist, in
+// Indexer Priority order (lower first, then by Indexer id).
+func (s *Service) otherCopies(ctx context.Context, o outgoing) []*entry {
+	chosen := o.e.raw
+	pool := slices.Clone(o.copies)
+	s.cache.mu.Lock()
+	for _, e := range s.cache.m {
+		if e.titleID == o.titleID && s.clock().Sub(e.at) < CacheTTL {
+			pool = append(pool, e)
+		}
+	}
+	s.cache.mu.Unlock()
+	var out []*entry
+	for _, e := range pool {
+		r := e.raw
+		if r.IndexerID == chosen.IndexerID || !sameRelease(chosen.Title, chosen.PublishDate, chosen.Size, r.Title, r.PublishDate, r.Size) {
+			continue
+		}
+		if slices.ContainsFunc(out, func(x *entry) bool { return x.raw.IndexerID == r.IndexerID && x.raw.GUID == r.GUID }) {
+			continue
+		}
+		if blocked, err := s.blocklisted(ctx, r); err != nil || blocked {
+			continue
+		}
+		out = append(out, e)
+	}
+	slices.SortFunc(out, func(a, b *entry) int {
+		return cmp.Or(cmp.Compare(a.raw.IndexerPriority, b.raw.IndexerPriority), cmp.Compare(a.raw.IndexerID, b.raw.IndexerID))
+	})
+	return out
 }
 
 // GrabEpisodes are the episodes a Series Grab was sent for, by id; none for a Movie.
