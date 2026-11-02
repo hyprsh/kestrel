@@ -1,4 +1,4 @@
-// Settings, Library, Slots: add, rename, reorder and delete the Slots.
+// Settings, Slots & Profiles, Slots: add, rename, reorder and delete the Slots.
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

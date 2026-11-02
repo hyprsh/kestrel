@@ -37,12 +37,12 @@ describe('Settings jump list', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
-    await userEvent.click(within(jump).getByRole('link', { name: 'Profiles' }))
+    await userEvent.click(within(jump).getByRole('link', { name: 'Slots & Profiles' }))
 
     expect(location.pathname).toBe('/settings')
-    expect(location.hash).toBe('#settings-profiles')
+    expect(location.hash).toBe('#settings-slots-profiles')
     expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Profiles', level: 2 })).toHaveFocus()
+    expect(screen.getByRole('heading', { name: 'Slots & Profiles', level: 2 })).toHaveFocus()
     expect(screen.getByRole('region', { name: 'TRaSH' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Display' })).not.toBeInTheDocument()
   })
@@ -84,5 +84,29 @@ describe('Settings jump list', () => {
 
     await userEvent.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'indexers')
     expect(within(jump).getByRole('link', { name: /Downloads/ })).toHaveTextContent('Indexers')
+  })
+  it.each(['/settings/slots-profiles', '/settings/profiles', '/settings/slots', '/settings/library#settings-slots'])('opens Slots & Profiles from the old address %s', async (address) => {
+    history.replaceState(null, '', address)
+    renderApp()
+    expect(await screen.findByRole('heading', { name: 'Slots & Profiles', level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Slots' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Profiles' })).toBeInTheDocument()
+    history.replaceState(null, '', '/')
+  })
+
+  it('keeps Root folders, Existing files and Provider keys in Library, and finds the Slot settings in Slots & Profiles', async () => {
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
+    await userEvent.click(within(jump).getByRole('link', { name: 'Library' }))
+    expect(screen.getByRole('region', { name: 'Root folders' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Provider keys' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Slots' })).not.toBeInTheDocument()
+
+    for (const text of ['Slot label', 'Add Slot', 'Defaults per Slot']) {
+      await userEvent.clear(screen.getByRole('searchbox', { name: 'Find a setting' }))
+      await userEvent.type(screen.getByRole('searchbox', { name: 'Find a setting' }), text)
+      expect(within(jump).getByRole('link', { name: /Slots & Profiles/ })).toBeInTheDocument()
+    }
   })
 })

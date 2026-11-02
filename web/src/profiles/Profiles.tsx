@@ -15,7 +15,7 @@ export const declaredSlotsNote = <Note size="small">The Config File sets the Slo
 
 /**
  * The default Profile each Slot gives a new Movie and a new Series (ADR 0024). Any enabled Profile can fill any Slot, and a
- * Slot can have none. A change saves at once. Slots are added, renamed and removed in Settings, Library.
+ * Slot can have none. A change saves at once. Slots are added, renamed and removed above them, in Settings, Slots & Profiles.
  */
 export function DefaultsPerSlot() {
   const profiles = useProfiles()

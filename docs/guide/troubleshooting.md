@@ -122,8 +122,8 @@ If a [Config File](configuration.md#the-config-file) declares the account, Kestr
 
 **Can I change how files are named?** No. Kestrel uses one fixed naming scheme, so that Plex and Jellyfin group a Title's Versions as one item, and a Slot's label is part of the file name.
 
-**Can a Title have more than Standard and 4K?** Yes, up to four copies. A Title has at most one Version per Slot, and you define the Slots in Settings > Library > Slots ([Slots](slots.md)). Which one plays, and who may watch 4K, is your media server's choice.
+**Can a Title have more than Standard and 4K?** Yes, up to four copies. A Title has at most one Version per Slot, and you define the Slots in Settings > Slots & Profiles > Slots ([Slots](slots.md)). Which one plays, and who may watch 4K, is your media server's choice.
 
-**Can I edit the Scores?** No. Custom Formats and Scores come from [TRaSH Guides](https://trash-guides.info), and Kestrel updates them daily unless you switch that off in Settings > Profiles > TRaSH. [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md#what-has-no-equivalent) lists what else is different.
+**Can I edit the Scores?** No. Custom Formats and Scores come from [TRaSH Guides](https://trash-guides.info), and Kestrel updates them daily unless you switch that off in Settings > Slots & Profiles > TRaSH. [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md#what-has-no-equivalent) lists what else is different.
 
 **Something else is wrong.** [Open an issue](https://github.com/hyprsh/kestrel/issues) with your Kestrel version (Settings > About) and the Log lines around the problem. Remove API keys first. Report a security problem privately, as [SECURITY.md](../../SECURITY.md) says.

@@ -241,7 +241,7 @@ Every folder must exist and be writable.
 
 #### profiles
 
-List every Profile you have, under a key of your choosing: lower-case letters and digits, with single hyphens between. The section is the whole set, so a Profile it leaves out is disabled and kept, and the Profile endpoints and Settings > Profiles are read-only. Any of the six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`) may appear, in any combination, and keeps its builtin recipe when it gives none. Any other key is a recipe Profile and gives its `name`, `release_family`, `resolution` and `language_rule`. Every Profile gives `enabled` and `original_language`, and startup fails if one is missing.
+List every Profile you have, under a key of your choosing: lower-case letters and digits, with single hyphens between. The section is the whole set, so a Profile it leaves out is disabled and kept, and the Profile endpoints and Settings > Slots & Profiles are read-only. Any of the six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`) may appear, in any combination, and keeps its builtin recipe when it gives none. Any other key is a recipe Profile and gives its `name`, `release_family`, `resolution` and `language_rule`. Every Profile gives `enabled` and `original_language`, and startup fails if one is missing.
 
 | Field               | Value                                                                                                                                                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -256,7 +256,7 @@ List every Profile you have, under a key of your choosing: lower-case letters an
 
 **Upgrading.** Four changes of the Slots release are deliberate breaks, not additions, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo. Here, in the Config File: the `default_movies` and `default_series` keys of a Profile are ignored, so move each into the `slots` section. In the API: a Profile's `slot` is optional and deprecated; `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`; and the Slot fields are strings, with the schema once called `Slot` now `SlotId` and `Slot` naming the Slot record. [Slots, Upgrading](slots.md#upgrading) has the detail. The Profile recipes release changes three more things: existing Profiles become Bluray + WEB with no change in scoring; fresh installs start without Profiles; and a Config File's `profiles` now names the set and disables what it leaves out, where it used to hold the six builtin Profiles only ([Slots, Upgrading](slots.md#profile-recipes)).
 
-The rules of Settings > Profiles hold across the set:
+The rules of Settings > Slots & Profiles hold across the set:
 
 - A Profile the file leaves out is disabled and kept, never deleted, and Kestrel logs one line at startup naming each. If a Version uses it or a Slot names it as its default (the file's Slots, else the saved ones), startup fails naming the Profile instead. Move the Versions or the default first, or keep the Profile in the file.
 - A file that declares `profiles` and `slots` must give every Slot that is on for new Titles a default for Movies and for Series, or startup fails naming the Slot and the kind. Setup then finishes with no further check of the Slots.
@@ -280,8 +280,8 @@ A list of the library's Slots, in order. Declared, it names every Slot at once, 
 The rules of the Slot endpoints hold ([Slots](slots.md) explains them): at most four Slots, at least one, at least one on for new Titles, and a default Profile that is enabled. Slots are applied before `profiles`, so one file can move a default to another Profile and switch the old one off.
 
 - **Renaming.** An entry with an `id` whose `label` changed renames the Slot, as Edit in Settings does: its files are renamed at startup, and the old label stays recognised as an alias. An entry with no `id` that matches no label is a new Slot.
-- **Dropping.** A Slot that is in the database but missing from the file is removed at startup if no Version uses it. If Versions do, startup fails with an error naming the Slot and how many Versions it holds, so Kestrel never deletes files because a line went missing. Empty the Slot first (Settings > Library > Slots > Delete), or keep it in the file.
-- **Leaving it out.** The Slots are then the UI's, and Settings > Library > Slots works as usual.
+- **Dropping.** A Slot that is in the database but missing from the file is removed at startup if no Version uses it. If Versions do, startup fails with an error naming the Slot and how many Versions it holds, so Kestrel never deletes files because a line went missing. Empty the Slot first (Settings > Slots & Profiles > Slots > Delete), or keep it in the file.
+- **Leaving it out.** The Slots are then the UI's, and Settings > Slots & Profiles > Slots works as usual.
 
 #### plugin_instances
 

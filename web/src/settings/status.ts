@@ -29,7 +29,7 @@ export function usePageSummaries(): Record<string, string> {
   ].filter(Boolean)
   return {
     general: 'Language, how screens start, and updates.',
-    profiles: 'What each Profile accepts and which ones new Titles get.',
+    'slots-profiles': 'The Slots a Title can have a Version in, what each Profile accepts and which ones new Titles get.',
     library: 'Where files go, existing files Kestrel can take over, and the keys used to look Titles up.',
     downloads: ['Where Kestrel finds releases and where it sends them.', ...problems].join(' '),
     'media-servers': 'The servers Kestrel tells about new files, and Watch-ahead for Silo.',
@@ -64,7 +64,7 @@ export function useSectionLines(): Record<string, Line> {
   }
   if (profiles.data) {
     const names = [...new Set(profiles.data.filter((p) => p.default_movies || p.default_series).map((p) => p.name))]
-    out.profiles = { text: names.length > 0 ? `${names.join(' and ')} in use` : 'No defaults', warn: false }
+    out['slots-profiles'] = { text: names.length > 0 ? `${names.join(' and ')} in use` : 'No defaults', warn: false }
   }
   if (status.data || instances.data) {
     const client = status.data?.download_client
@@ -93,6 +93,6 @@ export function useSectionLines(): Record<string, Line> {
     out.about = status.data?.update
       ? { text: `Kestrel ${about.data.version} · ${status.data.update.version} available`, warn: true }
       : { text: `Kestrel ${about.data.version} · up to date`, warn: false }
-  for (const id of ['general', 'profiles', 'library', 'downloads', 'media-servers', 'account', 'access', 'about']) out[id] ??= none
+  for (const id of ['general', 'slots-profiles', 'library', 'downloads', 'media-servers', 'account', 'access', 'about']) out[id] ??= none
   return out
 }

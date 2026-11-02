@@ -82,7 +82,7 @@ async function setup() {
 }
 
 // app shoots the seeded Library: a Series with both Slots, the add panel, Upcoming and
-// Settings > Profiles.
+// Settings > Slots & Profiles.
 async function app() {
   for (const theme of themes) {
     const h = await open({ theme, width: 1280, height: 800 })
@@ -103,7 +103,7 @@ async function app() {
       await wait(1500)
       await save(h.page, '06-upcoming', theme)
 
-      await h.page.goto(h.base + '/settings/profiles', { waitUntil: 'domcontentloaded' })
+      await h.page.goto(h.base + '/settings/slots-profiles', { waitUntil: 'domcontentloaded' })
       await wait(1500)
       await h.page.getByRole('heading', { name: 'Profiles', exact: true }).first().evaluate((el) => el.scrollIntoView())
       await save(h.page, '07-profiles', theme)

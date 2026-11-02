@@ -171,7 +171,7 @@ describe('the default Profile per Slot in Settings', () => {
   const openDefaults = async () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    await userEvent.click(await screen.findByRole('link', { name: 'Profiles' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Slots & Profiles' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Change…' }))
   }
 
@@ -290,7 +290,7 @@ describe('Settings', () => {
     await open()
     const nav = await screen.findByRole('navigation', { name: 'Settings sections' })
     expect(within(nav).getByRole('link', { name: 'General' })).toHaveAttribute('href', '/settings#settings-general')
-    expect(within(nav).getByRole('link', { name: 'Profiles' })).toHaveAttribute('href', '/settings#settings-profiles')
+    expect(within(nav).getByRole('link', { name: 'Slots & Profiles' })).toHaveAttribute('href', '/settings#settings-slots-profiles')
     expect(await within(await screen.findByRole('region', { name: 'Language' })).findByLabelText('Primary language')).toHaveValue('en')
   })
 
@@ -333,25 +333,25 @@ describe('Settings', () => {
     const section = await screen.findByRole('region', { name: 'Language' })
     await userEvent.selectOptions(await within(section).findByLabelText('Primary language'), 'fr')
 
-    await userEvent.click(screen.getByRole('link', { name: 'Profiles' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Slots & Profiles' }))
     const ask = await screen.findByRole('dialog', { name: 'Leave without saving?' })
     expect(ask).toHaveTextContent('Primary language, Country')
-    expect(screen.queryByRole('heading', { name: 'Profiles', level: 2 })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Slots & Profiles', level: 2 })).not.toBeInTheDocument()
 
     await userEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }))
     expect(screen.queryByRole('dialog', { name: 'Leave without saving?' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Primary language')).toHaveValue('fr')
 
-    await userEvent.click(screen.getByRole('link', { name: 'Profiles' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Slots & Profiles' }))
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and leave' }))
-    expect(await screen.findByRole('heading', { name: 'Profiles', level: 2 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Slots & Profiles', level: 2 })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
   })
 
   it('leaves without asking when nothing changed', async () => {
     fakeProfiles()
-    await open('Profiles')
-    expect(await screen.findByRole('heading', { name: 'Profiles', level: 2 })).toBeInTheDocument()
+    await open('Slots & Profiles')
+    expect(await screen.findByRole('heading', { name: 'Slots & Profiles', level: 2 })).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: 'Leave without saving?' })).not.toBeInTheDocument()
   })
 
@@ -371,7 +371,7 @@ describe('Settings', () => {
   it('shows each Profile as a card with its ladder best first, what uses it and what it does', async () => {
     fakeProfiles()
     serveDetails({ 'hd-primary': configuredHd() })
-    await open('Profiles')
+    await open('Slots & Profiles')
     const hd = await screen.findByRole('region', { name: 'HD' })
     expect(await within(hd).findByText('6 Titles')).toBeInTheDocument()
     // Remux first, the cutoff dark, the quality turned off struck through.
@@ -419,7 +419,7 @@ describe('Settings', () => {
       ),
     )
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     const line = await screen.findByRole('region', { name: 'New Titles get' })
     expect(await within(line).findByText('Movies Any, Series none')).toBeInTheDocument()
     expect(within(line).getByText('Remux')).toBeInTheDocument()
@@ -432,7 +432,7 @@ describe('Settings', () => {
     fakeProfiles()
     server.use(http.get('/slots', ({ response }) => response(200).json({ items: seededSlots().map((s) => ({ ...s, from_config_file: true })) })))
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     // The Slots are declared and the Profiles are not: a Profile can be made, the defaults cannot be changed.
     expect(await screen.findByRole('button', { name: 'New Profile…' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Change…' })).toBeDisabled()
@@ -444,7 +444,7 @@ describe('Settings', () => {
     fakeProfiles()
     server.use(http.get('/profiles', ({ response }) => response(200).json({ items: seeded().map((p) => ({ ...p, from_config_file: true })) })))
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     expect(await screen.findByRole('button', { name: 'New Profile…' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Change…' })).toBeEnabled()
     expect(screen.getByText(/The Config File sets the Profiles/)).toBeInTheDocument()
@@ -460,7 +460,7 @@ describe('Settings', () => {
   it('lists Suggested Profiles by Release Family with their kinds and the resolved language', async () => {
     fakeProfiles({ groups: suggested })
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     const section = await screen.findByRole('region', { name: 'Suggested' })
     const remux = within(within(section).getAllByRole('group', { name: 'Remux + WEB' })[0])
     expect(remux.getByText('4K Remux')).toBeInTheDocument()
@@ -471,7 +471,7 @@ describe('Settings', () => {
   it('puts the named-language recipes under Other languages, closed until opened', async () => {
     fakeProfiles({ groups: suggested })
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     const section = within(await screen.findByRole('region', { name: 'Suggested' }))
     const toggle = section.getByText('Other languages')
     const disclosure = toggle.closest('details')!
@@ -487,14 +487,14 @@ describe('Settings', () => {
   it('names the Primary Language a Primary recipe resolves to', async () => {
     fakeProfiles({ groups: suggested, primary: 'de' })
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     expect(await screen.findByText('Movies and Series · Primary Language (German)')).toBeInTheDocument()
   })
 
   it('moves an added Suggested Profile into the Profiles list, enabled, without a reload', async () => {
     const sent = fakeProfiles({ groups: suggested })
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Add 4K Remux' }))
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'import', body: { release_family: 'remux-web', resolution: '4k', language_rule: 'primary' } }))
     expect(await screen.findByRole('button', { name: 'Edit 4K Remux' })).toBeInTheDocument()
@@ -505,7 +505,7 @@ describe('Settings', () => {
   it('hides Suggested when there are no suggestions', async () => {
     fakeProfiles()
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     await screen.findByRole('button', { name: 'Edit HD' })
     expect(screen.queryByRole('region', { name: 'Suggested' })).not.toBeInTheDocument()
   })
@@ -514,7 +514,7 @@ describe('Settings', () => {
     fakeProfiles({ groups: suggested })
     server.use(http.get('/profiles', ({ response }) => response(200).json({ items: seeded().map((p) => ({ ...p, from_config_file: true })) })))
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     expect(await screen.findByRole('button', { name: 'Add 4K Remux' })).toBeDisabled()
     expect(screen.getAllByText(/The Config File sets the Profiles/)).toHaveLength(1)
   })
@@ -525,7 +525,7 @@ describe('Settings', () => {
       http.get('/profiles', ({ response }) => response(200).json({ items: [profile('r', '4K Remux German', 'de', { release_family: 'remux-web', kinds: ['movie'] }), ...seeded().slice(0, 1)] })),
     )
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     const card = await screen.findByRole('region', { name: '4K Remux German' })
     expect(within(card).getByText('Remux + WEB')).toBeInTheDocument()
     expect(within(card).getByText('German audio')).toBeInTheDocument()
@@ -538,7 +538,7 @@ describe('Settings', () => {
   it('warns when two Profiles are the same recipe', async () => {
     fakeProfiles({ warnings: [{ code: 'duplicate_profile', profiles: ['hd-primary', 'hd-original'], message: 'HD and HD English are the same recipe' }] })
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     expect(await screen.findByText('HD and HD English are the same recipe')).toBeInTheDocument()
   })
 
@@ -546,14 +546,14 @@ describe('Settings', () => {
     fakeProfiles()
     const hd = configuredHd()
     serveDetails({ 'hd-primary': { ...hd, overlay: { ...hd.overlay, upgrade_until: null } } })
-    await open('Profiles')
+    await open('Slots & Profiles')
     expect(await within(await screen.findByRole('region', { name: 'HD' })).findByText('No Upgrades past the cutoff')).toBeInTheDocument()
   })
 
   it('edits a Profile in a side sheet: what it does with Original-only Releases, saved with the sheet’s own Save', async () => {
     const sent = fakeProfiles()
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
     const sheet = await screen.findByRole('dialog', { name: 'HD' })
 
@@ -581,7 +581,7 @@ describe('Settings', () => {
   it('opens a Profile’s checklist as the user set it, and sends the whole overlay when a field changes', async () => {
     const sent = fakeProfiles()
     serveDetails({ 'hd-primary': configuredHd() })
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
     const sheet = await screen.findByRole('dialog', { name: 'HD' })
 
@@ -616,7 +616,7 @@ describe('Settings', () => {
   it('reorders the checklist with the arrow keys on a row’s handle and by dragging, and a tick turns a quality off', async () => {
     const sent = fakeProfiles()
     serveDetails({ 'hd-primary': configuredHd() })
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
     const sheet = await screen.findByRole('dialog', { name: 'HD' })
     const order = () =>
@@ -657,7 +657,7 @@ describe('Settings', () => {
   it('Reset to TRaSH puts the TRaSH order and ticks back and saves no quality list', async () => {
     const sent = fakeProfiles()
     serveDetails({ 'hd-primary': configuredHd() })
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
     const sheet = await screen.findByRole('dialog', { name: 'HD' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Reset to TRaSH' }))
@@ -673,7 +673,7 @@ describe('Settings', () => {
   it('refuses a smallest size above the largest before sending anything', async () => {
     const sent = fakeProfiles()
     serveDetails()
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
     const sheet = await screen.findByRole('dialog', { name: 'HD' })
     await userEvent.type(await within(sheet).findByLabelText('Size per Movie, smallest in GB'), '30')
@@ -697,7 +697,7 @@ describe('Settings', () => {
       }),
     )
     serveDetails({ 'custom-1': { ...configuredHd(), key: 'custom-1', titles: 0, files: 0, rescores: 0, below_cutoff: 0 } })
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'New Profile…' }))
     const ask = await screen.findByRole('dialog', { name: 'New Profile' })
     expect(within(ask).getByRole('button', { name: 'Create' })).toBeDisabled()
@@ -722,7 +722,7 @@ describe('Settings', () => {
 
   it('cannot delete a custom Profile while Titles use it', async () => {
     withCustom(2)
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Edit Movies' }))
     const sheet = await screen.findByRole('dialog', { name: 'Movies' })
     expect(await within(sheet).findByLabelText('Name')).toHaveValue('Movies')
@@ -732,7 +732,7 @@ describe('Settings', () => {
 
   it('deletes a custom Profile nobody uses after asking', async () => {
     const sent = withCustom(0)
-    await open('Profiles')
+    await open('Slots & Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Edit Movies' }))
     const sheet = await screen.findByRole('dialog', { name: 'Movies' })
     await userEvent.click(await within(sheet).findByRole('button', { name: 'Delete Profile' }))

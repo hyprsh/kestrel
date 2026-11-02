@@ -127,11 +127,11 @@ A preset replaces the Slots below it, adds each Profile it needs and enables it,
 
 ### 7. Profiles
 
-Choose which Profiles to enable. Every Profile you have is listed, ticked while it is enabled, and the Profiles your Slots use are on and stay on. Under them the wizard lists suggestions that fit: the Original-Language twin of each default (HD gives HD Original) and Any for each HD default. Tick one to add it. **More…** and Settings > Profiles list every suggestion ([Concepts](concepts.md#profile) explains the recipes), and you can change all of it later there. Settings > Profiles looks like this:
+Choose which Profiles to enable. Every Profile you have is listed, ticked while it is enabled, and the Profiles your Slots use are on and stay on. Under them the wizard lists suggestions that fit: the Original-Language twin of each default (HD gives HD Original) and Any for each HD default. Tick one to add it. **More…** and Settings > Slots & Profiles list every suggestion ([Concepts](concepts.md#profile) explains the recipes), and you can change all of it later there. Settings > Slots & Profiles looks like this:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/07-profiles-dark.png">
-  <img alt="Settings, Profiles: the default Profile each Slot gives new Titles, then one card per Profile with its qualities, sizes and where Upgrades stop" src="images/07-profiles-light.png">
+  <img alt="Settings, Slots & Profiles: the default Profile each Slot gives new Titles, then one card per Profile with its qualities, sizes and where Upgrades stop" src="images/07-profiles-light.png">
 </picture>
 
 ### 8. Adopt existing library (optional)

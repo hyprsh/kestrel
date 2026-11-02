@@ -7,7 +7,7 @@ import { mkdirSync } from 'node:fs'
 import { open, wait } from './lib.mjs'
 
 // The Settings pages; an old section id (indexers, plex, security…) also opens its page.
-const settings = ['general', 'profiles', 'library', 'downloads', 'media-servers', 'account', 'access', 'about']
+const settings = ['general', 'slots-profiles', 'library', 'downloads', 'media-servers', 'account', 'access', 'about']
 const widths = [
   { w: 390, h: 844 },
   { w: 1440, h: 900 },
@@ -35,7 +35,7 @@ const screens = {
     prepare: async (h) => h.page.getByRole('combobox', { name: 'Season order' }).selectOption('newest_first'),
   },
   'settings-profile-sheet': {
-    path: '/settings/profiles',
+    path: '/settings/slots-profiles',
     prepare: async (h) => h.page.getByRole('button', { name: /^Edit / }).first().click(),
   },
   // The command menu with a query no Library Title matches, which leads with Add.

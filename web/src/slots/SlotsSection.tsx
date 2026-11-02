@@ -24,7 +24,7 @@ function defaultsText(slot: Slot, profiles: Profile[]) {
 }
 
 /**
- * Settings, Library, Slots (ADR 0024): the Slots in order, each with its default Profile for Movies and Series, its "on for
+ * Settings, Slots & Profiles, Slots (ADR 0024): the Slots in order, each with its default Profile for Movies and Series, its "on for
  * new Titles" switch and the Versions it holds. A row's drag handle (or the arrow keys on it) changes the order. Add and
  * Edit open a form; Delete asks first, and can delete the Slot's Versions with it. While the Config File declares `slots`
  * the list is read-only. `embedded` leaves out the section's own heading, for the setup wizard's Slots step, which names it.
