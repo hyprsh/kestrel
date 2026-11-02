@@ -1,8 +1,7 @@
-import { Button, Entity, Input, Note, Snippet, Textarea, Toggle, Code } from '@hyprsh/design'
+import { Button, Entity, Input, NavItem, NavList, Note, StatusDot, Snippet, Textarea, Toggle, Code } from '@hyprsh/design'
 import { ArrowDownToLine, BadgeCheck, ChevronRight, Folder, Info, Search, Shield, SlidersHorizontal, Tv, User } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
-import { JumpGroup, JumpLink, JumpNav } from '../layout/JumpNav'
 import { PanelContent, SidePanel } from '../layout/SidePanel'
 import { SettingRow, SettingRowBody, SettingsCard, SettingsHeader, SettingsSection } from '../layout/SettingsPage'
 import { useStatus } from '../api/attention'
@@ -151,7 +150,7 @@ const hashId = () => {
 const anchorOf = (id: string) => document.getElementById(`settings-${id}`)
 
 /** Opens a page: its heading takes focus (or the Part's anchor scrolls into view) and the address keeps the place, rather than the base URL's Overview. */
-function openSectionLink(event: MouseEvent<HTMLElement>, id: string, open: (id: string) => void) {
+function openSectionLink(event: MouseEvent<Element>, id: string, open: (id: string) => void) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   event.preventDefault()
   const href = (event.currentTarget as HTMLAnchorElement).href
@@ -392,30 +391,37 @@ function DesktopSettings({ content, summaries, initial }: { content: Record<stri
           />
         }
         views={
-          <JumpNav label="Settings sections">
+          <NavList aria-label="Settings sections">
             {matches.length === 0 && <p className="label-13 px-2.5 py-2 text-gray-900">No setting matches “{find.trim()}”.</p>}
             {groups.map((g) => {
               const inGroup = matches.filter(({ page }) => page.group === g)
               if (inGroup.length === 0) return null
               return (
-                <JumpGroup key={g} title={g}>
+                <NavList.Group key={g} title={g}>
                   {inGroup.map(({ page, part, note }) => (
-                    <JumpLink
+                    <NavItem
                       key={page.id}
                       href={`${location.pathname}#settings-${part?.id ?? page.id}`}
-                      current={page.id === current.page.id}
-                      warn={attention.has(page.id)}
-                      note={note}
+                      current={page.id === current.page.id ? 'true' : false}
+                      trailing={attention.has(page.id) ? <StatusDot state="warning" label={false} /> : undefined}
+                      trailingLabel={attention.has(page.id) ? 'Needs attention' : undefined}
                       icon={page.icon}
                       onClick={(e) => openSectionLink(e, part?.id ?? page.id, choose)}
                     >
-                      {page.title}
-                    </JumpLink>
+                      {note ? (
+                        <span className="min-w-0">
+                          <span className="block truncate">{page.title}</span>
+                          <span className="label-12 block truncate font-normal text-gray-900">{note}</span>
+                        </span>
+                      ) : (
+                        page.title
+                      )}
+                    </NavItem>
                   ))}
-                </JumpGroup>
+                </NavList.Group>
               )
             })}
-          </JumpNav>
+          </NavList>
         }
       />
       <PanelContent reading>

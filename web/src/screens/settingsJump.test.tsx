@@ -75,7 +75,7 @@ describe('Settings jump list', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     const jump = await screen.findByRole('navigation', { name: 'Settings sections' })
     expect(within(jump).getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'true')
-    expect(within(jump).getByRole('region', { name: 'Connections' })).toBeInTheDocument()
+    expect(within(jump).getByRole('list', { name: 'Connections' })).toBeInTheDocument()
 
     await userEvent.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'api key{Enter}')
     expect(location.hash).toBe('#settings-security')
