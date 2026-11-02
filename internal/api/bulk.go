@@ -160,8 +160,8 @@ func (s *server) bulkRows(ctx context.Context) (map[int64]library.Row, error) {
 
 // bulkSlot reads the action's Slot and, given a Profile, checks the Profile
 // can fill it: a wrong one refuses the whole call.
-func (s *server) bulkSlot(ctx context.Context, sl oapi.Slot, profile *string) (slot.Slot, error) {
-	out, err := slotFromAPI(sl, "slot")
+func (s *server) bulkSlot(ctx context.Context, sl oapi.SlotId, profile *string) (slot.Slot, error) {
+	out, err := s.slotFromAPI(ctx, sl, "slot")
 	if err != nil {
 		return out, err
 	}

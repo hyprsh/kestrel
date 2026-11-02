@@ -74,7 +74,7 @@ type grabAbout struct {
 	hasPoster bool
 	year      *int
 	kind      *oapi.TitleKind
-	slot      *oapi.Slot
+	slot      *oapi.SlotId
 	episodes  []string
 	// episodeIDs are those episodes' ids.
 	episodeIDs []int64

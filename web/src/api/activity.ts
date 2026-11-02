@@ -27,7 +27,7 @@ function filterQuery(f: GrabsFilter) {
   return {
     ...(f.q.trim() && { q: f.q.trim() }),
     ...(f.kind && { kind: f.kind as components['schemas']['TitleKind'][] }),
-    ...(f.slot && { slot: f.slot as components['schemas']['Slot'][] }),
+    ...(f.slot && { slot: f.slot as components['schemas']['SlotId'][] }),
     ...(f.grab && { grab: f.grab }),
   }
 }

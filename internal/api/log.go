@@ -30,10 +30,10 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 		f.ExcludeTitleIDs = *p.ExcludeTitleId
 	}
 	var err error
-	if f.Slots, err = slotsOf("slot", p.Slot); err != nil {
+	if f.Slots, err = s.slotsOf(ctx, "slot", p.Slot); err != nil {
 		return nil, err
 	}
-	if f.ExcludeSlots, err = slotsOf("exclude_slot", p.ExcludeSlot); err != nil {
+	if f.ExcludeSlots, err = s.slotsOf(ctx, "exclude_slot", p.ExcludeSlot); err != nil {
 		return nil, err
 	}
 	if p.Routine != nil {
@@ -111,19 +111,18 @@ func (s *server) GetEventsHistogram(ctx context.Context, r oapi.GetEventsHistogr
 	return oapi.GetEventsHistogram200JSONResponse(out), nil
 }
 
-// slotsOf is a Slot filter's values; field names it in the error.
-func slotsOf(field string, slots *[]oapi.Slot) ([]string, error) {
+// slotsOf is a Slot filter's values, each the id of an existing Slot; field names it in the error.
+func (s *server) slotsOf(ctx context.Context, field string, slots *[]oapi.SlotId) ([]string, error) {
 	if slots == nil {
 		return nil, nil
 	}
 	var out []string
-	for _, slot := range *slots {
-		switch slot {
-		case oapi.Standard, oapi.N4k:
-		default:
-			return nil, invalid(field, "invalid", field+" must be standard or 4k")
+	for _, id := range *slots {
+		sl, err := s.slotFromAPI(ctx, id, field)
+		if err != nil {
+			return nil, err
 		}
-		out = append(out, string(slot))
+		out = append(out, sl.Key())
 	}
 	return out, nil
 }

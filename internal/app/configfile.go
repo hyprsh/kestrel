@@ -18,6 +18,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
@@ -27,6 +29,7 @@ type declarer struct {
 	file     *configfile.File
 	api      *api.Declared
 	profiles *profiles.Service
+	slots    *slots.Service
 	roots    *rootfolders.Service
 	display  *display.Service
 	updates  *updates.Service
@@ -114,6 +117,16 @@ func (d declarer) sections() []section {
 				return validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want)))
 			},
 			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
+		})
+	}
+	if f.Slots != nil {
+		want := make([]slots.Declared, len(f.Slots))
+		for i, sl := range f.Slots {
+			want[i] = slots.Declared{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries, OnForNew: sl.OnForNew}
+		}
+		out = append(out, section{
+			check: func(ctx context.Context) error { return slotsError(d.slots.CheckDeclared(ctx, want)) },
+			apply: func(ctx context.Context) error { return slotsError(d.slots.Declare(ctx, want)) },
 		})
 	}
 	if f.PluginInstances != nil {
@@ -347,6 +360,21 @@ func (d declarer) testInstances(ctx context.Context, declared []instances.Instan
 		})
 	}
 	wg.Wait()
+}
+
+// slotsError words a rejected Slot rule under the file's slots section.
+func slotsError(err error) error {
+	var re *slot.RuleError
+	if !errors.As(err, &re) {
+		return err
+	}
+	switch {
+	case strings.HasPrefix(re.Field, "["):
+		return fmt.Errorf("slots%w", err)
+	case re.Field != "":
+		return fmt.Errorf("slots.%w", err)
+	}
+	return fmt.Errorf("slots: %w", err)
 }
 
 // instanceError words a rejected declared instance under plugin_instances.

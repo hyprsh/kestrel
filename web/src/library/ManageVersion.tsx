@@ -43,7 +43,7 @@ export function ProfilePicker({
   onCancel,
 }: {
   profiles: Profile[]
-  slot: SlotKey
+  slot: string
   initial: string
   label: string
   busy: boolean

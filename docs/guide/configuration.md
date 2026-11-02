@@ -136,6 +136,14 @@ profiles: # all six or none, each with all four fields
       default_series: false,
     }
 
+slots: # in order; at least one, at most four, one on for new Titles
+  - id: standard
+    label: Standard
+    default_movies: hd-primary
+    default_series: hd-primary
+    on_for_new_titles: true
+  - label: Remux
+
 plugin_instances: # known by name
   - name: SABnzbd
     plugin_id: sabnzbd
@@ -280,6 +288,20 @@ The rules of Settings > Profiles hold across the six:
 - A Slot has at most one default per kind.
 - The Standard Slot has exactly one default for Movies and one for Series. The 4K Slot may have none.
 
+#### slots
+
+A list of the library's Slots, in order ([ADR 0024](../adr/0024-admins-define-the-slots.md)). Declared, it names every Slot at once, and the Slot endpoints answer `409` and report `from_config_file`. Each entry takes:
+
+| Field               | Value                                                                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`             | Required. 1 to 24 letters, digits, spaces, `-` or `+`, without a leading or trailing space, unique ignoring case. It names the files.               |
+| `id`                | Optional. The Slot's fixed id, such as `standard`. Left out, an entry is the Slot with the same label, or a new Slot whose id comes from the label. |
+| `default_movies`    | Optional. The key of the Profile a new Movie gets in this Slot. Left out, none.                                                                     |
+| `default_series`    | Optional. The same for a new Series.                                                                                                                |
+| `on_for_new_titles` | Optional, default `false`. Whether a new Title gets a Version in this Slot.                                                                         |
+
+The rules of the Slot endpoints hold: at most four Slots, at least one, and at least one on for new Titles. A Slot that is in the database but missing from the file is removed at startup if no Version uses it. If Versions do, startup fails with an error naming the Slot and how many Versions it holds, so Kestrel never deletes files because a line went missing.
+
 #### plugin_instances
 
 A plugin instance is one connection to a service: your download client, an indexer, a media server, Plex or Silo. Each entry takes:
@@ -347,13 +369,13 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 
 The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A sort picked in Manual search and the Upcoming filter changed in a session still win. ([ADR 0022](../adr/0022-declared-display-settings-may-leave-others-to-the-ui.md))
 
-| Field                | Value                                                                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.                                                                     |
+| Field                | Value                                                                                                                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.                                                              |
 | `seasons_open`       | `latest_and_wanted` (default) starts a Series page on its newest season, Settings' "Open the newest season" switched on. `all` or `none` start it on the first season, the switch off. A link to a season or an episode wins. |
-| `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`. |
-| `upcoming_display`   | `agenda` (default) or `month`: the display Upcoming opens with. A browser that picked its own display keeps it.                                                                                  |
-| `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                 |
+| `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`.                              |
+| `upcoming_display`   | `agenda` (default) or `month`: the display Upcoming opens with. A browser that picked its own display keeps it.                                                                                                               |
+| `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                                              |
 
 #### check_github_updates
 

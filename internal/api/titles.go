@@ -34,17 +34,7 @@ func strPtr(s string) *string {
 	return &s
 }
 
-func slotToAPI(s slot.Slot) oapi.Slot { return oapi.Slot(s.Key()) }
-
-// slotFromAPI reads a Slot from a request body; anything but standard or 4k is
-// a validation problem on the field.
-func slotFromAPI(s oapi.Slot, field string) (slot.Slot, error) {
-	sl, ok := slot.Parse(string(s))
-	if !ok {
-		return sl, invalid(field, "invalid", "slot must be standard or 4k")
-	}
-	return sl, nil
-}
+func slotToAPI(s slot.Slot) oapi.SlotId { return oapi.SlotId(s.Key()) }
 
 // metaProblem maps a provider failure to the API's problem codes.
 func metaProblem(err error) error {
@@ -431,7 +421,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	var specs []library.VersionSpec
 	seen := map[slot.Slot]bool{}
 	for i, v := range b.Versions {
-		sl, err := slotFromAPI(v.Slot, fmt.Sprintf("versions[%d].slot", i))
+		sl, err := s.slotFromAPI(ctx, v.Slot, fmt.Sprintf("versions[%d].slot", i))
 		if err != nil {
 			return nil, err
 		}

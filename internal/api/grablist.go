@@ -122,7 +122,7 @@ type grabText struct {
 	ids   map[int64]bool
 }
 
-func newGrabText(q *string, kinds *[]oapi.TitleKind, slots *[]oapi.Slot, ids *[]int64) grabText {
+func newGrabText(q *string, kinds *[]oapi.TitleKind, slots *[]oapi.SlotId, ids *[]int64) grabText {
 	var g grabText
 	if q != nil {
 		g.words = strings.Fields(strings.ToLower(*q))

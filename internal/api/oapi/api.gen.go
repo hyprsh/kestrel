@@ -1363,24 +1363,6 @@ func (e SetupSectionState) Valid() bool {
 	}
 }
 
-// Defines values for Slot.
-const (
-	N4k      Slot = "4k"
-	Standard Slot = "standard"
-)
-
-// Valid indicates whether the value is a known member of the Slot enum.
-func (e Slot) Valid() bool {
-	switch e {
-	case N4k:
-		return true
-	case Standard:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for SlotState.
 const (
 	SlotStateDownloading SlotState = "downloading"
@@ -2170,10 +2152,17 @@ type AdoptionFile struct {
 	Path string            `json:"path"`
 
 	// Profile Key of the Profile the Version has or gets.
-	Profile   string             `json:"profile"`
-	Score     int                `json:"score"`
-	Size      int64              `json:"size"`
-	Slot      Slot               `json:"slot"`
+	Profile string `json:"profile"`
+	Score   int    `json:"score"`
+	Size    int64  `json:"size"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot      SlotId             `json:"slot"`
 	Subtitles []AdoptionSubtitle `json:"subtitles"`
 	Ticked    bool               `json:"ticked"`
 
@@ -2942,7 +2931,7 @@ type GrabEntry struct {
 	ReleaseName string     `json:"release_name"`
 	Score       int        `json:"score"`
 	Size        int64      `json:"size"`
-	Slot        *Slot      `json:"slot"`
+	Slot        *SlotId    `json:"slot"`
 
 	// Stalled Set while the Import waits for the environment to be fixed.
 	Stalled *GrabStall     `json:"stalled"`
@@ -3247,8 +3236,15 @@ type LongMissing struct {
 		LastFailure *string `json:"last_failure"`
 
 		// Profile The key of the Version's Profile.
-		Profile     string    `json:"profile"`
-		Slot        Slot      `json:"slot"`
+		Profile string `json:"profile"`
+
+		// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+		// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+		// where a request sends it, and clients show an id they do not know.
+		//
+		//
+		// Example: standard
+		Slot        SlotId    `json:"slot"`
 		Title       string    `json:"title"`
 		TitleId     int64     `json:"title_id"`
 		VersionId   int64     `json:"version_id"`
@@ -3467,8 +3463,15 @@ type OriginalOffer struct {
 	Releases []OfferedRelease `json:"releases"`
 
 	// Score Its Score under the Version's Profile.
-	Score     int    `json:"score"`
-	Slot      Slot   `json:"slot"`
+	Score int `json:"score"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot      SlotId `json:"slot"`
 	Title     string `json:"title"`
 	TitleId   int64  `json:"title_id"`
 	VersionId int64  `json:"version_id"`
@@ -3787,7 +3790,14 @@ type Profile struct {
 	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 	// Original-Language Profiles.
 	OriginalLanguage OriginalLanguageChoice `json:"original_language"`
-	Slot             Slot                   `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 
 	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
 	TrashProfileMovies string `json:"trash_profile_movies"`
@@ -3990,8 +4000,8 @@ type QueueItem struct {
 	ScoreDelta *int `json:"score_delta"`
 
 	// Size The Release's size as the indexer gave it; `bytes_total` is the client's.
-	Size int64 `json:"size"`
-	Slot *Slot `json:"slot"`
+	Size int64   `json:"size"`
+	Slot *SlotId `json:"slot"`
 
 	// Stuck Set while the download is a Stuck download, null otherwise. It is the same judgement Silo's
 	// requester view reports as "Taking longer than usual". Not to be confused with a Stalled Import.
@@ -4054,11 +4064,18 @@ type RecentItem struct {
 	Score       *int      `json:"score"`
 
 	// ScoreDelta What an Upgrade gained over the file it replaced; null for a first Import.
-	ScoreDelta *int   `json:"score_delta"`
-	Slot       Slot   `json:"slot"`
-	Title      string `json:"title"`
-	TitleId    int64  `json:"title_id"`
-	Year       *int   `json:"year"`
+	ScoreDelta *int `json:"score_delta"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot    SlotId `json:"slot"`
+	Title   string `json:"title"`
+	TitleId int64  `json:"title_id"`
+	Year    *int   `json:"year"`
 }
 
 // RecentList defines model for RecentList.
@@ -4322,7 +4339,14 @@ type RequestSlot struct {
 
 	// Profile The Version's Profile; `null` for a rejected Request that never resolved one.
 	Profile *string `json:"profile"`
-	Slot    Slot    `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 
 	// Stalled `true` while the Slot's Grab is a stalled download (the download client reports it paused, or
 	// its downloaded amount has not grown for an hour) or its finished download has an Import that
@@ -4349,7 +4373,14 @@ type RequestSlotStatus string
 type RequestSlotCreate struct {
 	// Profile A Profile key of that Slot; left out, Profile resolution picks one.
 	Profile *string `json:"profile,omitempty"`
-	Slot    Slot    `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 }
 
 // RequestTitle The Title asked for. Kestrel needs `tmdb_id`, or a `tvdb_id` of a Series already in the Library.
@@ -4754,7 +4785,81 @@ type SiloSettings struct {
 }
 
 // Slot defines model for Slot.
-type Slot string
+type Slot struct {
+	// DefaultMovies The `key` of the Profile a new Movie gets in this Slot, or `null` for none.
+	DefaultMovies *string `json:"default_movies"`
+
+	// DefaultSeries The `key` of the Profile a new Series gets in this Slot, or `null` for none.
+	DefaultSeries *string `json:"default_series"`
+
+	// FromConfigFile `true` while the Config File declares `slots`, which declares every Slot at once.
+	FromConfigFile bool `json:"from_config_file"`
+
+	// Id The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Id SlotId `json:"id"`
+
+	// Label What names the Slot's files. 1 to 24 characters of letters (any script), digits, spaces, `-` and `+`, with no
+	// leading or trailing space, unique ignoring case.
+	//
+	//
+	// Example: Standard
+	Label string `json:"label"`
+
+	// OnForNewTitles Whether a new Title gets a Version in this Slot.
+	OnForNewTitles bool `json:"on_for_new_titles"`
+
+	// Position The Slot's place in the order, from 0 and without gaps.
+	Position int `json:"position"`
+}
+
+// SlotCreate defines model for SlotCreate.
+type SlotCreate struct {
+	// DefaultMovies A Profile `key`; absent or empty is none.
+	DefaultMovies *string `json:"default_movies,omitempty"`
+
+	// DefaultSeries A Profile `key`; absent or empty is none.
+	DefaultSeries *string `json:"default_series,omitempty"`
+
+	// Label The Slot's id is derived from it and never changes, whatever the label becomes.
+	//
+	// Example: Remux
+	Label string `json:"label"`
+
+	// OnForNewTitles Defaults to `false`.
+	OnForNewTitles *bool `json:"on_for_new_titles,omitempty"`
+}
+
+// SlotId The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+// where a request sends it, and clients show an id they do not know.
+//
+// Example: standard
+type SlotId = string
+
+// SlotList defines model for SlotList.
+type SlotList struct {
+	// Items In order, at least one and at most four.
+	Items []Slot `json:"items"`
+}
+
+// SlotPatch defines model for SlotPatch.
+type SlotPatch struct {
+	// DefaultMovies A Profile `key`; an empty string clears the default.
+	DefaultMovies *string `json:"default_movies,omitempty"`
+
+	// DefaultSeries A Profile `key`; an empty string clears the default.
+	DefaultSeries  *string `json:"default_series,omitempty"`
+	Label          *string `json:"label,omitempty"`
+	OnForNewTitles *bool   `json:"on_for_new_titles,omitempty"`
+
+	// Position The 0-based place to move the Slot to; the others shift to make room.
+	Position *int `json:"position,omitempty"`
+}
 
 // SlotState `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 // Clients tolerate new values.
@@ -4781,7 +4886,14 @@ type SlotStateEntry struct {
 	// NextSearchAt When a Wanted Version is next searched. Only a Wanted Version has it here.
 	NextSearchAt *time.Time `json:"next_search_at,omitempty"`
 	Profile      string     `json:"profile"`
-	Slot         Slot       `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
@@ -4911,11 +5023,18 @@ type StatsLibrary struct {
 
 // StatsQuality defines model for StatsQuality.
 type StatsQuality struct {
-	Files         int  `json:"files"`
-	RemuxBluray   int  `json:"remux_bluray"`
-	Slot          Slot `json:"slot"`
-	WebDl         int  `json:"web_dl"`
-	WebripOrLower int  `json:"webrip_or_lower"`
+	Files       int `json:"files"`
+	RemuxBluray int `json:"remux_bluray"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot          SlotId `json:"slot"`
+	WebDl         int    `json:"web_dl"`
+	WebripOrLower int    `json:"webrip_or_lower"`
 }
 
 // StatsReleaseGroup defines model for StatsReleaseGroup.
@@ -5007,7 +5126,14 @@ type SuggestedSlot struct {
 
 	// Reason `default` (the Slot's default Profile). Clients tolerate new values.
 	Reason SuggestedSlotReason `json:"reason"`
-	Slot   Slot                `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 }
 
 // SuggestedSlotReason `default` (the Slot's default Profile). Clients tolerate new values.
@@ -5263,8 +5389,15 @@ type TitlesBulkAddVersion struct {
 	Action TitlesBulkAddVersionAction `json:"action"`
 
 	// Profile The Profile key. It must be an enabled Profile of that Slot.
-	Profile  string   `json:"profile"`
-	Slot     Slot     `json:"slot"`
+	Profile string `json:"profile"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot     SlotId   `json:"slot"`
 	TitleIds TitleIds `json:"title_ids"`
 }
 
@@ -5322,9 +5455,16 @@ type TitlesBulkRemoveVersion struct {
 	Action TitlesBulkRemoveVersionAction `json:"action"`
 
 	// DeleteFiles Delete the files from disk too.
-	DeleteFiles *bool    `json:"delete_files,omitempty"`
-	Slot        Slot     `json:"slot"`
-	TitleIds    TitleIds `json:"title_ids"`
+	DeleteFiles *bool `json:"delete_files,omitempty"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot     SlotId   `json:"slot"`
+	TitleIds TitleIds `json:"title_ids"`
 }
 
 // TitlesBulkRemoveVersionAction defines model for TitlesBulkRemoveVersion.Action.
@@ -5349,8 +5489,15 @@ type TitlesBulkSwitchProfile struct {
 	Action TitlesBulkSwitchProfileAction `json:"action"`
 
 	// Profile The Profile key. It must be an enabled Profile of that Slot.
-	Profile  string   `json:"profile"`
-	Slot     Slot     `json:"slot"`
+	Profile string `json:"profile"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot     SlotId   `json:"slot"`
 	TitleIds TitleIds `json:"title_ids"`
 }
 
@@ -5481,7 +5628,14 @@ type UpcomingSlot struct {
 
 	// Quality The quality of an `imported` Version's file ("WEBDL-1080p"), when known.
 	Quality *string `json:"quality"`
-	Slot    Slot    `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 
 	// State `not_out`: nothing to do until it airs or is released. `wanted`: out and monitored, with no file.
 	// `imported`: a file fills it. Clients tolerate new values.
@@ -5569,7 +5723,14 @@ type VersionDetail struct {
 	// OriginalOffer The Version's Original Offer, dismissed or not; null or absent when it has none.
 	OriginalOffer *OriginalOffer `json:"original_offer,omitempty"`
 	Profile       string         `json:"profile"`
-	Slot          Slot           `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 
 	// State `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 	// Clients tolerate new values.
@@ -5587,7 +5748,14 @@ type VersionPatch struct {
 type VersionRef struct {
 	// Profile The Profile key. It must be an enabled Profile of that Slot.
 	Profile string `json:"profile"`
-	Slot    Slot   `json:"slot"`
+
+	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+	// where a request sends it, and clients show an id they do not know.
+	//
+	//
+	// Example: standard
+	Slot SlotId `json:"slot"`
 }
 
 // WantedEpisodes A Series' Wanted episodes, counted once however many of its Versions want them. The Library's
@@ -5624,6 +5792,13 @@ type PluginId = string
 
 // ProfileKey defines model for ProfileKey.
 type ProfileKey string
+
+// SlotIdParam The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+// where a request sends it, and clients show an id they do not know.
+//
+// Example: standard
+type SlotIdParam = SlotId
 
 // TitleId defines model for TitleId.
 type TitleId = int64
@@ -5702,8 +5877,8 @@ type ListEventsParams struct {
 	ExcludeKind    *[]string `form:"exclude_kind,omitempty" json:"exclude_kind,omitempty"`
 	TitleId        *[]int64  `form:"title_id,omitempty" json:"title_id,omitempty"`
 	ExcludeTitleId *[]int64  `form:"exclude_title_id,omitempty" json:"exclude_title_id,omitempty"`
-	Slot           *[]Slot   `form:"slot,omitempty" json:"slot,omitempty"`
-	ExcludeSlot    *[]Slot   `form:"exclude_slot,omitempty" json:"exclude_slot,omitempty"`
+	Slot           *[]SlotId `form:"slot,omitempty" json:"slot,omitempty"`
+	ExcludeSlot    *[]SlotId `form:"exclude_slot,omitempty" json:"exclude_slot,omitempty"`
 	Routine        *bool     `form:"routine,omitempty" json:"routine,omitempty"`
 	Before         *int64    `form:"before,omitempty" json:"before,omitempty"`
 	Limit          *int      `form:"limit,omitempty" json:"limit,omitempty"`
@@ -5732,7 +5907,7 @@ type ListGrabsParams struct {
 	Since   *time.Time              `form:"since,omitempty" json:"since,omitempty"`
 	Q       *string                 `form:"q,omitempty" json:"q,omitempty"`
 	Kind    *[]TitleKind            `form:"kind,omitempty" json:"kind,omitempty"`
-	Slot    *[]Slot                 `form:"slot,omitempty" json:"slot,omitempty"`
+	Slot    *[]SlotId               `form:"slot,omitempty" json:"slot,omitempty"`
 	Grab    *[]int64                `form:"grab,omitempty" json:"grab,omitempty"`
 	Limit   *int                    `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor  *string                 `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -5745,7 +5920,7 @@ type ListGrabsParamsState string
 type GetGrabsSummaryParams struct {
 	Q    *string      `form:"q,omitempty" json:"q,omitempty"`
 	Kind *[]TitleKind `form:"kind,omitempty" json:"kind,omitempty"`
-	Slot *[]Slot      `form:"slot,omitempty" json:"slot,omitempty"`
+	Slot *[]SlotId    `form:"slot,omitempty" json:"slot,omitempty"`
 	Grab *[]int64     `form:"grab,omitempty" json:"grab,omitempty"`
 }
 
@@ -5932,6 +6107,12 @@ type PutSiloSettingsJSONRequestBody = SiloSettings
 
 // CreateAccountJSONRequestBody defines body for CreateAccount for application/json ContentType.
 type CreateAccountJSONRequestBody = Credentials
+
+// CreateSlotJSONRequestBody defines body for CreateSlot for application/json ContentType.
+type CreateSlotJSONRequestBody = SlotCreate
+
+// PatchSlotJSONRequestBody defines body for PatchSlot for application/json ContentType.
+type PatchSlotJSONRequestBody = SlotPatch
 
 // DiscardStalledImportsJSONRequestBody defines body for DiscardStalledImports for application/json ContentType.
 type DiscardStalledImportsJSONRequestBody = StalledImportsSelect
@@ -6531,6 +6712,18 @@ type ServerInterface interface {
 	// CompleteSetup Finish setup
 	// (POST /setup/complete)
 	CompleteSetup(w http.ResponseWriter, r *http.Request)
+	// ListSlots The Slots
+	// (GET /slots)
+	ListSlots(w http.ResponseWriter, r *http.Request)
+	// CreateSlot Define a Slot
+	// (POST /slots)
+	CreateSlot(w http.ResponseWriter, r *http.Request)
+	// DeleteSlot Remove a Slot
+	// (DELETE /slots/{id})
+	DeleteSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam)
+	// PatchSlot Change a Slot
+	// (PATCH /slots/{id})
+	PatchSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam)
 	// DiscardStalledImports Discard stalled Imports
 	// (POST /stalled-imports/discard)
 	DiscardStalledImports(w http.ResponseWriter, r *http.Request)
@@ -8651,6 +8844,86 @@ func (siw *ServerInterfaceWrapper) CompleteSetup(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// ListSlots operation middleware
+func (siw *ServerInterfaceWrapper) ListSlots(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSlots(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSlot operation middleware
+func (siw *ServerInterfaceWrapper) CreateSlot(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSlot(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteSlot operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSlot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id SlotIdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteSlot(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchSlot operation middleware
+func (siw *ServerInterfaceWrapper) PatchSlot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id SlotIdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchSlot(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DiscardStalledImports operation middleware
 func (siw *ServerInterfaceWrapper) DiscardStalledImports(w http.ResponseWriter, r *http.Request) {
 
@@ -9621,6 +9894,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/settings/plex-sign-in", wrapper.PutPlexSignInSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/settings", wrapper.GetSettings)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/slots", wrapper.ListSlots)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/slots", wrapper.CreateSlot)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/slots/{id}", wrapper.DeleteSlot)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/slots/{id}", wrapper.PatchSlot)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/profiles", wrapper.CreateProfile)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/profiles/{key}", wrapper.DeleteProfile)
@@ -14382,6 +14659,260 @@ func (response CompleteSetupdefaultApplicationProblemPlusJSONResponse) VisitComp
 	return err
 }
 
+type ListSlotsRequestObject struct {
+}
+
+type ListSlotsResponseObject interface {
+	VisitListSlotsResponse(w http.ResponseWriter) error
+}
+
+type ListSlots200JSONResponse SlotList
+
+func (response ListSlots200JSONResponse) VisitListSlotsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSlotsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListSlotsdefaultApplicationProblemPlusJSONResponse) VisitListSlotsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSlotRequestObject struct {
+	Body *CreateSlotJSONRequestBody
+}
+
+type CreateSlotResponseObject interface {
+	VisitCreateSlotResponse(w http.ResponseWriter) error
+}
+
+type CreateSlot201JSONResponse Slot
+
+func (response CreateSlot201JSONResponse) VisitCreateSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSlot409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateSlot409ApplicationProblemPlusJSONResponse) VisitCreateSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSlot422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateSlot422ApplicationProblemPlusJSONResponse) VisitCreateSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateSlotdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateSlotdefaultApplicationProblemPlusJSONResponse) VisitCreateSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSlotRequestObject struct {
+	Id SlotIdParam `json:"id"`
+}
+
+type DeleteSlotResponseObject interface {
+	VisitDeleteSlotResponse(w http.ResponseWriter) error
+}
+
+type DeleteSlot204Response struct {
+}
+
+func (response DeleteSlot204Response) VisitDeleteSlotResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteSlot404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeleteSlot404ApplicationProblemPlusJSONResponse) VisitDeleteSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSlot409ApplicationProblemPlusJSONResponse Problem
+
+func (response DeleteSlot409ApplicationProblemPlusJSONResponse) VisitDeleteSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteSlotdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteSlotdefaultApplicationProblemPlusJSONResponse) VisitDeleteSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSlotRequestObject struct {
+	Id   SlotIdParam `json:"id"`
+	Body *PatchSlotJSONRequestBody
+}
+
+type PatchSlotResponseObject interface {
+	VisitPatchSlotResponse(w http.ResponseWriter) error
+}
+
+type PatchSlot200JSONResponse Slot
+
+func (response PatchSlot200JSONResponse) VisitPatchSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSlot404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PatchSlot404ApplicationProblemPlusJSONResponse) VisitPatchSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSlot409ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchSlot409ApplicationProblemPlusJSONResponse) VisitPatchSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSlot422ApplicationProblemPlusJSONResponse Problem
+
+func (response PatchSlot422ApplicationProblemPlusJSONResponse) VisitPatchSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchSlotdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PatchSlotdefaultApplicationProblemPlusJSONResponse) VisitPatchSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DiscardStalledImportsRequestObject struct {
 	Body *DiscardStalledImportsJSONRequestBody
 }
@@ -16298,6 +16829,18 @@ type StrictServerInterface interface {
 	// CompleteSetup Finish setup
 	// (POST /setup/complete)
 	CompleteSetup(ctx context.Context, request CompleteSetupRequestObject) (CompleteSetupResponseObject, error)
+	// ListSlots The Slots
+	// (GET /slots)
+	ListSlots(ctx context.Context, request ListSlotsRequestObject) (ListSlotsResponseObject, error)
+	// CreateSlot Define a Slot
+	// (POST /slots)
+	CreateSlot(ctx context.Context, request CreateSlotRequestObject) (CreateSlotResponseObject, error)
+	// DeleteSlot Remove a Slot
+	// (DELETE /slots/{id})
+	DeleteSlot(ctx context.Context, request DeleteSlotRequestObject) (DeleteSlotResponseObject, error)
+	// PatchSlot Change a Slot
+	// (PATCH /slots/{id})
+	PatchSlot(ctx context.Context, request PatchSlotRequestObject) (PatchSlotResponseObject, error)
 	// DiscardStalledImports Discard stalled Imports
 	// (POST /stalled-imports/discard)
 	DiscardStalledImports(ctx context.Context, request DiscardStalledImportsRequestObject) (DiscardStalledImportsResponseObject, error)
@@ -18640,6 +19183,120 @@ func (sh *strictHandler) CompleteSetup(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CompleteSetupResponseObject); ok {
 		if err := validResponse.VisitCompleteSetupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListSlots operation middleware
+func (sh *strictHandler) ListSlots(w http.ResponseWriter, r *http.Request) {
+	var request ListSlotsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSlots(ctx, request.(ListSlotsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSlots")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListSlotsResponseObject); ok {
+		if err := validResponse.VisitListSlotsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateSlot operation middleware
+func (sh *strictHandler) CreateSlot(w http.ResponseWriter, r *http.Request) {
+	var request CreateSlotRequestObject
+
+	var body CreateSlotJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateSlot(ctx, request.(CreateSlotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateSlot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateSlotResponseObject); ok {
+		if err := validResponse.VisitCreateSlotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteSlot operation middleware
+func (sh *strictHandler) DeleteSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam) {
+	var request DeleteSlotRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteSlot(ctx, request.(DeleteSlotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteSlot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteSlotResponseObject); ok {
+		if err := validResponse.VisitDeleteSlotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchSlot operation middleware
+func (sh *strictHandler) PatchSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam) {
+	var request PatchSlotRequestObject
+
+	request.Id = id
+
+	var body PatchSlotJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchSlot(ctx, request.(PatchSlotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchSlot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchSlotResponseObject); ok {
+		if err := validResponse.VisitPatchSlotResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

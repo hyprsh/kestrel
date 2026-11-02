@@ -88,7 +88,7 @@ func upcomingSlots(in []library.EntrySlot) []oapi.UpcomingSlot {
 			quality = strPtr(q)
 		}
 		out = append(out, oapi.UpcomingSlot{
-			Slot: oapi.Slot(s.Slot.Key()), VersionId: s.VersionID, State: oapi.UpcomingSlotState(s.State),
+			Slot: oapi.SlotId(s.Slot.Key()), VersionId: s.VersionID, State: oapi.UpcomingSlotState(s.State),
 			WantedSince: s.WantedSince, LongMissing: s.LongMissing, Quality: quality,
 		})
 	}
@@ -108,7 +108,7 @@ func (s *server) ListRecentlyAdded(ctx context.Context, _ oapi.ListRecentlyAdded
 	out := oapi.RecentList{Items: make([]oapi.RecentItem, 0, len(rows)), Total: total}
 	for _, r := range rows {
 		out.Items = append(out.Items, oapi.RecentItem{
-			TitleId: r.TitleID, Title: r.Title, Year: intPtr(r.Year), Kind: oapi.TitleKind(r.Kind), HasPoster: r.HasPoster, Slot: oapi.Slot(r.Slot),
+			TitleId: r.TitleID, Title: r.Title, Year: intPtr(r.Year), Kind: oapi.TitleKind(r.Kind), HasPoster: r.HasPoster, Slot: oapi.SlotId(r.Slot),
 			ReleaseName: r.Release, Score: r.Score, ScoreDelta: r.ScoreDelta, Files: r.Files, IsUpgrade: r.IsUpgrade, ImportedAt: r.ImportedAt,
 		})
 	}

@@ -37,6 +37,9 @@ type File struct {
 	Display        *Display        `yaml:"display"`
 	// Profiles maps a Profile key to its declared state.
 	Profiles map[string]Profile `yaml:"profiles"`
+	// Slots are the library's Slots in order (ADR 0024). Nil means the file leaves
+	// the Slots to the UI; an empty list declares none, which no library can have.
+	Slots []Slot `yaml:"slots"`
 	// PluginInstances are known by name. Nil means the file leaves plugin
 	// instances to the UI; an empty list declares none.
 	PluginInstances    []PluginInstance `yaml:"plugin_instances"`
@@ -85,6 +88,17 @@ func (p Profile) Choice() scoring.OriginalChoice {
 		return *c
 	}
 	return scoring.OriginalReject
+}
+
+// Slot is one declared Slot. Only the label is required: the id is derived from
+// it when the file gives none, a default left out is none and a Slot is off for
+// new Titles unless the file says otherwise.
+type Slot struct {
+	ID            string `yaml:"id"`
+	Label         string `yaml:"label"`
+	DefaultMovies string `yaml:"default_movies"`
+	DefaultSeries string `yaml:"default_series"`
+	OnForNew      bool   `yaml:"on_for_new_titles"`
 }
 
 // PluginInstance is one declared plugin instance. Config is kept as YAML: its
@@ -212,6 +226,7 @@ const (
 	SectionRootFolders        Section = "root_folders"
 	SectionDisplay            Section = "display"
 	SectionProfiles           Section = "profiles"
+	SectionSlots              Section = "slots"
 	SectionPluginInstances    Section = "plugin_instances"
 	SectionReverseProxy       Section = "reverse_proxy"
 	SectionPlexSignIn         Section = "plex_sign_in"
@@ -236,6 +251,8 @@ func (f *File) Declares(s Section) bool {
 		return f.Display != nil
 	case SectionProfiles:
 		return f.Profiles != nil
+	case SectionSlots:
+		return f.Slots != nil
 	case SectionPluginInstances:
 		return f.PluginInstances != nil
 	case SectionReverseProxy:
@@ -383,6 +400,9 @@ func (f *File) complete() error {
 		need(p.OriginalChoice != nil || p.OriginalFallback != nil, field+"original_language")
 		need(p.DefaultMovies != nil, field+"default_movies")
 		need(p.DefaultSeries != nil, field+"default_series")
+	}
+	for i, sl := range f.Slots {
+		need(sl.Label != "", fmt.Sprintf("slots[%d].label", i))
 	}
 	for i, p := range f.PluginInstances {
 		field := fmt.Sprintf("plugin_instances[%d].", i)

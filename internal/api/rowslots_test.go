@@ -8,7 +8,7 @@ import (
 )
 
 func TestRowToAPIListsSlotStatesInSlotOrder(t *testing.T) {
-	var r library.Row
+	r := library.Row{Slots: map[slot.Slot]*library.SlotState{}}
 	r.Slots[slot.FourK] = &library.SlotState{VersionID: 2, Profile: "4k-primary", State: library.Wanted, LongMissing: true}
 	r.Slots[slot.Standard] = &library.SlotState{VersionID: 1, Profile: "hd-primary", State: library.Filled}
 	have, aired := 56, 62
@@ -24,7 +24,7 @@ func TestRowToAPIListsSlotStatesInSlotOrder(t *testing.T) {
 }
 
 func TestRowToAPISlotStatesOmitsSlotsWithoutAVersion(t *testing.T) {
-	var r library.Row
+	r := library.Row{Slots: map[slot.Slot]*library.SlotState{}}
 	r.Slots[slot.FourK] = &library.SlotState{VersionID: 2, State: library.Filled}
 	got := rowToAPI(r)
 	if len(got.SlotStates) != 1 || got.SlotStates[0].Slot != "4k" {

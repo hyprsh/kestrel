@@ -62,11 +62,11 @@ func (s *server) CreateRequest(ctx context.Context, r oapi.CreateRequestRequestO
 		in.TVDBID = *b.Title.TvdbId
 	}
 	for i, sl := range b.Slots {
-		s, err := slotFromAPI(sl.Slot, fmt.Sprintf("slots[%d].slot", i))
+		id, err := s.slotFromAPI(ctx, sl.Slot, fmt.Sprintf("slots[%d].slot", i))
 		if err != nil {
 			return nil, err
 		}
-		in.Slots = append(in.Slots, requests.SlotInput{Slot: s, Profile: deref(sl.Profile)})
+		in.Slots = append(in.Slots, requests.SlotInput{Slot: id, Profile: deref(sl.Profile)})
 	}
 	if b.Seasons != nil {
 		in.Seasons = append([]int{}, *b.Seasons...)

@@ -6,7 +6,7 @@ import { ApiError } from './queries'
 import type { components } from './schema.gen'
 
 export type LogEvent = components['schemas']['Event']
-type Slot = components['schemas']['Slot']
+type Slot = components['schemas']['SlotId']
 
 /** What GET /events is asked for. A null list is no filter; an empty one matches nothing. */
 export type LogFilter = {

@@ -413,6 +413,66 @@ export interface paths {
         patch: operations["patchSettings"];
         trace?: never;
     };
+    "/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Slots
+         * @description In order. A library has one to four Slots, `standard` ("Standard", on for new Titles) and `4k` ("4K", off)
+         *     until the admin changes them (ADR 0024). Slots are named by `id`, a slug fixed when the Slot is created.
+         *     `from_config_file` is `true` on every Slot while the Config File declares `slots`.
+         */
+        get: operations["listSlots"];
+        put?: never;
+        /**
+         * Define a Slot
+         * @description Adds a Slot last in the order. It reaches existing Titles only through the add dialog's choice
+         *     (`POST /slots` itself adds no Versions). `422 validation` for a bad or taken `label` (it is unique ignoring
+         *     case), a fifth Slot, or a default that names no Profile; `409 conflict` while the Config File declares `slots`.
+         */
+        post: operations["createSlot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/slots/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A Slot's `id` from `GET /slots`. */
+                id: components["parameters"]["SlotIdParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Slot
+         * @description Only a Slot that no Version uses. `404 not_found` for an unknown id; `409 conflict` for the last Slot, for the
+         *     last Slot that is on for new Titles, for a Slot that still holds Versions, and while the Config File declares
+         *     `slots`.
+         */
+        delete: operations["deleteSlot"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a Slot
+         * @description Changes the label, the default Profiles, whether new Titles get the Slot, and its position. The id never
+         *     changes. `404 not_found` for an unknown id; `422 validation` as for `POST /slots`, and for a `position` past
+         *     the last Slot; `409 conflict` when no Slot would be left on for new Titles, and while the Config File declares
+         *     `slots`.
+         */
+        patch: operations["patchSlot"];
+        trace?: never;
+    };
     "/profiles": {
         parameters: {
             query?: never;
@@ -2698,8 +2758,59 @@ export interface components {
                 release_date_country?: string;
             };
         };
-        /** @enum {string} */
-        Slot: "standard" | "4k";
+        /**
+         * @description The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+         *     (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+         *     where a request sends it, and clients show an id they do not know.
+         * @example standard
+         */
+        SlotId: string;
+        Slot: {
+            id: components["schemas"]["SlotId"];
+            /**
+             * @description What names the Slot's files. 1 to 24 characters of letters (any script), digits, spaces, `-` and `+`, with no
+             *     leading or trailing space, unique ignoring case.
+             * @example Standard
+             */
+            label: string;
+            /** @description The `key` of the Profile a new Movie gets in this Slot, or `null` for none. */
+            default_movies: string | null;
+            /** @description The `key` of the Profile a new Series gets in this Slot, or `null` for none. */
+            default_series: string | null;
+            /** @description Whether a new Title gets a Version in this Slot. */
+            on_for_new_titles: boolean;
+            /** @description The Slot's place in the order, from 0 and without gaps. */
+            position: number;
+            /** @description `true` while the Config File declares `slots`, which declares every Slot at once. */
+            from_config_file: boolean;
+        };
+        SlotList: {
+            /** @description In order, at least one and at most four. */
+            items: components["schemas"]["Slot"][];
+        };
+        SlotCreate: {
+            /**
+             * @description The Slot's id is derived from it and never changes, whatever the label becomes.
+             * @example Remux
+             */
+            label: string;
+            /** @description A Profile `key`; absent or empty is none. */
+            default_movies?: string;
+            /** @description A Profile `key`; absent or empty is none. */
+            default_series?: string;
+            /** @description Defaults to `false`. */
+            on_for_new_titles?: boolean;
+        };
+        SlotPatch: {
+            label?: string;
+            /** @description A Profile `key`; an empty string clears the default. */
+            default_movies?: string;
+            /** @description A Profile `key`; an empty string clears the default. */
+            default_series?: string;
+            on_for_new_titles?: boolean;
+            /** @description The 0-based place to move the Slot to; the others shift to make room. */
+            position?: number;
+        };
         Profile: {
             /** @description `true` while the Config File declares `profiles`, which declares every Profile at once. */
             from_config_file: boolean;
@@ -2707,7 +2818,7 @@ export interface components {
             key: string;
             /** @example HD */
             name: string;
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /**
              * @description Which audio the Profile requires.
              * @enum {string}
@@ -3071,7 +3182,7 @@ export interface components {
             did_you_mean: string | null;
         };
         SuggestedSlot: {
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /**
              * @description The Profile key.
              * @example any-primary
@@ -3163,7 +3274,7 @@ export interface components {
             last_aired: string | null;
         };
         VersionRef: {
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description The Profile key. It must be an enabled Profile of that Slot. */
             profile: string;
         };
@@ -3316,7 +3427,7 @@ export interface components {
              */
             action: "switch_profile";
             title_ids: components["schemas"]["TitleIds"];
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description The Profile key. It must be an enabled Profile of that Slot. */
             profile: string;
         };
@@ -3327,7 +3438,7 @@ export interface components {
              */
             action: "add_version";
             title_ids: components["schemas"]["TitleIds"];
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description The Profile key. It must be an enabled Profile of that Slot. */
             profile: string;
         };
@@ -3338,7 +3449,7 @@ export interface components {
              */
             action: "remove_version";
             title_ids: components["schemas"]["TitleIds"];
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /**
              * @description Delete the files from disk too.
              * @default false
@@ -3413,7 +3524,7 @@ export interface components {
         };
         /** @description One Slot of a Title with its Version's state. */
         SlotStateEntry: {
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description The Slot's display name ("Standard", "4K"). */
             label: string;
             /** Format: int64 */
@@ -3522,7 +3633,7 @@ export interface components {
         VersionDetail: {
             /** Format: int64 */
             id: number;
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             profile: string;
             state: components["schemas"]["SlotState"];
             long_missing: boolean;
@@ -3825,7 +3936,7 @@ export interface components {
             title: string;
             year: number | null;
             kind: components["schemas"]["TitleKind"] | null;
-            slot: components["schemas"]["Slot"] | null;
+            slot: components["schemas"]["SlotId"] | null;
             /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
             episodes: string[];
             /** @description The ids of those episodes, for Search now narrowed to them (`episode_ids` of the search body); empty for a Movie. */
@@ -4052,7 +4163,7 @@ export interface components {
             to: string;
             /** Format: int64 */
             size: number;
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description Key of the Profile the Version has or gets. */
             profile: string;
             score: number;
@@ -4506,7 +4617,7 @@ export interface components {
                 profile: string;
                 /** Format: int64 */
                 version_id: number;
-                slot: components["schemas"]["Slot"];
+                slot: components["schemas"]["SlotId"];
                 /** Format: date-time */
                 wanted_since: string;
                 last_failure: string | null;
@@ -4533,7 +4644,7 @@ export interface components {
             has_poster?: boolean;
             /** Format: int64 */
             version_id: number;
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description The key of the Version's Profile. */
             profile: string;
             /** @description The name of the best-scoring Release offered. */
@@ -4916,7 +5027,7 @@ export interface components {
             bytes_per_second: number | null;
         };
         StatsQuality: {
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             files: number;
             remux_bluray: number;
             web_dl: number;
@@ -5076,7 +5187,7 @@ export interface components {
         };
         /** @description Where one Version of a Title stands for an entry. A Grab in flight is live state clients read off `GET /queue` and the stream. */
         UpcomingSlot: {
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** Format: int64 */
             version_id: number;
             /**
@@ -5190,7 +5301,7 @@ export interface components {
             kind: components["schemas"]["TitleKind"];
             /** @description Whether `GET /titles/{id}/poster` serves a poster for the Title. */
             has_poster: boolean;
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             release_name: string;
             score: number | null;
             /** @description What an Upgrade gained over the file it replaced; null for a first Import. */
@@ -5217,7 +5328,7 @@ export interface components {
             year: number | null;
             /** @description The Title's kind, null when the Title was deleted. */
             kind: components["schemas"]["TitleKind"] | null;
-            slot: components["schemas"]["Slot"] | null;
+            slot: components["schemas"]["SlotId"] | null;
             /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
             episodes: string[];
             /** @description The ids of those episodes; empty for a Movie. */
@@ -5364,7 +5475,7 @@ export interface components {
             imdb_id?: string | null;
         };
         RequestSlotCreate: {
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description A Profile key of that Slot; left out, Profile resolution picks one. */
             profile?: string | null;
         };
@@ -5405,7 +5516,7 @@ export interface components {
             eta: number | null;
         };
         RequestSlot: {
-            slot: components["schemas"]["Slot"];
+            slot: components["schemas"]["SlotId"];
             /** @description The Version's Profile; `null` for a rejected Request that never resolved one. */
             profile: string | null;
             /**
@@ -5540,6 +5651,8 @@ export interface components {
         TitleId: number;
         VersionId: number;
         GrabId: number;
+        /** @description A Slot's `id` from `GET /slots`. */
+        SlotIdParam: components["schemas"]["SlotId"];
         ProfileKey: "hd-primary" | "hd-original" | "any-primary" | "any-original" | "4k-primary" | "4k-original";
     };
     requestBodies: never;
@@ -6077,6 +6190,109 @@ export interface operations {
                     "application/json": components["schemas"]["Settings"];
                 };
             };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listSlots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Slots. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createSlot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotCreate"];
+            };
+        };
+        responses: {
+            /** @description The new Slot. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Slot"];
+                };
+            };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteSlot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A Slot's `id` from `GET /slots`. */
+                id: components["parameters"]["SlotIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    patchSlot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A Slot's `id` from `GET /slots`. */
+                id: components["parameters"]["SlotIdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotPatch"];
+            };
+        };
+        responses: {
+            /** @description The Slot as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Slot"];
+                };
+            };
+            404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];
@@ -6809,7 +7025,7 @@ export interface operations {
                 since?: string;
                 q?: string;
                 kind?: components["schemas"]["TitleKind"][];
-                slot?: components["schemas"]["Slot"][];
+                slot?: components["schemas"]["SlotId"][];
                 grab?: number[];
                 limit?: number;
                 cursor?: string;
@@ -6868,7 +7084,7 @@ export interface operations {
             query?: {
                 q?: string;
                 kind?: components["schemas"]["TitleKind"][];
-                slot?: components["schemas"]["Slot"][];
+                slot?: components["schemas"]["SlotId"][];
                 grab?: number[];
             };
             header?: never;
@@ -7137,8 +7353,8 @@ export interface operations {
                 exclude_kind?: string[];
                 title_id?: number[];
                 exclude_title_id?: number[];
-                slot?: components["schemas"]["Slot"][];
-                exclude_slot?: components["schemas"]["Slot"][];
+                slot?: components["schemas"]["SlotId"][];
+                exclude_slot?: components["schemas"]["SlotId"][];
                 routine?: boolean;
                 before?: number;
                 limit?: number;

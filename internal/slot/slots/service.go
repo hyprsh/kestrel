@@ -345,7 +345,7 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool) erro
 		}
 		for _, r := range dropped {
 			if err := notInUse(ctx, q, r); err != nil {
-				return err
+				return fmt.Errorf("%w (the file leaves it out; keep it in the file, or remove its Versions first)", err)
 			}
 		}
 		if !apply {

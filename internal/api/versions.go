@@ -60,7 +60,7 @@ func (s *server) AddVersion(ctx context.Context, r oapi.AddVersionRequestObject)
 	if r.Body == nil {
 		return nil, invalid("body", "required", "a body is required")
 	}
-	sl, err := slotFromAPI(r.Body.Slot, "slot")
+	sl, err := s.slotFromAPI(ctx, r.Body.Slot, "slot")
 	if err != nil {
 		return nil, err
 	}

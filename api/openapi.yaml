@@ -534,6 +534,101 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /slots:
+    get:
+      operationId: listSlots
+      summary: The Slots
+      description: |
+        In order. A library has one to four Slots, `standard` ("Standard", on for new Titles) and `4k` ("4K", off)
+        until the admin changes them (ADR 0024). Slots are named by `id`, a slug fixed when the Slot is created.
+        `from_config_file` is `true` on every Slot while the Config File declares `slots`.
+      tags: [slots]
+      responses:
+        "200":
+          description: The Slots.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlotList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createSlot
+      summary: Define a Slot
+      description: |
+        Adds a Slot last in the order. It reaches existing Titles only through the add dialog's choice
+        (`POST /slots` itself adds no Versions). `422 validation` for a bad or taken `label` (it is unique ignoring
+        case), a fifth Slot, or a default that names no Profile; `409 conflict` while the Config File declares `slots`.
+      tags: [slots]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlotCreate"
+      responses:
+        "201":
+          description: The new Slot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Slot"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /slots/{id}:
+    parameters:
+      - $ref: "#/components/parameters/SlotIdParam"
+    patch:
+      operationId: patchSlot
+      summary: Change a Slot
+      description: |
+        Changes the label, the default Profiles, whether new Titles get the Slot, and its position. The id never
+        changes. `404 not_found` for an unknown id; `422 validation` as for `POST /slots`, and for a `position` past
+        the last Slot; `409 conflict` when no Slot would be left on for new Titles, and while the Config File declares
+        `slots`.
+      tags: [slots]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlotPatch"
+      responses:
+        "200":
+          description: The Slot as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Slot"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteSlot
+      summary: Remove a Slot
+      description: |
+        Only a Slot that no Version uses. `404 not_found` for an unknown id; `409 conflict` for the last Slot, for the
+        last Slot that is on for new Titles, for a Slot that still holds Versions, and while the Config File declares
+        `slots`.
+      tags: [slots]
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /profiles:
     get:
       operationId: listProfiles
@@ -1402,7 +1497,7 @@ paths:
         - { name: since, in: query, schema: { type: string, format: date-time } }
         - { name: q, in: query, schema: { type: string, maxLength: 200 } }
         - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
-        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1469,7 +1564,7 @@ paths:
       parameters:
         - { name: q, in: query, schema: { type: string, maxLength: 200 } }
         - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
-        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
       responses:
         "200":
@@ -1725,8 +1820,8 @@ paths:
         - { name: exclude_kind, in: query, schema: { type: array, maxItems: 100, items: { type: string } } }
         - { name: title_id, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: exclude_title_id, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
-        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
-        - { name: exclude_slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
+        - { name: exclude_slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: routine, in: query, schema: { type: boolean, default: false } }
         - { name: before, in: query, schema: { type: integer, format: int64 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }
@@ -3120,6 +3215,13 @@ components:
       schema:
         type: integer
         format: int64
+    SlotIdParam:
+      name: id
+      in: path
+      required: true
+      description: A Slot's `id` from `GET /slots`.
+      schema:
+        $ref: "#/components/schemas/SlotId"
     ProfileKey:
       name: key
       in: path
@@ -3613,9 +3715,86 @@ components:
               $ref: "#/components/schemas/PrimaryLanguage"
             release_date_country:
               type: string
-    Slot:
+    SlotId:
       type: string
-      enum: [standard, 4k]
+      example: standard
+      description: |
+        The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+        (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+        where a request sends it, and clients show an id they do not know.
+    Slot:
+      type: object
+      required: [id, label, default_movies, default_series, on_for_new_titles, position, from_config_file]
+      properties:
+        id:
+          $ref: "#/components/schemas/SlotId"
+        label:
+          type: string
+          example: Standard
+          description: |
+            What names the Slot's files. 1 to 24 characters of letters (any script), digits, spaces, `-` and `+`, with no
+            leading or trailing space, unique ignoring case.
+        default_movies:
+          type: string
+          nullable: true
+          description: The `key` of the Profile a new Movie gets in this Slot, or `null` for none.
+        default_series:
+          type: string
+          nullable: true
+          description: The `key` of the Profile a new Series gets in this Slot, or `null` for none.
+        on_for_new_titles:
+          type: boolean
+          description: Whether a new Title gets a Version in this Slot.
+        position:
+          type: integer
+          minimum: 0
+          description: The Slot's place in the order, from 0 and without gaps.
+        from_config_file:
+          type: boolean
+          description: "`true` while the Config File declares `slots`, which declares every Slot at once."
+    SlotList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: In order, at least one and at most four.
+          items:
+            $ref: "#/components/schemas/Slot"
+    SlotCreate:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          example: Remux
+          description: The Slot's id is derived from it and never changes, whatever the label becomes.
+        default_movies:
+          type: string
+          description: A Profile `key`; absent or empty is none.
+        default_series:
+          type: string
+          description: A Profile `key`; absent or empty is none.
+        on_for_new_titles:
+          type: boolean
+          description: Defaults to `false`.
+    SlotPatch:
+      type: object
+      properties:
+        label:
+          type: string
+        default_movies:
+          type: string
+          description: A Profile `key`; an empty string clears the default.
+        default_series:
+          type: string
+          description: A Profile `key`; an empty string clears the default.
+        on_for_new_titles:
+          type: boolean
+        position:
+          type: integer
+          minimum: 0
+          description: The 0-based place to move the Slot to; the others shift to make room.
     Profile:
       type: object
       required: [key, name, slot, language_rule, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
@@ -3630,7 +3809,7 @@ components:
           type: string
           example: HD
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         language_rule:
           type: string
           description: Which audio the Profile requires.
@@ -4223,7 +4402,7 @@ components:
       required: [slot, profile, label, reason]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: The Profile key.
@@ -4348,7 +4527,7 @@ components:
       required: [slot, profile]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: The Profile key. It must be an enabled Profile of that Slot.
@@ -4623,7 +4802,7 @@ components:
         title_ids:
           $ref: "#/components/schemas/TitleIds"
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: The Profile key. It must be an enabled Profile of that Slot.
@@ -4637,7 +4816,7 @@ components:
         title_ids:
           $ref: "#/components/schemas/TitleIds"
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: The Profile key. It must be an enabled Profile of that Slot.
@@ -4651,7 +4830,7 @@ components:
         title_ids:
           $ref: "#/components/schemas/TitleIds"
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         delete_files:
           type: boolean
           default: false
@@ -4754,7 +4933,7 @@ components:
       required: [slot, label, version_id, profile, state, long_missing, upgrade_wanted]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         label:
           type: string
           description: The Slot's display name ("Standard", "4K").
@@ -4939,7 +5118,7 @@ components:
           type: integer
           format: int64
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
         state:
@@ -5425,7 +5604,7 @@ components:
           nullable: true
         slot:
           allOf:
-            - $ref: "#/components/schemas/Slot"
+            - $ref: "#/components/schemas/SlotId"
           nullable: true
         episodes:
           type: array
@@ -5778,7 +5957,7 @@ components:
           type: integer
           format: int64
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: Key of the Profile the Version has or gets.
@@ -6468,7 +6647,7 @@ components:
                 type: integer
                 format: int64
               slot:
-                $ref: "#/components/schemas/Slot"
+                $ref: "#/components/schemas/SlotId"
               wanted_since:
                 type: string
                 format: date-time
@@ -6509,7 +6688,7 @@ components:
           type: integer
           format: int64
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: The key of the Version's Profile.
@@ -6985,7 +7164,7 @@ components:
       type: object
       required: [slot, files, remux_bluray, web_dl, webrip_or_lower]
       properties:
-        slot: {$ref: '#/components/schemas/Slot'}
+        slot: {$ref: '#/components/schemas/SlotId'}
         files: {type: integer}
         remux_bluray: {type: integer}
         web_dl: {type: integer}
@@ -7169,7 +7348,7 @@ components:
       required: [slot, version_id, state, wanted_since, long_missing, quality]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         version_id:
           type: integer
           format: int64
@@ -7352,7 +7531,7 @@ components:
           type: boolean
           description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         release_name:
           type: string
         score:
@@ -7409,7 +7588,7 @@ components:
           description: The Title's kind, null when the Title was deleted.
         slot:
           allOf:
-            - $ref: "#/components/schemas/Slot"
+            - $ref: "#/components/schemas/SlotId"
           nullable: true
         episodes:
           type: array
@@ -7648,7 +7827,7 @@ components:
       required: [slot]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           nullable: true
@@ -7720,7 +7899,7 @@ components:
       required: [slot, profile, version_id, status, status_label, stalled, download]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           nullable: true

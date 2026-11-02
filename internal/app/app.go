@@ -35,6 +35,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/updates"
 	"github.com/hyprsh/kestrel/internal/watchahead"
@@ -157,6 +158,7 @@ func New(opts Options) *App {
 	live := scoring.NewHolder(embedded)
 	profs := profiles.New(st, appSettings)
 	profs.UseScoring(live)
+	slotSvc := slots.New(st)
 	roots := rootfolders.New(appSettings, opts.DataDir)
 	disp := display.New(appSettings)
 	lib := library.New(st, opts.Clock).WithCountry(func(ctx context.Context) string {
@@ -289,7 +291,7 @@ func New(opts Options) *App {
 	})
 
 	deps := api.Deps{
-		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
+		Plugins: pluginInstances, Profiles: profs, Slots: slotSvc, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp, FolderChanges: folderFeed,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,
@@ -305,7 +307,7 @@ func New(opts Options) *App {
 	handler := api.New(opts.Options, deps)
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
-		profiles: profs, roots: roots, display: disp, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
+		profiles: profs, slots: slotSvc, roots: roots, display: disp, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
 	}}
 }
 

@@ -93,7 +93,7 @@ func (s *server) GetStats(ctx context.Context, r oapi.GetStatsRequestObject) (oa
 		}
 	}
 	for _, q := range res.Quality {
-		out.Quality = append(out.Quality, oapi.StatsQuality{Slot: oapi.Slot(q.Slot), Files: q.Files, RemuxBluray: q.RemuxBluray, WebDl: q.WebDL, WebripOrLower: q.WebRipLow})
+		out.Quality = append(out.Quality, oapi.StatsQuality{Slot: oapi.SlotId(q.Slot), Files: q.Files, RemuxBluray: q.RemuxBluray, WebDl: q.WebDL, WebripOrLower: q.WebRipLow})
 	}
 	for _, g := range res.Groups {
 		out.ReleaseGroups = append(out.ReleaseGroups, oapi.StatsReleaseGroup{Name: g.Name, Files: g.Files})
