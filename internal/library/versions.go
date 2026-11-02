@@ -12,6 +12,10 @@ import (
 // ErrSlotTaken means the Title already has a Version in that Slot.
 var ErrSlotTaken = errors.New("the Slot already holds a Version")
 
+// ErrProfileTaken means another Version of the Title already uses that Profile: within one Title every
+// Version has a different Profile (ADR 0024).
+var ErrProfileTaken = errors.New("another Version of the Title already uses that Profile")
+
 // Find returns the id of the Title of kind that has the TMDB or TheTVDB id
 // (0 means "not given"), or ok false.
 func (s *Service) Find(ctx context.Context, kind Kind, tmdbID, tvdbID int) (id int64, ok bool, err error) {
@@ -39,7 +43,7 @@ func (s *Service) Find(ctx context.Context, kind Kind, tmdbID, tvdbID int) (id i
 
 // AddVersion adds a Wanted Version to an existing Title and returns its id; its
 // search_state is due now (a Series Version per season but Specials). A Slot
-// that already holds a Version is ErrSlotTaken.
+// that already holds a Version is ErrSlotTaken, a Profile another Version of the Title uses ErrProfileTaken.
 func (s *Service) AddVersion(ctx context.Context, titleID int64, v VersionSpec) (int64, error) {
 	tx, err := s.st.Write().BeginTx(ctx, nil)
 	if err != nil {
@@ -61,6 +65,11 @@ func (s *Service) AddVersion(ctx context.Context, titleID int64, v VersionSpec) 
 	for _, e := range existing {
 		if slotOf(e.Slot) == v.Slot {
 			return 0, ErrSlotTaken
+		}
+	}
+	for _, e := range existing {
+		if e.ProfileKey == v.Profile {
+			return 0, ErrProfileTaken
 		}
 	}
 	now := ts(s.clock())

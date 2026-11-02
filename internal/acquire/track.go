@@ -150,6 +150,9 @@ func (s *Service) Active(ctx context.Context) ([]Active, error) {
 	now := s.clock()
 	for _, r := range rows {
 		g := grabOf(r)
+		if err := s.bind(ctx, &g); err != nil {
+			return nil, err
+		}
 		live, ok := s.live.get(g.ID)
 		if !ok || g.State == "completed" || g.State == "importing" {
 			phase, since := phaseOfState(g.State), g.UpdatedAt
@@ -209,7 +212,7 @@ func (s *Service) CancelVersions(ctx context.Context, versionIDs ...int64) error
 		return err
 	}
 	for _, a := range active {
-		if slices.Contains(versionIDs, a.VersionID) {
+		if slices.ContainsFunc(a.VersionIDs, func(id int64) bool { return slices.Contains(versionIDs, id) }) {
 			if _, err := s.Cancel(ctx, a.ID, false); err != nil {
 				return err
 			}
@@ -231,6 +234,11 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 		return Grab{}, err
 	}
 	g := grabOf(row)
+	also, err := db.New(s.st.Read()).ListGrabVersionsOf(ctx, id)
+	if err != nil {
+		return Grab{}, err
+	}
+	g.VersionIDs = append(g.VersionIDs, also...)
 	if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
 		return Grab{}, err
 	}
@@ -253,7 +261,7 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 	if blocklist {
 		// The Release is out: take the next best one at once. A retry that finds
 		// nothing, or fails, leaves the Version Wanted for the sweep.
-		_, _ = s.retry(ctx, row)
+		_, _ = s.retryVersions(ctx, row, also)
 	}
 	return g, nil
 }
@@ -369,7 +377,7 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 		return out, nil
 	}
 	obs := ObserverOf(ctx)
-	obs.Searching(targetOf(sub.detail, in))
+	obs.Searching(targetOf(sub.detail, in, s.storedSlots(ctx)))
 	out.asked = true
 	// The indexers are asked by Indexer Priority: each group only while the earlier ones left a Version with
 	// nothing grabbed, and its Releases count only for what was left (ADR 0025). Each round grabs what it plans,
@@ -407,18 +415,24 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 		done := got
 		if !paused {
 			done = nil
-			for _, plan := range got {
-				e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
+			for _, group := range sharedPlans(got) {
+				e := byRelease[group[0].Candidate.GUID+"\x00"+group[0].Candidate.IndexerID]
 				if e == nil {
 					continue
 				}
-				gr, err := s.grab(ctx, slotVersion[plan.Slot], e.id, false)
+				var ids []int64
+				for _, plan := range group {
+					ids = append(ids, slotVersion[plan.Slot])
+				}
+				gr, err := s.grabShared(ctx, ids, e.id)
 				if err != nil {
-					failed = append(failed, failedSend{plan, err})
+					for _, plan := range group {
+						failed = append(failed, failedSend{plan, err})
+					}
 					continue
 				}
 				out.Grabbed = append(out.Grabbed, gr)
-				done = append(done, plan)
+				done = append(done, group...)
 			}
 		}
 		sent = append(sent, done...)

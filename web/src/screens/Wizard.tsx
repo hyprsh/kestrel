@@ -115,7 +115,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             title="Profiles"
             state={sections.profiles}
             summary={<ProfilesSummary />}
-            description="Pick the Profile each new Title gets per Slot. Standard is preselected; leave 4K empty to add it per Title."
+            description="Pick the Profile each Slot uses for a new Movie and a new Series. Settings, Library, Slots adds, renames and orders the Slots."
           >
             <DefaultsPerSlot />
           </Section>

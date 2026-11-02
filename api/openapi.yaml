@@ -534,6 +534,110 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /slots:
+    get:
+      operationId: listSlots
+      summary: The Slots
+      description: |
+        In order. A library has one to four Slots, `standard` ("Standard", on for new Titles) and `4k` ("4K", off)
+        until the admin changes them (ADR 0024). Slots are named by `id`, a slug fixed when the Slot is created.
+        `from_config_file` is `true` on every Slot while the Config File declares `slots`.
+      tags: [slots]
+      responses:
+        "200":
+          description: The Slots.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlotList"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createSlot
+      summary: Define a Slot
+      description: |
+        Adds a Slot last in the order. It reaches existing Titles only through the add dialog's choice
+        (`POST /slots` itself adds no Versions). `422 validation` for a bad or taken `label` (it is unique ignoring
+        case), a fifth Slot, or a default that names no Profile; `409 conflict` while the Config File declares `slots`.
+      tags: [slots]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlotCreate"
+      responses:
+        "201":
+          description: The new Slot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Slot"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /slots/{id}:
+    parameters:
+      - $ref: "#/components/parameters/SlotIdParam"
+    patch:
+      operationId: patchSlot
+      summary: Change a Slot
+      description: |
+        Changes the label, the default Profiles, whether new Titles get the Slot, and its position. The id never
+        changes. A new `label` renames every file of the Slot on disk and logs each Title's rename in the Log (as a
+        metadata rename does), and keeps the old label as an alias that Adoption still recognises. `404 not_found` for an unknown id; `422 validation` as for `POST /slots`, and for a `position` past
+        the last Slot; `409 conflict` when no Slot would be left on for new Titles, and while the Config File declares
+        `slots`.
+      tags: [slots]
+      parameters:
+        - name: dry_run
+          in: query
+          description: |
+            When `true` the change is checked against every rule and answered as it would be saved, but nothing is
+            saved and no file is renamed. A new `label` is then answered with `renames_files`, the number of files the
+            rename will touch, for Settings' "Renames N files".
+          schema: { type: boolean, default: false }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlotPatch"
+      responses:
+        "200":
+          description: The Slot as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Slot"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteSlot
+      summary: Remove a Slot
+      description: |
+        Only a Slot that no Version uses. `404 not_found` for an unknown id; `409 conflict` for the last Slot, for the
+        last Slot that is on for new Titles, for a Slot that still holds Versions, and while the Config File declares
+        `slots`.
+      tags: [slots]
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
   /profiles:
     get:
       operationId: listProfiles
@@ -553,8 +657,8 @@ paths:
       operationId: createProfile
       summary: Make a custom Profile
       description: |
-        Copies the Profile `copy_from` under a new `name`: the same Slot, audio rule, resolutions, TRaSH backing and
-        settings on top of TRaSH. It starts enabled and is never a default. `422 validation` for an empty,
+        Copies the Profile `copy_from` under a new `name`: the same audio rule, resolutions, TRaSH backing and
+        settings on top of TRaSH. It starts enabled. `422 validation` for an empty,
         too long or taken `name`; `404 not_found` for an unknown `copy_from`; `409 conflict` while the Config File
         declares `profiles`.
       tags: [profiles]
@@ -586,16 +690,14 @@ paths:
       operationId: patchProfile
       summary: Change a Profile's settings
       description: |
-        A Slot has at most one default Profile per kind: making one the default replaces the old.
-        The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
-        `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
-        a disabled Profile cannot be made a default. `original_language` other than `reject` (or
+        The defaults for new Titles belong to the Slots (`PATCH /slots/{id}`), not to Profiles: sending
+        `default_movies` or `default_series` is a `422 validation`. A Profile that any Slot names as its default
+        cannot be disabled: `409 conflict` until that default changes. `original_language` other than `reject` (or
         `original_fallback: true`) is a `validation` error on Original-Language Profiles, and so is an
         `original_fallback` that disagrees with `original_language` in the same patch.
         `name` renames a custom Profile only. `overlay` replaces everything set on top of TRaSH at once (see
         `ProfileOverlay`); it is a `validation` error when a size's smallest bound is above its largest, a quality list
-        names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. A custom Profile
-        cannot be made a default. When `overlay` changes what the Profile does, the Versions under it are re-scored from
+        names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. When `overlay` changes what the Profile does, the Versions under it are re-scored from
         what was stored at Import.
         `409 conflict` while the Config File declares `profiles`.
       tags: [profiles]
@@ -625,7 +727,7 @@ paths:
       summary: Delete a custom Profile
       description: |
         Only a custom Profile can be deleted (`422 validation` for a builtin one). `409 conflict` while a Version
-        still uses it, and while the Config File declares `profiles`.
+        still uses it, while a Slot names it as its default, and while the Config File declares `profiles`.
       tags: [profiles]
       responses:
         "204":
@@ -715,8 +817,8 @@ paths:
       operationId: lookupTitle
       summary: One search result with the add panel's suggested Slots and Profiles
       description: |
-        The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
-        by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
+        The Slots to preselect when adding it: every Slot that is on for new Titles and has an enabled
+        default Profile for the kind. Each Slot says why (`reason`) and carries a display `label`, the
         Profile's name. Requests use the same logic.
         It reads TMDB only. A Series' overview (status, network, air dates and seasons) comes from
         TheTVDB through `GET /lookup/series/{tmdb_id}/overview`, so the panel can open before TheTVDB
@@ -835,7 +937,7 @@ paths:
         monitored, `seasons`.
         A `422` names the field and code: `body` / `required` (no body), `versions` / `required`
         (no Version), `versions[i].slot` / `invalid` (not a Slot) or `duplicate` (a Slot twice),
-        `versions[i].profile` / `not_found`, `disabled` or `wrong_slot`, `root_folder` / `not_found`
+        `versions[i].profile` / `not_found`, `disabled` or `profile_taken` (two Versions of a Title use different Profiles), `root_folder` / `not_found`
         (not one of the kind's Root folders) or `required` (none configured), `series_monitor` /
         `invalid`, `seasons` / `invalid` (a negative season), `unknown` (a season the Series does
         not have) or `not_a_series` (seasons for a Movie), and `tmdb_id` / `not_on_tvdb` (a Series
@@ -882,10 +984,11 @@ paths:
           its mode and an unmonitored one gets `all`. Again: `unchanged`.
         - `switch_profile` moves each Title's Version in `slot` to `profile`, as
           `PATCH /versions/{id}` does: the file is re-scored and the Version searched. A Title with no
-          Version in that Slot is skipped as `no_version`. Again: `unchanged`.
+          Version in that Slot is skipped as `no_version`, and one whose other Version already uses `profile` as
+          `profile_taken`. Again: `unchanged`.
         - `add_version` adds a Version in `slot` under `profile`, as `POST /titles/{id}/versions`
-          does. A Title whose Slot already holds a Version is skipped as `slot_taken`. Again:
-          `slot_taken`.
+          does. A Title whose Slot already holds a Version is skipped as `slot_taken`, and one whose
+          other Version already uses `profile` as `profile_taken`. Again: `slot_taken`.
         - `remove_version` removes each Title's Version in `slot`, as `DELETE /versions/{id}` does;
           files stay on disk unless `delete_files` is true. No Version there: skipped as `no_version`.
           Again: `no_version`.
@@ -899,7 +1002,7 @@ paths:
         - `remove` removes the Titles from the Library, as `DELETE /titles/{id}` does; files stay on
           disk unless `delete_files` is true. Again: `not_found`.
 
-        A wrong or disabled Profile for the Slot, or a `series_monitor` that contradicts
+        An unknown or disabled Profile, or a `series_monitor` that contradicts
         `monitored`, refuses the whole call with 422.
       tags: [titles]
       requestBody:
@@ -1023,8 +1126,9 @@ paths:
       operationId: addVersion
       summary: Add a Version to an empty Slot
       description: |
-        Adds a Wanted Version under an enabled Profile of the Slot and searches it at once.
-        `409` when the Slot already holds a Version.
+        Adds a Wanted Version under any enabled Profile and searches it at once.
+        `409` when the Slot already holds a Version; `422 validation` (`profile_taken`) when another Version of
+        the Title already uses the Profile.
       tags: [titles]
       requestBody:
         required: true
@@ -1054,7 +1158,9 @@ paths:
       operationId: patchVersion
       summary: Switch a Version's Profile
       description: |
-        Moves the Version to another enabled Profile of its Slot (HD to Any, say). The file is
+        Moves the Version to any other enabled Profile (HD to Any or to 4K, say); the Version stays in its Slot and
+        its file is not renamed. `422 validation` (`profile_taken`) when another Version of the Title already
+        uses that Profile. The file is
         re-scored under the new Profile from what was stored at Import: no re-parse, no new ffprobe,
         no rename. A file the new Profile no longer accepts by resolution class or language is a
         `misfit`: the Version becomes Wanted and any fitting Release replaces the file whatever its
@@ -1402,7 +1508,7 @@ paths:
         - { name: since, in: query, schema: { type: string, format: date-time } }
         - { name: q, in: query, schema: { type: string, maxLength: 200 } }
         - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
-        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -1469,7 +1575,7 @@ paths:
       parameters:
         - { name: q, in: query, schema: { type: string, maxLength: 200 } }
         - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
-        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
       responses:
         "200":
@@ -1725,8 +1831,8 @@ paths:
         - { name: exclude_kind, in: query, schema: { type: array, maxItems: 100, items: { type: string } } }
         - { name: title_id, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: exclude_title_id, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
-        - { name: slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
-        - { name: exclude_slot, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/Slot" } } }
+        - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
+        - { name: exclude_slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: routine, in: query, schema: { type: boolean, default: false } }
         - { name: before, in: query, schema: { type: integer, format: int64 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }
@@ -2755,7 +2861,7 @@ paths:
       description: |
         Only for a Requester's session; any other caller gets `403 forbidden`. Makes a Request as
         `POST /requests` does, with the source `plex`, this Plex account as the requester, the
-        Standard Slot under Profile resolution, the whole Series for a Series, and the Requester's
+        Slots that are on for new Titles, each with its default Profile, the whole Series for a Series, and the Requester's
         Root folder from `user_root_folders` (else the kind's first) for a Title the Request creates.
         Asking for the same Title again returns the Requester's stored Request with `200`.
       tags: [requests]
@@ -3120,6 +3226,13 @@ components:
       schema:
         type: integer
         format: int64
+    SlotIdParam:
+      name: id
+      in: path
+      required: true
+      description: A Slot's `id` from `GET /slots`.
+      schema:
+        $ref: "#/components/schemas/SlotId"
     ProfileKey:
       name: key
       in: path
@@ -3409,6 +3522,11 @@ components:
             `grabs_paused`.
         display:
           $ref: "#/components/schemas/Display"
+        warnings:
+          type: array
+          description: Things in the settings worth a look that are not errors. Left out when there are none.
+          items:
+            $ref: "#/components/schemas/SettingsWarning"
         from_config_file:
           type: object
           required: [language_region, root_folders, check_github_updates, display]
@@ -3613,12 +3731,116 @@ components:
               $ref: "#/components/schemas/PrimaryLanguage"
             release_date_country:
               type: string
-    Slot:
+    SlotId:
       type: string
-      enum: [standard, 4k]
+      example: standard
+      description: |
+        The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
+        (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
+        where a request sends it, and clients show an id they do not know.
+    Slot:
+      type: object
+      required: [id, label, default_movies, default_series, on_for_new_titles, position, from_config_file]
+      properties:
+        id:
+          $ref: "#/components/schemas/SlotId"
+        label:
+          type: string
+          example: Standard
+          description: |
+            What names the Slot's files. 1 to 24 characters of letters (any script), digits, spaces, `-` and `+`, with no
+            leading or trailing space, unique ignoring case.
+        default_movies:
+          type: string
+          nullable: true
+          description: The `key` of the Profile a new Movie gets in this Slot, or `null` for none.
+        default_series:
+          type: string
+          nullable: true
+          description: The `key` of the Profile a new Series gets in this Slot, or `null` for none.
+        on_for_new_titles:
+          type: boolean
+          description: Whether a new Title gets a Version in this Slot.
+        position:
+          type: integer
+          minimum: 0
+          description: The Slot's place in the order, from 0 and without gaps.
+        from_config_file:
+          type: boolean
+          description: "`true` while the Config File declares `slots`, which declares every Slot at once."
+        renames_files:
+          type: integer
+          minimum: 0
+          description: |
+            Only on the answer to `PATCH /slots/{id}` that changes the label: how many files carry the Slot's old label
+            (a dry run: that the rename will touch; a save: that it renamed or is renaming).
+    SlotList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: In order, at least one and at most four.
+          items:
+            $ref: "#/components/schemas/Slot"
+    SlotCreate:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          example: Remux
+          description: The Slot's id is derived from it and never changes, whatever the label becomes.
+        default_movies:
+          type: string
+          description: A Profile `key`; absent or empty is none.
+        default_series:
+          type: string
+          description: A Profile `key`; absent or empty is none.
+        on_for_new_titles:
+          type: boolean
+          description: Defaults to `false`.
+    SlotPatch:
+      type: object
+      properties:
+        label:
+          type: string
+        default_movies:
+          type: string
+          description: A Profile `key`; an empty string clears the default.
+        default_series:
+          type: string
+          description: A Profile `key`; an empty string clears the default.
+        on_for_new_titles:
+          type: boolean
+        position:
+          type: integer
+          minimum: 0
+          description: The 0-based place to move the Slot to; the others shift to make room.
+    SettingsWarning:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [shared_slot_default]
+          description: "`shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it."
+        message:
+          type: string
+        kind:
+          type: string
+          description: "`movies` or `series`: the kind whose default is shared."
+        profile:
+          type: string
+          description: The Profile key the Slots share.
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotId"
+          description: The ids of the Slots that share it, in order.
     Profile:
       type: object
-      required: [key, name, slot, language_rule, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
+      required: [key, name, language_rule, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
       properties:
         from_config_file:
           type: boolean
@@ -3630,7 +3852,13 @@ components:
           type: string
           example: HD
         slot:
-          $ref: "#/components/schemas/Slot"
+          deprecated: true
+          description: |
+            Deprecated: a Profile belongs to no Slot (any Profile can fill any Slot). For v1 clients this is derived
+            from the Slots: the first Slot, in order, that names the Profile as its default for either kind. Left out
+            for a Profile no Slot names as its default.
+          allOf:
+            - $ref: "#/components/schemas/SlotId"
         language_rule:
           type: string
           description: Which audio the Profile requires.
@@ -3647,8 +3875,12 @@ components:
           type: boolean
         default_movies:
           type: boolean
+          deprecated: true
+          description: "Derived and read-only: `true` while any Slot names the Profile as its default for Movies. Set it on the Slot (`PATCH /slots/{id}`)."
         default_series:
           type: boolean
+          deprecated: true
+          description: "Derived and read-only: `true` while any Slot names the Profile as its default for Series."
         min_height:
           type: integer
         max_height:
@@ -3758,8 +3990,12 @@ components:
           description: Deprecated in favour of `original_language`; `true` sets `accept`, `false` sets `reject`.
         default_movies:
           type: boolean
+          deprecated: true
+          description: "No longer settable here: the defaults belong to the Slots. Sending it is a `422 validation`; use `PATCH /slots/{id}`."
         default_series:
           type: boolean
+          deprecated: true
+          description: No longer settable here (see `default_movies`).
         name:
           type: string
           maxLength: 40
@@ -4223,7 +4459,7 @@ components:
       required: [slot, profile, label, reason]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: The Profile key.
@@ -4264,7 +4500,7 @@ components:
           description: The country that rating is from; the release-date country unless TMDB had none there.
         slots:
           type: array
-          description: Every Slot with a default Profile for the kind, in Slot order.
+          description: Every Slot that is on for new Titles and has an enabled default Profile for the kind, in Slot order.
           items:
             $ref: "#/components/schemas/SuggestedSlot"
         ratings:
@@ -4348,17 +4584,17 @@ components:
       required: [slot, profile]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of that Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     VersionPatch:
       type: object
       required: [profile]
       properties:
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of the Version's Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     TitleCreate:
       type: object
       required: [kind, tmdb_id, versions]
@@ -4514,17 +4750,13 @@ components:
           type: boolean
         cells:
           type: object
-          description: One cell per Slot, `null` where the Title has no Version.
-          required: [standard, 4k]
-          properties:
-            standard:
-              allOf:
-                - $ref: "#/components/schemas/EpisodeCell"
-              nullable: true
-            4k:
-              allOf:
-                - $ref: "#/components/schemas/EpisodeCell"
-              nullable: true
+          description: |
+            One cell per Slot, keyed by the Slot's `id` (`GET /slots`), `null` where the Title has no Version in it.
+            Every Slot is a key, so a client reads the cells in Slot order from the Slot list.
+          additionalProperties:
+            allOf:
+              - $ref: "#/components/schemas/EpisodeCell"
+            nullable: true
         primary_name:
           type: string
           description: The title in the Primary Language, from TheTVDB; the original title when TheTVDB has no translation. Empty for a Placeholder Episode.
@@ -4623,10 +4855,10 @@ components:
         title_ids:
           $ref: "#/components/schemas/TitleIds"
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of that Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     TitlesBulkAddVersion:
       type: object
       required: [action, title_ids, slot, profile]
@@ -4637,10 +4869,10 @@ components:
         title_ids:
           $ref: "#/components/schemas/TitleIds"
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of that Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     TitlesBulkRemoveVersion:
       type: object
       required: [action, title_ids, slot]
@@ -4651,7 +4883,7 @@ components:
         title_ids:
           $ref: "#/components/schemas/TitleIds"
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         delete_files:
           type: boolean
           default: false
@@ -4719,11 +4951,12 @@ components:
         reason:
           type: string
           nullable: true
-          enum: [unchanged, not_found, no_version, slot_taken, nothing_wanted, frozen, download_client, internal]
+          enum: [unchanged, not_found, no_version, slot_taken, profile_taken, nothing_wanted, frozen, download_client, internal]
           description: |
             Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
             already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
-            in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+            in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
+            Title already uses the Profile; `nothing_wanted`, none of its
             Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
             download client could not cancel the Title's download (`message` has what it said);
             `internal`, an unexpected error, which the log has.
@@ -4754,7 +4987,7 @@ components:
       required: [slot, label, version_id, profile, state, long_missing, upgrade_wanted]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         label:
           type: string
           description: The Slot's display name ("Standard", "4K").
@@ -4939,7 +5172,7 @@ components:
           type: integer
           format: int64
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
         state:
@@ -5425,8 +5658,13 @@ components:
           nullable: true
         slot:
           allOf:
-            - $ref: "#/components/schemas/Slot"
+            - $ref: "#/components/schemas/SlotId"
           nullable: true
+        slots:
+          type: array
+          description: Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone.
+          items:
+            $ref: "#/components/schemas/SlotId"
         episodes:
           type: array
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
@@ -5756,7 +5994,7 @@ components:
           type: string
     AdoptionFile:
       type: object
-      required: [path, to, size, slot, profile, score, action, held_score, ticked, left, episodes, subtitles]
+      required: [path, to, size, slot, slot_guessed, profile, score, action, held_score, ticked, left, episodes, subtitles]
       properties:
         episodes:
           type: array
@@ -5778,7 +6016,13 @@ components:
           type: integer
           format: int64
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
+        slot_guessed:
+          type: boolean
+          description: |
+            `true` when the file's name carries no label (or alias) of a Slot at the place Adoption reads it, so `slot` is
+            a guess from the file's resolution (ADR 0024): the first Slot whose default Profile covers it, else the first
+            Slot. The review lists these.
         profile:
           type: string
           description: Key of the Profile the Version has or gets.
@@ -5970,7 +6214,7 @@ components:
       required: [resource, id]
       description: |
         Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
-        Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
+        Library list), `grab`, `queue`, `slot` (a Slot added, changed, reordered or removed) or `log`; more are added. `id` is null when the hint is about the
         whole resource. Clients ignore resources they do not know.
       properties:
         resource:
@@ -6468,7 +6712,7 @@ components:
                 type: integer
                 format: int64
               slot:
-                $ref: "#/components/schemas/Slot"
+                $ref: "#/components/schemas/SlotId"
               wanted_since:
                 type: string
                 format: date-time
@@ -6509,7 +6753,7 @@ components:
           type: integer
           format: int64
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           description: The key of the Version's Profile.
@@ -6985,7 +7229,7 @@ components:
       type: object
       required: [slot, files, remux_bluray, web_dl, webrip_or_lower]
       properties:
-        slot: {$ref: '#/components/schemas/Slot'}
+        slot: {$ref: '#/components/schemas/SlotId'}
         files: {type: integer}
         remux_bluray: {type: integer}
         web_dl: {type: integer}
@@ -7169,7 +7413,7 @@ components:
       required: [slot, version_id, state, wanted_since, long_missing, quality]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         version_id:
           type: integer
           format: int64
@@ -7352,7 +7596,7 @@ components:
           type: boolean
           description: Whether `GET /titles/{id}/poster` serves a poster for the Title.
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         release_name:
           type: string
         score:
@@ -7409,8 +7653,13 @@ components:
           description: The Title's kind, null when the Title was deleted.
         slot:
           allOf:
-            - $ref: "#/components/schemas/Slot"
+            - $ref: "#/components/schemas/SlotId"
           nullable: true
+        slots:
+          type: array
+          description: Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone.
+          items:
+            $ref: "#/components/schemas/SlotId"
         episodes:
           type: array
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
@@ -7648,11 +7897,11 @@ components:
       required: [slot]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           nullable: true
-          description: A Profile key of that Slot; left out, Profile resolution picks one.
+          description: A Profile key, enabled and not used by another Version of the Title; left out, the Slot's default Profile for the Title's kind is used.
     Requester:
       type: object
       required: [id, name]
@@ -7663,7 +7912,7 @@ components:
           type: string
     RequestCreate:
       type: object
-      required: [source, source_request_id, requester, title, slots]
+      required: [source, source_request_id, requester, title]
       properties:
         source:
           type: string
@@ -7677,7 +7926,8 @@ components:
           $ref: "#/components/schemas/RequestTitle"
         slots:
           type: array
-          minItems: 1
+          description: |
+            The Slots to add a Version in, each with an optional Profile. Left out (or empty), the Request gets a Version in every Slot that is on for new Titles, each with that Slot's default Profile for the Title's kind (ADR 0024).
           items:
             $ref: "#/components/schemas/RequestSlotCreate"
         root_folder:
@@ -7720,7 +7970,7 @@ components:
       required: [slot, profile, version_id, status, status_label, stalled, download]
       properties:
         slot:
-          $ref: "#/components/schemas/Slot"
+          $ref: "#/components/schemas/SlotId"
         profile:
           type: string
           nullable: true

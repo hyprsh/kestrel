@@ -19,6 +19,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -214,12 +215,15 @@ type PlanSub struct {
 type PlanFile struct {
 	Path string `json:"path"`
 	// To is the full path the file gets in the naming scheme.
-	To      string `json:"to"`
-	Size    int64  `json:"size"`
-	Slot    Slot   `json:"slot"`
-	Profile string `json:"profile"`
-	Score   int    `json:"score"`
-	Action  string `json:"action"`
+	To   string `json:"to"`
+	Size int64  `json:"size"`
+	Slot Slot   `json:"slot"`
+	// SlotGuessed says the file's name gave no known Slot label, so its Slot was
+	// guessed from its resolution (ADR 0024). The review lists these.
+	SlotGuessed bool   `json:"slot_guessed,omitempty"`
+	Profile     string `json:"profile"`
+	Score       int    `json:"score"`
+	Action      string `json:"action"`
 	// HeldScore is the Score of the file ActionReplace would replace.
 	HeldScore *int `json:"held_score,omitempty"`
 	Ticked    bool `json:"ticked"`
@@ -350,9 +354,11 @@ type Adoption struct {
 	d    AdoptionDeps
 	snap *scoring.Holder
 	q    *db.Queries
-	mu   sync.Mutex // serialises the plan's state changes and row edits
-	wg   sync.WaitGroup
-	cur  atomic.Pointer[Current] // what a running scan or commit works on, for Progress
+	// slots are the Slots and their aliases, which Adoption reads to name and place files.
+	slots *slots.Service
+	mu    sync.Mutex // serialises the plan's state changes and row edits
+	wg    sync.WaitGroup
+	cur   atomic.Pointer[Current] // what a running scan or commit works on, for Progress
 }
 
 // setCurrent says what the running scan or commit is working on.
@@ -392,7 +398,7 @@ func NewAdoption(d AdoptionDeps) (*Adoption, error) {
 		}
 		snap = scoring.NewHolder(one)
 	}
-	a := &Adoption{d: d, snap: snap, q: db.New(d.Store.Write())}
+	a := &Adoption{d: d, snap: snap, q: db.New(d.Store.Write()), slots: slots.New(d.Store)}
 	ctx := context.Background()
 	p, err := a.q.GetAdoptionPlan(ctx)
 	if err != nil {

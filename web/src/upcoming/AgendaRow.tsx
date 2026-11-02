@@ -8,6 +8,7 @@ import { SlotChips } from '../library/SlotChip'
 import { TitlePoster } from '../poster'
 import { cx } from '../ui'
 import { Markers } from './bits'
+import { useSlotNames } from '../library/slots'
 import { airTime, entryChips, entryStatus, episodeCode, movieWhen, releaseName } from './state'
 
 type RowProps = {
@@ -33,10 +34,11 @@ function whenLine(item: UpcomingItem, today: string, now: number): string {
 
 export function AgendaRow({ item, queue, today, now, current, index, onOpen, onSearch, compact }: RowProps) {
   const status = entryStatus(item, queue)
+  const names = useSlotNames()
   const code = item.kind === 'series' ? episodeCode(item.season!, item.episode!) : null
   const what = item.kind === 'series' ? [code, item.episode_name].filter(Boolean).join(' · ') : item.release_type ? releaseName[item.release_type] : ''
   const when = whenLine(item, today, now)
-  const chips = <SlotChips chips={entryChips(item, queue)} max={4} wrap label={`${item.title} Slots`} />
+  const chips = <SlotChips chips={entryChips(item, queue, names)} max={4} wrap label={`${item.title} Slots`} />
   const at = airTime(item)
   const name = (
     <>

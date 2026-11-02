@@ -21,6 +21,7 @@ import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { PlexSignInForm } from './PlexSignIn'
 import { SiloSettingsForm } from './SiloSettings'
 import { ProfilesSection } from '../profiles/ProfilesSection'
+import { SlotsSection } from '../slots/SlotsSection'
 import { DisplayRows, LanguageRows, SetupRow, UpdatesRow } from '../settings/GeneralRows'
 import { DraftProvider, guardLeave, useDraftForm } from '../settings/draft'
 import { useSectionLines, usePageSummaries, type Line } from '../settings/status'
@@ -61,6 +62,7 @@ const pages: Page[] = [
     icon: <Folder />,
     parts: [
       { id: 'root-folders', title: 'Root folders', rows: ['Folders'] },
+      { id: 'slots', title: 'Slots', rows: ['Slots', 'Add Slot', 'Slot label'] },
       { id: 'adoption', title: 'Existing files', rows: ['Adopt existing library'] },
       { id: 'metadata', title: 'Provider keys', rows: ['TMDB and TheTVDB'] },
     ],
@@ -219,6 +221,7 @@ export function Settings({
         </SettingRow>
       </SettingsCard>
     ),
+    slots: <SlotsSection />,
     adoption: (
       <SettingsCard>
         <SettingRow label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
@@ -451,7 +454,7 @@ function PageView({ page, content, summary, target, headingHidden }: { page: Pag
 
 /** A Part with its own heading, unless its content brings one (the download client and indexers draw theirs). */
 function SettingsSectionPart({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  const own = id === 'settings-download-client' || id === 'settings-indexers'
+  const own = id === 'settings-download-client' || id === 'settings-indexers' || id === 'settings-slots'
   return <div id={id}>{own ? children : <SettingsSection title={title}>{children}</SettingsSection>}</div>
 }
 

@@ -3,6 +3,7 @@
 // The side panel holds the filter and the Views, which are presets of the `stage:` term; the Pipeline fills the rest.
 // The background jobs and what runs now moved to the Health screen.
 import { DotsMenu, MenuItem, MenuSection, parseQuery, termText, valuesOf, withoutValue } from '@hyprsh/design'
+import { useMemo } from 'react'
 import { CircleCheck, CircleX, List, Loader } from 'lucide-react'
 import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
@@ -11,6 +12,7 @@ import { FilterChips, PanelContent, SidePanel, SidePanelView, SidePanelViews } f
 import { manualSearchPath, useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
 import { activityQualifiers } from './filter'
+import { slotNamesOf, useSlotNames } from '../library/slots'
 import { Pipeline, usePipeline, type PipelineData } from './Pipeline'
 import type { Stage } from './stages'
 import { useSearchAll } from './useSearchAll'
@@ -23,17 +25,20 @@ const views: { key: string; label: string; stages: readonly Stage[]; icon: React
   { key: 'failed', label: 'Failed', stages: ['failed'], icon: <CircleX />, tone: 'red' },
 ]
 
+/** The qualifiers as far as the `stage:` terms go: the Slots do not matter to them. */
+const stageQualifiers = activityQualifiers(slotNamesOf())
+
 /** The query with its `stage:` terms replaced by the view's. */
 function withStages(query: string, stages: readonly Stage[]): string {
   let text = query
-  for (const v of valuesOf(parseQuery(query, activityQualifiers), 'stage') ?? []) text = withoutValue(text, 'stage', v, activityQualifiers)
+  for (const v of valuesOf(parseQuery(query, stageQualifiers), 'stage') ?? []) text = withoutValue(text, 'stage', v, stageQualifiers)
   text = text.trim()
   return stages.length === 0 ? text : `${text} ${termText({ name: 'stage', values: [...stages], excluded: false })}`.trim()
 }
 
 /** The Views row `query` is on: the one whose stages are exactly the query's `stage:` values. */
 function currentView(query: string): string | null {
-  const chosen = valuesOf(parseQuery(query, activityQualifiers), 'stage') ?? []
+  const chosen = valuesOf(parseQuery(query, stageQualifiers), 'stage') ?? []
   return views.find((v) => v.stages.length === chosen.length && v.stages.every((s) => chosen.includes(s)))?.key ?? null
 }
 
@@ -97,22 +102,24 @@ function footer(total: number, oldest: string | null): string {
 /** `query` is the Grabs filter text, kept by the Shell so it can live in the address bar. */
 export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
   const pipeline = usePipeline(query)
+  const slots = useSlotNames()
+  const activityFacets = useMemo(() => activityQualifiers(slots), [slots])
   const phone = usePhone()
   const openPlace = useOpenPlace()
   const panel = {
     title: 'Activity',
     actions: <ActivityMenu />,
-    filter: <FilterBar id="activity-filter" label="Filter Activity" placeholder="Filter grabs, e.g. stage:failed  /" value={query} onChange={onQuery} qualifiers={activityQualifiers} menus={false} />,
+    filter: <FilterBar id="activity-filter" label="Filter Activity" placeholder="Filter grabs, e.g. stage:failed  /" value={query} onChange={onQuery} qualifiers={activityFacets} menus={false} />,
     controls: (
       <FacetFilterButton
         query={query}
         onQuery={onQuery}
-        qualifiers={activityQualifiers}
+        qualifiers={activityFacets}
         label={phone ? 'Views and filter' : undefined}
         lead={phone ? <ViewsSection query={query} onQuery={onQuery} pipeline={pipeline} /> : undefined}
       />
     ),
-    chips: <FilterChips chips={filterChips(query, onQuery, activityQualifiers)} />,
+    chips: <FilterChips chips={filterChips(query, onQuery, activityFacets)} />,
     views: <ActivityViews query={query} onQuery={onQuery} pipeline={pipeline} />,
     footer: <span>{footer(pipeline.total, pipeline.oldest)}</span>,
   }

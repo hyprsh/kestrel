@@ -35,6 +35,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/updates"
 	"github.com/hyprsh/kestrel/internal/watchahead"
@@ -157,6 +159,7 @@ func New(opts Options) *App {
 	live := scoring.NewHolder(embedded)
 	profs := profiles.New(st, appSettings)
 	profs.UseScoring(live)
+	slotSvc := slots.New(st)
 	roots := rootfolders.New(appSettings, opts.DataDir)
 	disp := display.New(appSettings)
 	lib := library.New(st, opts.Clock).WithCountry(func(ctx context.Context) string {
@@ -205,7 +208,7 @@ func New(opts Options) *App {
 	pause := acquire.NewPause(appSettings, opts.Clock)
 	acq, err := acquire.New(acquire.Deps{
 		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs,
-		Indexers: indexerHost, Downloads: downloadHost, History: hist, Scoring: live, Pause: pause,
+		Indexers: indexerHost, Downloads: downloadHost, History: hist, Scoring: live, Pause: pause, Slots: slotSvc,
 	})
 	if err != nil {
 		panic("app: acquire cannot start: " + err.Error())
@@ -226,12 +229,18 @@ func New(opts Options) *App {
 		Servers: imports.InstanceServers(pluginInstances), Health: healthSvc, Checks: pluginInstances, Feed: folderFeed, Logger: opts.Logger, Delay: opts.MediaRefreshDelay,
 	})
 	imp, err := imports.New(imports.Deps{
-		Library: lib, Renames: lib, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,
+		Library: lib, Renames: lib, Slots: slotSvc, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,
 		FolderChanged: mediaRefresh.FolderChanged, Scoring: live, Rename: opts.RenameFolder, History: hist, Blocklist: acq,
 	})
 	if err != nil {
 		panic("app: Import cannot start: " + err.Error())
 	}
+	// A new Slot label, from the API or the Config File, renames that Slot's files (ADR 0024).
+	slotSvc.OnRelabel(func(ctx context.Context, id slot.Slot) {
+		if _, err := imp.RenameSlot(context.WithoutCancel(ctx), id); err != nil {
+			opts.Logger.Warn("renaming a Slot's files after its label changed failed", "slot", string(id), "err", err)
+		}
+	})
 	adoption, err := imports.NewAdoption(imports.AdoptionDeps{
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
 		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
@@ -261,7 +270,7 @@ func New(opts Options) *App {
 		panic("app: loading the stored TRaSH snapshot: " + err.Error())
 	}
 	reqs := requests.New(requests.Deps{
-		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs, RootFolders: roots,
+		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs, RootFolders: roots, Slots: slotSvc,
 		Meta: meta, TVDB: tvdb, Grabs: acq,
 	})
 	refresher := jobs.NewRefresher(jobs.RefresherDeps{
@@ -289,7 +298,7 @@ func New(opts Options) *App {
 	})
 
 	deps := api.Deps{
-		Plugins: pluginInstances, Profiles: profs, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
+		Plugins: pluginInstances, Profiles: profs, Slots: slotSvc, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp, FolderChanges: folderFeed,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,
@@ -305,7 +314,7 @@ func New(opts Options) *App {
 	handler := api.New(opts.Options, deps)
 	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
-		profiles: profs, roots: roots, display: disp, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
+		profiles: profs, slots: slotSvc, roots: roots, display: disp, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
 	}}
 }
 

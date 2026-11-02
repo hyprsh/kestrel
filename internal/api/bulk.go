@@ -124,8 +124,8 @@ func bulkUnchanged(id int64) oapi.TitleBulkOutcome {
 	return bulkSkipped(id, oapi.Unchanged, "Already as asked")
 }
 
-func bulkNoVersion(id int64, sl slot.Slot) oapi.TitleBulkOutcome {
-	return bulkSkipped(id, oapi.NoVersion, "Has no "+sl.Name()+" Version")
+func bulkNoVersion(id int64, label string) oapi.TitleBulkOutcome {
+	return bulkSkipped(id, oapi.NoVersion, "Has no "+label+" Version")
 }
 
 // bulkFailed answers for a Title whose change failed; the others go on. A
@@ -159,14 +159,14 @@ func (s *server) bulkRows(ctx context.Context) (map[int64]library.Row, error) {
 }
 
 // bulkSlot reads the action's Slot and, given a Profile, checks the Profile
-// can fill it: a wrong one refuses the whole call.
-func (s *server) bulkSlot(ctx context.Context, sl oapi.Slot, profile *string) (slot.Slot, error) {
-	out, err := slotFromAPI(sl, "slot")
+// can be used: an unknown or disabled one refuses the whole call.
+func (s *server) bulkSlot(ctx context.Context, sl oapi.SlotId, profile *string) (slot.Slot, error) {
+	out, err := s.slotFromAPI(ctx, sl, "slot")
 	if err != nil {
 		return out, err
 	}
 	if profile != nil {
-		err = s.checkProfile(ctx, *profile, out)
+		err = s.checkProfile(ctx, *profile)
 	}
 	return out, err
 }
@@ -213,6 +213,7 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 	if err != nil {
 		return nil, err
 	}
+	label := s.slotLabel(ctx, sl)
 	rows, err := s.bulkRows(ctx)
 	if err != nil {
 		return nil, err
@@ -226,11 +227,14 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 		case !ok:
 			out = append(out, bulkNotFound(id))
 		case v == nil:
-			out = append(out, bulkNoVersion(id, sl))
+			out = append(out, bulkNoVersion(id, label))
 		case v.Profile == b.Profile:
 			out = append(out, bulkUnchanged(id))
 		default:
-			if err := s.imports.SwitchProfile(ctx, id, v.VersionID, b.Profile); err != nil {
+			if err := s.imports.SwitchProfile(ctx, id, v.VersionID, b.Profile); errors.Is(err, library.ErrProfileTaken) {
+				out = append(out, bulkSkipped(id, oapi.ProfileTaken, "Another Version of the Title already uses that Profile"))
+				continue
+			} else if err != nil {
 				out = append(out, s.bulkFailed(id, err))
 				continue
 			}
@@ -251,6 +255,7 @@ func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesB
 	if err != nil {
 		return nil, err
 	}
+	label := s.slotLabel(ctx, sl)
 	out := make([]oapi.TitleBulkOutcome, 0, len(ids))
 	kick := false
 	for _, id := range ids {
@@ -259,7 +264,9 @@ func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesB
 		case errors.Is(err, library.ErrNotFound):
 			out = append(out, bulkNotFound(id))
 		case errors.Is(err, library.ErrSlotTaken):
-			out = append(out, bulkSkipped(id, oapi.SlotTaken, "Already has a "+sl.Name()+" Version"))
+			out = append(out, bulkSkipped(id, oapi.SlotTaken, "Already has a "+label+" Version"))
+		case errors.Is(err, library.ErrProfileTaken):
+			out = append(out, bulkSkipped(id, oapi.ProfileTaken, "Another Version of the Title already uses that Profile"))
 		case err != nil:
 			out = append(out, s.bulkFailed(id, err))
 		default:
@@ -369,6 +376,7 @@ func (s *server) bulkRemoveVersion(ctx context.Context, ids []int64, b oapi.Titl
 	if err != nil {
 		return nil, err
 	}
+	label := s.slotLabel(ctx, sl)
 	rows, err := s.bulkRows(ctx)
 	if err != nil {
 		return nil, err
@@ -382,7 +390,7 @@ func (s *server) bulkRemoveVersion(ctx context.Context, ids []int64, b oapi.Titl
 		case !ok:
 			out = append(out, bulkNotFound(id))
 		case v == nil:
-			out = append(out, bulkNoVersion(id, sl))
+			out = append(out, bulkNoVersion(id, label))
 		default:
 			if err := s.remover.DeleteVersion(ctx, v.VersionID, deleteFiles); err != nil {
 				out = append(out, s.bulkFailed(id, err))

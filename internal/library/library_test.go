@@ -282,6 +282,25 @@ func TestAVersionNamesItsTitle(t *testing.T) {
 	}
 }
 
+func TestATitleListsItsVersionsInTheOrderOfTheSlotsNotTheSeededOnesFirst(t *testing.T) {
+	ctx := context.Background()
+	lib, st := newLibrary(t)
+	id := addPaddington(t, lib,
+		library.VersionSpec{Slot: slot.Standard, Profile: "any-primary"},
+		library.VersionSpec{Slot: slot.FourK, Profile: "4k-primary"})
+	// The admin moved 4K in front of Standard.
+	if _, err := st.Write().ExecContext(ctx, `UPDATE slots SET position = CASE id WHEN '4k' THEN 0 ELSE 1 END`); err != nil {
+		t.Fatal(err)
+	}
+	d, err := lib.Get(ctx, id, library.View{Country: "DE", Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Versions) != 2 || d.Versions[0].Slot != slot.FourK || d.Versions[1].Slot != slot.Standard {
+		t.Errorf("versions = %+v", d.Versions)
+	}
+}
+
 func TestGettingAnUnknownTitleIsNotFound(t *testing.T) {
 	lib, _ := newLibrary(t)
 	if _, err := lib.Get(context.Background(), 99, library.View{Now: now}); !errors.Is(err, library.ErrNotFound) {

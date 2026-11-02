@@ -9,7 +9,7 @@ Read [Getting started](getting-started.md) first and set Kestrel up with a downl
 | In Radarr and Sonarr                                                    | In Kestrel                                                                                                                                                                                              |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Two apps: Radarr for Movies, Sonarr for Series                          | One app. A Movie and a Series are two kinds of **Title**.                                                                                                                                               |
-| A second Radarr or Sonarr for 4K                                        | Two [Slots](concepts.md#slot) in one app: **Standard** (up to 1080p) and **4K**. A Title can hold a file in each, side by side.                                                                         |
+| A second Radarr or Sonarr for 4K                                        | [Slots](slots.md) in one app: **Standard** and **4K** to begin with, and up to four of your own. A Title can hold a file in each, side by side.                                                         |
 | Quality profiles                                                        | [Profiles](concepts.md#profile). Six fixed ones: HD, HD Original, Any, Any Original, 4K and 4K Original. You switch them on and off and choose defaults.                                                |
 | Custom Formats and their scores, imported with a tool such as Recyclarr | Built in. Kestrel ships [TRaSH Guides](https://trash-guides.info)' Custom Formats and Scores for each Profile, and updates them daily. You don't import or edit them.                                   |
 | A language set in a profile or a Custom Format                          | A [Primary Language](concepts.md#profile) for the whole library (English, German or French), and a Profile choice: Primary Language or the Title's Original Language.                                   |
@@ -34,7 +34,7 @@ Kestrel makes fewer things configurable. If you rely on one of these, check befo
 - **A naming editor.** The scheme is fixed.
 - **Tags, delay profiles, release restrictions and notifications.** None of these exist. The Blocklist keeps out Releases that failed, and Pause Grabs stops all downloads for a while (Settings > Downloads > Automatic Grabs).
 - **A Prowlarr connection.** Add each indexer by hand.
-- **A third Slot.** A Title has Standard and 4K, and nothing more ([ADR 0012](../adr/0012-two-slots-standard-and-4k.md)).
+- **More than four Slots.** A Title has up to four copies, one per [Slot](slots.md).
 
 ## Point Kestrel at your library
 
@@ -46,14 +46,14 @@ Adoption renames files into Kestrel's scheme and moves them into the Title's fol
 2. **Scan.** Choose **Adopt** in the Library, or Settings > Library > Existing files (also the last step of the setup screen), then **Scan for existing files**. Kestrel reads each folder and file, and plans:
    - **Matched:** Kestrel found the Title and its Version. These are ticked, and adopted when you commit.
    - **Needs choice:** Kestrel found candidates and ranks the best one as a suggested match. A match is _Confident_ when the year, the title and the runtime all fit and no other candidate comes close. Choose the right one by hand, or **Accept suggested matches** to settle only the Confident ones.
-   - **Skipped:** Kestrel can't manage it, and says why: no readable video file, no enabled Profile for its Slot, or a Series that is not on TheTVDB.
+   - **Skipped:** Kestrel can't manage it, and says why: no readable video file, no enabled default Profile for its Slot, or a Series that is not on TheTVDB.
 3. **Review the plan.** Nothing changes until you commit. Untick what you don't want, and choose how adopted Titles are monitored.
 4. **Adopt.** Choose **Adopt N Titles**. A Title either adopts completely or not at all: if one rename fails, the others for that Title are undone. The rows stay, with each outcome, until the next scan. **Try again** puts failed ones back under review.
 5. **Clean up.** Files under a root folder that no Version holds are called _unmanaged_. **Clean up** in the Library lists them, and can delete the ones you don't want.
 
 Kestrel matches best when a folder or file name carries an ID, such as `{tmdb-116149}`, `[tmdbid-116149]` or `[imdbid-tt1109624]`, which Radarr and Sonarr can add. It takes an ID as certain.
 
-A file's Slot comes from its resolution, unless its name carries Kestrel's own `- [Standard]` or `- [4K]` label. Its Profile is the default of that Slot, or Any when the default wouldn't accept the file, such as a 576p one. Check a few Titles afterwards. You can switch a Version's Profile at any time.
+A file's Slot comes from a Slot label (or an old label of it) in its name, such as Kestrel's own `- [Standard]` or `- [4K]`. Without one, Kestrel picks the first Slot whose default Profile accepts the file's resolution, and the review lists the guess. Its Profile is the default of that Slot, or Any when the default wouldn't accept the file, such as a 576p one. Check a few Titles afterwards. You can switch a Version's Profile at any time.
 
 ## How your quality profiles map
 

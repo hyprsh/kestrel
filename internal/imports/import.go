@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -53,9 +54,12 @@ const (
 // Grab is what an Import needs to know of a completed Grab. imports never
 // reads or writes Grabs; acquire hands this over and records the Result.
 type Grab struct {
-	ID          int64
-	TitleID     int64
-	VersionID   int64
+	ID        int64
+	TitleID   int64
+	VersionID int64
+	// VersionIDs are every Version the download fills, VersionID first; empty means VersionID alone. One Release that
+	// is the pick for several Versions is imported once per Version, each file a hardlink under that Version's own name.
+	VersionIDs  []int64
 	ReleaseName string
 	// Parsed is the JSON snapshot of the Release's parsed name.
 	Parsed []byte
@@ -69,6 +73,10 @@ type Grab struct {
 	Overridden bool
 	// Checking, when set, is told how many downloaded files the Import is about to check, once it has found them.
 	Checking func(files int)
+	// placed maps a downloaded video to the library file the first Version of a shared Grab got from it, so every
+	// further Version hardlinks that file (it is in the same Title folder, so on the same device) instead of copying the
+	// download again when that is on another filesystem.
+	placed map[string]string
 }
 
 // Result is the outcome of one Import.
@@ -76,8 +84,9 @@ type Result struct {
 	Status Status
 	// Reason is the rejection code or the stalled reason.
 	Reason string
-	// Path is the imported file.
-	Path string
+	// Path is the imported file; Paths are the imported files of every Version of a shared Grab, Path first.
+	Path  string
+	Paths []string
 	// Score is the probed re-score of the imported file.
 	Score int
 	// Inconclusive says the probe could not tell the audio languages, so the
@@ -96,14 +105,14 @@ type Result struct {
 type Library interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	ReplaceFile(ctx context.Context, titleID int64, folder string, f library.NewFile) ([]library.File, error)
-	FileOfGrab(ctx context.Context, grabID int64) (library.File, bool, error)
+	FileOfGrab(ctx context.Context, grabID, versionID int64) (library.File, bool, error)
 	// The Series side: episodes with their cells, a file for several episodes
 	// at once, the files an earlier run of this Grab recorded and the paths a
 	// Version holds.
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 	FilesReplacedBy(ctx context.Context, versionID int64, episodeIDs []int64) ([]library.File, error)
 	ReplaceEpisodeFile(ctx context.Context, titleID int64, folder string, f library.NewFile, episodeIDs []int64) ([]library.File, error)
-	FilesOfGrab(ctx context.Context, grabID int64) ([]library.File, error)
+	FilesOfGrab(ctx context.Context, grabID, versionID int64) ([]library.File, error)
 	PathsOfVersion(ctx context.Context, versionID int64) ([]string, error)
 	FilesOfVersion(ctx context.Context, versionID int64) ([]library.File, error)
 	ApplyRescore(ctx context.Context, rs []library.Rescored) error
@@ -154,6 +163,9 @@ type Deps struct {
 	Health Health
 	// Renames enables Rename; *library.Service satisfies it.
 	Renames RenameStore
+	// Slots holds the labels that name the files; *slots.Service satisfies it.
+	// Without it a Slot is named by its id.
+	Slots SlotLabels
 	// FolderChanged, when set, is told the path of every Title folder that
 	// Rename changed, so the media servers can be asked to refresh it. The
 	// media-server module wires it.
@@ -196,6 +208,7 @@ type Service struct {
 	guard titleGuard
 
 	renames       RenameStore
+	slots         SlotLabels
 	folderChanged func(ctx context.Context, folder string)
 	hist          History
 	blocklist     Blocklist
@@ -226,7 +239,7 @@ func New(d Deps) (*Service, error) {
 	if d.Remove == nil {
 		d.Remove = os.Remove
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged, hist: d.History, blocklist: d.Blocklist, remove: d.Remove}, nil
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, slots: d.Slots, folderChanged: d.FolderChanged, hist: d.History, blocklist: d.Blocklist, remove: d.Remove}, nil
 }
 
 func (s *Service) hook(step string) error {
@@ -259,7 +272,76 @@ func stalledBy(err error) Result {
 // the Title's folder under the fixed naming scheme. It never returns an
 // error: what goes wrong is either the Release's fault (Rejected) or the
 // environment's (Stalled), and importing again is always safe.
+//
+// A Grab that fills several Versions is imported once for each, in order, from the same download: each Version keeps
+// its own file name and file record, and the download's files are removed only after the last. A Version that has
+// nothing to take (every file would be no upgrade for it) is left alone; the first one that stalls or rejects the
+// Release ends the run with its Result (the Versions before it keep their files), and a rerun finishes the rest.
 func (s *Service) Import(ctx context.Context, g Grab) Result {
+	if len(g.VersionIDs) < 2 {
+		return s.importOne(ctx, g)
+	}
+	var out, leftAlone Result
+	imported := false
+	g.placed = map[string]string{}
+	for i, id := range g.VersionIDs {
+		one := g
+		one.VersionID, one.VersionIDs = id, nil
+		one.CanRemove = g.CanRemove && i == len(g.VersionIDs)-1
+		res := s.importOne(ctx, one)
+		for j := range res.Episodes {
+			res.Episodes[j].VersionID = id
+		}
+		switch {
+		case res.Status == Imported:
+			if !imported {
+				imported = true
+				out = res
+				out.Paths = []string{res.Path}
+				continue
+			}
+			out.Paths = append(out.Paths, res.Path)
+			out.Replaced += res.Replaced
+			out.Inconclusive = out.Inconclusive || res.Inconclusive
+			out.CrossDevice = out.CrossDevice || res.CrossDevice
+			out.Episodes = append(out.Episodes, res.Episodes...)
+		case res.Status == Rejected && res.Reason == ReasonNotUpgrade:
+			leftAlone = res
+		default:
+			return res
+		}
+	}
+	if !imported {
+		return leftAlone
+	}
+	return out
+}
+
+// placeFor puts a downloaded video at dst for one Version. The first Version of a shared Grab gets it from the
+// download; each further one gets a hardlink of the first one's library file, and a copy of it, logged, if that
+// link fails.
+func (s *Service) placeFor(g Grab, video, dst string) (cross bool, err error) {
+	first, ok := g.placed[video]
+	if !ok {
+		return place(s.link, video, dst)
+	}
+	if err := s.link(first, dst); err != nil {
+		slog.Warn("importing: hardlinking a shared download between Versions failed, copying instead", "from", first, "to", dst, "err", err)
+		return false, copyVerified(first, dst)
+	}
+	return false, nil
+}
+
+// noteLibraryCopy records the library file a Version got from a downloaded video, for the Versions after it.
+func (g Grab) noteLibraryCopy(video, target string) {
+	if g.placed != nil {
+		if _, ok := g.placed[video]; !ok {
+			g.placed[video] = target
+		}
+	}
+}
+
+func (s *Service) importOne(ctx context.Context, g Grab) Result {
 	unlock, _ := s.guard.lock(g.TitleID, forImport)
 	defer unlock()
 	defer s.snap.Hold()()
@@ -344,7 +426,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	case errors.Is(err, os.ErrNotExist):
 		// The job is gone. If an earlier run already recorded the file, only
 		// the rename may be left; otherwise the download folder is missing.
-		if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID); ferr == nil && ok {
+		if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID, g.VersionID); ferr == nil && ok {
 			return s.finish(g, f, partial, selection{}, primary, original)
 		}
 		return stalled("download folder not found")
@@ -356,7 +438,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 		g.Checking(max(len(src.videos), 1))
 	}
 	// An earlier run may have died after the row was written: finish it.
-	if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID); ferr != nil {
+	if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID, g.VersionID); ferr != nil {
 		return stalledBy(ferr)
 	} else if ok && (exists(partial) || exists(f.Path)) {
 		return s.finish(g, f, partial, src, primary, original)
@@ -411,7 +493,11 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	}
 
 	ext := strings.ToLower(filepath.Ext(src.video))
-	fileName, err := MovieFileName(title, ver.Slot, FileFacts{Release: parsed, Probe: info, Languages: languages, Primary: primary}, ext)
+	label, err := labelOf(ctx, s.slots, ver.Slot)
+	if err != nil {
+		return stalledBy(err)
+	}
+	fileName, err := MovieFileName(title, label, FileFacts{Release: parsed, Probe: info, Languages: languages, Primary: primary}, ext)
 	if err != nil {
 		return stalledBy(err)
 	}
@@ -424,7 +510,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	if err := os.MkdirAll(dir, 0o777); err != nil {
 		return stalledBy(err)
 	}
-	cross, err := place(s.link, src.video, partial)
+	cross, err := s.placeFor(g, src.video, partial)
 	if err != nil {
 		_ = os.Remove(partial)
 		return stalledBy(err)
@@ -456,6 +542,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	if err := os.Rename(partial, target); err != nil {
 		return stalledBy(err)
 	}
+	g.noteLibraryCopy(src.video, target)
 	for _, old := range replaced {
 		if old.Path != target {
 			removeWithSidecars(old.Path)

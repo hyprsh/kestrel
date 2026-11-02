@@ -49,6 +49,7 @@ const (
 	resLog       resource = "log"
 	resQueue     resource = "queue"
 	resRequest   resource = "request"
+	resSlot      resource = "slot"
 	resTitle     resource = "title"
 )
 

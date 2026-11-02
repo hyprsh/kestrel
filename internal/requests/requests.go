@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -69,6 +71,9 @@ func invalid(field, code, msg string) error { return &ValidationError{field, cod
 type SlotInput struct {
 	Slot    slot.Slot
 	Profile string
+	// Filled says Kestrel added the Slot because the Request named none (it is on for new Titles), so a default Profile
+	// another Version already uses leaves the Slot out instead of failing the Request.
+	Filled bool
 }
 
 // Input is a Request as the source sends it.
@@ -154,8 +159,13 @@ type Deps struct {
 	Library     *library.Service
 	Profiles    *profiles.Service
 	RootFolders *rootfolders.Service
-	Meta        metadata.Provider
-	TVDB        metadata.TVDBProvider
+	// Slots lists the Slots, for a Request that names none (ADR 0024). Nil
+	// leaves such a Request a validation error.
+	Slots interface {
+		List(ctx context.Context) ([]slot.Record, error)
+	}
+	Meta metadata.Provider
+	TVDB metadata.TVDBProvider
 	// Grabs lists the active Grabs.
 	Grabs interface {
 		Active(ctx context.Context) ([]acquire.Active, error)
@@ -236,6 +246,9 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if err := s.fillSlots(ctx, &in); err != nil {
+		return Result{}, err
+	}
 	if err := validate(in, all); err != nil {
 		return Result{}, err
 	}
@@ -270,21 +283,30 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		kind = release.KindSeries
 	}
 
+	records, err := slots.New(s.d.Store).List(ctx)
+	if err != nil {
+		return Result{}, err
+	}
 	have := map[slot.Slot]bool{}
+	used := map[string]bool{} // the Profiles the Title's Versions already use: one Profile per Version of a Title
 	if tgt.existing != nil {
 		for _, v := range tgt.existing.Versions {
 			have[v.Slot] = true
+			used[v.Profile] = true
 		}
 	}
 	var specs []library.VersionSpec
 	chosen := map[slot.Slot]string{}
-	for _, sl := range in.Slots {
+	var kept []SlotInput
+	var skipped error
+	for i, sl := range in.Slots {
 		if have[sl.Slot] {
+			kept = append(kept, sl)
 			continue // accepted unchanged
 		}
 		key := sl.Profile
 		if key == "" {
-			r, err := profiles.Resolve(all, kind, sl.Slot)
+			r, err := profiles.Resolve(all, kind, slotRecord(records, sl.Slot))
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
 				return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 			}
@@ -295,9 +317,25 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		} else if p := profileByKey(all, key); !p.Enabled {
 			return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 		}
+		if used[key] {
+			taken := invalid(fmt.Sprintf("slots[%d].profile", i), "profile_taken", fmt.Sprintf("Another Version of the Title already uses the Profile %s: name a different Profile for this Slot", profileByKey(all, key).Name))
+			if !sl.Filled {
+				return Result{}, taken
+			}
+			// Slots sharing a default Profile is only a warning (ADR 0024): the first Slot in order gets it.
+			slog.Info("request: leaving a Slot out, its default Profile is already used by another Version of the Title", "slot", sl.Slot, "profile", key, "source", in.Source, "source_request_id", in.SourceRequestID)
+			skipped = taken
+			continue
+		}
+		used[key] = true
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
+		kept = append(kept, sl)
 	}
+	if len(kept) == 0 && skipped != nil {
+		return Result{}, skipped
+	}
+	in.Slots = kept
 
 	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region)
 	if err != nil {
@@ -319,6 +357,33 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	res, err := s.store(ctx, in, prior, d.Title, titleID, slots, "")
 	res.SearchDue = searchDue
 	return res, err
+}
+
+// slotRecord is the stored Slot of an id; one that is not stored has no defaults.
+func slotRecord(all []slot.Record, id slot.Slot) slot.Record {
+	if i := slices.IndexFunc(all, func(r slot.Record) bool { return r.ID == id }); i >= 0 {
+		return all[i]
+	}
+	return slot.Record{ID: id}
+}
+
+// fillSlots gives a Request that names no Slot every Slot that is on for new
+// Titles (ADR 0024); Profile resolution then picks each one's default Profile.
+// A Request that names Slots is left as it is.
+func (s *Service) fillSlots(ctx context.Context, in *Input) error {
+	if len(in.Slots) > 0 || s.d.Slots == nil {
+		return nil
+	}
+	all, err := s.d.Slots.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, r := range all {
+		if r.OnForNew {
+			in.Slots = append(in.Slots, SlotInput{Slot: r.ID, Filled: true})
+		}
+	}
+	return nil
 }
 
 func profileByKey(all []profiles.Profile, key string) profiles.Profile {
@@ -347,6 +412,7 @@ func validate(in Input, all []profiles.Profile) error {
 		return invalid("slots", "required", "Name at least one Slot")
 	}
 	seen := map[slot.Slot]bool{}
+	named := map[string]bool{}
 	for i, sl := range in.Slots {
 		field := fmt.Sprintf("slots[%d]", i)
 		if seen[sl.Slot] {
@@ -357,12 +423,13 @@ func validate(in Input, all []profiles.Profile) error {
 			continue
 		}
 		// A disabled Profile is a valid name; Submit rejects the Request for it (NoEnabledProfile).
-		switch _, err := profiles.Pick(all, sl.Profile, sl.Slot); {
-		case errors.Is(err, profiles.ErrNoSuchProfile):
+		if _, err := profiles.Pick(all, sl.Profile); errors.Is(err, profiles.ErrNoSuchProfile) {
 			return invalid(field+".profile", "not_found", "No such Profile")
-		case errors.Is(err, profiles.ErrWrongSlot):
-			return invalid(field+".profile", "wrong_slot", "That Profile belongs to another Slot")
 		}
+		if named[sl.Profile] {
+			return invalid(field+".profile", "profile_taken", "A Title's Versions use different Profiles: two Slots name the same one")
+		}
+		named[sl.Profile] = true
 	}
 	if in.Seasons != nil {
 		if in.Kind != library.Series {

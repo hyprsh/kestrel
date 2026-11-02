@@ -243,9 +243,9 @@ func TestADeclaredSectionNamesEveryField(t *testing.T) {
 		{"reverse_proxy:\n  enabled: false\n  trusted_proxies: []\n", "reverse_proxy.header"},
 		{"plex_sign_in:\n  instance: Plex\n", "plex_sign_in.enabled"},
 		{"check_github_updates:\n", "check_github_updates"},
-		{"profiles:\n  hd-primary:\n    enabled: true\n    original_fallback: false\n    default_movies: true\n", "profiles.hd-primary.default_series"},
 		{"profiles:\n  4k-primary:\n", "profiles.4k-primary.enabled"},
-		{"profiles:\n  4k-primary:\n    enabled: true\n    default_movies: false\n    default_series: false\n", "profiles.4k-primary.original_language"},
+		{"profiles:\n  4k-primary:\n    enabled: true\n", "profiles.4k-primary.original_language"},
+		{"slots:\n  - id: standard\n", "slots[0].label"},
 		{"plugin_instances:\n  - plugin_id: sabnzbd\n", "plugin_instances[0].name"},
 		{"plugin_instances:\n  - name: \"  \"\n    plugin_id: sabnzbd\n", "plugin_instances[0].name"},
 		{"plugin_instances:\n  - name: SABnzbd\n", "plugin_instances[0].plugin_id"},
@@ -254,6 +254,23 @@ func TestADeclaredSectionNamesEveryField(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%q: err = %v, want one naming %s", c.body, err, c.want)
 		}
+	}
+}
+
+func TestSlotsAreDeclaredInOrderWithOnlyTheLabelRequired(t *testing.T) {
+	f, err := configfile.Load(write(t, "slots:\n  - {id: standard, label: Standard, default_movies: hd-primary, on_for_new_titles: true}\n  - label: Remux\n"), env())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []configfile.Slot{
+		{ID: "standard", Label: "Standard", DefaultMovies: "hd-primary", OnForNew: true},
+		{Label: "Remux"},
+	}
+	if !f.Declares(configfile.SectionSlots) || !reflect.DeepEqual(f.Slots, want) {
+		t.Errorf("slots = %+v, want %+v", f.Slots, want)
+	}
+	if f, _ := configfile.Load(write(t, "{}\n"), env()); f.Declares(configfile.SectionSlots) {
+		t.Error("a file without slots declares them")
 	}
 }
 

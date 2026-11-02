@@ -12,7 +12,7 @@ Example: _Paddington_ (2014) is a Movie, and _Breaking Bad_ is a Series. Kestrel
 
 ## Slot
 
-A place in a Title for one copy of it. There are two fixed Slots: **Standard**, up to 1080p, and **4K**, which is opt-in. A Title has at most one copy per Slot, and at least one copy overall.
+A named place in a Title for one copy of it, and the name of that copy's file. You define them: Kestrel starts with **Standard** and **4K** (opt-in), and you can add, rename, reorder and remove Slots, up to four. A Title has at most one copy per Slot, and at least one copy overall. A Slot says which copy a Version is; a Profile says which Release to grab for it. [Slots](slots.md) has the rest, with a Remux and a dub as examples.
 
 Example: a gaming group keeps _Cyberpunk: Edgerunners_ in Standard only, because the TV in the living room is 1080p. The Household's film nights want _Dune_ in both, so the 4K projector gets the 4K file and the tablet in the kitchen gets the Standard one. Which copy plays is the media server's choice. Kestrel never decides who may watch 4K.
 
@@ -24,22 +24,22 @@ Example: _Dune_ has two Versions, Standard and 4K. Kestrel finds a better 1080p 
 
 ## Profile
 
-A named quality-and-language target that a Version follows, such as HD, Any or 4K. Each Profile belongs to one Slot and covers a fixed range of resolutions. Kestrel has six, backed by [TRaSH Guides](https://trash-guides.info) profiles:
+A named quality-and-language target that a Version follows, such as HD, Any or 4K. Each Profile covers a fixed range of resolutions and belongs to no Slot: any Profile can fill any Slot, and a Slot names its default Profile per kind. Kestrel has six, backed by [TRaSH Guides](https://trash-guides.info) profiles:
 
-| Profile      | Slot     | Takes                        | Language                            |
-| ------------ | -------- | ---------------------------- | ----------------------------------- |
-| HD           | Standard | HD resolutions, up to 1080p  | Needs your Primary Language         |
-| HD Original  | Standard | HD resolutions, up to 1080p  | Needs the Title's Original Language |
-| Any          | Standard | Every resolution up to 1080p | Needs your Primary Language         |
-| Any Original | Standard | Every resolution up to 1080p | Needs the Title's Original Language |
-| 4K           | 4K       | 4K                           | Needs your Primary Language         |
-| 4K Original  | 4K       | 4K                           | Needs the Title's Original Language |
+| Profile      | Takes                        | Language                            |
+| ------------ | ---------------------------- | ----------------------------------- |
+| HD           | HD resolutions, up to 1080p  | Needs your Primary Language         |
+| HD Original  | HD resolutions, up to 1080p  | Needs the Title's Original Language |
+| Any          | Every resolution up to 1080p | Needs your Primary Language         |
+| Any Original | Every resolution up to 1080p | Needs the Title's Original Language |
+| 4K           | 4K                           | Needs your Primary Language         |
+| 4K Original  | 4K                           | Needs the Title's Original Language |
 
 Your **Primary Language** is the one language your library is for: English, German or French, set once in Settings. The **Original Language** is the language a Title was made in.
 
 Example: a German household sets German. For a Japanese anime, the HD Profile wants German audio, and HD Original wants Japanese. If only a Japanese Release exists, the HD Profile can reject it, offer it to you in Needs attention, or accept it, as you choose in Settings > Profiles. A release with both languages in one file (marked "DL" in German release names and "MULTi" in French ones) counts as having your Primary Language.
 
-You can switch a Version to another Profile of the same Slot at any time.
+You can switch a Version to another Profile at any time. A Title can't use the same Profile in two Versions.
 
 ## Custom Format and Score
 
@@ -67,7 +67,7 @@ Example: a rare 4K Release of an old film that no indexer has. After three month
 
 Choosing a Release for a Version and handing it to the download client. Every download Kestrel tracks traces back to one Grab. Activity shows each Grab from searching to Import, grouped by stage.
 
-Example: Kestrel searches for _Paddington 2_, scores 12 Releases, and picks the best one that fits. It sends that NZB to SABnzbd. That is a Grab. If the download fails, the Release goes on the **Blocklist**, so Kestrel never grabs it again, and the next search picks another.
+Example: Kestrel searches for _Paddington 2_, scores 12 Releases, and picks the best one that fits. It sends that NZB to SABnzbd. That is a Grab. If two Versions of the Title pick the same Release, it is downloaded once and imported into both. If the download fails, the Release goes on the **Blocklist**, so Kestrel never grabs it again, and the next search picks another.
 
 ## Import
 

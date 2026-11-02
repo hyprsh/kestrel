@@ -42,7 +42,7 @@ FROM episodes ORDER BY title_id, season, number;
 SELECT id, title_id, slot, profile_key, added_at FROM versions ORDER BY title_id, id;
 
 -- name: ListVersionsOfTitle :many
-SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE title_id = ? ORDER BY id;
+SELECT v.id, v.title_id, v.slot, v.profile_key, v.added_at FROM versions v JOIN slots s ON s.id = v.slot WHERE v.title_id = ? ORDER BY s.position, v.id;
 
 -- name: ListFiles :many
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files;
@@ -191,7 +191,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: GetFileOfGrab :one
-SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? LIMIT 1;
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? AND version_id = ? LIMIT 1;
 
 -- name: SetNextMissingSeason :exec
 UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND season = ?;
@@ -215,7 +215,7 @@ SELECT COUNT(*) FROM file_episodes WHERE file_id = ?;
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE id = ?;
 
 -- name: ListFilesOfGrab :many
-SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? ORDER BY id;
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? AND version_id = ? ORDER BY id;
 
 -- name: ListMisfitFileIDs :many
 SELECT file_id FROM file_misfits;

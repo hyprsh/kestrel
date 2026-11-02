@@ -2,7 +2,7 @@ import { Button, Checkbox, KeyboardInput, Note, Select, Skeleton } from '@hyprsh
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSeriesOverview, useSettings, type LookupResult, type Profile } from '../api/queries'
-import { slotKeys, slotLabel, type SlotKey } from '../library/bits'
+import { slotDefault, useSlotNames } from '../library/slots'
 import { Ratings } from '../library/Ratings'
 import { PaneFooter, PaneHeader } from '../layout/Pane'
 import { LoadingRegion } from '../loading'
@@ -11,9 +11,9 @@ import { allEpisodes, seasonBody, SeasonPresets, type SeasonChoice } from './Sea
 import { SeriesOverviewLine } from './SeriesOverview'
 
 /** The Profile a Slot gets when ticked without a suggestion: its default, else the first enabled Primary-Language one (Any comes after HD in the list). */
-function fallbackProfile(profiles: Profile[], slot: SlotKey, kind: 'movie' | 'series'): string | undefined {
-  const of = profiles.filter((p) => p.slot === slot && p.enabled)
-  return (of.find((p) => (kind === 'series' ? p.default_series : p.default_movies)) ?? of.find((p) => p.language_rule === 'primary') ?? of[0])?.key
+function fallbackProfile(profiles: Profile[], want: string | undefined, taken: readonly (string | undefined)[] = []): string | undefined {
+  const of = profiles.filter((p) => p.enabled && !taken.includes(p.key))
+  return (of.find((p) => p.key === want) ?? of.find((p) => p.language_rule === 'primary') ?? of[0])?.key
 }
 
 /**
@@ -26,10 +26,11 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   const overview = useSeriesOverview(result.tmdb_id, result.kind === 'series')
   const series = overview.data ?? null
   const profiles = useProfiles()
+  const slots = useSlotNames()
   const settings = useSettings()
   const create = useCreateTitle()
   const panel = useRef<HTMLDivElement>(null)
-  const [picked, setPicked] = useState<Partial<Record<SlotKey, string>>>({})
+  const [picked, setPicked] = useState<Partial<Record<string, string>>>({})
   const [seeded, setSeeded] = useState(false)
   const [root, setRoot] = useState<string | null>(null)
   const [seasons, setSeasons] = useState<SeasonChoice>(allEpisodes)
@@ -48,7 +49,23 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   const roots = (result.kind === 'series' ? folders?.series : folders?.movies) ?? []
   // The server files a new Title in the kind's first root folder when none is named.
   const defaultRoot = roots[0]
-  const chosen = slotKeys.filter((k) => picked[k])
+  const slotIds = slots.list.map((r) => r.id)
+  // A library with one Slot has no Slot to tick: its Version is always added, under the Profile picked (the default until then).
+  const single = slotIds.length === 1
+  const profileOf = (k: string) =>
+    picked[k] ??
+    (single
+      ? fallbackProfile(
+          all,
+          slotDefault(
+            slots.list.find((r) => r.id === k),
+            result.kind,
+          ),
+        )
+      : undefined)
+  const chosen = slotIds.filter((k) => profileOf(k))
+  // A 422 on `versions[i].profile` (profile_taken) belongs to the Profile picker of the i-th Slot sent.
+  const profileError = (k: string) => (create.error instanceof ApiError ? create.error.fields.find((f) => f.field === `versions[${chosen.indexOf(k)}].profile`)?.message : undefined)
   const ready = seeded && chosen.length > 0 && !create.isPending
 
   const add = () => {
@@ -57,7 +74,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
       {
         kind: result.kind,
         tmdb_id: result.tmdb_id,
-        versions: chosen.map((slot) => ({ slot, profile: picked[slot]! })),
+        versions: chosen.map((slot) => ({ slot, profile: profileOf(slot)! })),
         ...(result.kind === 'series' ? seasonBody(seasons, series) : {}),
         ...(root ? { root_folder: root } : {}),
       },
@@ -73,7 +90,7 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
     add()
   }
 
-  const reasons = (suggestion.data?.slots ?? []).map((s) => `${slotLabel[s.slot]} · ${s.label} (default)`)
+  const reasons = (suggestion.data?.slots ?? []).map((s) => `${slots.name(s.slot)} · ${s.label} (default)`)
 
   return (
     <div ref={panel} tabIndex={-1} onKeyDown={onKeyDown} className="flex min-h-0 flex-col outline-none">
@@ -113,29 +130,46 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
               </Note>
             )}
             <div className="mt-3 flex flex-col gap-2">
-              {slotKeys.map((k) => {
-                const on = !!picked[k]
-                const options = all.filter((p) => p.slot === k && p.enabled)
+              {slotIds.map((k) => {
+                const on = !!profileOf(k)
+                const options = all.filter((p) => p.enabled) // any Profile can fill any Slot
                 return (
                   <div key={k} className="flex h-8 items-center gap-3">
-                    <div className="w-20">
-                      <Checkbox
-                        checked={on}
-                        onChange={(e) =>
-                          setPicked((p) => {
-                            const next = { ...p }
-                            const fallback = fallbackProfile(all, k, result.kind)
-                            if (e.target.checked && fallback) next[k] = fallback
-                            else delete next[k]
-                            return next
-                          })
-                        }
-                      >
-                        {slotLabel[k]}
-                      </Checkbox>
-                    </div>
+                    {!single && (
+                      <div className="w-20">
+                        <Checkbox
+                          checked={on}
+                          onChange={(e) =>
+                            setPicked((p) => {
+                              const next = { ...p }
+                              // A Title's Versions use different Profiles: skip the ones already picked.
+                              const fallback = fallbackProfile(
+                                all,
+                                slotDefault(
+                                  slots.list.find((r) => r.id === k),
+                                  result.kind,
+                                ),
+                                Object.values(p),
+                              )
+                              if (e.target.checked && fallback) next[k] = fallback
+                              else delete next[k]
+                              return next
+                            })
+                          }
+                        >
+                          {slots.name(k)}
+                        </Checkbox>
+                      </div>
+                    )}
                     {on && (
-                      <Select size="small" aria-label={`${slotLabel[k]} Profile`} value={picked[k]} onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.value }))} className="max-w-56">
+                      <Select
+                        size="small"
+                        aria-label={`${slots.name(k)} Profile`}
+                        value={profileOf(k)}
+                        error={profileError(k)}
+                        onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.value }))}
+                        className="max-w-56"
+                      >
                         {options.map((p) => (
                           <option key={p.key} value={p.key}>
                             {p.name}

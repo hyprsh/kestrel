@@ -1,5 +1,4 @@
 import { useProfiles } from '../api/queries'
-import { slotLabel, type SlotKey } from './bits'
 
 /** Profile names by key, for `profileName`. */
 export function useProfileNames(): Map<string, string> {
@@ -13,6 +12,6 @@ export const profileName = (names: Map<string, string>, key: string) => names.ge
  * A Slot and its Profile named side by side, "Standard · HD". The Profile is left out when its
  * name is the Slot's label, so a Profile named "4K" in the 4K Slot reads "4K", not "4K · 4K".
  */
-export function slotProfile(slot: SlotKey, name: string): string {
-  return name.toLowerCase() === slotLabel[slot].toLowerCase() ? slotLabel[slot] : `${slotLabel[slot]} · ${name}`
+export function slotProfile(slotLabel: string, name: string): string {
+  return name.toLowerCase() === slotLabel.toLowerCase() ? slotLabel : `${slotLabel} · ${name}`
 }

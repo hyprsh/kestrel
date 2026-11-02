@@ -206,6 +206,26 @@ func TestTheStreamHintsAChangeMadeThroughTheAPIItself(t *testing.T) {
 	st.hint("title")
 }
 
+func TestTheStreamHintsEverySlotChange(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t, fastStream)
+	st := s.stream(t)
+	st.until("first frame", func(e sseEvent) bool { return e.Name == "queue" })
+
+	for _, c := range []struct{ what, method, path, body string }{
+		{"a new Slot", "POST", "/slots", `{"label":"Original"}`},
+		{"a new label", "PATCH", "/slots/original", `{"label":"Remux"}`},
+		{"a reorder", "PATCH", "/slots/original", `{"position":0}`},
+		{"a delete", "DELETE", "/slots/original", ``},
+	} {
+		st.mark()
+		if r := s.valid(c.method, c.path, c.body); r.Status/100 != 2 {
+			t.Fatalf("%s: %s %s = %d %s", c.what, c.method, c.path, r.Status, r.Body)
+		}
+		st.hint("slot")
+	}
+}
+
 func TestTheStreamSendsActivityAndAttentionSnapshotsAndHeartbeats(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t, fastStream)

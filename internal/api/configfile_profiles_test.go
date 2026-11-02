@@ -1,21 +1,28 @@
 package api_test
 
 import (
+	"bytes"
+	"log/slog"
+
 	"context"
+	"github.com/hyprsh/kestrel/internal/app"
 	"strings"
 	"testing"
 )
 
-// declaredProfiles moves both Standard defaults off HD, which is switched off,
-// and makes 4K the 4K default for movies, offering originals (the others still
-// say it the deprecated way).
+// declaredProfiles switches HD off and offers originals on 4K (the others still say it the deprecated way). The
+// defaults for new Titles are the Slots', so the file declares them there: Standard takes Any for Movies and HD
+// Original for Series, 4K takes 4K for both.
 const declaredProfiles = `profiles:
-  hd-primary:   {enabled: false, original_fallback: false, default_movies: false, default_series: false}
-  hd-original:  {enabled: true,  original_fallback: false, default_movies: false, default_series: true}
-  any-primary:  {enabled: true,  original_fallback: true,  default_movies: true,  default_series: false}
-  any-original: {enabled: false, original_fallback: false, default_movies: false, default_series: false}
-  4k-primary:   {enabled: true,  original_language: offer, default_movies: true,  default_series: false}
-  4k-original:  {enabled: true,  original_fallback: false, default_movies: false, default_series: false}
+  hd-primary:   {enabled: false, original_fallback: false}
+  hd-original:  {enabled: true,  original_fallback: false}
+  any-primary:  {enabled: true,  original_fallback: true}
+  any-original: {enabled: false, original_fallback: false}
+  4k-primary:   {enabled: true,  original_language: offer}
+  4k-original:  {enabled: true,  original_fallback: false}
+slots:
+  - {id: standard, label: Standard, default_movies: any-primary, default_series: hd-original, on_for_new_titles: true}
+  - {id: 4k, label: 4K, default_movies: 4k-primary, default_series: 4k-primary}
 `
 
 func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
@@ -24,12 +31,12 @@ func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
 	in.mustDeclare(declaredProfiles)
 	got := profileMap(t, in.setUp())
 
-	want := map[string][4]bool{ // enabled, original_fallback, default_movies, default_series
+	want := map[string][4]bool{ // enabled, original_fallback, default_movies, default_series (derived from the Slots)
 		"hd-primary":   {false, false, false, false},
-		"hd-original":  {true, false, false, true},
+		"hd-original":  {true, false, false, true}, // the Standard Slot's Series default
 		"any-primary":  {true, true, true, false},
 		"any-original": {false, false, false, false},
-		"4k-primary":   {true, false, true, false},
+		"4k-primary":   {true, false, true, true},
 		"4k-original":  {true, false, false, false},
 	}
 	for key, w := range want {
@@ -40,6 +47,29 @@ func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
 	}
 	if got["4k-primary"].OriginalLanguage != "offer" || got["any-primary"].OriginalLanguage != "accept" {
 		t.Errorf("original_language: 4k-primary %q, any-primary %q", got["4k-primary"].OriginalLanguage, got["any-primary"].OriginalLanguage)
+	}
+}
+
+func TestAProfileKeyForADefaultIsIgnoredAndWarnedAboutAtStartup(t *testing.T) {
+	t.Parallel()
+	var log bytes.Buffer
+	in := newInstance(t, "", func(o *app.Options) { o.Logger = slog.New(slog.NewTextHandler(&log, nil)) })
+	body := strings.Replace(declaredProfiles, "hd-original:  {enabled: true,  original_fallback: false}", "hd-original:  {enabled: true,  original_fallback: false, default_movies: true, default_series: false}", 1)
+	body = strings.Replace(body, "4k-primary:   {enabled: true,  original_language: offer}", "4k-primary:   {enabled: true,  original_language: offer, default_series: true}", 1)
+
+	in.mustDeclare(body)
+
+	out := log.String()
+	for _, want := range []string{"hd-original", "default_movies", "4k-primary", "default_series", "slots"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the log lacks %q: %s", want, out)
+		}
+	}
+	if strings.Contains(out, "any-primary") {
+		t.Errorf("the log names a Profile that sets no default: %s", out)
+	}
+	if p := profileMap(t, in.setUp())["hd-original"]; p.DefaultMovies {
+		t.Errorf("hd-original = %+v, the key must be ignored", p)
 	}
 }
 
@@ -61,11 +91,9 @@ func TestInvalidDeclaredProfilesFailStartupAndWriteNothing(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct{ name, body, want string }{
 		{"missing key", strings.Replace(declaredProfiles, "  4k-original:", "  # 4k-original:", 1), "profiles.4k-original"},
-		{"unknown key", declaredProfiles + "  8k-primary:   {enabled: true, original_fallback: false, default_movies: false, default_series: false}\n", "profiles.8k-primary"},
+		{"unknown key", strings.Replace(declaredProfiles, "slots:", "  8k-primary:   {enabled: true, original_fallback: false}\nslots:", 1), "profiles.8k-primary"},
 		{"fallback on an original", strings.Replace(declaredProfiles, "hd-original:  {enabled: true,  original_fallback: false", "hd-original:  {enabled: true,  original_fallback: true", 1), "profiles.hd-original.original_fallback"},
-		{"disabled default", strings.Replace(declaredProfiles, "4k-primary:   {enabled: true", "4k-primary:   {enabled: false", 1), "profiles.4k-primary.default_movies"},
-		{"no Standard default", strings.Replace(declaredProfiles, "default_movies: true,  default_series: false}\n  any-original", "default_movies: false, default_series: false}\n  any-original", 1), "profiles: the Standard Slot"},
-		{"two defaults in a Slot", strings.Replace(declaredProfiles, "4k-original:  {enabled: true,  original_fallback: false, default_movies: false", "4k-original:  {enabled: true,  original_fallback: false, default_movies: true", 1), "profiles.4k-original.default_movies"},
+		{"a Slot's default switched off", strings.Replace(declaredProfiles, "4k-primary:   {enabled: true", "4k-primary:   {enabled: false", 1), "profiles.4k-primary.enabled"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

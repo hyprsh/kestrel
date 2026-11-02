@@ -41,7 +41,7 @@ type epInfo struct {
 	air            string // yyyy-mm-dd, "" when TheTVDB has none
 	name           string
 	// cells are the Series' Versions' cells of a tracked Series; nil elsewhere.
-	cells [slot.Count]*library.EpisodeCell
+	cells map[slot.Slot]*library.EpisodeCell
 }
 
 // seriesFacts is what planning needs to know of a Series, from the Library
@@ -363,22 +363,11 @@ func (a *Adoption) byNameSeries(ctx context.Context, en entry, files []probed) (
 	return suggest(rankResults([]string{title}, year, series, nil)), 0, nil
 }
 
-// slotFor is a file's Slot: Kestrel's own label wins, else a file probed at
-// 2160p is 4K and anything else Standard.
-func slotFor(base string, info probe.Info) Slot {
-	if lm := slotLabelRx.FindStringSubmatch(base); lm != nil {
-		if s, ok := slot.Parse(strings.ToLower(lm[1])); ok {
-			return s
-		}
-	}
-	return slot.OfClass(info.Class())
-}
-
 // planSeriesFile plans one probed video of a matched Series entry. reason is a
 // skip reason for the whole entry.
 func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, f probed, dir string) (PlanFile, string, error) {
 	base := strings.TrimSuffix(filepath.Base(f.path), filepath.Ext(f.path))
-	slot := slotFor(base, f.info)
+	slot, guessed := a.slotFor(e, library.Series, title, base, f.info)
 
 	rel, _ := filepath.Rel(en.Root, f.path)
 	rel = filepath.ToSlash(rel)
@@ -390,7 +379,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	}
 	refs := m.refsOf(parsed)
 	if len(refs) == 0 {
-		return PlanFile{Path: f.path, To: f.path, Size: f.info.Size, Slot: slot, Action: ActionCreate, Left: LeftUnmatched, ReleaseName: base}, "", nil
+		return PlanFile{Path: f.path, To: f.path, Size: f.info.Size, Slot: slot, SlotGuessed: guessed, Action: ActionCreate, Left: LeftUnmatched, ReleaseName: base}, "", nil
 	}
 	parsed = withProbedResolution(parsed, f.info, strings.TrimSuffix(rel, filepath.Ext(rel)))
 
@@ -407,7 +396,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	if ver != nil {
 		profileKey = ver.Profile
 	} else {
-		r, err := profiles.ResolveAccepting(e.profiles, release.KindSeries, slot, a.accepts(e, f.info.Class()))
+		r, err := profiles.ResolveAccepting(e.profiles, release.KindSeries, e.slotRecord(slot), a.accepts(e, f.info.Class()))
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}
@@ -451,7 +440,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 
 	ext := strings.ToLower(filepath.Ext(f.path))
 	season, first, last := refs[0].Season, refs[0].Number, refs[len(refs)-1].Number
-	name, err := EpisodeFileName(title, slot, Episode{Season: season, First: first, Last: last},
+	name, err := EpisodeFileName(title, e.labelOf(slot), Episode{Season: season, First: first, Last: last},
 		FileFacts{Release: parsed, Probe: f.info, Languages: languages, Primary: primary}, ext)
 	if err != nil {
 		return PlanFile{}, SkipInvalid, nil
@@ -461,7 +450,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	probeJSON, _ := json.Marshal(f.info)
 	misfit, _ := fitOf(profile, f.info, verdict, false)
 	pf := PlanFile{
-		Path: f.path, To: to, Size: f.info.Size, Slot: slot, Profile: profileKey, Score: verdict.Score, Action: ActionCreate, Ticked: true,
+		Path: f.path, To: to, Size: f.info.Size, Slot: slot, SlotGuessed: guessed, Profile: profileKey, Score: verdict.Score, Action: ActionCreate, Ticked: true,
 		Misfit: misfit, ReleaseName: base, Parsed: parsedJSON, Probe: probeJSON, Episodes: refs,
 	}
 	if ver != nil {

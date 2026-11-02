@@ -1,10 +1,6 @@
 import { Film, Tv } from 'lucide-react'
 import { cx } from '../ui'
 
-export type SlotKey = 'standard' | '4k'
-export const slotKeys: SlotKey[] = ['standard', '4k']
-export const slotLabel: Record<SlotKey, string> = { standard: 'Standard', '4k': '4K' }
-
 /** The plain words for each Manual search column's two directions, as the Sort menu and Settings > Display name them. */
 export const manualSearchSortLabels: Record<'score' | 'release' | 'quality' | 'languages' | 'formats' | 'size' | 'age' | 'indexer', { asc: string; desc: string }> = {
   score: { asc: 'Worst first', desc: 'Best first' },

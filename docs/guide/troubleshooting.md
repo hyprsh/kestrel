@@ -120,9 +120,9 @@ If a [Config File](configuration.md#the-config-file) declares the account, Kestr
 
 **Does it work with Prowlarr?** Kestrel has no Prowlarr integration. It talks to Newznab indexers directly: add each indexer's Newznab URL and API key in Settings > Downloads.
 
-**Can I change how files are named?** No. Kestrel uses one fixed naming scheme, so that Plex and Jellyfin group a Title's Standard and 4K Versions as one item ([ADR 0003](../adr/0003-fixed-naming-scheme-with-slot-labels.md)).
+**Can I change how files are named?** No. Kestrel uses one fixed naming scheme, so that Plex and Jellyfin group a Title's Versions as one item, and a Slot's label is part of the file name ([ADR 0003](../adr/0003-fixed-naming-scheme-with-slot-labels.md)).
 
-**Why does a Title have only Standard and 4K?** A Title has at most one Version per Slot, and there are two Slots ([ADR 0012](../adr/0012-two-slots-standard-and-4k.md)). Which one plays, and who may watch 4K, is your media server's choice.
+**Can a Title have more than Standard and 4K?** Yes, up to four copies. A Title has at most one Version per Slot, and you define the Slots in Settings > Library > Slots ([Slots](slots.md)). Which one plays, and who may watch 4K, is your media server's choice.
 
 **Can I edit the Scores?** No. Custom Formats and Scores come from [TRaSH Guides](https://trash-guides.info), and Kestrel updates them daily unless you switch that off in Settings > Profiles > TRaSH. [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md#what-has-no-equivalent) lists what else is different.
 

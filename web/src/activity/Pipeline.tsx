@@ -13,6 +13,7 @@ import { useKey, useListNav } from '../keys'
 import { SkeletonRows } from '../loading'
 import { useNow } from '../time'
 import { activityFilter, activityQualifiers } from './filter'
+import { useSlotNames } from '../library/slots'
 import { byDay, DayHeader, HistoryHead, HistoryRow, type Ended } from './History'
 import { ActiveRow, SearchPassRow, StalledRow } from './InProgress'
 import { entriesOf, stages, type Entry, type Stage } from './stages'
@@ -37,7 +38,8 @@ export function usePipeline(query: string) {
   const titles = useTitles().data
   const search = useSearchStatus().data
 
-  const parsed = useMemo(() => parseQuery(query, activityQualifiers), [query])
+  const slots = useSlotNames()
+  const parsed = useMemo(() => parseQuery(query, activityQualifiers(slots)), [query, slots])
   const filter = useMemo(() => activityFilter(parsed), [parsed])
   const history = useMemo(() => historyFilter(parsed), [parsed])
   const chosen = filter.stages ?? stages

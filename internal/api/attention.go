@@ -450,14 +450,14 @@ const longMissingShown = 5
 // (not copied into health) and sits outside the rail badge.
 func (s *server) longMissing(ctx context.Context) (oapi.LongMissing, error) {
 	out := oapi.LongMissing{Items: []struct {
-		HasPoster   *bool     `json:"has_poster,omitempty"`
-		LastFailure *string   `json:"last_failure"`
-		Profile     string    `json:"profile"`
-		Slot        oapi.Slot `json:"slot"`
-		Title       string    `json:"title"`
-		TitleId     int64     `json:"title_id"`
-		VersionId   int64     `json:"version_id"`
-		WantedSince time.Time `json:"wanted_since"`
+		HasPoster   *bool       `json:"has_poster,omitempty"`
+		LastFailure *string     `json:"last_failure"`
+		Profile     string      `json:"profile"`
+		Slot        oapi.SlotId `json:"slot"`
+		Title       string      `json:"title"`
+		TitleId     int64       `json:"title_id"`
+		VersionId   int64       `json:"version_id"`
+		WantedSince time.Time   `json:"wanted_since"`
 	}{}}
 	view, err := s.view(ctx)
 	if err != nil {
@@ -474,14 +474,14 @@ func (s *server) longMissing(ctx context.Context) (oapi.LongMissing, error) {
 	out.Count = len(all)
 	for _, it := range all[:min(longMissingShown, len(all))] {
 		item := struct {
-			HasPoster   *bool     `json:"has_poster,omitempty"`
-			LastFailure *string   `json:"last_failure"`
-			Profile     string    `json:"profile"`
-			Slot        oapi.Slot `json:"slot"`
-			Title       string    `json:"title"`
-			TitleId     int64     `json:"title_id"`
-			VersionId   int64     `json:"version_id"`
-			WantedSince time.Time `json:"wanted_since"`
+			HasPoster   *bool       `json:"has_poster,omitempty"`
+			LastFailure *string     `json:"last_failure"`
+			Profile     string      `json:"profile"`
+			Slot        oapi.SlotId `json:"slot"`
+			Title       string      `json:"title"`
+			TitleId     int64       `json:"title_id"`
+			VersionId   int64       `json:"version_id"`
+			WantedSince time.Time   `json:"wanted_since"`
 		}{Profile: it.Profile, Slot: slotToAPI(it.Slot), Title: it.Title, TitleId: it.TitleID, VersionId: it.VersionID, WantedSince: it.WantedSince}
 		if f, ok := failures[it.VersionID]; ok {
 			item.LastFailure = &f

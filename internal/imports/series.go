@@ -30,6 +30,8 @@ const (
 // EpisodeResult is what an Import did for one episode of a Series Grab. A pack
 // has one per episode its files name; the Log records each.
 type EpisodeResult struct {
+	// VersionID is the Version the result is for, set when one Grab fills several Versions; 0 otherwise.
+	VersionID int64
 	// EpisodeID is 0 when the file named no known episode.
 	EpisodeID int64
 	Season    int
@@ -87,7 +89,7 @@ func (s *Service) importSeries(ctx context.Context, g Grab, d library.Detail, ve
 	}
 
 	// Files an earlier run committed: finish their rename.
-	recorded, err := s.lib.FilesOfGrab(ctx, g.ID)
+	recorded, err := s.lib.FilesOfGrab(ctx, g.ID, g.VersionID)
 	if err != nil {
 		return stalledBy(err)
 	}
@@ -362,7 +364,14 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 
 	first, last := numbers[0], numbers[len(numbers)-1]
 	ext := strings.ToLower(filepath.Ext(video))
-	name, err := EpisodeFileName(in.title, in.ver.Slot, Episode{Season: season, First: first, Last: last},
+	label, err := labelOf(ctx, s.slots, in.ver.Slot)
+	if err != nil {
+		for _, ep := range wanted {
+			add(ep, Stalled, stalledBy(err).Reason, "", 0)
+		}
+		return
+	}
+	name, err := EpisodeFileName(in.title, label, Episode{Season: season, First: first, Last: last},
 		FileFacts{Release: fileParsed, Probe: info, Languages: languages, Primary: in.primary}, ext)
 	if err != nil {
 		for _, ep := range wanted {
@@ -410,7 +419,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 	}
 	partial := partialPath(in.g.ID, target)
 	_ = os.Remove(partial)
-	cross, err := place(s.link, video, partial)
+	cross, err := s.placeFor(in.g, video, partial)
 	if err != nil {
 		_ = os.Remove(partial)
 		stall(err)
@@ -460,6 +469,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 		stall(err)
 		return
 	}
+	in.g.noteLibraryCopy(video, target)
 	for _, old := range replaced {
 		if old.Path != target {
 			removeWithSidecars(old.Path)

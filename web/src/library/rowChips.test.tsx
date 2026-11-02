@@ -9,6 +9,7 @@ import type { TitleRow } from '../api/queries'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { serveSlots } from '../test/slots'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -75,6 +76,7 @@ describe('Library rows: Slot chips', () => {
   })
 
   it('narrows by a Slot that only some Titles have through slot:', async () => {
+    serveSlots(['standard', 'Standard'], ['german', 'German'])
     fakeLibrary([row(1, 'Heat', 'Heat'), row(2, 'Zodiac', 'Zodiac', { slot_states: [entry('standard', 'Standard', 'filled'), entry('german', 'German', 'wanted')] })])
     const list = await openLibrary()
     await within(list).findAllByRole('option')

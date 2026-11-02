@@ -1,0 +1,81 @@
+package imports
+
+import (
+	"regexp"
+	"strings"
+
+	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/probe"
+	"github.com/hyprsh/kestrel/internal/release"
+	"github.com/hyprsh/kestrel/internal/slot"
+)
+
+// episodeCodeRx is the `S01E02` or `S01E02-E03` and ` - ` that precede a Series file's label.
+var episodeCodeRx = regexp.MustCompile(`(?i)^S\d+E\d+(?:-E\d+)? - `)
+
+// labelAt is the text of the first bracket at the fixed place of a Slot label
+// (ADR 0024): right after the Title's name up to the label, as Kestrel writes
+// it (labelPrefix), and for an episode after its `SxxEyy - ` code. base is the
+// file name without extension; a loose file reads the same as one in a folder.
+// It is "" when the file does not follow that shape, so the same words later in
+// the name, such as `[German]` or `[Remux-2160p]` after the label, never pick a
+// Slot.
+func labelAt(t Title, base string, series bool) string {
+	prefix, err := labelPrefix(t, series)
+	if err != nil || len(base) < len(prefix) || !strings.EqualFold(base[:len(prefix)], prefix) {
+		return ""
+	}
+	rest := base[len(prefix):]
+	if series {
+		loc := episodeCodeRx.FindStringIndex(rest)
+		if loc == nil {
+			return ""
+		}
+		rest = rest[loc[1]:]
+	}
+	rest, ok := strings.CutPrefix(rest, "[")
+	if !ok {
+		return ""
+	}
+	label, _, ok := strings.Cut(rest, "]")
+	if !ok {
+		return ""
+	}
+	return label
+}
+
+// chooseSlot is a file's Slot. A label, or an alias, that names a Slot picks
+// it. Otherwise (no label, or one no Slot has) the first Slot, in order, whose
+// default Profile covers the file is the guess, and when none does the first
+// Slot is. guessed says the Slot is a guess, for the review to list.
+func chooseSlot(set []slot.Record, aliases map[slot.Slot][]string, label string, covers func(slot.Record) bool) (sl slot.Slot, guessed bool) {
+	if s, ok := slot.MatchLabel(set, aliases, label); ok {
+		return s, false
+	}
+	for _, r := range set {
+		if covers(r) {
+			return r.ID, true
+		}
+	}
+	if len(set) > 0 {
+		return set[0].ID, true
+	}
+	return slot.Standard, true
+}
+
+// slotFor is the Slot of a file of the entry: the label its name carries, else a guess.
+func (a *Adoption) slotFor(e *env, kind library.Kind, title Title, base string, info probe.Info) (Slot, bool) {
+	covers := func(r slot.Record) bool {
+		key := r.Default(release.KindMovie)
+		if kind == library.Series {
+			key = r.Default(release.KindSeries)
+		}
+		for _, p := range e.profiles {
+			if p.Key == key {
+				return a.accepts(e, info.Class())(p)
+			}
+		}
+		return false
+	}
+	return chooseSlot(e.slots, e.aliases, labelAt(title, base, kind == library.Series), covers)
+}

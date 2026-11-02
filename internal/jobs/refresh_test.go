@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,7 +101,7 @@ func newRefreshRig(t *testing.T) *refreshRig {
 	r.health = health.New(health.Deps{Store: st, Clock: clock})
 	prof := profiles.New(st, settings.New(st))
 	r.imp, err = imports.New(imports.Deps{
-		Library: r.lib, Renames: r.lib, Profiles: prof, Prober: probe.Unavailable{}, Clock: clock,
+		Library: r.lib, Renames: r.lib, Slots: slots.New(st), Profiles: prof, Prober: probe.Unavailable{}, Clock: clock,
 		FolderChanged: func(_ context.Context, folder string) { r.changed = append(r.changed, folder) },
 	})
 	if err != nil {

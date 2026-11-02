@@ -39,9 +39,9 @@ export function EpisodeChips({
   const scope = { season: episode.season, episode_ids: [episode.id] }
   const chips: ChipData[] = slots.map((s) => {
     const grab = grabOf(grabs, s.key, episode)
-    const d = slotDetail(episode, s.key, grab)
+    const d = slotDetail(episode, s.key, s.name, grab)
     const cell = cellOf(episode, s.key)
-    const base = { key: s.key, short: s.short, state: d.state, tip: d.tip }
+    const base = { key: s.key, short: slots.length > 1 ? s.short : '', state: d.state, tip: d.tip }
     if (!cell) return base
     const label = `${code} ${s.name}`
     const heading = `${code} · ${s.name}`

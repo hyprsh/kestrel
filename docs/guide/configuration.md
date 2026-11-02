@@ -92,49 +92,21 @@ root_folders: # the first of each list is the default
   movies: [/data/media/movies, /data/media/movies-kids]
   series: [/data/media/tv]
 
-profiles: # all six or none, each with all four fields
-  hd-primary:
-    {
-      enabled: true,
-      original_language: accept,
-      default_movies: true,
-      default_series: true,
-    }
-  hd-original:
-    {
-      enabled: true,
-      original_language: reject,
-      default_movies: false,
-      default_series: false,
-    }
-  any-primary:
-    {
-      enabled: false,
-      original_language: reject,
-      default_movies: false,
-      default_series: false,
-    }
-  any-original:
-    {
-      enabled: false,
-      original_language: reject,
-      default_movies: false,
-      default_series: false,
-    }
-  4k-primary:
-    {
-      enabled: true,
-      original_language: accept,
-      default_movies: false,
-      default_series: false,
-    }
-  4k-original:
-    {
-      enabled: false,
-      original_language: reject,
-      default_movies: false,
-      default_series: false,
-    }
+profiles: # all six or none, each with enabled and original_language
+  hd-primary: { enabled: true, original_language: accept }
+  hd-original: { enabled: true, original_language: reject }
+  any-primary: { enabled: false, original_language: reject }
+  any-original: { enabled: false, original_language: reject }
+  4k-primary: { enabled: true, original_language: accept }
+  4k-original: { enabled: false, original_language: reject }
+
+slots: # in order; at least one, at most four, one on for new Titles
+  - id: standard
+    label: Standard
+    default_movies: hd-primary
+    default_series: hd-primary
+    on_for_new_titles: true
+  - label: Remux
 
 plugin_instances: # known by name
   - name: SABnzbd
@@ -264,21 +236,39 @@ Every folder must exist and be writable.
 
 #### profiles
 
-List all six Profiles or none: `hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`. Each takes all four fields.
+List all six Profiles or none: `hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`. Each takes `enabled` and `original_language`.
 
 | Field               | Value                                                                                                                                                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`           | `true` or `false`.                                                                                                                                                                                                                                                              |
 | `original_language` | What the Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject`, `offer` it for approval in Needs attention, or `accept`. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). |
-| `default_movies`    | `true` if new Movies get this Profile for its Slot.                                                                                                                                                                                                                             |
-| `default_series`    | `true` if new Series get this Profile for its Slot.                                                                                                                                                                                                                             |
+| `default_movies`    | Ignored: the defaults for new Titles belong to the Slots (see `slots`). Kestrel logs a warning at startup naming each Profile that still sets it.                                                                                                                               |
+| `default_series`    | Ignored, like `default_movies`.                                                                                                                                                                                                                                                 |
+
+**Upgrading.** Four changes of the Slots release are deliberate breaks, not additions, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo ([ADR 0024](../adr/0024-admins-define-the-slots.md)). Here, in the Config File: the `default_movies` and `default_series` keys of a Profile are ignored, so move each into the `slots` section. In the API: a Profile's `slot` is optional and deprecated; `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`; and the Slot fields are strings, with the schema once called `Slot` now `SlotId` and `Slot` naming the Slot record. [Slots, Upgrading](slots.md#upgrading) has the detail.
 
 The rules of Settings > Profiles hold across the six:
 
 - An Original-Language Profile (`*-original`) always rejects.
-- A default must be enabled.
-- A Slot has at most one default per kind.
-- The Standard Slot has exactly one default for Movies and one for Series. The 4K Slot may have none.
+- A Profile that a Slot names as its default stays enabled: declare the new default in `slots` before switching the old one off.
+
+#### slots
+
+A list of the library's Slots, in order ([ADR 0024](../adr/0024-admins-define-the-slots.md)). Declared, it names every Slot at once, and the Slot endpoints answer `409` and report `from_config_file`. Each entry takes:
+
+| Field               | Value                                                                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`             | Required. 1 to 24 letters, digits, spaces, `-` or `+`, without a leading or trailing space, unique ignoring case. It names the files.               |
+| `id`                | Optional. The Slot's fixed id, such as `standard`. Left out, an entry is the Slot with the same label, or a new Slot whose id comes from the label. |
+| `default_movies`    | Optional. The key of the Profile a new Movie gets in this Slot. Left out, none.                                                                     |
+| `default_series`    | Optional. The same for a new Series.                                                                                                                |
+| `on_for_new_titles` | Optional, default `false`. Whether a new Title gets a Version in this Slot.                                                                         |
+
+The rules of the Slot endpoints hold ([Slots](slots.md) explains them): at most four Slots, at least one, at least one on for new Titles, and a default Profile that is enabled. Slots are applied before `profiles`, so one file can move a default to another Profile and switch the old one off.
+
+- **Renaming.** An entry with an `id` whose `label` changed renames the Slot, as Edit in Settings does: its files are renamed at startup, and the old label stays recognised as an alias. An entry with no `id` that matches no label is a new Slot.
+- **Dropping.** A Slot that is in the database but missing from the file is removed at startup if no Version uses it. If Versions do, startup fails with an error naming the Slot and how many Versions it holds, so Kestrel never deletes files because a line went missing. Empty the Slot first (Settings > Library > Slots > Delete), or keep it in the file.
+- **Leaving it out.** The Slots are then the UI's, and Settings > Library > Slots works as usual.
 
 #### plugin_instances
 
@@ -347,13 +337,13 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 
 The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A sort picked in Manual search and the Upcoming filter changed in a session still win. ([ADR 0022](../adr/0022-declared-display-settings-may-leave-others-to-the-ui.md))
 
-| Field                | Value                                                                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.                                                                     |
+| Field                | Value                                                                                                                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.                                                              |
 | `seasons_open`       | `latest_and_wanted` (default) starts a Series page on its newest season, Settings' "Open the newest season" switched on. `all` or `none` start it on the first season, the switch off. A link to a season or an episode wins. |
-| `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`. |
-| `upcoming_display`   | `agenda` (default) or `month`: the display Upcoming opens with. A browser that picked its own display keeps it.                                                                                  |
-| `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                 |
+| `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`.                              |
+| `upcoming_display`   | `agenda` (default) or `month`: the display Upcoming opens with. A browser that picked its own display keeps it.                                                                                                               |
+| `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                                              |
 
 #### check_github_updates
 
@@ -378,7 +368,7 @@ People who share your Plex server can ask for Movies and Series in Kestrel, with
 The login page then offers "Sign in with Plex". Kestrel sends the browser to plex.tv, plex.tv sends it back to Kestrel's login page with `?plex=1`, and Kestrel finishes the sign-in there. Only the browser that started a sign-in can finish it.
 
 - **Who may sign in:** the server's owner, members of the owner's Plex Home, and friends whose share includes this server, read with the owner's token from the Plex instance. A list of `users` narrows that to those Plex usernames (or names, for a Home user without one), ignoring case. The Requester's own Plex token is used once, to learn who they are, and never stored.
-- **What a Requester can do:** search Titles, make a Request and see their own Requests, and nothing else. Every other route answers `403 forbidden`. A Request asks for the Standard Slot under Profile resolution and goes in the kind's first root folder, unless `user_root_folders` names another for that user. It shows up in Requests and in the Log like any other, with the source `plex`.
+- **What a Requester can do:** search Titles, make a Request and see their own Requests, and nothing else. Every other route answers `403 forbidden`. A Request names no Slot, so it gets every Slot that is on for new Titles, each under its default Profile, and goes in the kind's first root folder, unless `user_root_folders` names another for that user. It shows up in Requests and in the Log like any other, with the source `plex`.
 - **Switches:** Settings > Security & Access > Plex sign-in (or `plex_sign_in` in the Config File) also holds four switches for what Kestrel does with the Plex server. Each is off until set and works only while Plex sign-in is on.
   - `watchlist` makes Requests from the Watchlists of the owner and of friends who may request.
   - `watch_ahead` makes a Requester's Series Request start with season 1, and adds the next season once anyone has watched 2 episodes of the newest. It counts plays on the Plex server, and on Silo too (see below).
@@ -387,6 +377,23 @@ The login page then offers "Sign in with Plex". Kestrel sends the browser to ple
 - **Sessions:** a Requester's session lasts 30 days from the last use, like the admin's. At most once an hour it is checked again against the owner's list. It ends when the account lost access, left `users`, or Plex sign-in was switched off. A plex.tv outage does not end sessions. Changing the admin password ends the other admin sessions only. "Log Out Everywhere" ends every session.
 - **Network:** Kestrel calls plex.tv (`https://plex.tv`) to create and read PINs, learn an account and read the owner's shared users. It identifies itself with a client identifier it generates once per instance. Kestrel needs outbound access to plex.tv, and the browser needs to reach `https://app.plex.tv`.
 - **Behind a TLS proxy:** the redirect back to Kestrel is built from the request: `https` when the request is secure, the `Host` header and the base URL. List the proxy in `trusted_proxies` (Settings > Security & Access > Reverse proxy, or `reverse_proxy` in the Config File), so Kestrel believes its `X-Forwarded-Proto` and `X-Forwarded-For` and the session and PIN cookies get `Secure`. The proxy must pass the `Host` header on unchanged.
+
+## Silo requests and Slots
+
+Silo asks for a Title in a resolution tier, and Kestrel files each tier in a Slot ([ADR 0024](../adr/0024-admins-define-the-slots.md)). The Silo plugin's instance settings, under "Slots, Profiles and folder", hold:
+
+| Key                              | What it does                                                                                                                                                                                               |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1080p_slot`                     | The Slot Silo's `1080p` tier fills. `standard` by default.                                                                                                                                                 |
+| `2160p_slot`                     | The Slot the `2160p` tier fills, and what Silo's `is_4k` means. `4k` by default.                                                                                                                           |
+| `1080p_profile`                  | The Profile a `1080p` request gets. Left out, the Slot's default Profile for the kind.                                                                                                                     |
+| `2160p_profile`                  | The same for `2160p`.                                                                                                                                                                                      |
+| `standard_profile`, `4k_profile` | Aliases, kept so older setups work. Each sets the Profile of whichever tier maps to the `standard` or `4k` Slot. When that tier's own Profile is also set, the tier's wins, and the plugin logs a warning. |
+
+- **One Slot for both tiers** is fine: the Request gets that Slot once, and each tier still has its own status in Silo.
+- **A Slot no tier maps to** can't be requested from Silo and is never reported to it.
+- **A missing Slot** fails the plugin's validation on the field `1080p_slot` or `2160p_slot`.
+- **Kids and Mobile.** Silo's request routes and per-device caps are the recommended way to serve those audiences. Use a Slot only when you want a separate file.
 
 ## Watch-ahead for Silo
 

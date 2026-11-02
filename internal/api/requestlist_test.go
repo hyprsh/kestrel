@@ -26,9 +26,7 @@ func TestListedRequestsNameTheirTitleEvenWhenRejectedBeforeOneExisted(t *testing
 	t.Parallel()
 	s := newSearchBare(t)
 	accepted := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard"}]`, "null")))
-	for _, k := range []string{"4k-primary", "4k-original"} {
-		s.valid("PATCH", "/profiles/"+k, `{"enabled":false}`)
-	}
+	s.valid("PATCH", "/slots/4k", `{"default_movies":""}`)
 	if r := s.valid("DELETE", fmt.Sprintf("/titles/%d", *accepted.TitleID), ""); r.Status != 204 {
 		t.Fatalf("delete = %d %s", r.Status, r.Body)
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -18,6 +19,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
@@ -27,6 +30,7 @@ type declarer struct {
 	file     *configfile.File
 	api      *api.Declared
 	profiles *profiles.Service
+	slots    *slots.Service
 	roots    *rootfolders.Service
 	display  *display.Service
 	updates  *updates.Service
@@ -72,6 +76,25 @@ func (a *App) EnforceConfigFile(ctx context.Context) error {
 	return nil
 }
 
+// warnIgnoredDefaults logs each Profile the file gives a default_movies or default_series key: the defaults
+// for new Titles belong to the Slots now (ADR 0024), so Kestrel ignores the keys.
+func (d declarer) warnIgnoredDefaults() {
+	for _, key := range slices.Sorted(maps.Keys(d.file.Profiles)) {
+		p := d.file.Profiles[key]
+		var ignored []string
+		if p.DefaultMovies != nil {
+			ignored = append(ignored, "default_movies")
+		}
+		if p.DefaultSeries != nil {
+			ignored = append(ignored, "default_series")
+		}
+		if len(ignored) > 0 {
+			d.log.Warn("config file: the Profile's "+strings.Join(ignored, " and ")+" is ignored; the defaults for new Titles are set per Slot in the `slots` section",
+				"profile", key, "keys", ignored)
+		}
+	}
+}
+
 // sections are the declared sections in the order they apply, and the hand
 // back to the UI of plugin instances the file no longer declares.
 func (d declarer) sections() []section {
@@ -104,16 +127,53 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.declareDisplay(ctx, patch) },
 		})
 	}
+	// The Slots go first: a Profile a Slot names as its default can't be disabled, so the file's new
+	// defaults must be in place before it switches the old ones off.
+	if f.Slots != nil {
+		want := make([]slots.Declared, len(f.Slots))
+		for i, sl := range f.Slots {
+			want[i] = slots.Declared{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries, OnForNew: sl.OnForNew}
+		}
+		out = append(out, section{
+			check: func(ctx context.Context) error { return slotsError(d.slots.CheckDeclared(ctx, want)) },
+			apply: func(ctx context.Context) error { return slotsError(d.slots.Declare(ctx, want)) },
+		})
+	}
 	if f.Profiles != nil {
 		want := map[string]profiles.State{}
 		for key, p := range f.Profiles {
-			want[key] = profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice(), DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
+			want[key] = profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
 		}
 		out = append(out, section{
-			check: func(context.Context) error {
-				return validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want)))
+			check: func(ctx context.Context) error {
+				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want))); err != nil {
+					return err
+				}
+				// A Slot's default stays enabled: the Slots the file declares, else the stored ones.
+				var recs []slot.Record
+				if f.Slots != nil {
+					for _, sl := range f.Slots {
+						recs = append(recs, slot.Record{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries})
+					}
+				} else {
+					var err error
+					if recs, err = d.slots.List(ctx); err != nil {
+						return err
+					}
+				}
+				for _, r := range recs {
+					for _, key := range []string{r.DefaultMovies, r.DefaultSeries} {
+						if w, ok := want[key]; ok && !w.Enabled {
+							return fmt.Errorf("profiles.%s.enabled: the Profile is the default of the Slot %s: choose another default for it first", key, r.Label)
+						}
+					}
+				}
+				return nil
 			},
-			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
+			apply: func(ctx context.Context) error {
+				d.warnIgnoredDefaults()
+				return d.profiles.SetAll(ctx, want)
+			},
 		})
 	}
 	if f.PluginInstances != nil {
@@ -347,6 +407,21 @@ func (d declarer) testInstances(ctx context.Context, declared []instances.Instan
 		})
 	}
 	wg.Wait()
+}
+
+// slotsError words a rejected Slot rule under the file's slots section.
+func slotsError(err error) error {
+	var re *slot.RuleError
+	if !errors.As(err, &re) {
+		return err
+	}
+	switch {
+	case strings.HasPrefix(re.Field, "["):
+		return fmt.Errorf("slots%w", err)
+	case re.Field != "":
+		return fmt.Errorf("slots.%w", err)
+	}
+	return fmt.Errorf("slots: %w", err)
 }
 
 // instanceError words a rejected declared instance under plugin_instances.

@@ -75,7 +75,7 @@ func (s *server) ListGrabs(ctx context.Context, r oapi.ListGrabsRequestObject) (
 			GrabId: g.ID, TitleId: idPtr(g.TitleID), VersionId: idPtr(g.VersionID), ReleaseName: g.ReleaseName, Indexer: g.IndexerName,
 			Size: g.Size, Score: g.Score, IsUpgrade: g.IsUpgrade, State: oapi.GrabEntryState(g.State),
 			Failure: strPtr(g.Failure), BlocklistReason: strPtr(g.BlocklistReason), GrabbedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt,
-			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Episodes: about.episodes, EpisodeIds: about.episodeIDs,
+			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Slots: slotsPtr(about.slots), Episodes: about.episodes, EpisodeIds: about.episodeIDs,
 		}
 		if st := g.Stall; st != nil {
 			e.Stalled = &oapi.GrabStall{Reason: st.Reason, Since: st.Since, NextAt: st.NextAt}
@@ -122,7 +122,7 @@ type grabText struct {
 	ids   map[int64]bool
 }
 
-func newGrabText(q *string, kinds *[]oapi.TitleKind, slots *[]oapi.Slot, ids *[]int64) grabText {
+func newGrabText(q *string, kinds *[]oapi.TitleKind, slots *[]oapi.SlotId, ids *[]int64) grabText {
 	var g grabText
 	if q != nil {
 		g.words = strings.Fields(strings.ToLower(*q))

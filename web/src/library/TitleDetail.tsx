@@ -4,7 +4,6 @@ import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, t
 import { TitlePoster } from '../poster'
 import { plural } from '../format'
 import { sourceName } from '../requests/source'
-import type { SlotKey } from './bits'
 import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { MovieSection } from './MovieSection'
@@ -116,7 +115,7 @@ export function TitlePending() {
 const statusWord = (status: string) => status.charAt(0).toUpperCase() + status.slice(1)
 
 /** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
-export type ManualSearchTarget = { versionId: number; slot: SlotKey; profileName: string; scope?: { body: EpisodeScope; label: string; code: string | null } }
+export type ManualSearchTarget = { versionId: number; slot: string; profileName: string; scope?: { body: EpisodeScope; label: string; code: string | null } }
 
 function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()

@@ -21,6 +21,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
@@ -30,6 +32,7 @@ import (
 type Deps struct {
 	Plugins     PluginInstances
 	Profiles    Profiles
+	Slots       Slots
 	RootFolders RootFolders
 	Settings    SettingsTx
 	Display     Display
@@ -74,6 +77,18 @@ type PluginInstances interface {
 	Test(ctx context.Context, p plugin.Plugin, conn plugin.Connection, check bool) (plugin.TestResult, error)
 	// Observe records the outcome of a call to an instance as its last check.
 	Observe(ctx context.Context, id int64, err error)
+}
+
+// Slots are the library's Slots (ADR 0024).
+type Slots interface {
+	List(ctx context.Context) ([]slot.Record, error)
+	Known(ctx context.Context, id slot.Slot) (bool, error)
+	Create(ctx context.Context, in slots.Create) (slot.Record, error)
+	// Change updates a Slot, or with dryRun only checks the rules, and says how many files a new label renames.
+	Change(ctx context.Context, id slot.Slot, p slots.Patch, dryRun bool) (slot.Record, *int, error)
+	Delete(ctx context.Context, id slot.Slot) error
+	// OnChange sets what runs after any change to the Slots is saved, whoever made it.
+	OnChange(f func())
 }
 
 // Profiles is the household's language settings and the Profiles.

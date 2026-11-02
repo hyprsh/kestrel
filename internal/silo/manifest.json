@@ -11,8 +11,8 @@
   "presentation": {
     "display_name": "Kestrel",
     "summary": "Sends approved Requests to Kestrel, reports download progress back, and tells Silo Autoscan which Title folders Kestrel changed.",
-    "description_markdown": "Hands each approved Silo Request to Kestrel. A 1080p tier adds the Title in Kestrel's Standard Slot and a 2160p tier adds it in 4K. Each of Standard Profile, 4K Profile and Root folder can be left on the Kestrel default or set per request route in Silo. A Root folder only applies to a Title Kestrel does not have yet: if the Standard and 4K tiers of one request name different folders, the first to create the Title wins and the other is ignored. A Series requested whole starts with season 1 and Kestrel adds the next season as people watch (Watch-ahead); a request naming seasons gets those seasons. Status and download progress come back to Silo.\n\nThe Kestrel Title folders scan source tells Silo Autoscan which Title folders Kestrel created, changed or deleted, so Silo scans a new Import without the Silo media-server instance in Kestrel.",
-    "setup_markdown": "1. Install the plugin.\n2. In Kestrel, open Settings and generate an API key.\n3. Add a Kestrel connection here with Kestrel's address and that key.\n4. Pick the Standard and 4K Profiles and a Root folder, or leave them on the Kestrel default. Silo request routes can override each per audience.\n5. Choose whether Series requested whole use Watch-ahead: they start with season 1 and Kestrel adds the next season as people watch. A request naming seasons gets those seasons, and Silo request routes can override this per audience.\n6. To have Silo scan new Imports, open Admin > Libraries > Autoscan, enable Autoscan and choose Add source > Kestrel Title folders. Bind the Kestrel connection from step 3. If Silo mounts the media at a different path than Kestrel, add a path rewrite from Kestrel's Root folder to Silo's library path. Silo polls on its Autoscan interval (600 seconds unless changed), so an Import reaches Silo within one interval.",
+    "description_markdown": "Hands each approved Silo Request to Kestrel. Each Silo tier fills one Kestrel Slot: a 1080p tier the Standard Slot and a 2160p tier the 4K Slot, unless the Slot for that tier is changed. A Slot no tier maps to cannot be requested from Silo. Each of the tier Profiles (Standard Profile and 4K Profile are older names for them) and Root folder can be left on the Kestrel default or set per request route in Silo. A Root folder only applies to a Title Kestrel does not have yet: if the Standard and 4K tiers of one request name different folders, the first to create the Title wins and the other is ignored. A Series requested whole starts with season 1 and Kestrel adds the next season as people watch (Watch-ahead); a request naming seasons gets those seasons. Status and download progress come back to Silo.\n\nThe Kestrel Title folders scan source tells Silo Autoscan which Title folders Kestrel created, changed or deleted, so Silo scans a new Import without the Silo media-server instance in Kestrel.",
+    "setup_markdown": "1. Install the plugin.\n2. In Kestrel, open Settings and generate an API key.\n3. Add a Kestrel connection here with Kestrel's address and that key.\n4. Optionally map the 1080p and 2160p tiers to other Kestrel Slots, then pick a Profile per tier and a Root folder, or leave them on the Kestrel default. Silo request routes can override each per audience.\n5. Choose whether Series requested whole use Watch-ahead: they start with season 1 and Kestrel adds the next season as people watch. A request naming seasons gets those seasons, and Silo request routes can override this per audience.\n6. To have Silo scan new Imports, open Admin > Libraries > Autoscan, enable Autoscan and choose Add source > Kestrel Title folders. Bind the Kestrel connection from step 3. If Silo mounts the media at a different path than Kestrel, add a path rewrite from Kestrel's Root folder to Silo's library path. Silo polls on its Autoscan interval (600 seconds unless changed), so an Import reaches Silo within one interval.",
     "homepage_url": "https://github.com/hyprsh/kestrel",
     "source_url": "https://github.com/hyprsh/kestrel",
     "support_url": "https://github.com/hyprsh/kestrel/issues",
@@ -40,9 +40,13 @@
         {
           "key": "connection",
           "title": "Kestrel",
-          "json_schema": "{\"type\":\"object\",\"properties\":{\"standard_profile\":{\"type\":\"string\"},\"4k_profile\":{\"type\":\"string\"},\"root_folder\":{\"type\":\"string\"},\"watch_ahead\":{\"type\":\"string\"}}}",
+          "json_schema": "{\"type\":\"object\",\"properties\":{\"1080p_slot\":{\"type\":\"string\"},\"2160p_slot\":{\"type\":\"string\"},\"1080p_profile\":{\"type\":\"string\"},\"2160p_profile\":{\"type\":\"string\"},\"standard_profile\":{\"type\":\"string\"},\"4k_profile\":{\"type\":\"string\"},\"root_folder\":{\"type\":\"string\"},\"watch_ahead\":{\"type\":\"string\"}}}",
           "admin_form": {
             "fields": [
+              {"key": "1080p_slot", "label": "Slot for the 1080p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "The Kestrel Slot a 1080p request fills. Default is the Standard Slot.", "dynamic_options": true},
+              {"key": "2160p_slot", "label": "Slot for the 2160p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "The Kestrel Slot a 2160p (4K) request fills. Default is the 4K Slot.", "dynamic_options": true},
+              {"key": "1080p_profile", "label": "Profile for the 1080p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "Wins over Standard Profile when both are set.", "dynamic_options": true},
+              {"key": "2160p_profile", "label": "Profile for the 2160p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "Wins over 4K Profile when both are set.", "dynamic_options": true},
               {"key": "standard_profile", "label": "Standard Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
               {"key": "4k_profile", "label": "4K Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
               {"key": "root_folder", "label": "Root folder", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
@@ -53,7 +57,7 @@
               ]}
             ],
             "sections": [
-              {"key": "profiles", "title": "Profiles and folder", "field_keys": ["standard_profile", "4k_profile", "root_folder"]},
+              {"key": "profiles", "title": "Slots, Profiles and folder", "field_keys": ["1080p_slot", "2160p_slot", "1080p_profile", "2160p_profile", "standard_profile", "4k_profile", "root_folder"]},
               {"key": "series", "title": "Series", "field_keys": ["watch_ahead"]}
             ]
           }

@@ -7,7 +7,7 @@ import { useSearchStatus } from '../api/search'
 import { EndOfPath } from '../library/EpisodeFilePopover'
 import { size } from '../library/bits'
 import { SlotTag } from '../library/SlotChip'
-import { slotName } from '../library/slots'
+import { useSlotNames, type SlotNames } from '../library/slots'
 import { placePath, useOpenPlace } from '../place'
 import { until, useNow } from '../time'
 import { useReport } from '../toasts'
@@ -62,8 +62,8 @@ function importedText(s: GrabSteps): string {
 }
 
 /** The "Now" note of a failed Grab: whether its Release is blocklisted, whether it is still Wanted, and when the next pass runs. */
-function nowNote(g: GrabEntry, s: GrabSteps, nextPassAt: string | null, now: number): string {
-  const slot = g.slot ? slotName(g.slot) : null
+function nowNote(g: GrabEntry, s: GrabSteps, nextPassAt: string | null, now: number, slots: SlotNames): string {
+  const slot = g.slot && slots.several ? slots.name(g.slot) : null
   const what = g.episodes.length > 0 ? g.episodes.join(', ') : g.title || 'The Title'
   const parts = [s.blocklist_id !== null ? `The release is blocklisted${slot ? ` for the ${slot} Version` : ''}.` : 'The release is not blocklisted.']
   if (!s.still_wanted) parts.push(`${what} is no longer Wanted.`)
@@ -116,6 +116,7 @@ function Files({ steps, formats }: { steps: GrabSteps; formats: GrabSteps['forma
 /** The opened row's body. `onManualSearch` opens the Manual search of the Grab's Version; `onOpenTitle` the Title. */
 export function GrabDetail({ grab: g, onOpenTitle, onManualSearch }: { grab: GrabEntry; onOpenTitle: (id: number) => void; onManualSearch: (g: GrabEntry) => void }) {
   const now = useNow()
+  const slots = useSlotNames()
   const { data: steps, isError } = useGrabSteps(g.grab_id)
   const client = useDownloadClient()
   const search = useSearchStatus().data
@@ -144,7 +145,7 @@ export function GrabDetail({ grab: g, onOpenTitle, onManualSearch }: { grab: Gra
           {!steps ? (
             <Skeleton width="100%" height={60} />
           ) : failed ? (
-            <span className="label-13 text-gray-900">{nowNote(g, steps, search?.next_pass_at ?? null, now)}</span>
+            <span className="label-13 text-gray-900">{nowNote(g, steps, search?.next_pass_at ?? null, now, slots)}</span>
           ) : (
             <Files steps={steps} formats={steps.formats} />
           )}

@@ -74,12 +74,14 @@ func New(opts Options, d Deps) http.Handler {
 	}
 	s := &server{
 		opts: opts, started: opts.Clock(), auth: newAuth(opts.Store, opts.Clock, opts.BaseURL, cost, opts.APIKey), hub: newHub(),
-		plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders, settings: d.Settings, display: d.Display, pause: d.Pause, updates: d.Updates,
+		plugins: d.Plugins, profiles: d.Profiles, slots: d.Slots, rootFolders: d.RootFolders, settings: d.Settings, display: d.Display, pause: d.Pause, updates: d.Updates,
 		library: d.Library, acquire: d.Acquire, requests: d.Requests, adoption: d.Adoption, cleanup: d.Cleanup,
 		remover: d.Remover, imports: d.Imports, files: d.Files, folderChanges: d.FolderChanges, jobs: d.Jobs, refresher: d.Refresher, indexers: d.Indexers,
 		health: d.Health, history: d.History, scoring: d.Scoring, trash: d.Trash, keys: d.Keys, meta: d.Meta, tvdb: d.TVDB,
 		bridge: d.Bridge, posters: d.Posters,
 	}
+	// A Slot changed through the API or a Config File: the screens that name it refetch (the hub is the stream's).
+	s.slots.OnChange(func() { s.hub.publish(hintOf(resSlot, 0)) })
 	s.plex = &plexSignIn{settings: s.auth.settings, plugins: d.Plugins, tv: d.PlexTV, write: s.auth.write, clock: opts.Clock, log: opts.Logger}
 	s.auth.plex = s.plex
 	s.health.AddCheck("untrusted proxy header", s.checkUntrustedProxy)
@@ -134,6 +136,7 @@ type server struct {
 
 	plugins     PluginInstances
 	profiles    Profiles
+	slots       Slots
 	rootFolders RootFolders
 	settings    SettingsTx
 	display     Display

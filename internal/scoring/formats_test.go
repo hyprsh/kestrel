@@ -1,7 +1,6 @@
 package scoring_test
 
 import (
-	"github.com/hyprsh/kestrel/internal/slot"
 	"reflect"
 	"testing"
 
@@ -10,7 +9,6 @@ import (
 )
 
 var englishHD = scoring.ProfileSpec{
-	Slot:    slot.Standard,
 	Rule:    scoring.PrimaryLanguage,
 	Primary: release.LangEnglish,
 }

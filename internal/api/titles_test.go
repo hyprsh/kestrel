@@ -260,8 +260,8 @@ func TestTheSuggestionPreselectsTheSlotDefaultsWhateverTheRating(t *testing.T) {
 		t.Errorf("PG-13 = %+v", sug.Slots)
 	}
 
-	// Slots with a default join in.
-	l.valid("PATCH", "/profiles/4k-primary", `{"default_movies":true}`)
+	// Slots that are on for new Titles join in, each with its own default.
+	l.valid("PATCH", "/slots/4k", `{"on_for_new_titles":true}`)
 	sug = decode[suggestionJSON](t, l.valid("GET", "/lookup/movie/77", ""))
 	if len(sug.Slots) != 2 || sug.Slots[1].Slot != "4k" || sug.Slots[1].Profile != "4k-primary" {
 		t.Errorf("with a 4K default = %+v", sug.Slots)
@@ -278,7 +278,7 @@ func TestAddingIsRefusedForBadChoices(t *testing.T) {
 		name, body, field string
 	}{
 		{"no versions", body(`[]`, ""), "versions"},
-		{"a Profile of another Slot", body(`[{"slot":"standard","profile":"4k-primary"}]`, ""), "versions[0].profile"},
+		{"a Profile twice in one Title", body(`[{"slot":"standard","profile":"hd-primary"},{"slot":"4k","profile":"hd-primary"}]`, ""), "versions[1].profile"},
 		{"the retired SD Slot", body(`[{"slot":"sd","profile":"hd-primary"}]`, ""), "versions[0].slot"},
 		{"the retired HD Slot", body(`[{"slot":"hd","profile":"hd-primary"}]`, ""), "versions[0].slot"},
 		{"the retired UHD Slot", body(`[{"slot":"uhd","profile":"4k-primary"}]`, ""), "versions[0].slot"},

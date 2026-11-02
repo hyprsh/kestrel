@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useMemo } from 'react'
 import { useEpisodes, useProfiles, useTitle, type Episode, type EpisodeScope } from '../api/queries'
 import type { ManualSearchAt } from '../place'
-import { slotLabel } from './bits'
+import { useSlotNames } from './slots'
 import { episodeCode, seasonName } from './episodes'
 import { ManualSearch } from './ManualSearch'
 
@@ -46,6 +46,7 @@ function Gone({ children, onBack }: { children: string; onBack: () => void }) {
 export function ManualSearchRoute({ at, titleName, onBack }: { at: ManualSearchAt; titleName: string; onBack: () => void }) {
   const title = useTitle(at.titleId)
   const profiles = useProfiles()
+  const slots = useSlotNames()
   const needsEpisodes = namesEpisodes(at.scope)
   const episodes = useEpisodes(at.titleId, needsEpisodes)
   const version = title.data?.versions.find((v) => v.id === at.versionId)
@@ -68,7 +69,7 @@ export function ManualSearchRoute({ at, titleName, onBack }: { at: ManualSearchA
     <ManualSearch
       key={`${at.versionId} ${at.scope ?? ''}`}
       titleName={titleName}
-      slotLabel={slotLabel[version.slot]}
+      slotLabel={slots.name(version.slot)}
       profileName={profile?.name ?? version.profile}
       versionId={version.id}
       scope={scope}

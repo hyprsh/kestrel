@@ -22,7 +22,7 @@ import {
 import { ApiError, useLookup } from '../api/queries'
 import { useOpenCleanup } from '../cleanup/launch'
 import { LoadingRegion, SkeletonRows } from '../loading'
-import { slotKeys, slotLabel } from '../library/bits'
+import { useSlotNames, type SlotNames } from '../library/slots'
 import { PosterSkeleton, TitlePoster } from '../poster'
 import { TickBox } from '../library/TickBox'
 import { SelectionBar } from '../layout/SelectionBar'
@@ -70,12 +70,12 @@ function episodeLabel(f: AdoptionFile) {
 }
 
 /** The Versions a Series row proposes, e.g. "Standard: 38 episodes, 4K: 4 episodes". */
-function versionsSummary(row: AdoptionRow) {
+function versionsSummary(row: AdoptionRow, slots: SlotNames) {
   const counts = new Map<string, number>()
   for (const f of row.files) if (f.ticked && !f.left) counts.set(f.slot, (counts.get(f.slot) ?? 0) + f.episodes.length)
-  return slotKeys
-    .filter((s) => counts.has(s))
-    .map((s) => `${slotLabel[s]}: ${counts.get(s)} ${counts.get(s) === 1 ? 'episode' : 'episodes'}`)
+  return slots
+    .order([...counts.keys()])
+    .map((s) => `${slots.name(s)}: ${counts.get(s)} ${counts.get(s) === 1 ? 'episode' : 'episodes'}`)
     .join(', ')
 }
 
@@ -399,6 +399,7 @@ function Row({ row, planMonitor }: { row: AdoptionRow; planMonitor: AdoptionMoni
 }
 
 function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: AdoptionMonitor }) {
+  const slots = useSlotNames()
   const patch = usePatchRow()
   const m = row.match!
   const title = `${m.title}${m.year ? ` (${m.year})` : ''}`
@@ -427,7 +428,7 @@ function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: Adopt
           />
         )}
       </div>
-      {row.kind === 'series' && <div className="label-12 mt-1 pl-6 text-gray-900 max-sm:pl-0">{versionsSummary(row)}</div>}
+      {row.kind === 'series' && <div className="label-12 mt-1 pl-6 text-gray-900 max-sm:pl-0">{versionsSummary(row, slots)}</div>}
       <ul className="mt-2 flex flex-col gap-1.5 pl-6 max-sm:pl-0">
         {row.files.map((f) => (
           <li key={f.path} className="copy-13 flex flex-wrap items-center gap-2">
@@ -438,7 +439,7 @@ function MatchedRow({ row, planMonitor }: { row: AdoptionRow; planMonitor: Adopt
               aria-label={`Adopt ${baseName(f.path)}`}
             />
             <Badge variant="teal" contrast="low" size="sm">
-              {slotLabel[f.slot]}
+              {slots.name(f.slot)}
             </Badge>
             {episodeLabel(f) && (
               <Badge variant="gray" contrast="low" size="sm">

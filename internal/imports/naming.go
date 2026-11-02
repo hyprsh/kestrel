@@ -98,18 +98,19 @@ func SeasonFolder(season int) string {
 // MovieFileName is a Movie Version's file: the Movie folder, ` - `, the Slot
 // label and the brackets, then the extension (which includes its dot). Every
 // file of a Movie starts with the folder name, so Jellyfin groups the Versions.
-func MovieFileName(t Title, s Slot, f FileFacts, ext string) (string, error) {
+// label is the Slot's current label (ADR 0024).
+func MovieFileName(t Title, label string, f FileFacts, ext string) (string, error) {
 	if t.TMDBID <= 0 {
 		return "", ErrMissingID
 	}
 	tail := yearPart(t.Year) + fmt.Sprintf(" {tmdb-%d}", t.TMDBID)
-	return fileName(t, tail, s, f, ext)
+	return fileName(t, tail, label, f, ext)
 }
 
 // EpisodeFileName is a Series episode's file: `Title (Year) - S01E01`, the
 // Slot label and the brackets, then the extension. Episode titles are left
 // out, so TheTVDB edits never rename a file. A range is `S01E01-E02`.
-func EpisodeFileName(t Title, s Slot, ep Episode, f FileFacts, ext string) (string, error) {
+func EpisodeFileName(t Title, label string, ep Episode, f FileFacts, ext string) (string, error) {
 	if ep.First < 1 || ep.Last < ep.First || ep.Season < 0 {
 		return "", ErrInvalidEpisode
 	}
@@ -117,7 +118,32 @@ func EpisodeFileName(t Title, s Slot, ep Episode, f FileFacts, ext string) (stri
 	if ep.Last > ep.First {
 		code += fmt.Sprintf("-E%02d", ep.Last)
 	}
-	return fileName(t, yearPart(t.Year)+code, s, f, ext)
+	return fileName(t, yearPart(t.Year)+code, label, f, ext)
+}
+
+// labelMark stands in for a label to find where a file name's label starts.
+const labelMark = "\x00"
+
+// labelPrefix is what a file of the Title's name starts with before its Slot
+// label, built by the code that writes the names: `Title (Year) {tmdb-N} - ` for
+// a Movie, and `Title (Year) - ` for a Series, whose episode code comes next.
+func labelPrefix(t Title, series bool) (string, error) {
+	var name string
+	var err error
+	if series {
+		name, err = EpisodeFileName(t, labelMark, Episode{Season: 1, First: 1, Last: 1}, FileFacts{}, ".mkv")
+	} else {
+		name, err = MovieFileName(t, labelMark, FileFacts{}, ".mkv")
+	}
+	if err != nil {
+		return "", err
+	}
+	if series {
+		name, _, _ = strings.Cut(name, " - S01E01")
+		return name + " - ", nil
+	}
+	name, _, _ = strings.Cut(name, "["+labelMark)
+	return name, nil
 }
 
 // SubtitleFileName names a subtitle sidecar `<stem>.<lang>[.forced][.sdh].<ext>`
@@ -152,11 +178,11 @@ func SubtitleFileName(stem, lang string, forced, sdh bool, ext string, taken fun
 // fileName assembles `Title<tail> - [Slot]<brackets>-GROUP<ext>`, with the
 // title trimmed so the whole name fits. tail is what sits between the title
 // and the Slot label (the year and ID tag, and any episode code).
-func fileName(t Title, tail string, s Slot, f FileFacts, ext string) (string, error) {
+func fileName(t Title, tail string, label string, f FileFacts, ext string) (string, error) {
 	if !strings.HasPrefix(ext, ".") {
 		return "", ErrInvalidExt
 	}
-	rest := " - [" + s.Label() + "]" + brackets(t, f)
+	rest := " - [" + label + "]" + brackets(t, f)
 	group := ""
 	if g := sanitizeBracket(f.Release.ReleaseGroup); g != "" {
 		group = "-" + g

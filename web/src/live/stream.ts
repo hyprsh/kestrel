@@ -40,7 +40,10 @@ function browserDeps(): LiveDeps | null {
 function keysOf(h: ChangedHint): string[][] {
   switch (h.resource) {
     case 'title':
-      return [['titles'], ['releases'], ['requests']]
+      return [['titles'], ['releases'], ['requests'], ['slots']]
+    case 'slot':
+      // A Slot added, renamed, reordered or removed: its label shows on Titles, Requests and Activity as well.
+      return [['slots'], ['titles'], ['requests'], ['grabs']]
     case 'attention':
       return [['attention'], ['status']]
     case 'grab':

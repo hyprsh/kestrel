@@ -91,16 +91,17 @@ type adoptionCandidateJSON struct {
 }
 
 type adoptionFileJSON struct {
-	Path      string  `json:"path"`
-	To        string  `json:"to"`
-	Slot      string  `json:"slot"`
-	Profile   string  `json:"profile"`
-	Score     int     `json:"score"`
-	Action    string  `json:"action"`
-	HeldScore *int    `json:"held_score"`
-	Ticked    bool    `json:"ticked"`
-	Left      *string `json:"left"`
-	Episodes  []struct {
+	Path        string  `json:"path"`
+	To          string  `json:"to"`
+	Slot        string  `json:"slot"`
+	SlotGuessed bool    `json:"slot_guessed"`
+	Profile     string  `json:"profile"`
+	Score       int     `json:"score"`
+	Action      string  `json:"action"`
+	HeldScore   *int    `json:"held_score"`
+	Ticked      bool    `json:"ticked"`
+	Left        *string `json:"left"`
+	Episodes    []struct {
 		Season int `json:"season"`
 		Number int `json:"number"`
 	} `json:"episodes"`
@@ -161,7 +162,19 @@ func newAdopting(t *testing.T, with ...func(*app.Options)) adopting {
 			t.Fatal(err)
 		}
 	}
-	return adopting{library: library{browser: in.setUp(), tmdb: tmdb, tvdb: tvdb, config: config, data: data}, movies: movies, tv: tv}
+	a := adopting{library: library{browser: in.setUp(), tmdb: tmdb, tvdb: tvdb, config: config, data: data}, movies: movies, tv: tv}
+	a.coverUHDWithFourK(t)
+	return a
+}
+
+// coverUHDWithFourK gives the 4K Slot its Profile as the default, as a household that keeps 4K would: Adoption
+// guesses an unlabelled file's Slot from the Slots' default Profiles (ADR 0024), and a stock 4K Slot has none.
+// newAdopting does it, so an unlabelled 2160p file goes to 4K in these tests.
+func (a adopting) coverUHDWithFourK(t *testing.T) {
+	t.Helper()
+	if r := a.valid("PATCH", "/slots/4k", `{"default_movies":"4k-primary","default_series":"4k-primary"}`); r.Status != 200 {
+		t.Fatalf("PATCH /slots/4k = %d %s", r.Status, r.Body)
+	}
 }
 
 // put writes a file under the movies root, making its folders.

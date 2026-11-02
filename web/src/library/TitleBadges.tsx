@@ -13,7 +13,7 @@ import { SlotPopover, type SlotAction } from './SlotPopover'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useSearchWanted } from './VersionSearch'
 import { foundText } from './WantedLine'
-import { slotsOf } from './slots'
+import { slotsOf, useSlotNames } from './slots'
 import { downloadsOf, useTitleDownloads } from './TitleDownloads'
 
 const day = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -80,6 +80,7 @@ const releaseName = { premiere: 'premiere', theatrical_limited: 'limited release
 
 function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (t: ManualSearchTarget) => void }) {
   const downloads = useTitleDownloads(title.id)
+  const slotNames = useSlotNames()
   const now = useNow()
   const search = useSearchWanted(title)
   const setMonitored = useSetMovieMonitored(title.id)
@@ -89,7 +90,7 @@ function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetai
   const out = dates[0]
   const date = next ? `Next: ${releaseName[next.type]} \u00b7 ${dayName(next.day)}` : out ? `Released: ${dayName(out.day)}` : null
   // One chip per Slot, from the Title's Versions: its short label, a state dot and the state in a word or a percent.
-  const chips: ChipData[] = slotsOf(title).map((s) => {
+  const chips: ChipData[] = slotsOf(title, slotNames).map((s) => {
     const v = title.versions.find((x) => x.slot === s.key)
     const grab = downloads.slot(s.key)
     const state = grab ? 'downloading' : (v?.state ?? null)
@@ -101,7 +102,8 @@ function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetai
         : state === 'wanted'
           ? `${s.name}: Wanted${since >= 1 ? ` ${plural(since, 'day')}` : ''}`
           : `${s.name}: ${stateWord[state ?? ''] ?? state ?? 'no Version'}`
-    if (!v) return { key: s.key, short: s.short, state, text, tip }
+    const short = slotNames.several ? s.short : ''
+    if (!v) return { key: s.key, short, state, text, tip }
     const label = `${s.name} Version`
     const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
     const actions: SlotAction[] = []
@@ -111,7 +113,7 @@ function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetai
       const file = v.file
       return {
         key: s.key,
-        short: s.short,
+        short,
         state,
         text,
         tip,
@@ -131,7 +133,7 @@ function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetai
     } else if (state === 'unreleased') words = 'Not out yet'
     return {
       key: s.key,
-      short: s.short,
+      short,
       state,
       text,
       tip,

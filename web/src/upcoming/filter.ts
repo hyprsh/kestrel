@@ -3,12 +3,12 @@
 import { parseQuery } from '@hyprsh/design'
 import type { UpcomingItem, UpcomingSlot } from '../api/upcoming'
 import { matchText } from '../fuzzy'
-import { kindQualifier, type Facet } from '../filter/qualifiers'
-import { slotKeys } from '../library/bits'
+import { kindQualifier, slotQualifier, type Facet } from '../filter/qualifiers'
+import type { SlotNames } from '../library/slots'
 
 const states = ['wanted', 'imported'] as const
 
-export const upcomingQualifiers: Facet[] = [
+export const upcomingQualifiers = (slots: SlotNames): Facet[] => [
   { ...kindQualifier(true), label: 'Kind', options: { movie: { label: 'Movies' }, series: { label: 'Series' } } },
   {
     name: 'is',
@@ -18,7 +18,7 @@ export const upcomingQualifiers: Facet[] = [
     options: { wanted: { label: 'Wanted' }, imported: { label: 'Imported' } },
     excludable: true,
   },
-  { name: 'slot', help: 'Entries with a Version in that Slot', values: slotKeys, excludable: true },
+  slotQualifier(slots, { help: 'Entries with a Version in that Slot', excludable: true }),
 ]
 
 type Entry = { kind: UpcomingItem['kind']; title: string; episode_name?: string | null; slots: UpcomingSlot[] }
@@ -28,8 +28,8 @@ const has = (e: Entry, state: string) =>
   state === 'wanted' ? e.slots.some((s) => s.state === 'wanted') : state === 'imported' ? e.slots.length > 0 && e.slots.every((s) => s.state === 'imported') : false
 
 /** A function that says whether an entry passes the query: free text on the Title and the episode's name, and the tokens. */
-export function upcomingFilter(text: string): (e: Entry) => boolean {
-  const q = parseQuery(text, upcomingQualifiers)
+export function upcomingFilter(text: string, slots: SlotNames): (e: Entry) => boolean {
+  const q = parseQuery(text, upcomingQualifiers(slots))
   const terms = (name: string, excluded: boolean) => q.terms.filter((t) => t.name === name && t.excluded === excluded)
   const test: Record<string, (e: Entry, v: string) => boolean> = {
     kind: (e, v) => e.kind === v,

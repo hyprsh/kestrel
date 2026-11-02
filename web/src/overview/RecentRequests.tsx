@@ -8,12 +8,14 @@ import { Loaded, SkeletonRows } from '../loading'
 import { Poster, TitlePoster } from '../poster'
 import { RequestSlots, requestStatus } from '../requests/RequestSlots'
 import { useQueue } from '../api/queue'
+import { useSlotNames } from '../library/slots'
 import { reasons } from '../requests/status'
 import type { OverviewNav } from './nav'
 import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
 
 function StateBadges({ request: r }: { request: Request }) {
   const queue = useQueue().data ?? []
+  const slots = useSlotNames()
   if (r.outcome === 'rejected' && r.reject_reason) {
     return (
       <Badge variant="red" contrast="low" size="sm">
@@ -24,7 +26,7 @@ function StateBadges({ request: r }: { request: Request }) {
   return (
     <>
       <RequestSlots request={r} />
-      <span className="text-gray-900">{requestStatus(r, queue)}</span>
+      <span className="text-gray-900">{requestStatus(r, queue, slots)}</span>
     </>
   )
 }

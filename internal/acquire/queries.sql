@@ -65,6 +65,10 @@ INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?);
 -- name: ListActiveGrabEpisodes :many
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing')
+UNION
+SELECT gv.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id JOIN grab_versions gv ON gv.grab_id = g.id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 
 -- The episodes of a Title its active Grabs are fetching. A stalled Import still holds its episodes.
@@ -72,6 +76,16 @@ WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 SELECT DISTINCT ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.title_id = ? AND g.state IN ('sent', 'downloading', 'completed', 'importing');
+
+-- The Versions besides its first that a Grab also fills (one download, several Versions).
+-- name: InsertGrabVersion :exec
+INSERT INTO grab_versions (grab_id, version_id) VALUES (?, ?);
+
+-- name: ListGrabVersions :many
+SELECT grab_id, version_id FROM grab_versions ORDER BY grab_id, version_id;
+
+-- name: ListGrabVersionsOf :many
+SELECT version_id FROM grab_versions WHERE grab_id = ? ORDER BY version_id;
 
 -- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;

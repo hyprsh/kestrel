@@ -158,6 +158,11 @@ type GrabEpisode struct {
 	EpisodeID int64
 }
 
+type GrabVersion struct {
+	GrabID    int64
+	VersionID int64
+}
+
 type HealthIssue struct {
 	ID          int64
 	Key         string
@@ -263,15 +268,12 @@ type Profile struct {
 	Key                string
 	Name               string
 	Sort               int64
-	Slot               string
 	Any                int64
 	LanguageRule       string
 	MinHeight          int64
 	MaxHeight          int64
 	Enabled            int64
 	OriginalFallback   int64
-	DefaultMovies      int64
-	DefaultSeries      int64
 	TrashProfileMovies string
 	TrashProfileSeries string
 	OriginalLanguage   string
@@ -350,6 +352,20 @@ type Session struct {
 type Setting struct {
 	Key   string
 	Value string
+}
+
+type Slot struct {
+	ID            string
+	Label         string
+	DefaultMovies sql.NullString
+	DefaultSeries sql.NullString
+	OnForNew      int64
+	Position      int64
+}
+
+type SlotAlias struct {
+	Slot  string
+	Alias string
 }
 
 type Title struct {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/resolution"
-	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // LanguageRule says which audio a Profile requires.
@@ -65,14 +64,13 @@ func OriginalChoiceOf(choice *OriginalChoice, deprecated *bool) (*OriginalChoice
 	return choice, nil
 }
 
-// ProfileSpec describes a Kestrel Profile: which Slot it fills, which audio it
+// ProfileSpec describes a Kestrel Profile: which resolutions it takes, which audio it
 // requires and, for Primary-Language Profiles, what it does with a Release in
 // the Title's Original Language only (PRD Settled 1).
 type ProfileSpec struct {
-	// Slot is Standard or 4K. Any Profiles sit in the Standard Slot.
-	Slot slot.Slot
-	// Any marks an Any Profile, which sits in the Standard Slot but accepts
-	// SD too.
+	// UHD marks a Profile that takes only 4K; it is backed by the UHD TRaSH profile.
+	UHD bool
+	// Any marks an Any Profile, which accepts SD too, up to 1080p.
 	Any  bool
 	Rule LanguageRule
 	// Primary is the household's Primary Language: English, German or French.
@@ -87,15 +85,16 @@ type ProfileSpec struct {
 }
 
 // HeightBounds are the resolution bounds of a builtin Profile (Settled 2),
-// derived from the Slot's range: an Any Profile takes the whole Standard
-// range, HD (the other Standard Profiles) starts at 720 and 4K takes its
-// Slot's range. They always lie inside the Slot.
-func HeightBounds(s slot.Slot, isAny bool) (min, max int) {
-	lo, hi := s.Range()
-	if s == slot.Standard && !isAny {
-		lo = 720
+// derived from the kind of Profile: an Any Profile takes 0 to 1080, HD starts
+// at 720 and 4K takes exactly 2160. A custom Profile copies them.
+func HeightBounds(uhd, isAny bool) (min, max int) {
+	switch {
+	case uhd:
+		return 2160, 2160
+	case isAny:
+		return 0, 1080
 	}
-	return lo, hi
+	return 720, 1080
 }
 
 // ErrUnsupportedProfile means no TRaSH backing profile exists for the spec.
@@ -197,14 +196,14 @@ func (p *Profile) AllowedQualities(kind release.Kind) []string {
 // are derived from the HD backing profile: same Custom Formats and scores,
 // different allowed qualities and resolution bounds.
 func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
-	if spec.Any && spec.Slot != slot.Standard {
-		return nil, fmt.Errorf("%w: Any sits in the Standard Slot", ErrUnsupportedProfile)
+	if spec.Any && spec.UHD {
+		return nil, fmt.Errorf("%w: Any takes SD up to 1080p, not 4K", ErrUnsupportedProfile)
 	}
 	if spec.Rule == OriginalLanguage {
 		spec.OriginalChoice = OriginalReject // no choice on Original-Language Profiles
 	}
 	p := &Profile{spec: spec, sets: map[release.Kind]*formatSet{}}
-	p.MinHeight, p.MaxHeight = HeightBounds(spec.Slot, spec.Any)
+	p.MinHeight, p.MaxHeight = HeightBounds(spec.UHD, spec.Any)
 	for _, a := range apps {
 		d := s.apps[a.kind]
 		name, err := backingName(spec, a.kind)
@@ -268,7 +267,7 @@ func (d *appData) formatsFor(bp *backingProfile) []scoredFormat {
 // backingName is the Settled 5 table: the TRaSH profile file backing a
 // (Primary Language, language rule, kind, Slot). Any uses the HD file.
 func backingName(spec ProfileSpec, kind release.Kind) (string, error) {
-	uhd := spec.Slot == slot.FourK
+	uhd := spec.UHD
 	pick := func(hd, uhdName string) string {
 		if uhd {
 			return uhdName

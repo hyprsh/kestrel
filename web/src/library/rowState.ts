@@ -9,7 +9,6 @@ import { percent, plural } from '../format'
 import { ago, clockTime, span } from '../time'
 import { expandCodes } from './cellDetail'
 import { size as bytes } from './bits'
-import { slotName } from './slots'
 
 export type Tone = 'error' | 'warning' | 'info' | 'quiet'
 
@@ -89,7 +88,7 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
   const [g] = grabs
   if (g) {
     const verb = g.is_upgrade ? 'upgrading' : 'downloading'
-    const what = r.kind === 'series' ? episodes(g) : two && g.slot ? slotName(g.slot) : null
+    const what = r.kind === 'series' ? episodes(g) : two && g.slot ? (r.slot_states.find((s) => s.slot === g.slot)?.label ?? null) : null
     const lead = what ? `${what} ${verb}` : verb[0].toUpperCase() + verb.slice(1)
     return { text: `${lead} · ${progress(g)}`, tone: 'info' }
   }
@@ -97,7 +96,7 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
   const long = vs.filter((x) => x.v.long_missing)
   const wanted = vs.filter((x) => x.v.state === 'wanted')
   // A Slot is named when only some of the Title's Versions are in the state.
-  const which = (some: typeof vs) => (two && some.length < vs.length ? `${slotName(some[0].slot)} ` : '')
+  const which = (some: typeof vs) => (two && some.length < vs.length ? `${some[0].v.label} ` : '')
   if (long.length > 0) return { text: `Long Missing · ${which(long)}Wanted for ${days(now - Date.parse(r.wanted_since ?? r.added_at))}`, tone: 'error' }
   if (wanted.length > 0) {
     const since = r.wanted_since ? `Wanted for ${days(now - Date.parse(r.wanted_since))}` : 'Wanted'
@@ -120,7 +119,7 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
  * keeps two), its size, and when it was added if lately; "Filled" when none of that says anything.
  */
 function holding(r: TitleRow, vs: ReturnType<typeof kept>, now: number, withSize: boolean): string {
-  const filled = vs.filter((x) => x.v.state === 'filled').map((x) => slotName(x.slot))
+  const filled = vs.filter((x) => x.v.state === 'filled').map((x) => x.v.label)
   const slots = vs.length > 1 && filled.length > 0 ? (filled.length === vs.length ? filled.join(' & ') : `${filled.join(' & ')} filled`) : null
   const added = now - Date.parse(r.added_at) < 7 * DAY ? `added ${ago(r.added_at, now)}` : null
   const parts = [r.primary_title !== r.title ? r.primary_title : null, slots, withSize && r.size > 0 ? bytes(r.size) : null, added]

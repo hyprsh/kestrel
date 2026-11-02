@@ -12,6 +12,7 @@ import { useSearchStatus } from '../api/search'
 import { useCancel } from '../grabs/useCancel'
 import { planWaiting, useAdoption, type Adoption } from '../api/adoption'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
+import { useSlotNames } from '../library/slots'
 import { placePath } from '../place'
 import { TitlePoster } from '../poster'
 import { useAttentionAction } from './useAttentionAction'
@@ -290,6 +291,7 @@ function LongMissingRow({
   index: number
 }) {
   const names = useProfileNames()
+  const slots = useSlotNames()
   const title = `${group.count} ${group.count === 1 ? 'Version' : 'Versions'} long missing`
   return (
     <>
@@ -314,7 +316,7 @@ function LongMissingRow({
           <Entity key={i.version_id} left={<TitlePoster id={i.title_id} hasPoster={i.has_poster ?? false} size="sm" />}>
             <div className="flex min-w-0 flex-col">
               <span>
-                {i.title} · {slotProfile(i.slot, profileName(names, i.profile))}
+                {i.title} · {slotProfile(slots.name(i.slot), profileName(names, i.profile))}
               </span>
               <span className="label-12 text-gray-900">
                 Wanted since {dateOf(i.wanted_since)}

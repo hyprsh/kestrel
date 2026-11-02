@@ -280,7 +280,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	}
 
 	obs := ObserverOf(ctx)
-	obs.Searching(targetOf(d, in))
+	obs.Searching(targetOf(d, in, s.storedSlots(ctx)))
 	out.asked = true
 	entries := map[string]*entry{}
 	var all []*entry
@@ -342,26 +342,44 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		if !paused {
 			// Each round grabs what it plans, so a Grab that cannot be sent leaves its episodes to the next group.
 			done = nil
-			for _, plan := range got {
+			for _, group := range sharedPlans(got) {
+				plan := group[0]
 				e := entries[entryKey(plan.Candidate)]
-				eps, err := s.placeholdersFor(ctx, d.ID, plan.Covers, episodes)
-				if err != nil {
-					errs = append(errs, err)
+				var ids, also []int64
+				var placeholderErr error
+				for i, p := range group {
+					eps, err := s.placeholdersFor(ctx, d.ID, p.Covers, episodes)
+					if err != nil {
+						placeholderErr = err
+						break
+					}
+					episodes = eps
+					got, _ := coveredBy(e.cand.Parsed, episodes, p.Slot)
+					for _, id := range onlyPlanned(got, p.Covers, episodes) {
+						if !slices.Contains(ids, id) {
+							ids = append(ids, id)
+						}
+					}
+					if i > 0 {
+						also = append(also, versionOf[p.Slot])
+					}
+				}
+				if placeholderErr != nil {
+					errs = append(errs, placeholderErr)
 					continue
 				}
-				episodes = eps
-				ids, _ := coveredBy(e.cand.Parsed, episodes, plan.Slot)
-				ids = onlyPlanned(ids, plan.Covers, episodes)
 				gr, err := s.send(ctx, outgoing{
-					titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
+					titleID: d.ID, versionID: versionOf[plan.Slot], also: also, e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
 					episodes: ids, upgrade: plan.Upgrade, by: GrabbedBySearch,
 				})
 				if err != nil {
-					failed = append(failed, failedSend{plan, err})
+					for _, p := range group {
+						failed = append(failed, failedSend{p, err})
+					}
 					continue
 				}
 				out.Grabbed = append(out.Grabbed, gr)
-				done = append(done, plan)
+				done = append(done, group...)
 			}
 		}
 		sent = append(sent, done...)

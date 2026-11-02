@@ -10,6 +10,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // searchNow is the search started by hand (Search now): the automatic search
@@ -98,19 +99,20 @@ func (s *Service) checkScope(ctx context.Context, versionID int64, scope library
 func (s *Service) slotOf(ctx context.Context, titleID, versionID int64) (Slot, error) {
 	d, err := s.lib.Get(ctx, titleID, library.View{Now: s.clock()})
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	for _, v := range d.Versions {
 		if v.ID == versionID {
 			return v.Slot, nil
 		}
 	}
-	return 0, library.ErrNotFound
+	return "", library.ErrNotFound
 }
 
 // searchedEvent is the routine Searched event of one Version's search: by says who searched ("Searched by hand",
 // "Searched"), label the scope ("" for all of it).
 func (s *Service) searchedEvent(ctx context.Context, by string, titleID, versionID int64, label string, where Slot, out Outcome, err error) history.Event {
+	stored := s.storedSlots(ctx)
 	own := out
 	own.Grabbed = nil
 	for _, g := range out.Grabbed {
@@ -119,8 +121,8 @@ func (s *Service) searchedEvent(ctx context.Context, by string, titleID, version
 		}
 	}
 	return history.Event{
-		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, by, label, where, own, err),
-		Data: searchedData(label, where, own, s.endOf(ctx, out, versionID, err)),
+		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, by, label, slot.Label(stored, where), own, err),
+		Data: searchedData(label, slot.Label(stored, where), own, s.endOf(ctx, out, versionID, err)),
 	}
 }
 
@@ -150,20 +152,20 @@ func (s *Service) noteAutomatic(ctx context.Context, titleID int64, upgrade bool
 // searchedData is the Searched event's payload: what the search covered and found, for the Log's fold ("418 releases
 // checked") and its lines ("37 releases · 1 Grab"). Releases is how many came back for the Title, grabbed how many
 // Grabs the search made and result how it ended for the Version.
-func searchedData(label string, slot Slot, out Outcome, end SearchEnd) json.RawMessage {
-	b, _ := json.Marshal(map[string]any{"scope": label, "slot": slot.Name(), "releases": out.Releases, "grabbed": len(out.Grabbed), "result": end})
+func searchedData(label, slotLabel string, out Outcome, end SearchEnd) json.RawMessage {
+	b, _ := json.Marshal(map[string]any{"scope": label, "slot": slotLabel, "releases": out.Releases, "grabbed": len(out.Grabbed), "result": end})
 	return b
 }
 
 // searchedMessage says what a search by hand came to, naming the scope and the
 // Slot so two Versions' searches read apart: "Searched by hand for S01E02 in
 // 4K: grabbed 1 Release" (by is "Searched by hand").
-func (s *Service) searchedMessage(ctx context.Context, by, label string, where Slot, out Outcome, err error) string {
+func (s *Service) searchedMessage(ctx context.Context, by, label, where string, out Outcome, err error) string {
 	msg := by
 	if label != "" {
 		msg += " for " + label
 	}
-	msg += " in " + where.Name()
+	msg += " in " + where
 	switch {
 	case err != nil && len(out.Grabbed) == 0:
 		return msg + " and failed: " + err.Error()

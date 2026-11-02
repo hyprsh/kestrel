@@ -234,11 +234,16 @@ func (q *Queries) GetFileEpisodeRelease(ctx context.Context, arg GetFileEpisodeR
 }
 
 const getFileOfGrab = `-- name: GetFileOfGrab :one
-SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? LIMIT 1
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? AND version_id = ? LIMIT 1
 `
 
-func (q *Queries) GetFileOfGrab(ctx context.Context, grabID sql.NullInt64) (File, error) {
-	row := q.db.QueryRowContext(ctx, getFileOfGrab, grabID)
+type GetFileOfGrabParams struct {
+	GrabID    sql.NullInt64
+	VersionID int64
+}
+
+func (q *Queries) GetFileOfGrab(ctx context.Context, arg GetFileOfGrabParams) (File, error) {
+	row := q.db.QueryRowContext(ctx, getFileOfGrab, arg.GrabID, arg.VersionID)
 	var i File
 	err := row.Scan(
 		&i.ID,
@@ -1172,11 +1177,16 @@ func (q *Queries) ListFiles(ctx context.Context) ([]File, error) {
 }
 
 const listFilesOfGrab = `-- name: ListFilesOfGrab :many
-SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? ORDER BY id
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? AND version_id = ? ORDER BY id
 `
 
-func (q *Queries) ListFilesOfGrab(ctx context.Context, grabID sql.NullInt64) ([]File, error) {
-	rows, err := q.db.QueryContext(ctx, listFilesOfGrab, grabID)
+type ListFilesOfGrabParams struct {
+	GrabID    sql.NullInt64
+	VersionID int64
+}
+
+func (q *Queries) ListFilesOfGrab(ctx context.Context, arg ListFilesOfGrabParams) ([]File, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesOfGrab, arg.GrabID, arg.VersionID)
 	if err != nil {
 		return nil, err
 	}
@@ -1968,7 +1978,7 @@ func (q *Queries) ListVersions(ctx context.Context) ([]Version, error) {
 }
 
 const listVersionsOfTitle = `-- name: ListVersionsOfTitle :many
-SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE title_id = ? ORDER BY id
+SELECT v.id, v.title_id, v.slot, v.profile_key, v.added_at FROM versions v JOIN slots s ON s.id = v.slot WHERE v.title_id = ? ORDER BY s.position, v.id
 `
 
 func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Version, error) {

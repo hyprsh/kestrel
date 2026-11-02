@@ -25,6 +25,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -122,6 +123,13 @@ type Deps struct {
 	Scoring *scoring.Holder
 	// Pause is the Pause Grabs switch; nil never pauses.
 	Pause GrabPause
+	// Slots reads the stored Slots, whose labels the Log and the Activity name them by; nil names a Slot by its id.
+	Slots SlotLabels
+}
+
+// SlotLabels reads the stored Slots (ADR 0024). *slots.Service satisfies it.
+type SlotLabels interface {
+	List(ctx context.Context) ([]slot.Record, error)
 }
 
 // GrabPause says whether automatic Grabs are paused (see Pause).
@@ -144,6 +152,7 @@ type Service struct {
 	// misses counts, per Grab, the polls in a row that did not find its job.
 	misses *missCount
 	pause  GrabPause
+	slots  SlotLabels
 	// searches runs the searches started by hand, two at a time.
 	searches *background
 }
@@ -166,7 +175,7 @@ func New(d Deps) (*Service, error) {
 	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
 		snap: d.Scoring, cache: &cache{m: map[string]*entry{}, asked: map[int64]map[group]time.Time{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
-		pause: d.Pause, searches: newBackground(2),
+		pause: d.Pause, slots: d.Slots, searches: newBackground(2),
 	}
 	d.Scoring.OnSwap(func() {
 		svc.cache.mu.Lock()
@@ -633,14 +642,17 @@ func slotOf(d library.Detail, versionID int64) (Slot, bool) {
 			return v.Slot, true
 		}
 	}
-	return 0, false
+	return "", false
 }
 
 // Grab is a Release sent to the download client.
 type Grab struct {
-	ID          int64
-	TitleID     int64
-	VersionID   int64
+	ID        int64
+	TitleID   int64
+	VersionID int64
+	// VersionIDs are every Version the download fills, VersionID first. One Release that is the pick for several
+	// Versions of a Title is downloaded once; Import then links it under each Version's own name.
+	VersionIDs  []int64
 	ReleaseName string
 	IndexerName string
 	Size        int64
@@ -680,6 +692,9 @@ func grabOf(r db.Grab) Grab {
 		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String,
 		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt), UpdatedAt: parseTime(r.UpdatedAt),
 	}
+	if g.VersionID != 0 {
+		g.VersionIDs = []int64{g.VersionID}
+	}
 	g.DownloadStartedAt, g.DownloadDoneAt = optTime(r.DownloadStartedAt), optTime(r.DownloadDoneAt)
 	if r.CoversWanted.Valid && r.ReplacesFiles.Valid {
 		g.Why = &Why{CoversWanted: int(r.CoversWanted.Int64), ReplacesFiles: int(r.ReplacesFiles.Int64), ScoreDelta: int(r.ScoreDelta.Int64)}
@@ -698,7 +713,27 @@ func (s *Service) GetGrab(ctx context.Context, id int64) (Grab, error) {
 	if err != nil {
 		return Grab{}, err
 	}
-	return grabOf(row), nil
+	g := grabOf(row)
+	if err := s.bind(ctx, &g); err != nil {
+		return Grab{}, err
+	}
+	return g, nil
+}
+
+// bind adds the Versions each Grab also fills to its VersionIDs.
+func (s *Service) bind(ctx context.Context, grabs ...*Grab) error {
+	rows, err := db.New(s.st.Read()).ListGrabVersions(ctx)
+	if err != nil || len(rows) == 0 {
+		return err
+	}
+	for _, g := range grabs {
+		for _, r := range rows {
+			if r.GrabID == g.ID && !slices.Contains(g.VersionIDs, r.VersionID) {
+				g.VersionIDs = append(g.VersionIDs, r.VersionID)
+			}
+		}
+	}
+	return nil
 }
 
 // ErrGrabNotFound is returned for a Grab that does not exist.
@@ -716,12 +751,13 @@ func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, o
 	return s.grabBy(ctx, versionID, releaseID, override, GrabbedByHand)
 }
 
-// grab is Grab for the search pass, which already holds the snapshot gate.
-func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
-	return s.grabBy(ctx, versionID, releaseID, override, GrabbedBySearch)
+// grabShared is the search pass's Grab (it already holds the snapshot gate) for a Release that is the pick for several Versions of a Movie: one download, bound to each.
+func (s *Service) grabShared(ctx context.Context, versionIDs []int64, releaseID string) (Grab, error) {
+	return s.grabBy(ctx, versionIDs[0], releaseID, false, GrabbedBySearch, versionIDs[1:]...)
 }
 
-func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string, override bool, by string) (Grab, error) {
+// also are further Versions of the Title the Grab fills: those the Release fits without a rejection (a Movie only).
+func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string, override bool, by string, also ...int64) (Grab, error) {
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
 		return Grab{}, err
@@ -744,9 +780,11 @@ func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string,
 		return Grab{}, err
 	}
 	reasons := slices.Concat(reasonsFor(e, slot), unlistedReasons(sub.detail, eps, e.cand.Parsed, s.clock()))
-	if blocked, err := s.blocklisted(ctx, e.raw); err != nil {
+	blocked, err := s.blocklisted(ctx, e.raw)
+	if err != nil {
 		return Grab{}, err
-	} else if blocked && !slices.Contains(reasons, scoring.RejectBlocklisted) {
+	}
+	if blocked && !slices.Contains(reasons, scoring.RejectBlocklisted) {
 		reasons = append(reasons, scoring.RejectBlocklisted)
 	}
 	if rej := (&RejectedError{Rejections: reasons}); len(reasons) > 0 && (rej.NotOverridable() || !override) {
@@ -766,6 +804,9 @@ func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string,
 			if v.ID == versionID {
 				o.upgrade = v.File != nil
 			}
+			if slices.Contains(also, v.ID) && len(reasonsFor(e, v.Slot)) == 0 && !blocked {
+				o.also = append(o.also, v.ID)
+			}
 		}
 	}
 	return s.send(ctx, o)
@@ -774,7 +815,9 @@ func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string,
 // outgoing is a Release chosen for a Version, ready to send.
 type outgoing struct {
 	titleID, versionID int64
-	e                  *entry
+	// also are the other Versions the same download fills.
+	also []int64
+	e    *entry
 	// copies are the other entries the same read produced for the Title: the
 	// fallbacks when e's NZB cannot be fetched. send also looks in the candidate cache.
 	copies []*entry
@@ -827,6 +870,11 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 	if err != nil {
 		return Grab{}, err
 	}
+	for _, v := range o.also {
+		if err := q.InsertGrabVersion(ctx, db.InsertGrabVersionParams{GrabID: row.ID, VersionID: v}); err != nil {
+			return Grab{}, err
+		}
+	}
 	for _, ep := range o.episodes {
 		if err := q.InsertGrabEpisode(ctx, db.InsertGrabEpisodeParams{GrabID: row.ID, EpisodeID: ep}); err != nil {
 			return Grab{}, err
@@ -845,6 +893,7 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 		return Grab{}, err
 	}
 	g := grabOf(row)
+	g.VersionIDs = append(g.VersionIDs, o.also...)
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
 		Data: grabSentData(o.by),

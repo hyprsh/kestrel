@@ -21,6 +21,7 @@ import { AgendaRow } from './AgendaRow'
 import { Standings } from './bits'
 import { DisplayButton, useDisplayMode } from './displayMode'
 import { upcomingFilter, upcomingQualifiers } from './filter'
+import { useSlotNames } from '../library/slots'
 import { useSeededQuery } from './filters'
 import { gridDays, MonthCalendar, monthEnd, monthOf, monthsBetween, shiftMonth } from './MonthCalendar'
 import { MonthView } from './MonthView'
@@ -64,7 +65,9 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
   const queue = useQueue().data ?? []
   const now = useNow()
   useSeededQuery(query, onQuery)
-  const passes = useMemo(() => upcomingFilter(query), [query])
+  const slotNames = useSlotNames()
+  const upcomingFacets = useMemo(() => upcomingQualifiers(slotNames), [slotNames])
+  const passes = useMemo(() => upcomingFilter(query, slotNames), [query, slotNames])
   const search = useSearchNow()
   const report = useReport()
   const today = dayString()
@@ -354,15 +357,13 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
             </MenuItem>
           </DotsMenu>
         }
-        filter={
-          <FilterBar id="upcoming-filter" label="Filter Upcoming" placeholder="Filter titles, e.g. kind:series  /" value={query} onChange={onQuery} qualifiers={upcomingQualifiers} menus={false} />
-        }
+        filter={<FilterBar id="upcoming-filter" label="Filter Upcoming" placeholder="Filter titles, e.g. kind:series  /" value={query} onChange={onQuery} qualifiers={upcomingFacets} menus={false} />}
         controls={
           <>
             <FacetFilterButton
               query={query}
               onQuery={onQuery}
-              qualifiers={upcomingQualifiers}
+              qualifiers={upcomingFacets}
               label={phone ? 'Views and filter' : undefined}
               // A phone's panel shows no Views, so they are the first section of its Filter menu.
               lead={
@@ -383,7 +384,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
         }
         chips={
           <>
-            <FilterChips chips={filterChips(query, onQuery, upcomingQualifiers)} />
+            <FilterChips chips={filterChips(query, onQuery, upcomingFacets)} />
             {phone && <WeekStrip week={week} today={today} shown={shown} releases={releases} onPick={goToDay} />}
           </>
         }

@@ -364,6 +364,21 @@ func (q *Queries) InsertGrabEpisode(ctx context.Context, arg InsertGrabEpisodePa
 	return err
 }
 
+const insertGrabVersion = `-- name: InsertGrabVersion :exec
+INSERT INTO grab_versions (grab_id, version_id) VALUES (?, ?)
+`
+
+type InsertGrabVersionParams struct {
+	GrabID    int64
+	VersionID int64
+}
+
+// The Versions besides its first that a Grab also fills (one download, several Versions).
+func (q *Queries) InsertGrabVersion(ctx context.Context, arg InsertGrabVersionParams) error {
+	_, err := q.db.ExecContext(ctx, insertGrabVersion, arg.GrabID, arg.VersionID)
+	return err
+}
+
 const insertOriginalOffer = `-- name: InsertOriginalOffer :exec
 INSERT INTO original_offers (version_id, episode_id, release_guid, release_name, indexer_id, indexer_name, download_url,
     size, published_at, score, parsed, verdict, pack, found_at)
@@ -410,6 +425,10 @@ func (q *Queries) InsertOriginalOffer(ctx context.Context, arg InsertOriginalOff
 const listActiveGrabEpisodes = `-- name: ListActiveGrabEpisodes :many
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing')
+UNION
+SELECT gv.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id JOIN grab_versions gv ON gv.grab_id = g.id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing')
 `
 
@@ -682,6 +701,60 @@ func (q *Queries) ListGrabEpisodes(ctx context.Context, grabID int64) ([]int64, 
 			return nil, err
 		}
 		items = append(items, episode_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrabVersions = `-- name: ListGrabVersions :many
+SELECT grab_id, version_id FROM grab_versions ORDER BY grab_id, version_id
+`
+
+func (q *Queries) ListGrabVersions(ctx context.Context) ([]GrabVersion, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabVersions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabVersion
+	for rows.Next() {
+		var i GrabVersion
+		if err := rows.Scan(&i.GrabID, &i.VersionID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrabVersionsOf = `-- name: ListGrabVersionsOf :many
+SELECT version_id FROM grab_versions WHERE grab_id = ? ORDER BY version_id
+`
+
+func (q *Queries) ListGrabVersionsOf(ctx context.Context, grabID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabVersionsOf, grabID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var version_id int64
+		if err := rows.Scan(&version_id); err != nil {
+			return nil, err
+		}
+		items = append(items, version_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

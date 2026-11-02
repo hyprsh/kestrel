@@ -150,6 +150,7 @@ export default defineConfig({
         {
           text: 'Guides',
           items: [
+            { text: 'Slots', link: '/guide/slots' },
             { text: 'Moving from Radarr and Sonarr', link: '/guide/moving-from-radarr-and-sonarr' },
             { text: 'Troubleshooting and FAQ', link: '/guide/troubleshooting' },
           ],

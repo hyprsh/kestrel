@@ -9,6 +9,7 @@ import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { cell, episode, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
+import { serveSlots } from '../test/slots'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -54,7 +55,7 @@ describe('a Series with four Slots', () => {
 
     const dead = within(grid).getByRole('row', { name: /Dead Freight/ })
     const chips = Array.from(dead.querySelectorAll('[data-slot]'))
-    expect(chips.map((c) => c.textContent)).toEqual(['STD', '4K', 'GERMAN', 'REMUX'])
+    expect(chips.map((c) => c.textContent)).toEqual(['STD', '4K', 'GER', 'REM'])
     expect(chips.map((c) => c.getAttribute('data-state'))).toEqual(['filled', 'wanted', 'filled', 'downloading'])
     expect(within(dead).getByTitle(/^4K: Wanted \d+ d$/)).toBeInTheDocument()
     expect(grid.querySelectorAll('th').length).toBeLessThanOrEqual(7) // the columns do not grow with the Slots
@@ -133,8 +134,8 @@ describe('a Series with four Slots', () => {
     expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial'])
     expect(row).toHaveTextContent(/STD\s*2\/2/)
     expect(row).toHaveTextContent(/4K\s*1\/2/)
-    expect(row).toHaveTextContent(/GERMAN\s*2\/2/)
-    expect(row).toHaveTextContent(/REMUX\s*1\/2/)
+    expect(row).toHaveTextContent(/GER\s*2\/2/)
+    expect(row).toHaveTextContent(/REM\s*1\/2/)
     expect(within(row).getByTitle('4K 1 of 2, 1 Wanted')).toHaveAttribute('data-state', 'wanted')
   })
 })
@@ -187,7 +188,7 @@ describe('a Movie with four Slots', () => {
   it('shows a chip per Slot in the header and a row per Version in the accordion', async () => {
     const pane = await openMovie()
     const chips = within(pane).getByRole('group', { name: 'Slots' })
-    expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['STD', '4KWanted', 'GERMANWanted', 'REMUXWanted'])
+    expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['STD', '4KWanted', 'GERWanted', 'REMWanted'])
     const cards = within(pane).getByRole('region', { name: 'Versions' })
     expect(within(cards).getAllByRole('listitem')).toHaveLength(4)
     for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('listitem', { name: n })).toBeInTheDocument()
@@ -233,5 +234,43 @@ describe('on a phone', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await userEvent.click(within(pilot).getByRole('button', { name: /^4K:/ }))
     expect(await screen.findByRole('dialog', { name: 'S01E01 4K' })).toBeInTheDocument()
+  })
+})
+
+describe('Slots come from the Slot list', () => {
+  async function openMovieIn(slots: string[], client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+    const r = row(1, 'Paddington in Peru', 'Paddington in Peru')
+    fakeLibrary([r])
+    const versions = versionsOf(...slots)
+    server.use(http.get('/titles/{id}', ({ response }) => response(200).json(detail(r, { versions }))))
+    render(<App client={client} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    return screen.findByRole('region', { name: 'Paddington in Peru' })
+  }
+
+  it('lists the Versions in the admin order under the stored labels, and follows a rename without a reload', async () => {
+    const served = serveSlots(['archive', 'Remux archive'], ['standard', 'Streaming'], ['kids', 'Kids'])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const pane = await openMovieIn(['standard', 'archive'], client)
+    const cards = within(pane).getByRole('region', { name: 'Versions' })
+    await waitFor(() =>
+      expect(
+        within(cards)
+          .getAllByRole('listitem')
+          .map((c) => c.getAttribute('aria-label')),
+      ).toEqual(['Remux archive', 'Streaming']),
+    )
+
+    served.rename('standard', 'Living room')
+    await client.invalidateQueries({ queryKey: ['slots'] })
+    await waitFor(() => expect(within(cards).getByRole('listitem', { name: 'Living room' })).toBeInTheDocument())
+    expect(within(cards).queryByRole('listitem', { name: 'Streaming' })).not.toBeInTheDocument()
+  })
+
+  it('leaves the Slot name off the header chip when the library has one Slot', async () => {
+    serveSlots(['standard', 'Standard'])
+    const pane = await openMovieIn(['standard'])
+    const chips = within(pane).getByRole('group', { name: 'Slots' })
+    await waitFor(() => expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['Wanted']))
   })
 })
