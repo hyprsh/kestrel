@@ -3,7 +3,8 @@ import type { components } from '../api/schema.gen'
 import { Badge, Button, Popover, StatusDot } from '@hyprsh/design'
 import { cx } from '../ui'
 import { dotOf, size, type Dot } from './bits'
-import { audioLine, qualityLine, type MediaFacts } from './media'
+import { baseName } from './cellDetail'
+import { audioLine, qualityName, type MediaFacts } from './media'
 import { lastSearchLine } from './WantedLine'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
@@ -66,7 +67,7 @@ export function EndOfPath({ path, className }: { path: string; className?: strin
 
 /**
  * The popover of a file: a header with a status dot and `heading`, the release name in mono, a grid of what is known of it
- * (Quality, Audio, Size, Imported, Score), the Custom Formats it matched with their points, the path (its start cut off,
+ * (Quality, Video, Audio, Size, Imported, Score), the Custom Formats it matched with their points, the path (its start cut off,
  * the file name kept), and the buttons: Upgrade Search when `onUpgrade` is given, and Copy Path. A row the data lacks is
  * left out, never guessed. Keys pressed in it stay out of the grid or the pane, apart from the Escape and Tab the popover
  * handles itself.
@@ -105,8 +106,10 @@ export function FileDetailsPopover({
   }
   const on = importedOn(file.imported_at)
   const rows: [string, string][] = []
-  const qualityText = qualityLine(file)
-  if (qualityText) rows.push(['Quality', qualityText])
+  // Each fact once: the codec and HDR format are Video's, not Quality's; the state is the dot's, and the size is the Size row's.
+  if (file.quality) rows.push(['Quality', qualityName(file.quality)])
+  const videoText = [file.video_codec, file.hdr].filter(Boolean).join(' \u00b7 ')
+  if (videoText) rows.push(['Video', videoText])
   const audioText = audioLine(file)
   if (audioText) rows.push(['Audio', audioText])
   rows.push(['Size', size(file.size)])
@@ -114,6 +117,9 @@ export function FileDetailsPopover({
   else if (file.release_group) rows.push(['Group', file.release_group])
   if (lastSearch) rows.push(['Searched', lastSearch])
   const formats = file.custom_formats ?? []
+  // The path's end is the file name; a release name that is the same name (with or without its extension) adds nothing.
+  const fileName = baseName(file.path)
+  const releaseName = file.release_name && file.release_name !== fileName && file.release_name !== fileName.replace(/\.[^.]+$/, '') ? file.release_name : ''
   return (
     <Popover trigger={trigger} label={label} position={position} width={340}>
       {({ close }) => (
@@ -126,7 +132,7 @@ export function FileDetailsPopover({
             <StatusDot state={dot.state} variant={dot.variant} label={false} title={null} aria-hidden />
             <p className="label-14-strong">{heading}</p>
           </div>
-          {file.release_name && <p className="label-12-mono break-all text-gray-900">{file.release_name}</p>}
+          {releaseName && <p className="label-12-mono break-all text-gray-900">{releaseName}</p>}
           <dl className="label-13 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-y-1">
             {rows.map(([k, v]) => (
               <Fragment key={k}>

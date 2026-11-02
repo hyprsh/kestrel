@@ -135,7 +135,16 @@ describe('the file of an episode Slot, in the opened row', () => {
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('S01E01 · Standard')).toBeInTheDocument()
     expect(within(pop).getByText('Breaking.Bad.S01E01-E02.1080p.WEB-DL.DD5.1.H.264-NTb')).toBeInTheDocument()
-    expect(within(pop).getByText('WEB-DL 1080p · H.264')).toBeInTheDocument()
+    // Each fact once: Quality is the quality alone, the codec is Video's, and the state is the dot's.
+    expect(within(pop).getByText('Quality').nextSibling).toHaveTextContent(/^WEB-DL 1080p$/)
+    expect(within(pop).getByText('Video').nextSibling).toHaveTextContent(/^H\.264$/)
+    expect(
+      within(pop.parentElement!)
+        .getAllByText(/H\.264/)
+        .filter((e) => e.tagName === 'DD'),
+    ).toHaveLength(1)
+    expect(within(pop).getAllByText('2.0 GB')).toHaveLength(1)
+    expect(within(pop).queryByText(/^Have$/)).not.toBeInTheDocument()
     expect(within(pop).getByText('DD 5.1 · English, German')).toBeInTheDocument()
     expect(within(pop).getByText('2.0 GB')).toBeInTheDocument()
     expect(within(pop).getByText('Oct 20, 2020, from NTb')).toBeInTheDocument()
@@ -182,6 +191,20 @@ describe('the file of an episode Slot, in the opened row', () => {
     expect(within(pop).getByRole('button', { name: 'Copy Path' })).toBeInTheDocument()
   })
 
+  it('shows the file name once: a release name that is the file name is left out', async () => {
+    const state = fakeSeries()
+    const same = episodeFile({ id: 73, path: '/tv/Show - S01E01.mkv', size: 1024 ** 3, quality: 'WEBDL-720p', episode_ids: [2], release_name: 'Show - S01E01' })
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 0, same), '4k': cell('wanted') } })]
+    const user = userEvent.setup()
+    render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
+    await user.click(await screen.findByRole('button', { name: 'Library' }))
+    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await pickSeason('Season 1')
+    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
+    expect(within(pop).getAllByText(/Show - S01E01/)).toHaveLength(1)
+  })
+
   it('shows a Score of a file that matched no Custom Format without a list of them', async () => {
     const state = fakeSeries()
     const plain = episodeFile({ id: 72, path: '/tv/S01E01.mkv', size: 1024 ** 3, quality: 'WEBDL-720p', episode_ids: [2] })
@@ -199,6 +222,7 @@ describe('the file of an episode Slot, in the opened row', () => {
     // A file the parse knows no codec or audio format of says only its quality; nothing is invented.
     expect(within(pop).getByText('WEB-DL 720p')).toBeInTheDocument()
     expect(within(pop).queryByText('Audio')).not.toBeInTheDocument()
+    expect(within(pop).queryByText('Video')).not.toBeInTheDocument()
   })
 
   it('opens the popover from the keyboard and tells the user to copy by hand when the clipboard and its fallback fail', async () => {

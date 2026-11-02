@@ -159,6 +159,9 @@ function SlotRow({
   // The row's name and the chip's tooltip say all of it, count included: "Standard: 228 of 240 episodes · 8 Wanted".
   const said = `${name}: ${c && !downloads ? `${c.filled} of ${plural(released, 'episode')}${line.text === 'Complete' ? '' : ` \u00b7 ${line.text}`}` : line.text}`
   const sizeText = c && c.size > 0 ? size(c.size) : '\u2014'
+  // A closed row says its coverage line and size once, in the header; opened, the facts below say them and the header keeps the name,
+  // the Profile, the bar and the chip. A Wanted or downloading Slot's Search and Downloading facts explain its chip.
+  const showFacts = !open
   const chip = <SlotChips chips={[{ key: v.slot, short: slots.short(v.slot), state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: said }]} max={1} />
   return (
     <AccordionRow
@@ -179,18 +182,18 @@ function SlotRow({
           {!phone && (
             <span className="flex min-w-0 flex-col gap-1">
               <CoverageBar v={v} />
-              <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
+              {showFacts && <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>}
             </span>
           )}
           <span className="relative flex items-center justify-end gap-2">
             {chip}
-            {phone && <span className="label-12 text-gray-900">{sizeText}</span>}
+            {phone && showFacts && <span className="label-12 text-gray-900">{sizeText}</span>}
           </span>
-          {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{sizeText}</span>}
+          {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{showFacts ? sizeText : ''}</span>}
           {phone && (
             <span className="col-start-2 col-end-4 flex min-w-0 flex-col gap-1">
               <CoverageBar v={v} />
-              <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
+              {showFacts && <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>}
             </span>
           )}
         </>
@@ -214,10 +217,9 @@ function SlotBody({ title, profiles, profileName, onManualSearch, version: v, do
     <div className={bodyWrap}>
       <OriginalOfferNote offer={v.original_offer} />
       <div className={factsGrid}>
-        <Fact k="Profile">{profileName(v.profile)}</Fact>
         <Fact k="Coverage">
           {c
-            ? `${c.filled} of ${plural(released, 'episode')}${c.long_missing > 0 ? ` \u00b7 ${c.long_missing} Long Missing` : ''}${c.unmonitored > 0 ? ` \u00b7 ${c.unmonitored} not monitored` : ''}`
+            ? `${c.filled} of ${plural(released, 'episode')}${c.wanted > 0 && !downloads ? ` \u00b7 ${c.wanted} Wanted` : ''}${c.long_missing > 0 ? ` \u00b7 ${c.long_missing} Long Missing` : ''}${c.unmonitored > 0 ? ` \u00b7 ${c.unmonitored} not monitored` : ''}`
             : '\u2014'}
         </Fact>
         <Fact k="Wanted since">{v.wanted_since ? `${importedOn(v.wanted_since)} \u00b7 ${d >= 1 ? plural(d, 'day') : 'today'}` : '\u2014'}</Fact>
