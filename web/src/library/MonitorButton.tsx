@@ -122,8 +122,8 @@ export function MonitorButton({ title, size = 'medium', short = false }: { title
   )
 }
 
-/** The line under the title that says what monitoring does: "Kestrel searches every Wanted episode and grabs new ones as they air. 4 Specials are not monitored." */
-export function MonitoringLine({ title }: { title: TitleDetail }) {
+/** What monitoring does, in a sentence: "Kestrel searches every Wanted episode and grabs new ones as they air. 4 Specials are not monitored." It is the monitoring chip's popover. */
+export function useMonitoringText(title: TitleDetail): string {
   const episodes = useEpisodes(title.id, title.kind === 'series').data
   const downloads = useTitleDownloads(title.id)
   const slots = useSlotNames()
@@ -147,8 +147,8 @@ export function MonitoringLine({ title }: { title: TitleDetail }) {
       const wanted = title.versions.filter((v) => v.state === 'wanted').map((v) => slots.name(v.slot))
       text =
         wanted.length > 0
-          ? `Kestrel searches the Wanted ${wanted.join(' and ')} ${plural(wanted.length, 'Version').replace(/^\d+ /, '')} and grabs Upgrades until the cutoff.`
-          : 'Kestrel grabs Upgrades until the cutoff.'
+          ? `Kestrel searches the Wanted ${wanted.join(' and ')} ${plural(wanted.length, 'Version').replace(/^\d+ /, '')} and grabs Upgrades until the Cutoff.`
+          : 'Kestrel grabs Upgrades until the Cutoff.'
     }
   } else {
     const mode = title.series_monitor ?? 'all'
@@ -161,5 +161,5 @@ export function MonitoringLine({ title }: { title: TitleDetail }) {
     const specials = (episodes ?? []).filter((e) => e.season === 0 && !e.monitored).length
     if (mode !== 'none' && specials > 0) text += ` ${specials} ${specials === 1 ? 'Special is' : 'Specials are'} not monitored.`
   }
-  return <p className="copy-13 text-gray-900">{text}</p>
+  return text
 }

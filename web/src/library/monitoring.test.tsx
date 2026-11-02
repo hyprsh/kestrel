@@ -56,7 +56,7 @@ describe('monitoring a Movie', () => {
     const search = within(pane).getByRole('button', { name: 'Search Wanted' })
     expect(search).toBeDisabled()
     expect(search).toHaveAttribute('title', 'Not monitored: turn monitoring on to search')
-    expect(within(pane).getByText('Kestrel searches nothing. Its Standard Version would be Wanted once monitored.')).toBeInTheDocument()
+    expect(within(pane).getByTitle('Kestrel searches nothing. Its Standard Version would be Wanted once monitored.')).toBeInTheDocument()
 
     await userEvent.click(off)
 
@@ -84,9 +84,9 @@ describe('the header of a Movie that is not monitored', () => {
   it('says a running download still finishes and Kestrel searches nothing else', async () => {
     unmonitoredMovie({}, [queueItem({ title_id: 1, slot: 'standard', bytes_total: 100, bytes_left: 60 })])
     const pane = await open()
-    expect(await within(pane).findByText('The Standard download (40%) still finishes; Kestrel searches nothing else.')).toBeInTheDocument()
-    expect(within(pane).queryByText(/would be Wanted/)).not.toBeInTheDocument()
-    expect(within(pane).queryByText(/keeps its file/)).not.toBeInTheDocument()
+    expect(await within(pane).findByTitle('The Standard download (40%) still finishes; Kestrel searches nothing else.')).toBeInTheDocument()
+    expect(within(pane).queryByTitle(/would be Wanted/)).not.toBeInTheDocument()
+    expect(within(pane).queryByTitle(/keeps its file/)).not.toBeInTheDocument()
   })
 
   it('says it keeps its file and searches nothing when it holds one', async () => {
@@ -99,7 +99,7 @@ describe('the header of a Movie that is not monitored', () => {
       ),
     )
     const pane = await open()
-    expect(await within(pane).findByText('Kestrel keeps its file and searches nothing.')).toBeInTheDocument()
+    expect(await within(pane).findByTitle('Kestrel keeps its file and searches nothing.')).toBeInTheDocument()
   })
 })
 
@@ -112,8 +112,8 @@ describe('monitoring a Series', () => {
     const button = await within(pane).findByRole('button', { name: MONITORING })
     expect(button).toHaveTextContent('Monitored · all episodes')
     expect(within(pane).getByRole('button', { name: 'Search Wanted' })).toBeInTheDocument()
-    expect(within(pane).getByText(/^Kestrel searches every Wanted episode and grabs new ones as they air\./)).toBeInTheDocument()
-    expect(within(pane).getByText(/1 Special is not monitored\./)).toBeInTheDocument()
+    expect(within(pane).getByTitle(/^Kestrel searches every Wanted episode and grabs new ones as they air\./)).toBeInTheDocument()
+    expect(within(pane).getByTitle(/1 Special is not monitored\./)).toBeInTheDocument()
 
     await userEvent.click(button)
     const menu = await screen.findByRole('menu')
@@ -193,7 +193,7 @@ describe('a Series that is not monitored', () => {
 
     await waitFor(() => expect(fake.get().sent).toContainEqual({ path: 'titles', body: { series_monitor: 'none' } }))
     await waitFor(() => expect(screen.getByRole('button', { name: MONITORING })).toHaveTextContent('Not monitored'))
-    expect(screen.getByText('Kestrel keeps the files and searches nothing.')).toBeInTheDocument()
+    expect(screen.getByTitle(/Kestrel keeps the files and searches nothing\./)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: MONITORING }))
     expect(screen.getByRole('menuitemradio', { name: /^Not monitored/ })).toBeChecked()
     expect(screen.getByRole('menuitemradio', { name: /^All episodes/ })).not.toBeChecked()
