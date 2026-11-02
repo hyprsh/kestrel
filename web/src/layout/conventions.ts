@@ -10,13 +10,13 @@
 //
 // THE PIECES
 // One file per piece, except where noted: a file that exports two pieces lists both.
+//   FieldEnd.tsx          FieldEnd: a button at the end of a design   <FieldEnd id="field-id"><Button svgOnly>{x}</Button></FieldEnd>
+//                         text field, inside its box
 //   FilterButton.tsx      FilterButton, FacetFilterButton and    <FilterButton count={n}>{checkable items}</FilterButton>
 //                         SortButton: the one Filter button      <FacetFilterButton query onQuery qualifiers />
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
 //   FloatingBar.tsx       toolbar for ticked rows: over a list's foot, or sticky in a pane    <FloatingBar label="2 ticked">{actions}</FloatingBar>
-//   JumpNav.tsx           JumpNav, JumpGroup, JumpLink: a panel's section links    <JumpNav label><JumpGroup title><JumpLink href onClick current warn>{name}</JumpLink>
-//                         (current, a "Needs attention" dot, a note line)
 //   ListPane.tsx          list column beside a detail pane       <ListPane>{list}</ListPane>
 //   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
 //                         NowEmpty: the Overview's Downloading and Searching cards

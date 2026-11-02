@@ -167,14 +167,6 @@ export function Library({
     },
     keys,
   )
-  useKey(
-    '/',
-    (e) => {
-      e.preventDefault()
-      document.getElementById('library-filter')?.focus()
-    },
-    keys,
-  )
   useKey('x', () => current && !hit && selection.toggle(current.id), keys)
   // `s` and `m` on a result: Search now, and Manual search (in the Slot that is Wanted, else the first).
   useKey(
@@ -205,8 +197,9 @@ export function Library({
   const field = (
     <FilterBar
       id="library-filter"
+      shortcut="/"
       label="Filter the Library"
-      placeholder={phone ? 'Filter titles' : 'Filter titles, e.g. slot:4k  /'}
+      placeholder={phone ? 'Filter titles' : 'Filter titles, e.g. slot:4k'}
       value={query}
       onChange={onQuery}
       qualifiers={qualifiers}
