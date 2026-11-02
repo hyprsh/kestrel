@@ -51,9 +51,7 @@ export function EpisodeChips({
       const file = cell.file
       return {
         ...base,
-        wrap: (trigger) => (
-          <EpisodeFilePopover label={label} heading={heading} cell={cell} file={file} trigger={trigger} onUpgrade={version ? () => actions.manual(version, scope, code) : undefined} />
-        ),
+        wrap: (trigger) => <EpisodeFilePopover label={label} heading={heading} cell={cell} file={file} trigger={trigger} onUpgrade={version ? () => actions.upgrade(version, episode) : undefined} />,
       }
     }
     const act: SlotAction[] = []

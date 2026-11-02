@@ -29,6 +29,8 @@ export type EpisodeActions = {
   versions: EpisodeVersion[]
   /** Search now in every Slot where one of `eps` is Wanted (or only in the Slot `only` names); `scope` builds each body from that Slot's Wanted ids. */
   search: (eps: Episode[], label: string, scope: (wanted: number[]) => EpisodeScope, only?: string) => void
+  /** The automatic Upgrade search for one episode in one Version: it grabs only a Release the Profile ranks above the file held. */
+  upgrade: (v: EpisodeVersion, episode: Episode) => void
   /** Opens Manual search for one Version, narrowed to `body` and named `label`. */
   manual: (v: EpisodeVersion, body: EpisodeScope, label: string) => void
   /** Monitors or unmonitors episodes. */
@@ -73,6 +75,21 @@ export function useEpisodeSearch() {
   }
 }
 
+/** Search now for an Upgrade of one episode in one Version, with a Toast that says it started, or that there is nothing to upgrade. What the indexers had to offer reaches the Log. */
+export function useEpisodeUpgrade() {
+  const searchNow = useSearchNow()
+  const report = useReport()
+  return (v: EpisodeVersion, episode: Episode) => {
+    const code = episodeCode(episode)
+    const why = episode.monitored ? 'it is at its Cutoff or already downloading' : 'it is not monitored'
+    void report(searchNow.mutateAsync({ versionId: v.id, scope: { season: episode.season, episode_ids: [episode.id] }, upgrade: true }), {
+      started: (r) => (r.started ? `Upgrade search started for ${code} in ${v.slotName}` : ''),
+      done: `Nothing to upgrade for ${code} in ${v.slotName}: ${why}`,
+      failed: `Could not search for an Upgrade of ${code}`,
+    })
+  }
+}
+
 /** The actions of one Series' episode table, with the selection of ticked episodes. Only the episodes of the open season can be ticked: another season's ticks drop, as the Library drops the ticks a filter hides. */
 export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown: Episode[], slots: readonly string[], onManualSearch?: (t: ManualSearchTarget) => void): EpisodeActions {
   const ids = useMemo(() => shown.map((e) => e.id), [shown])
@@ -86,6 +103,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
 
   const versions = versionsOf(title, slots, profiles.data, slotNames)
   const searchEpisodes = useEpisodeSearch()
+  const upgrade = useEpisodeUpgrade()
   const search: EpisodeActions['search'] = (eps, label, scope, only) => searchEpisodes(versions, eps, label, scope, only)
 
   const manual: EpisodeActions['manual'] = (v, body, label) => onManualSearch?.({ versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label, code: scopeCode(body, episodes) } })
@@ -129,7 +147,7 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
     return false
   }
 
-  return { shown, selection, versions, search, manual, monitor, monitorSeason, showInLog, deletes, onKey }
+  return { shown, selection, versions, search, upgrade, manual, monitor, monitorSeason, showInLog, deletes, onKey }
 }
 
 const nothingWanted = 'Nothing here is Wanted'
@@ -200,10 +218,10 @@ export function ManualButton({
 
 /**
  * The visible buttons of an episode row: Search, or Upgrade on an episode with a file and nothing Wanted, and Manual….
- * Search now only looks for what is Wanted, so Upgrade opens Manual search on the Slots that hold a file, where a better
- * Release can be picked.
+ * Search now looks for what is Wanted; Upgrade runs the automatic Upgrade search on the Slots that hold a file, which grabs
+ * only a better Release. Manual… is where a Release is picked by hand.
  */
-export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions, 'versions' | 'search' | 'manual'>; episode: Episode }) {
+export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions, 'versions' | 'search' | 'upgrade' | 'manual'>; episode: Episode }) {
   const { versions } = actions
   const code = episodeCode(episode)
   const scope = { season: episode.season, episode_ids: [episode.id] }
@@ -222,7 +240,7 @@ export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions,
           onClick={() => actions.search([episode], code, (ids) => ({ season: episode.season, episode_ids: ids }))}
         />
       ) : (
-        <ManualButton versions={files} text="Upgrade" name={`Upgrade ${code}`} icon={ArrowUpCircle} keyboard={false} size="tiny" variant="tertiary" onPick={(v) => actions.manual(v, scope, code)} />
+        <ManualButton versions={files} text="Upgrade" name={`Upgrade ${code}`} icon={ArrowUpCircle} keyboard={false} size="tiny" variant="tertiary" onPick={(v) => actions.upgrade(v, episode)} />
       )}
       <ManualButton
         versions={versions}
@@ -247,10 +265,16 @@ function ManualItems({ versions, text = 'Manual Search', onPick }: { versions: E
   ))
 }
 
-/** The search button of an episode row, shown on hover: Search now for what is Wanted in it. Upgrades are asked from a file's popover. */
-export function RowSearch({ actions, episode }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; episode: Episode }) {
+/**
+ * The search button of an episode row, shown on hover: Search now for what is Wanted in it, or, on an episode with a file
+ * and nothing Wanted, Upgrade, the automatic search for a better Release (a menu of the Slots when two hold a file).
+ */
+export function RowSearch({ actions, episode }: { actions: Pick<EpisodeActions, 'versions' | 'search' | 'upgrade'>; episode: Episode }) {
   const code = episodeCode(episode)
   const wanted = wantedIn([episode], actions.versions)
+  const files = filledIn([episode], actions.versions)
+  if (!wanted && files.length > 0)
+    return <ManualButton versions={files} text="Upgrade" name={`Upgrade ${code}`} icon={ArrowUpCircle} keyboard={false} size="tiny" variant="tertiary" onPick={(v) => actions.upgrade(v, episode)} />
   return (
     <IconAction
       icon={Search}
@@ -264,13 +288,15 @@ export function RowSearch({ actions, episode }: { actions: Pick<EpisodeActions, 
   )
 }
 
-/** The ⋯ menu of an episode row: Show in Log and Delete Files. Monitoring is the row's bookmark, a Slot's search and files are its chip's popover. */
+/** The ⋯ menu of an episode row: Manual Search… for an episode with a file, Show in Log and Delete Files. Monitoring is the row's bookmark, a Slot's search and files are its chip's popover. */
 export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: EpisodeActions; episode: Episode; onOpenChange?: (open: boolean) => void }) {
   const { versions } = actions
   const code = episodeCode(episode)
-  const withFiles = filledIn([episode], versions).length > 0
+  const filled = filledIn([episode], versions)
+  const withFiles = filled.length > 0
   return (
     <DotsMenu aria-label={`Actions for ${episodeName(episode)}`} size="tiny" iconSize={12} tabIndex={-1} onFocus={toRowCell} onOpenChange={onOpenChange} width={240}>
+      {withFiles && <ManualItems versions={filled} onPick={(v) => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)} />}
       <MenuItem prefix={<ScrollText aria-hidden className="size-4" />} onSelect={actions.showInLog}>
         Show in Log
       </MenuItem>

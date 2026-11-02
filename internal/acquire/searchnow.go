@@ -28,6 +28,17 @@ func (s *Service) searchNow(ctx context.Context, versionID int64, scope library.
 	return s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, false)
 }
 
+// searchUpgradeNow is searchNow for an Upgrade: the automatic search for a better Release than the file the Version
+// holds for the episodes within scope (or for a Movie), by the rules of the Upgrade sweep. It grabs only a Release the
+// Profile ranks above the file and leaves episodes at their Cutoff, unmonitored or still downloading alone.
+func (s *Service) searchUpgradeNow(ctx context.Context, versionID int64, scope library.Scope) (Outcome, error) {
+	titleID, _, err := s.checkScope(ctx, versionID, scope)
+	if err != nil {
+		return Outcome{}, err
+	}
+	return s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, true)
+}
+
 // StartSearch checks the Version and scope as searchNow does, then runs
 // searchNow in the background and returns at once. When the search is done it
 // records a Searched event saying what came of it in the Version's Slot (each
@@ -49,9 +60,89 @@ func (s *Service) StartSearch(ctx context.Context, versionID int64, scope librar
 		out, err := s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, false)
 		// A search cancelled at shutdown still says so in the Log.
 		ctx = context.WithoutCancel(ctx)
-		s.hist.Record(ctx, s.searchedEvent(ctx, "Searched by hand", titleID, versionID, label, where, out, err))
+		s.hist.Record(ctx, s.searchedEvent(ctx, "Searched by hand", titleID, versionID, label, where, out, err, nothingToGrab))
 	})
 	return nil
+}
+
+const (
+	nothingToGrab    = "nothing to grab"
+	nothingToUpgrade = "nothing to upgrade"
+	noBetterRelease  = "no better Release found"
+)
+
+// StartUpgradeSearch is StartSearch for an Upgrade: the Version's filled episodes within scope (or a filled Movie) are
+// searched for a better Release. It reports started false when nothing in scope can be upgraded (every episode is at its
+// Cutoff, unmonitored, not filled or being downloaded): no search runs, and the Log says "nothing to upgrade" at once.
+// Otherwise the search runs in the background and the Log says what came of it, "no better Release found" included.
+func (s *Service) StartUpgradeSearch(ctx context.Context, versionID int64, scope library.Scope) (started bool, err error) {
+	titleID, label, err := s.checkScope(ctx, versionID, scope)
+	if err != nil {
+		return false, err
+	}
+	where, err := s.slotOf(ctx, titleID, versionID)
+	if err != nil {
+		return false, err
+	}
+	const by = "Searched for Upgrades"
+	can, err := s.upgradable(ctx, titleID, versionID, where, scope)
+	if err != nil {
+		return false, err
+	}
+	if !can {
+		s.hist.Record(ctx, s.searchedEvent(ctx, by, titleID, versionID, label, where, Outcome{}, nil, nothingToUpgrade))
+		return false, nil
+	}
+	s.searches.run(func(ctx context.Context) {
+		out, err := s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, true)
+		ctx = context.WithoutCancel(ctx)
+		nothing := noBetterRelease
+		if !out.asked {
+			nothing = nothingToUpgrade
+		}
+		s.hist.Record(ctx, s.searchedEvent(ctx, by, titleID, versionID, label, where, out, err, nothing))
+	})
+	return true, nil
+}
+
+// upgradable says whether an Upgrade search of the Version within scope has anything to look for: a filled, monitored
+// episode (or Movie) below its Profile's Cutoff with no Grab running for it.
+func (s *Service) upgradable(ctx context.Context, titleID, versionID int64, where Slot, scope library.Scope) (bool, error) {
+	sub, err := s.subjectOf(ctx, titleID)
+	if err != nil {
+		return false, err
+	}
+	if sub.detail.Kind == library.Series {
+		eps, err := s.lib.Episodes(ctx, titleID, library.View{Now: s.clock()})
+		if err != nil {
+			return false, err
+		}
+		covered, err := s.coveredEpisodes(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, ep := range eps {
+			cell := ep.Cells[where]
+			if cell == nil || cell.State != library.Filled || covered[[2]int64{versionID, ep.ID}] || !ep.Monitored || !scope.Holds(ep) {
+				continue
+			}
+			if !cellHeld(cell, sub.versions[where]).Done {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	busy, err := s.busyVersions(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, v := range sub.detail.Versions {
+		if v.ID != versionID || !searchable(sub.detail, v, library.Filled, s.clock()) || busy[v.ID] {
+			continue
+		}
+		return v.File == nil || !fileHeld(v.File, sub.versions[v.Slot]).Done, nil
+	}
+	return false, nil
 }
 
 // StopSearches is the shutdown of the searches started by StartSearch: it
@@ -110,8 +201,8 @@ func (s *Service) slotOf(ctx context.Context, titleID, versionID int64) (Slot, e
 }
 
 // searchedEvent is the routine Searched event of one Version's search: by says who searched ("Searched by hand",
-// "Searched"), label the scope ("" for all of it).
-func (s *Service) searchedEvent(ctx context.Context, by string, titleID, versionID int64, label string, where Slot, out Outcome, err error) history.Event {
+// "Searched"), label the scope ("" for all of it) and nothing what a search that grabbed nothing says ("nothing to grab").
+func (s *Service) searchedEvent(ctx context.Context, by string, titleID, versionID int64, label string, where Slot, out Outcome, err error, nothing string) history.Event {
 	stored := s.storedSlots(ctx)
 	own := out
 	own.Grabbed = nil
@@ -121,7 +212,7 @@ func (s *Service) searchedEvent(ctx context.Context, by string, titleID, version
 		}
 	}
 	return history.Event{
-		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, by, label, slot.Label(stored, where), own, err),
+		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, by, label, slot.Label(stored, where), own, err, nothing),
 		Data: searchedData(label, slot.Label(stored, where), own, s.endOf(ctx, out, versionID, err)),
 	}
 }
@@ -144,7 +235,7 @@ func (s *Service) noteAutomatic(ctx context.Context, titleID int64, upgrade bool
 	}
 	for _, v := range d.Versions {
 		if slices.Contains(out.Searched, v.ID) {
-			s.hist.Record(ctx, s.searchedEvent(ctx, by, titleID, v.ID, "", v.Slot, out, err))
+			s.hist.Record(ctx, s.searchedEvent(ctx, by, titleID, v.ID, "", v.Slot, out, err, nothingToGrab))
 		}
 	}
 }
@@ -160,7 +251,7 @@ func searchedData(label, slotLabel string, out Outcome, end SearchEnd) json.RawM
 // searchedMessage says what a search by hand came to, naming the scope and the
 // Slot so two Versions' searches read apart: "Searched by hand for S01E02 in
 // 4K: grabbed 1 Release" (by is "Searched by hand").
-func (s *Service) searchedMessage(ctx context.Context, by, label, where string, out Outcome, err error) string {
+func (s *Service) searchedMessage(ctx context.Context, by, label, where string, out Outcome, err error, nothing string) string {
 	msg := by
 	if label != "" {
 		msg += " for " + label
@@ -174,7 +265,7 @@ func (s *Service) searchedMessage(ctx context.Context, by, label, where string, 
 	case len(out.Grabbed) > 1:
 		msg += fmt.Sprintf(": grabbed %d Releases", len(out.Grabbed))
 	default:
-		msg += ": nothing to grab"
+		msg += ": " + nothing
 		if s.pause != nil {
 			if paused, _ := s.pause.Paused(ctx); paused {
 				msg += " while Grabs are paused"

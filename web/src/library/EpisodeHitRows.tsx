@@ -31,7 +31,7 @@ type Props = {
   hits: EpisodeHit[]
   /** The cursor's result, or null while it is on a Title. */
   current: EpisodeHit | null
-  actionsOf: (hit: EpisodeHit) => Pick<EpisodeActions, 'versions' | 'search' | 'manual'>
+  actionsOf: (hit: EpisodeHit) => Pick<EpisodeActions, 'versions' | 'search' | 'upgrade' | 'manual'>
   /** A click on a row (not on its buttons). */
   onPick: (hit: EpisodeHit) => void
   phone: boolean
@@ -107,7 +107,7 @@ export function EpisodeHitRows({ hits, current, actionsOf, onPick, phone }: Prop
 }
 
 /** A season result's buttons: Search N (its Wanted episodes) and Manual…. */
-function SeasonButtons({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search' | 'manual'>; season: number; episodes: Episode[] }) {
+function SeasonButtons({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search' | 'upgrade' | 'manual'>; season: number; episodes: Episode[] }) {
   const name = seasonName(season)
   const wanted = episodes.filter((e) => actions.versions.some((v) => e.cells[v.slot]?.state === 'wanted')).length
   return (

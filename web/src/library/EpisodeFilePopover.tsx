@@ -185,7 +185,7 @@ export function FileDetailsPopover({
 
 /**
  * The popover of a filled episode cell: `heading` names the cell ("S05E01 \u00b7 Standard"), the cell's state is its dot, and
- * Upgrade Search opens Manual search on this Slot where a better Release can be picked.
+ * Upgrade Search runs the automatic search for a better Release in this Slot.
  */
 export function EpisodeFilePopover({
   label,

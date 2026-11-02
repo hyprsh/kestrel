@@ -19,7 +19,7 @@ import { size } from './bits'
 import { BulkActions } from './BulkActions'
 import { EpisodeViewContext } from './episodeView'
 import { episodeCode, seasonName } from './episodes'
-import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
+import { useEpisodeSearch, useEpisodeUpgrade, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
 import { useSlotNames } from './slots'
 import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
@@ -125,6 +125,7 @@ export function Library({
   const cursor = hit ? hitAt : hits.length + index
   const episodeView = useContext(EpisodeViewContext)
   const episodeSearch = useEpisodeSearch()
+  const episodeUpgrade = useEpisodeUpgrade()
   const showHit = (h: EpisodeHit) => {
     setHitKey(h.key)
     onSelect(h.title.id)
@@ -302,10 +303,11 @@ export function Library({
   const startSearchFor = (titleId: number, s: ManualSearchTarget) => onSearch({ titleId, versionId: s.versionId, scope: s.scope?.code ?? null })
   const startSearch = (s: ManualSearchTarget) => current && startSearchFor(current.id, s)
   /** What Search and Manual… do on a result row: for that Series, whichever Title the pane shows. */
-  function actionsOf(h: EpisodeHit): Pick<EpisodeActions, 'versions' | 'search' | 'manual'> {
+  function actionsOf(h: EpisodeHit): Pick<EpisodeActions, 'versions' | 'search' | 'upgrade' | 'manual'> {
     return {
       versions: h.versions,
       search: (eps, label, scope) => episodeSearch(h.versions, eps, label, scope),
+      upgrade: episodeUpgrade,
       manual: (v, body, label) => {
         showHit(h)
         startSearchFor(h.title.id, { versionId: v.id, slot: v.slot, profileName: v.profileName, scope: { body, label, code: scopeCode(body, h.episodes) } })

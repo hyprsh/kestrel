@@ -249,7 +249,9 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	versionOf := map[Slot]int64{}
 	searchedEpisodes := map[int64][]int64{}
 	for _, v := range d.Versions {
-		if !slices.Contains(versionIDs, v.ID) || v.State != want {
+		// An Upgrade search of named episodes (Search now's Upgrade) looks at those episodes' cells whatever the Version
+		// as a whole is: a Version with a Wanted episode is Wanted, and its filled episodes can still be upgraded.
+		if !slices.Contains(versionIDs, v.ID) || (v.State != want && !(upgrade && scope.Narrow())) {
 			continue
 		}
 		ver := Version{Slot: v.Slot}

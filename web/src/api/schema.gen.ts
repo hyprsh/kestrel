@@ -1116,6 +1116,13 @@ export interface paths {
          *     body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
          *     The answer comes at once; when the search is done, a `search` event in the Log says what it
          *     grabbed, and Grabs record their own events.
+         *     With `upgrade: true` it is an Upgrade search instead: it looks for a better Release for the
+         *     filled episodes in scope (or a filled Movie) and grabs only one the Version's Profile ranks
+         *     above the file held, by the rules of the Upgrade sweep (Cutoff, minimum Score, Blocklist, Pause
+         *     Grabs, indexer pauses). Wanted episodes are left alone, and so are those at their Cutoff,
+         *     unmonitored or with a Grab running. When none is left to upgrade nothing is searched, `200`
+         *     answers instead of `202` and the `search` event says "nothing to upgrade"; when the indexers
+         *     have nothing better the event says "no better Release found".
          *     A `season` the Series lacks (a negative one included), or an episode that is not the Series'
          *     (or not of `season`), is a `422` naming that field (`season` or `episode_ids`) with the code
          *     `unknown`. There are no other `422` codes.
@@ -3982,6 +3989,14 @@ export interface components {
         ReleaseSearch: {
             season?: number | null;
             episode_ids?: number[];
+        };
+        /** @description The body of Search now: what `ReleaseSearch` narrows, and whether the search is for Upgrades. */
+        SearchNow: components["schemas"]["ReleaseSearch"] & {
+            /**
+             * @description Search the filled episodes in scope (or a filled Movie) for a better Release instead of
+             *     the Wanted ones.
+             */
+            upgrade?: boolean;
         };
         /**
          * @description Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
@@ -7280,10 +7295,17 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["ReleaseSearch"];
+                "application/json": components["schemas"]["SearchNow"];
             };
         };
         responses: {
+            /** @description An Upgrade search had nothing to upgrade, so none was started. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description The search started. */
             202: {
                 headers: {
