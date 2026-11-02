@@ -199,7 +199,7 @@ func (d declarer) sections() []section {
 				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want, primary))); err != nil {
 					return err
 				}
-				// A Profile the file leaves out is removed, so no Version may use it (ADR 0014).
+				// A Profile the file leaves out is disabled and kept (#304), so no Version may use it.
 				if err := d.profiles.CheckKept(ctx, want); err != nil {
 					return fmt.Errorf("profiles: %w", err)
 				}
@@ -241,7 +241,17 @@ func (d declarer) sections() []section {
 			},
 			apply: func(ctx context.Context) error {
 				d.warnIgnoredDefaults()
-				return d.profiles.SetAll(ctx, want, declaredPrimary(f))
+				left, err := d.profiles.LeftOut(ctx, want)
+				if err != nil {
+					return err
+				}
+				if err := d.profiles.SetAll(ctx, want, declaredPrimary(f)); err != nil {
+					return err
+				}
+				for _, p := range left {
+					d.log.Info("config file: the Profile is not in the file's profiles section, so it is disabled and kept", "profile", p.Key, "name", p.Name)
+				}
+				return nil
 			},
 		})
 	}

@@ -1,9 +1,13 @@
 package api_test
 
 import (
+	"bytes"
+	"log/slog"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/hyprsh/kestrel/internal/app"
 )
 
 // twoProfiles declares two Profiles, one of the builtin keys on its builtin recipe and one recipe Profile, and two Slots.
@@ -50,12 +54,30 @@ func TestAFileDeclaringTwoProfilesAndTwoSlotsOnAFreshInstallStartsWithExactlyTho
 	checkTwoProfiles(t, in.setUp())
 }
 
-func TestAFileDeclaringTwoProfilesOnAnUpgradedInstallRemovesTheOthers(t *testing.T) {
+// The file names the household's set, but it never deletes a Profile: the others are disabled, kept and logged.
+func TestAFileDeclaringTwoProfilesOnAnUpgradedInstallDisablesAndKeepsTheOthers(t *testing.T) {
 	t.Parallel()
-	in := newInstance(t, "")
+	var log bytes.Buffer
+	in := newInstance(t, "", func(o *app.Options) { o.Logger = slog.New(slog.NewTextHandler(&log, nil)) })
 	in.mustDeclare(twoProfiles)
 	b := in.setUp()
-	checkTwoProfiles(t, b)
+	got := profileMapAll(t, b)
+	if len(got) != 7 {
+		t.Fatalf("profiles = %v, want the six builtin ones kept besides remux-4k", profileKeysOf(got))
+	}
+	for key, p := range got {
+		if want := key == "hd-primary" || key == "remux-4k"; p.Enabled != want {
+			t.Errorf("%s enabled = %v, want %v", key, p.Enabled, want)
+		}
+	}
+	for _, key := range []string{"any-primary", "any-original", "hd-original", "4k-primary", "4k-original"} {
+		if n := strings.Count(log.String(), "profile="+key+" "); n != 1 {
+			t.Errorf("the log names %s %d times, want once: %s", key, n, log.String())
+		}
+	}
+	if strings.Contains(log.String(), "profile=remux-4k") || strings.Contains(log.String(), "profile=hd-primary") {
+		t.Errorf("the log names a Profile the file declares: %s", log.String())
+	}
 
 	before := in.writes()
 	in.mustDeclare(twoProfiles)
@@ -69,6 +91,35 @@ func TestAFileDeclaringTwoProfilesOnAnUpgradedInstallRemovesTheOthers(t *testing
 		{"DELETE", "/profiles/remux-4k", ""},
 	} {
 		in.conflictNamingTheFile(c.method+" "+c.path, b.valid(c.method, c.path, c.body))
+	}
+}
+
+// An upgrade's file names the six builtin Profiles: the household's own unused Profile stays, disabled and logged.
+func TestAFileNamingTheSixBuiltinProfilesKeepsTheHouseholdsCustomOnesDisabled(t *testing.T) {
+	t.Parallel()
+	var log bytes.Buffer
+	in := newInstance(t, "", func(o *app.Options) { o.Logger = slog.New(slog.NewTextHandler(&log, nil)) })
+	b := in.setUp()
+	custom := b.valid("POST", "/profiles", `{"name":"Mine","copy_from":"hd-primary"}`)
+	if custom.Status != 201 {
+		t.Fatalf("POST /profiles = %d %s", custom.Status, custom.Body)
+	}
+	in.mustDeclare(declaredProfiles)
+	got := profileMapAll(t, b)
+	if len(got) != 7 {
+		t.Fatalf("profiles = %v, want the six and the custom one", profileKeysOf(got))
+	}
+	var found bool
+	for key, p := range got {
+		if p.Name == "Mine" {
+			found = true
+			if p.Enabled || !strings.Contains(log.String(), "profile="+key+" ") || !strings.Contains(log.String(), "Mine") {
+				t.Errorf("custom %s enabled=%v, log: %s", key, p.Enabled, log.String())
+			}
+		}
+	}
+	if !found {
+		t.Error("the custom Profile was deleted")
 	}
 }
 

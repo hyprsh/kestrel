@@ -128,7 +128,28 @@ func CheckAll(want map[string]State, primary Language) error {
 	return nil
 }
 
-// CheckKept is nil when every stored Profile the file leaves out can go: no Version uses it. A Slot's default is the
+// LeftOut is the stored Profiles the file does not name. SetAll disables them and keeps them (#304): the file names the
+// household's set, but it never deletes a Profile.
+func (s *Service) LeftOut(ctx context.Context, want map[string]State) ([]Profile, error) {
+	rows, err := db.New(s.st.Read()).ListProfiles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []Profile
+	for _, r := range rows {
+		if _, ok := want[r.Key]; ok {
+			continue
+		}
+		p, err := fromRow(r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// CheckKept is nil when every stored Profile the file leaves out can be disabled: no Version uses it. A Slot's default is the
 // caller's to check, as the Slots are the file's or the saved ones. A rejection is an error naming the Profile.
 func (s *Service) CheckKept(ctx context.Context, want map[string]State) error {
 	q := db.New(s.st.Read())
@@ -180,10 +201,11 @@ func checkRecipe(p Profile, enabled bool, primary Language, prefix string) error
 }
 
 // SetAll brings the Profiles to want after checking it with CheckAll: the ones the file names are made if missing and
-// changed if they differ, and a stored Profile it leaves out is removed. It writes only what differs, so the same state
+// changed if they differ, and a stored Profile it leaves out is disabled and kept (#304). It writes only what differs, so the same state
 // twice writes nothing. A Profile a Slot names as its default stays: the file declares the Slots first (see the Config
 // File's order), so the Slot's default is already the one it wants, and a Profile a Version uses cannot go
 // (CheckKept asks first; this is the same rule held in the transaction).
+// Nothing here deletes a Profile.
 // declared is the Primary Language the Config File declares, which the recipes are backed under; empty takes the saved one, so a
 // file that changes the language and the Profiles at once is checked against the language it brings.
 func (s *Service) SetAll(ctx context.Context, want map[string]State, declared Language) error {
@@ -214,7 +236,7 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 			}
 			w, kept := want[cur.Key]
 			if !kept {
-				if err := removeUndeclared(ctx, q, cur); err != nil {
+				if err := disableUndeclared(ctx, q, cur); err != nil {
 					return err
 				}
 				continue
@@ -280,9 +302,9 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 	})
 }
 
-// removeUndeclared deletes a Profile the Config File leaves out, unless a Slot defaults to it (*DefaultError) or a Version
-// uses it (ErrInUse).
-func removeUndeclared(ctx context.Context, q *db.Queries, p Profile) error {
+// disableUndeclared disables a Profile the Config File leaves out and keeps it, unless a Slot defaults to it
+// (*DefaultError) or a Version uses it (ErrInUse).
+func disableUndeclared(ctx context.Context, q *db.Queries, p Profile) error {
 	if err := notADefault(ctx, q, p.Key); err != nil {
 		return err
 	}
@@ -293,8 +315,10 @@ func removeUndeclared(ctx context.Context, q *db.Queries, p Profile) error {
 	if n > 0 {
 		return fmt.Errorf("%w: %s (%s)", ErrInUse, p.Key, p.Name)
 	}
-	_, err = q.DeleteProfile(ctx, p.Key)
-	return err
+	if !p.Enabled {
+		return nil
+	}
+	return q.SetProfileEnabled(ctx, db.SetProfileEnabledParams{Enabled: 0, Key: p.Key})
 }
 
 // insertMissing makes each Profile the file declares that the rows lack, enabled, and returns the rows again. A builtin
