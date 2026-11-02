@@ -18,3 +18,18 @@ SELECT COUNT(*) FROM versions WHERE slot = ?;
 
 -- name: ProfileKeys :many
 SELECT key FROM profiles;
+
+-- name: ListSlotAliases :many
+SELECT slot, alias FROM slot_aliases ORDER BY slot, alias;
+
+-- name: InsertSlotAlias :exec
+INSERT OR IGNORE INTO slot_aliases (slot, alias) VALUES (?, ?);
+
+-- name: DeleteAliasesNamed :exec
+DELETE FROM slot_aliases WHERE alias = ?;
+
+-- name: SlotFileCount :one
+SELECT COUNT(*) FROM files f JOIN versions v ON v.id = f.version_id WHERE v.slot = ?;
+
+-- name: SlotTitleIDs :many
+SELECT DISTINCT title_id FROM versions WHERE slot = ? ORDER BY title_id;

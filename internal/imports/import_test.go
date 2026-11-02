@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,6 +57,7 @@ func good() probe.Info {
 
 type rig struct {
 	st       *store.Store
+	slotSvc  *slots.Service
 	svc      *imports.Service
 	health   *health.Service
 	lib      *library.Service
@@ -116,7 +118,7 @@ func newRig(t *testing.T) *rig {
 	}
 	t.Cleanup(func() { st.Close() })
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
-	r := &rig{st: st, prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
+	r := &rig{st: st, slotSvc: slots.New(st), prober: &fakeProber{info: map[string]probe.Info{}}, root: t.TempDir(), downs: t.TempDir(), versions: map[slot.Slot]int64{}}
 	r.lib = library.New(st, func() time.Time { return now })
 	r.titleID, err = r.lib.AddMovie(ctx, library.AddMovie{
 		Details: metadata.MovieDetails{
@@ -137,7 +139,7 @@ func newRig(t *testing.T) *rig {
 	}
 	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return now }})
 	svc, err := imports.New(imports.Deps{
-		Library: r.lib, Renames: renames{r.lib, r}, Rename: r.renameDir, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health, FolderChanged: r.notes.changed,
+		Library: r.lib, Slots: r.slotSvc, Renames: renames{r.lib, r}, Rename: r.renameDir, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health, FolderChanged: r.notes.changed,
 		History: &r.log, Blocklist: &r.blocks, Remove: r.remove,
 		Link: func(src, dst string) error {
 			if r.crossDevice {

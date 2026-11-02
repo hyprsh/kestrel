@@ -10,8 +10,6 @@ import (
 	"slices"
 	"strings"
 	"unicode"
-
-	"github.com/hyprsh/kestrel/internal/resolution"
 )
 
 // Slot is the id of a Slot: the slug an admin's Slot got when it was created. It
@@ -101,13 +99,4 @@ func Compare(a, b Slot) int {
 		return c
 	}
 	return cmp.Compare(a, b)
-}
-
-// OfClass maps a probed resolution class to a Slot: UHD to 4K, anything else
-// to Standard.
-func OfClass(c resolution.Class) Slot {
-	if c == resolution.UHD {
-		return FourK
-	}
-	return Standard
 }

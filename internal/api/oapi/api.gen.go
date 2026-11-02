@@ -2162,9 +2162,14 @@ type AdoptionFile struct {
 	//
 	//
 	// Example: standard
-	Slot      SlotId             `json:"slot"`
-	Subtitles []AdoptionSubtitle `json:"subtitles"`
-	Ticked    bool               `json:"ticked"`
+	Slot SlotId `json:"slot"`
+
+	// SlotGuessed `true` when the file's name carries no label (or alias) of a Slot at the place Adoption reads it, so `slot` is
+	// a guess from the file's resolution (ADR 0024): the first Slot whose default Profile covers it, else the first
+	// Slot. The review lists these.
+	SlotGuessed bool               `json:"slot_guessed"`
+	Subtitles   []AdoptionSubtitle `json:"subtitles"`
+	Ticked      bool               `json:"ticked"`
 
 	// To The path it gets in the naming scheme.
 	To string `json:"to"`
@@ -4282,8 +4287,10 @@ type RequestCreate struct {
 	RootFolder *string `json:"root_folder,omitempty"`
 
 	// Seasons Series only; `null` or left out asks for the whole Series.
-	Seasons *[]int              `json:"seasons,omitempty"`
-	Slots   []RequestSlotCreate `json:"slots"`
+	Seasons *[]int `json:"seasons,omitempty"`
+
+	// Slots The Slots to add a Version in, each with an optional Profile. Left out (or empty), the Request gets a Version in every Slot that is on for new Titles, each with that Slot's default Profile for the Title's kind (ADR 0024).
+	Slots *[]RequestSlotCreate `json:"slots,omitempty"`
 
 	// Source Example: silo
 	Source string `json:"source"`
@@ -4813,6 +4820,10 @@ type Slot struct {
 
 	// Position The Slot's place in the order, from 0 and without gaps.
 	Position int `json:"position"`
+
+	// RenamesFiles Only on the answer to `PATCH /slots/{id}` that changes the label: how many files carry the Slot's old label
+	// (a dry run: that the rename will touch; a save: that it renamed or is renaming).
+	RenamesFiles *int `json:"renames_files,omitempty"`
 }
 
 // SlotCreate defines model for SlotCreate.
@@ -5962,6 +5973,14 @@ type ListRequestsParamsStatus string
 // ListRequestsParamsOutcome defines parameters for ListRequests.
 type ListRequestsParamsOutcome string
 
+// PatchSlotParams defines parameters for PatchSlot.
+type PatchSlotParams struct {
+	// DryRun When `true` the change is checked against every rule and answered as it would be saved, but nothing is
+	// saved and no file is renamed. A new `label` is then answered with `renames_files`, the number of files the
+	// rename will touch, for Settings' "Renames N files".
+	DryRun *bool `form:"dry_run,omitempty" json:"dry_run,omitempty"`
+}
+
 // GetStatsParams defines parameters for GetStats.
 type GetStatsParams struct {
 	Range *GetStatsParamsRange `form:"range,omitempty" json:"range,omitempty"`
@@ -6721,7 +6740,7 @@ type ServerInterface interface {
 	DeleteSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam)
 	// PatchSlot Change a Slot
 	// (PATCH /slots/{id})
-	PatchSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam)
+	PatchSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam, params PatchSlotParams)
 	// DiscardStalledImports Discard stalled Imports
 	// (POST /stalled-imports/discard)
 	DiscardStalledImports(w http.ResponseWriter, r *http.Request)
@@ -8911,8 +8930,24 @@ func (siw *ServerInterfaceWrapper) PatchSlot(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PatchSlotParams
+
+	// ------------- Optional query parameter "dry_run" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "dry_run", r.URL.Query(), &params.DryRun, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "dry_run"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dry_run", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PatchSlot(w, r, id)
+		siw.Handler.PatchSlot(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -14828,8 +14863,9 @@ func (response DeleteSlotdefaultApplicationProblemPlusJSONResponse) VisitDeleteS
 }
 
 type PatchSlotRequestObject struct {
-	Id   SlotIdParam `json:"id"`
-	Body *PatchSlotJSONRequestBody
+	Id     SlotIdParam `json:"id"`
+	Params PatchSlotParams
+	Body   *PatchSlotJSONRequestBody
 }
 
 type PatchSlotResponseObject interface {
@@ -19270,10 +19306,11 @@ func (sh *strictHandler) DeleteSlot(w http.ResponseWriter, r *http.Request, id S
 }
 
 // PatchSlot operation middleware
-func (sh *strictHandler) PatchSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam) {
+func (sh *strictHandler) PatchSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam, params PatchSlotParams) {
 	var request PatchSlotRequestObject
 
 	request.Id = id
+	request.Params = params
 
 	var body PatchSlotJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

@@ -38,6 +38,10 @@ func TestSiloCanReadTheRepository(t *testing.T) {
 	}
 	fields := m.GetCapabilities()[0].GetConfigSchema()[0].GetAdminForm().GetFields()
 	want := map[string]pluginv1.AdminFormControl{
+		"1080p_slot":       pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
+		"2160p_slot":       pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
+		"1080p_profile":    pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
+		"2160p_profile":    pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
 		"standard_profile": pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
 		"4k_profile":       pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
 		"root_folder":      pluginv1.AdminFormControl_ADMIN_FORM_CONTROL_SELECT,
