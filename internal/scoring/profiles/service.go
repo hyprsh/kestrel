@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"slices"
 	"strings"
@@ -134,17 +135,21 @@ type Service struct {
 	tx       *sql.Tx // set by InTx: writes join the caller's transaction
 	live     *scoring.Holder
 	cutoffs  *cutoffCache // BelowCutoff's last answer; shared by the Service and what InTx makes of it
+	log      *slog.Logger // nil logs nothing
 }
 
 // InTx returns a Service whose settings and Profile writes run inside tx; the
 // caller commits or rolls back.
 func (s *Service) InTx(tx *sql.Tx) *Service {
-	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live, cutoffs: s.cutoffs}
+	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live, cutoffs: s.cutoffs, log: s.log}
 }
 
 // UseScoring makes the Service back Profiles with the live TRaSH snapshot
 // instead of the embedded one. Call it before the Service is shared.
 func (s *Service) UseScoring(h *scoring.Holder) { s.live = h }
+
+// UseLogger makes the Service log what it changes on its own, such as a Profile a new Primary Language disables.
+func (s *Service) UseLogger(l *slog.Logger) { s.log = l }
 
 // New returns a Service over st. settings holds the language document.
 func New(st *store.Store, s *settings.Settings) *Service {
@@ -463,7 +468,9 @@ func (s *Service) setRegion(ctx context.Context, p RegionPatch, check bool) (Reg
 		}
 		next.Country = *p.Country
 	}
+	var disabled []Profile
 	err = s.write(ctx, func(q *db.Queries) error {
+		disabled = nil
 		rows, err := q.ListProfiles(ctx)
 		if err != nil {
 			return err
@@ -485,6 +492,7 @@ func (s *Service) setRegion(ctx context.Context, p RegionPatch, check bool) (Reg
 				if err := q.SetProfileEnabled(ctx, db.SetProfileEnabledParams{Enabled: 0, Key: p.Key}); err != nil {
 					return err
 				}
+				disabled = append(disabled, p)
 			}
 			if err := q.SetProfileTrash(ctx, db.SetProfileTrashParams{
 				TrashProfileMovies: movies, TrashProfileSeries: series, Key: p.Key,
@@ -500,6 +508,11 @@ func (s *Service) setRegion(ctx context.Context, p RegionPatch, check bool) (Reg
 	raw, _ := json.Marshal(regionDoc{PrimaryLanguage: next.Primary, ReleaseDateCountry: next.Country})
 	if err := s.settings.Put(ctx, regionKey, raw); err != nil {
 		return Region{}, err
+	}
+	if s.log != nil {
+		for _, p := range disabled {
+			s.log.Info("the Profile is disabled: nothing uses it and the new Primary Language has no backing profile for its recipe", "profile", p.Key, "name", p.Name, "primary_language", string(next.Primary))
+		}
 	}
 	return next, nil
 }

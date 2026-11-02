@@ -160,6 +160,7 @@ func New(opts Options) *App {
 	live := scoring.NewHolder(embedded)
 	profs := profiles.New(st, appSettings)
 	profs.UseScoring(live)
+	profs.UseLogger(opts.Logger)
 	slotSvc := slots.New(st)
 	roots := rootfolders.New(appSettings, opts.DataDir)
 	disp := display.New(appSettings)
