@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const paddingtonFolder = "Paddington (2014) {tmdb-116149}"
@@ -39,7 +40,14 @@ func TestRenamingAStandardLabelRenamesItsFilesLogsItAndAdoptionStillReadsTheOldL
 	if r.Status != 200 {
 		t.Fatalf("PATCH = %d %s", r.Status, r.Body)
 	}
-	renamed := a.titleFiles(t, id)["standard"]
+	// The files follow in the background.
+	var renamed string
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		renamed = a.titleFiles(t, id)["standard"]
+		if strings.Contains(filepath.Base(renamed), "[Original]") {
+			break
+		}
+	}
 	if !strings.HasPrefix(filepath.Base(renamed), paddingtonFolder+" - [Original]") || !exists(t, renamed) {
 		t.Errorf("file after the rename = %q", renamed)
 	}

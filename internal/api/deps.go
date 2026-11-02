@@ -44,6 +44,8 @@ type Deps struct {
 	Acquire     Acquire
 	Requests    Requests
 	Adoption    Adoption
+	// SlotRenames are the background jobs renaming a Slot's files; nil shows none.
+	SlotRenames SlotRenames
 	Cleanup     Cleanup
 	Remover     Remover
 	Imports     Rescorer
@@ -91,6 +93,11 @@ type Slots interface {
 	Delete(ctx context.Context, id slot.Slot) error
 	// OnChange sets what runs after any change to the Slots is saved, whoever made it.
 	OnChange(f func())
+}
+
+// SlotRenames are the file renames running or waiting after a Slot's label changed.
+type SlotRenames interface {
+	Active(ctx context.Context) ([]imports.SlotRenameProgress, error)
 }
 
 // Presets are the setup wizard's Slot presets.

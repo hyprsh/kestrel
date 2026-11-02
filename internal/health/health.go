@@ -79,6 +79,8 @@ const (
 	KindRefreshFailed Kind = "refresh_failed"
 	// KindPlexNoSection: a Title folder lies in no Plex library section.
 	KindPlexNoSection Kind = "plex_no_section"
+	// KindSlotRenameFailed: some Titles of a Slot did not follow its new label.
+	KindSlotRenameFailed Kind = "slot_rename_failed"
 )
 
 // Subject is what a row is about, for the actions it offers. Zero fields are unset.

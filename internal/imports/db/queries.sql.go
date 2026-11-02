@@ -28,6 +28,15 @@ func (q *Queries) DeleteAdoptionRows(ctx context.Context) error {
 	return err
 }
 
+const deleteSlotRename = `-- name: DeleteSlotRename :exec
+DELETE FROM slot_renames WHERE slot_id = ?
+`
+
+func (q *Queries) DeleteSlotRename(ctx context.Context, slotID string) error {
+	_, err := q.db.ExecContext(ctx, deleteSlotRename, slotID)
+	return err
+}
+
 const failAdoptionScan = `-- name: FailAdoptionScan :exec
 UPDATE adoption_plan SET state = 'idle', revision = revision + 1, error = ? WHERE id = 1
 `
@@ -228,6 +237,39 @@ func (q *Queries) ListFolderChangesAfter(ctx context.Context, arg ListFolderChan
 	return items, nil
 }
 
+const listSlotRenames = `-- name: ListSlotRenames :many
+SELECT slot_id, label, done, total, queued_at FROM slot_renames ORDER BY queued_at, slot_id
+`
+
+func (q *Queries) ListSlotRenames(ctx context.Context) ([]SlotRename, error) {
+	rows, err := q.db.QueryContext(ctx, listSlotRenames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SlotRename
+	for rows.Next() {
+		var i SlotRename
+		if err := rows.Scan(
+			&i.SlotID,
+			&i.Label,
+			&i.Done,
+			&i.Total,
+			&i.QueuedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pruneFolderChanges = `-- name: PruneFolderChanges :exec
 DELETE FROM folder_changes
 WHERE id <= (SELECT MAX(c.id) FROM folder_changes c WHERE c.at < ?)
@@ -236,6 +278,22 @@ WHERE id <= (SELECT MAX(c.id) FROM folder_changes c WHERE c.at < ?)
 
 func (q *Queries) PruneFolderChanges(ctx context.Context, at string) error {
 	_, err := q.db.ExecContext(ctx, pruneFolderChanges, at)
+	return err
+}
+
+const queueSlotRename = `-- name: QueueSlotRename :exec
+INSERT INTO slot_renames (slot_id, label, done, total, queued_at) VALUES (?, ?, 0, 0, ?)
+ON CONFLICT (slot_id) DO UPDATE SET label = excluded.label, done = 0, total = 0, queued_at = excluded.queued_at
+`
+
+type QueueSlotRenameParams struct {
+	SlotID   string
+	Label    string
+	QueuedAt string
+}
+
+func (q *Queries) QueueSlotRename(ctx context.Context, arg QueueSlotRenameParams) error {
+	_, err := q.db.ExecContext(ctx, queueSlotRename, arg.SlotID, arg.Label, arg.QueuedAt)
 	return err
 }
 
@@ -291,6 +349,21 @@ type SetAdoptionStateParams struct {
 
 func (q *Queries) SetAdoptionState(ctx context.Context, arg SetAdoptionStateParams) error {
 	_, err := q.db.ExecContext(ctx, setAdoptionState, arg.State, arg.Error)
+	return err
+}
+
+const setSlotRenameProgress = `-- name: SetSlotRenameProgress :exec
+UPDATE slot_renames SET done = ?, total = ? WHERE slot_id = ?
+`
+
+type SetSlotRenameProgressParams struct {
+	Done   int64
+	Total  int64
+	SlotID string
+}
+
+func (q *Queries) SetSlotRenameProgress(ctx context.Context, arg SetSlotRenameProgressParams) error {
+	_, err := q.db.ExecContext(ctx, setSlotRenameProgress, arg.Done, arg.Total, arg.SlotID)
 	return err
 }
 

@@ -113,6 +113,7 @@ type App struct {
 	Health *health.Service
 
 	mediaRefresh *imports.Refresher
+	slotRenamer  *imports.SlotRenamer
 	declarer     declarer
 }
 
@@ -122,6 +123,7 @@ type App struct {
 // the HTTP server and Jobs have stopped, so no change comes after it, and
 // before the store closes.
 func (a *App) Close(ctx context.Context) {
+	a.slotRenamer.Close()
 	a.mediaRefresh.Flush(ctx)
 	a.mediaRefresh.Close()
 }
@@ -238,11 +240,19 @@ func New(opts Options) *App {
 		panic("app: Import cannot start: " + err.Error())
 	}
 	// A new Slot label, from the API or the Config File, renames that Slot's files (ADR 0024).
+	// The rename runs as a persisted background job, so saving a label (and a
+	// Config File applied at startup) never waits for the files.
+	slotRenamer := imports.NewSlotRenamer(imports.SlotRenamerDeps{
+		Store: st, Rename: imp.RenameSlotProgress, Label: imp.SlotLabel, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
+	})
 	slotSvc.OnRelabel(func(ctx context.Context, id slot.Slot) {
-		if _, err := imp.RenameSlot(context.WithoutCancel(ctx), id); err != nil {
-			opts.Logger.Warn("renaming a Slot's files after its label changed failed", "slot", string(id), "err", err)
+		if err := slotRenamer.Enqueue(context.WithoutCancel(ctx), id); err != nil {
+			opts.Logger.Warn("queueing the rename of a Slot's files after its label changed failed", "slot", string(id), "err", err)
 		}
 	})
+	if err := slotRenamer.Resume(context.Background()); err != nil {
+		opts.Logger.Warn("resuming the Slot file renames failed", "err", err)
+	}
 	adoption, err := imports.NewAdoption(imports.AdoptionDeps{
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
 		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
@@ -301,7 +311,7 @@ func New(opts Options) *App {
 
 	deps := api.Deps{
 		Plugins: pluginInstances, Profiles: profs, Slots: slotSvc, Presets: presets.New(st, profs, slotSvc), RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
-		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp, FolderChanges: folderFeed,
+		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, SlotRenames: slotRenamer, Imports: imp, Files: imp, FolderChanges: folderFeed,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,
 	}
@@ -314,7 +324,7 @@ func New(opts Options) *App {
 	}))
 	runner.UseRunLog(jobs.NewStoreRunLog(st))
 	handler := api.New(opts.Options, deps)
-	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, declarer: declarer{
+	return &App{Handler: handler, Jobs: runner, Health: healthSvc, mediaRefresh: mediaRefresh, slotRenamer: slotRenamer, declarer: declarer{
 		file: opts.ConfigFile, api: api.NewDeclared(opts.Options, deps),
 		profiles: profs, slots: slotSvc, roots: roots, display: disp, updates: upd, trash: trashUpdates, plugins: pluginInstances, log: opts.Logger,
 	}}
