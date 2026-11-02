@@ -5,7 +5,7 @@ Kestrel has two kinds of settings:
 - **Bootstrap settings** are environment variables. They say where Kestrel listens and keeps its files. [Environment variables](#environment-variables) lists them.
 - **Everything else** lives in the database and is set in the UI, under Settings.
 
-If you want Kestrel set up the same way every time, a [Config File](#the-config-file) declares the account, Profiles, download client, indexers and more. Whatever it declares, the UI shows read-only ([ADR 0014](../adr/0014-config-file-declares-sections.md)).
+If you want Kestrel set up the same way every time, a [Config File](#the-config-file) declares the account, Profiles, download client, indexers and more. Whatever it declares, the UI shows read-only.
 
 New here? [Getting started](getting-started.md) walks through the setup in the UI.
 
@@ -66,7 +66,7 @@ Kestrel never downgrades. If the database is newer than the binary, Kestrel refu
 
 ### Updates
 
-Once a day, unless you switch off Settings > General > Updates > "Check GitHub daily" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. A newer release shows in Health and in Settings > About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
+Once a day, unless you switch off Settings > General > Updates > "Check GitHub daily" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. The same switch covers the daily check for a newer TRaSH commit, so with it off Kestrel makes no request to GitHub at all. A newer release shows in Health and in Settings > About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
 
 ## The Config File
 
@@ -158,7 +158,7 @@ plex_sign_in: # Requesters sign in with Plex; see "Requesters (Plex sign-in)"
   user_root_folders: # optional: where a user's Requests for new Titles go, instead of the first Root folder
     anna: { movies: /data/media/movies-kids }
     ben: { series: /data/media/tv }
-  watchlist: true # optional, off until set: Requests from Plex Watchlists (ADR 0019)
+  watchlist: true # optional, off until set: Requests from Plex Watchlists
   watch_ahead: true # optional, off until set: a Requester's Series Request starts with season 1
   labels: true # optional, off until set: Requested labels and a collection in Plex
   poster_badge: true # optional, off until set: a "Requested" badge on posters in Plex
@@ -200,7 +200,7 @@ services:
 
 Mount the file outside `/config`. The entrypoint takes ownership of `/config`, which fails on a read-only mount. The file must be readable by `PUID`.
 
-With every section declared, setup is complete at startup and the first page is the login. Setup completes as soon as nothing is left to do, from the file or from the UI. That takes an account, the language, an enabled download client, an enabled indexer and the root folders.
+With every section declared, setup is complete at startup and the first page is the login. Setup completes as soon as nothing is left to do, from the file or from the UI. That takes an account, the language, an enabled download client, an enabled indexer, the root folders and, for every Slot that is on for new Titles, a default Profile for Movies and one for Series.
 
 ### How it behaves
 
@@ -241,20 +241,20 @@ Every folder must exist and be writable.
 
 #### profiles
 
-List every Profile you have, under a key of your choosing: lower-case letters and digits, with single hyphens between. The section is the whole set, so a Profile it leaves out is disabled and kept, and the Profile endpoints and Settings > Profiles are read-only. Any of the six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`) may appear, in any combination, and keeps its builtin recipe when it gives none. Any other key is a recipe Profile and gives its `name`, `release_family`, `resolution` and `language_rule`. Every Profile takes `enabled` and `original_language`.
+List every Profile you have, under a key of your choosing: lower-case letters and digits, with single hyphens between. The section is the whole set, so a Profile it leaves out is disabled and kept, and the Profile endpoints and Settings > Profiles are read-only. Any of the six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`) may appear, in any combination, and keeps its builtin recipe when it gives none. Any other key is a recipe Profile and gives its `name`, `release_family`, `resolution` and `language_rule`. Every Profile gives `enabled` and `original_language`, and startup fails if one is missing.
 
 | Field               | Value                                                                                                                                                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`           | `true` or `false`.                                                                                                                                                                                                                                                              |
 | `original_language` | What the Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject`, `offer` it for approval in Needs attention, or `accept`. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). |
 | `name`              | The Profile's name, at most 40 characters and unique. Required for a key that is not a builtin one; a builtin key keeps its own name when it leaves this out.                                                                                                                   |
-| `resolution`        | `hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p). Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out.                                                                                                                  |
+| `resolution`        | `hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p). The API calls the 4K one `uhd`. Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out.                                                                                   |
 | `release_family`    | The Profile's Release Family: `bluray-web`, `remux-web`, `web` or `sqp`. Required for a key that is not a builtin one; a builtin key keeps its own (the six start as `bluray-web`) when it leaves this out. Any is only `bluray-web`.                                           |
 | `language_rule`     | `primary`, `original`, or one named language: `en`, `de` or `fr`. Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out. A named-language Profile takes `original_language` like a `primary` one, judged against its own language.  |
 | `default_movies`    | Ignored: the defaults for new Titles belong to the Slots (see `slots`). Kestrel logs a warning at startup naming each Profile that still sets it.                                                                                                                               |
 | `default_series`    | Ignored, like `default_movies`.                                                                                                                                                                                                                                                 |
 
-**Upgrading.** Four changes of the Slots release are deliberate breaks, not additions, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo ([ADR 0024](../adr/0024-admins-define-the-slots.md)). Here, in the Config File: the `default_movies` and `default_series` keys of a Profile are ignored, so move each into the `slots` section. In the API: a Profile's `slot` is optional and deprecated; `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`; and the Slot fields are strings, with the schema once called `Slot` now `SlotId` and `Slot` naming the Slot record. [Slots, Upgrading](slots.md#upgrading) has the detail. The Profile recipes release changes three more things: existing Profiles become Bluray + WEB with no change in scoring; fresh installs start without Profiles; and a Config File's `profiles` now names the set and disables what it leaves out, where it used to hold the six builtin Profiles only ([Slots, Upgrading](slots.md#profile-recipes)).
+**Upgrading.** Four changes of the Slots release are deliberate breaks, not additions, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo. Here, in the Config File: the `default_movies` and `default_series` keys of a Profile are ignored, so move each into the `slots` section. In the API: a Profile's `slot` is optional and deprecated; `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`; and the Slot fields are strings, with the schema once called `Slot` now `SlotId` and `Slot` naming the Slot record. [Slots, Upgrading](slots.md#upgrading) has the detail. The Profile recipes release changes three more things: existing Profiles become Bluray + WEB with no change in scoring; fresh installs start without Profiles; and a Config File's `profiles` now names the set and disables what it leaves out, where it used to hold the six builtin Profiles only ([Slots, Upgrading](slots.md#profile-recipes)).
 
 The rules of Settings > Profiles hold across the set:
 
@@ -267,7 +267,7 @@ The rules of Settings > Profiles hold across the set:
 
 #### slots
 
-A list of the library's Slots, in order ([ADR 0024](../adr/0024-admins-define-the-slots.md)). Declared, it names every Slot at once, and the Slot endpoints answer `409` and report `from_config_file`. Each entry takes:
+A list of the library's Slots, in order. Declared, it names every Slot at once, and the Slot endpoints answer `409` and report `from_config_file`. Each entry takes:
 
 | Field               | Value                                                                                                                                               |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -295,7 +295,7 @@ A plugin instance is one connection to a service: your download client, an index
 | `priority`  | Optional, default `0`. For an indexer, lower is asked first and wins between Releases of equal Score.   |
 | `config`    | The plugin's fields. The plugin's defaults fill the ones you leave out.                                 |
 
-Indexers with the same `priority` form a group and are asked together. An automatic search (the sweeps and Search now) asks the groups in turn, lowest first, and asks the next group only for what the earlier ones left: Wanted episodes or Upgrades with nothing to grab, and Versions that found only an Original Offer. An indexer that fails, is paused or is out of budget finds nothing for its group: what it would have found is left for the next group. A manual search and RSS ask every enabled indexer at once. With every indexer at the same priority, every search asks them all. ([ADR 0025](../adr/0025-ask-indexers-by-priority-group.md))
+Indexers with the same `priority` form a group and are asked together. An automatic search (the sweeps and Search now) asks the groups in turn, lowest first, and asks the next group only for what the earlier ones left: Wanted episodes or Upgrades with nothing to grab, and Versions that found only an Original Offer. An indexer that fails, is paused or is out of budget finds nothing for its group: what it would have found is left for the next group. A manual search and RSS ask every enabled indexer at once. With every indexer at the same priority, every search asks them all.
 
 The fields of `config` (give a secret as `<field>_env`):
 
@@ -331,7 +331,7 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 | `instance`          | Needed when `enabled` is `true`: the name of a `plex` plugin instance, declared in the same file or made in the UI.                          |
 | `users`             | Optional. Plex usernames, unique ignoring case. Leave it out or empty for everyone with access.                                              |
 | `user_root_folders` | Optional. A map from a Plex user to `movies` and `series`, each optional and one of that kind's root folders. Keys are unique ignoring case. |
-| `watchlist`         | Optional, off until set. Requests from Plex Watchlists ([ADR 0019](../adr/0019-requests-from-plex-watchlists.md)).                           |
+| `watchlist`         | Optional, off until set. Requests from Plex Watchlists.                                                                                      |
 | `watch_ahead`       | Optional, off until set. A Requester's Series Request starts with season 1.                                                                  |
 | `labels`            | Optional, off until set. Labels and a collection for requested Titles in Plex.                                                               |
 | `poster_badge`      | Optional, off until set. A "Requested" badge on posters in Plex.                                                                             |
@@ -339,7 +339,7 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 
 #### silo
 
-[Watch-ahead for Silo](#watch-ahead-for-silo) explains the feature ([ADR 0020](../adr/0020-watch-ahead-for-silo.md)). Applied after the plugin instances. Checked with the rules of `PUT /settings/silo`, against the instances the file declares.
+[Watch-ahead for Silo](#watch-ahead-for-silo) explains the feature. Applied after the plugin instances. Checked with the rules of `PUT /settings/silo`, against the instances the file declares.
 
 | Field         | Value                                                                                                                   |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -348,7 +348,7 @@ Lets people who share your Plex server make Requests. [Requesters](#requesters-p
 
 #### display
 
-The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A sort picked in Manual search and the Upcoming filter changed in a session still win. ([ADR 0022](../adr/0022-declared-display-settings-may-leave-others-to-the-ui.md))
+The household-wide view defaults. Name any of the keys: each one you name is read-only in Settings, and each you leave out stays the UI's. They are where a view starts. A sort picked in Manual search and the Upcoming filter changed in a session still win.
 
 | Field                | Value                                                                                                                                                                                                                         |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -370,13 +370,13 @@ These rules matter once you move between the UI and the file, or rename an insta
 - **Renaming deletes.** Renaming an instance in the file, or changing its `plugin_id`, deletes it and creates a new one. Don't rename a download client while Grabs are in flight. A Grab belongs to the instance it was sent to, and the new one is a different instance.
 - **Removing deletes.** An instance removed from the file is deleted on the next start. `plugin_instances: []` declares none, and deletes the instances the file declared before. Leaving `plugin_instances` out instead hands its instances back to the UI, and once the section returns they count as instances created in the UI.
 - **The UI's own instances are never touched.** The exception is the first start that declares a name: an instance created in the UI with that exact name and the same plugin is taken over instead of duplicated. A name the UI uses for another plugin, or for two instances, fails startup.
-- **What the UI can do with a declared instance:** test it, and switch it on and off when the file leaves its `enabled` out (Kestrel keeps that value across restarts). It can't change or remove it. Creating or renaming an instance in the UI to a declared name answers `409 conflict`. Instances created in the UI may still share names with each other ([ADR 0015](../adr/0015-declared-instances-may-leave-enabled-to-the-ui.md)).
+- **What the UI can do with a declared instance:** test it, and switch it on and off when the file leaves its `enabled` out (Kestrel keeps that value across restarts). It can't change or remove it. Creating or renaming an instance in the UI to a declared name answers `409 conflict`. Instances created in the UI may still share names with each other.
 - **An `enabled` the file sets is enforced.** Switching that instance off is a file change and a restart, and a toggle in the UI answers `409 conflict`.
 - **One download client may be enabled.** A file that would exceed a plugin contract's cap on enabled instances fails startup. Kestrel counts the enabled instances created in the UI and the stored `enabled` of declared instances whose `enabled` the file leaves out.
 
 ## Requesters (Plex sign-in)
 
-People who share your Plex server can ask for Movies and Series in Kestrel, without an app like Seerr in front of it ([ADR 0018](../adr/0018-requesters-sign-in-with-plex.md)). Switch it on in Settings > Security & Access > Plex sign-in (or declare `plex_sign_in` in the Config File) and pick the Plex instance whose server and owner token decide who may sign in.
+People who share your Plex server can ask for Movies and Series in Kestrel, without an app like Seerr in front of it. Switch it on in Settings > Security & Access > Plex sign-in (or declare `plex_sign_in` in the Config File) and pick the Plex instance whose server and owner token decide who may sign in.
 
 The login page then offers "Sign in with Plex". Kestrel sends the browser to plex.tv, plex.tv sends it back to Kestrel's login page with `?plex=1`, and Kestrel finishes the sign-in there. Only the browser that started a sign-in can finish it.
 
@@ -393,7 +393,7 @@ The login page then offers "Sign in with Plex". Kestrel sends the browser to ple
 
 ## Silo requests and Slots
 
-Silo asks for a Title in a resolution tier, and Kestrel files each tier in a Slot ([ADR 0024](../adr/0024-admins-define-the-slots.md)). The Silo plugin's instance settings, under "Slots, Profiles and folder", hold:
+Silo asks for a Title in a resolution tier, and Kestrel files each tier in a Slot. The Silo plugin's instance settings, under "Slots, Profiles and folder", hold:
 
 | Key                              | What it does                                                                                                                                                                                               |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -405,12 +405,12 @@ Silo asks for a Title in a resolution tier, and Kestrel files each tier in a Slo
 
 - **One Slot for both tiers** is fine: the Request gets that Slot once, and each tier still has its own status in Silo.
 - **A Slot no tier maps to** can't be requested from Silo and is never reported to it.
-- **A missing Slot** fails the plugin's validation on the field `1080p_slot` or `2160p_slot`.
+- **A missing Slot** fails the plugin's validation on the field `1080p_slot` or `2160p_slot`. A fresh install has no `4k` Slot until you add one (the Standard + 4K preset does), so point `2160p_slot` at another Slot or add one.
 - **Kids and Mobile.** Silo's request routes and per-device caps are the recommended way to serve those audiences. Use a Slot only when you want a separate file.
 
 ## Watch-ahead for Silo
 
-A Series requested in Silo can come one season at a time too ([ADR 0020](../adr/0020-watch-ahead-for-silo.md)). Switch Watch-ahead on in Settings > Media servers > Silo (or declare `silo` in the Config File), and pick the Silo instance whose playback history Kestrel reads, with that media server's admin API key.
+A Series requested in Silo can come one season at a time too. Switch Watch-ahead on in Settings > Media servers > Silo (or declare `silo` in the Config File), and pick the Silo instance whose playback history Kestrel reads, with that media server's admin API key.
 
 A Silo Series Request that names no seasons then starts with season 1. Kestrel adds the next season once anyone, on any Silo account or profile, has watched 2 episodes of the newest one it holds. Plays on the Plex server (when `plex_sign_in` has `watch_ahead` on) and on Silo count together.
 

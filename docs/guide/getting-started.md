@@ -60,11 +60,11 @@ Open <http://localhost:7676>. A fresh Kestrel shows the setup screen, a short li
 
 ### 1. Account
 
-Choose a username and a password of at least eight characters. Kestrel is never open without a login. This is the admin account.
+Choose a username and a password of at least eight characters, and type the password a second time to confirm it. Kestrel is never open without a login. This is the admin account.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/01-setup-account-dark.png">
-  <img alt="The Account section of the setup screen, with username and password fields" src="images/01-setup-account-light.png">
+  <img alt="The Account section of the setup screen, with username, password and confirm password fields" src="images/01-setup-account-light.png">
 </picture>
 
 ### 2. Primary Language
@@ -95,13 +95,13 @@ Choose **Test connection**, then **Save**.
 
 An indexer is the site that lists what's on usenet. Kestrel searches it and fetches the NZB files. It speaks Newznab, which almost every usenet indexer does.
 
-| Field                         | What to enter                                                                                                            |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **URL**                       | Your indexer's address, such as `https://indexer.example`. Your indexer's API or "Newznab" help page shows it.           |
-| **API key**                   | From your indexer account's profile or API page.                                                                         |
-| **Movie / Series categories** | Leave `2000` and `5000`, the Newznab standard for movies and TV.                                                         |
-| **API requests per day**      | Your indexer's daily limit, or a little under it. Kestrel pauses searches to stay below it. Leave it empty for no limit. |
-| **Grabs per day**             | The same for downloads, if your indexer limits them.                                                                     |
+| Field                                          | What to enter                                                                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **URL**                                        | Your indexer's address, such as `https://indexer.example`. Your indexer's API or "Newznab" help page shows it.           |
+| **API key**                                    | From your indexer account's profile or API page.                                                                         |
+| **Movie categories** and **Series categories** | Leave `2000` and `5000`, the Newznab standard for movies and TV.                                                         |
+| **API requests per day**                       | Your indexer's daily limit, or a little under it. Kestrel pauses searches to stay below it. Leave it empty for no limit. |
+| **Grabs per day**                              | The same for downloads, if your indexer limits them.                                                                     |
 
 Choose **Test connection**, then **Save**. You can add more indexers later in Settings > Downloads.
 
@@ -120,18 +120,18 @@ A fresh Kestrel starts with one Slot, Standard, and no Profiles, so the wizard a
 
 - **One copy:** Standard, HD for Movies and Series.
 - **Standard + 4K:** Standard as above, plus a 4K Slot with 4K as its default (opt-in per Title).
-- **Streaming + Remux archive:** Standard as above, plus a Remux Slot that defaults to 4K Remux for Movies.
+- **Streaming + Remux archive:** Standard as above, plus a Remux Slot that defaults to 4K Remux for Movies and to no Profile for Series (off for new Titles).
 - **Your language + Original:** a Slot in your Primary Language (such as "German"), plus an Original Slot that wants the Title's Original Language. Both are on for new Titles.
 
 A preset replaces the Slots below it, adds each Profile it needs and enables it, in one step. It is only offered while the library holds no Version, and not while the Config File declares `slots` or `profiles`. Change anything afterwards in the editor under the presets, or skip them and set the Slots up yourself. Finishing the setup needs a default Profile for Movies and one for Series in every Slot that is on for new Titles, and the Finish step names the Slot that lacks one. [Slots](slots.md) explains them in full.
 
 ### 7. Profiles
 
-Choose which Profiles to enable. The Profiles your Slots use are on and stay on. Under them the wizard lists suggestions that fit: the Original-Language twin of each default (HD gives HD Original) and Any for each HD default. Tick one to add it. Settings > Profiles lists every suggestion ([Concepts](concepts.md#profile) explains the recipes), and you can change all of it later there.
+Choose which Profiles to enable. Every Profile you have is listed, ticked while it is enabled, and the Profiles your Slots use are on and stay on. Under them the wizard lists suggestions that fit: the Original-Language twin of each default (HD gives HD Original) and Any for each HD default. Tick one to add it. **More…** and Settings > Profiles list every suggestion ([Concepts](concepts.md#profile) explains the recipes), and you can change all of it later there. Settings > Profiles looks like this:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/07-profiles-dark.png">
-  <img alt="Settings, Profiles: the default Profile per Slot, and the Profiles that can be switched on or off" src="images/07-profiles-light.png">
+  <img alt="Settings, Profiles: the default Profile each Slot gives new Titles, then one card per Profile with its qualities, sizes and where Upgrades stop" src="images/07-profiles-light.png">
 </picture>
 
 ### 8. Adopt existing library (optional)
@@ -142,7 +142,7 @@ Choose **Finish setup**. If something is missing, Kestrel names the section. You
 
 ## Add your first Title
 
-Choose **+** in the side bar, or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux; the magnifier in the side bar opens the same menu), and type a name. Pick the right result. Titles you already have say "In library".
+Choose **+** at the top of the Library's side panel (on a phone, in the top bar), or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux; the magnifier in the rail opens the same menu, where you choose **Add Title…**), and type a name. Pick the right result. Titles you already have say "In library".
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/05-add-title-dark.png">
@@ -164,16 +164,16 @@ You don't need to do anything else. Kestrel does this on its own:
 1. **Searches.** A new Title is searched straight away. After that, Kestrel searches everything that is [Wanted](concepts.md#wanted) every five minutes.
 2. **Scores and grabs.** From the Releases the indexer lists, Kestrel picks the best one that fits the Version's Profile and sends it to SABnzbd.
 3. **Follows the download.** Activity shows each Grab from Searching to Downloading, with progress. A download that makes no progress is flagged as stuck ([Troubleshooting](troubleshooting.md#a-download-is-stuck)).
-4. **Imports.** When SABnzbd is done, Kestrel hardlinks the file into the Title's folder under your root folder and names it by its fixed scheme, such as `Paddington (2014) {tmdb-116149}/Paddington (2014) - [Standard] …`.
+4. **Imports.** When SABnzbd is done, Kestrel hardlinks the file into the Title's folder under your root folder and names it by its fixed scheme, such as `Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [Standard] …`.
 5. **Tells your media server.** If you have connected Jellyfin or Plex in Settings > Media servers, Kestrel asks it to refresh.
-6. **Keeps upgrading.** If a better Release appears later, Kestrel replaces the file.
+6. **Keeps upgrading.** If a better Release appears later, Kestrel replaces the file, until it reaches the Cutoff of the Version's Profile, if you set one.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/04-series-dark.png">
   <img alt="A Series page with a Standard and a 4K Version, each row showing a bar of how many episodes are filled and how many are Wanted" src="images/04-series-light.png">
 </picture>
 
-The Title page shows each Version as a row with a bar and a line of counts (a Series' filled, Wanted and not monitored episodes, or a Movie's file or state), with its episodes below, one season at a time: pick the season from the menu next to the Episodes heading. **Search now** searches straight away, and **Manual search** lists every Release, so you can choose one yourself.
+The Title page shows each Version as a row with a bar and a line of counts (a Series' filled, Wanted and not monitored episodes, or a Movie's file or state), with the seasons below as a list: the first season with something Wanted opens by itself, and **Expand all** opens the rest. **Search Wanted** at the top of the page (and **Search season** in an open season) searches straight away, and **Manual search…** in the menu beside it lists every Release, so you can choose one yourself.
 
 **Upcoming** is the timeline of what is airing or being released, from the last two weeks to the next two months, and where each one stands. Narrow it with the filter field (press `/`) or the Filter button: free text matches the Title and the episode's name, `kind:movie` or `kind:series` picks a kind, `is:wanted` and `is:imported` pick what is still to find or already in the Library, and a minus excludes (`-is:imported`). `?q=` in the address holds the filter, and a new session starts from the defaults in Settings > General > Display. On every screen with a filter field, the × in the field, Escape in it, or **Clear all** at the top of the Filter menu empties the whole filter.
 

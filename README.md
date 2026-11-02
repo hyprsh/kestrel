@@ -75,8 +75,8 @@ Then:
 
 1. Run `docker compose up -d` and open <http://localhost:7676>.
 2. Set up SABnzbd at <http://localhost:8080>: your usenet provider, the folders under `/data/usenet`, and the categories `movies` and `tv`.
-3. Walk through Kestrel's setup screen: create the admin account, choose your language, connect SABnzbd (`http://sabnzbd:8080` and its API key), add a Newznab indexer, and check the root folders.
-4. Press the **+** button, search for a movie or series, and add it. Kestrel searches, downloads and imports it.
+3. Walk through Kestrel's setup screen: create the admin account, choose your language, connect SABnzbd (`http://sabnzbd:8080` and its API key), add a Newznab indexer, check the root folders, and choose a Slot preset and the Profiles to enable.
+4. Choose **+** in the Library (or press <kbd>Ctrl</kbd> <kbd>K</kbd>), search for a movie or series, and add it. Kestrel searches, downloads and imports it.
 
 [Getting started](https://hyprsh.github.io/kestrel/guide/getting-started) does each step with screenshots.
 
@@ -86,6 +86,7 @@ The docs are at **<https://hyprsh.github.io/kestrel/>**.
 
 - [Getting started](https://hyprsh.github.io/kestrel/guide/getting-started): the first run, screen by screen.
 - [Concepts](https://hyprsh.github.io/kestrel/guide/concepts): Title, Slot, Version, Profile and the other words, in plain language.
+- [Slots](https://hyprsh.github.io/kestrel/guide/slots): the copies a Title keeps, and how to define your own.
 - [Moving from Radarr and Sonarr](https://hyprsh.github.io/kestrel/guide/moving-from-radarr-and-sonarr): adopt your library, and what maps to what.
 - [Configuration](https://hyprsh.github.io/kestrel/guide/configuration): environment variables, the Config File, Requesters and the API.
 - [Troubleshooting](https://hyprsh.github.io/kestrel/guide/troubleshooting): hardlinks, permissions, indexer limits, a forgotten password, and where the logs are.
@@ -93,7 +94,7 @@ The docs are at **<https://hyprsh.github.io/kestrel/>**.
 - [Contributing](https://hyprsh.github.io/kestrel/development/contributing): build it, change it, release it.
 - [Security](SECURITY.md): how to report a vulnerability.
 
-The words Kestrel uses are in the [glossary](https://hyprsh.github.io/kestrel/glossary), and the decisions behind it in the [ADRs](https://hyprsh.github.io/kestrel/adr/).
+The words Kestrel uses are in the [glossary](https://hyprsh.github.io/kestrel/glossary).
 
 ## Licence
 
