@@ -17,8 +17,8 @@ type recipeSuggestionJSON struct {
 
 type recipeSuggestionsJSON struct {
 	Groups []struct {
-		ReleaseFamily string           `json:"release_family"`
-		Name          string           `json:"name"`
+		ReleaseFamily string                 `json:"release_family"`
+		Name          string                 `json:"name"`
 		Items         []recipeSuggestionJSON `json:"items"`
 	} `json:"groups"`
 }
