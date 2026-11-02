@@ -147,7 +147,7 @@ plugin_instances: # known by name
       tv_category: tv
   - name: Indexer
     plugin_id: newznab
-    priority: 0 # lower wins a tie between otherwise equal Releases
+    priority: 0 # lower wins between Releases of equal Score
     config:
       url: https://indexer.example
       api_key_env: INDEXER_API_KEY
@@ -289,7 +289,7 @@ A plugin instance is one connection to a service: your download client, an index
 | `name`      | The instance's name. The file knows instances by name.                                                  |
 | `plugin_id` | `sabnzbd`, `newznab`, `jellyfin`, `plex` or `silo`.                                                     |
 | `enabled`   | Optional. A new instance starts enabled when the file leaves it out. [Details](#plugin-instance-rules). |
-| `priority`  | Optional, default `0`. Lower wins a tie between otherwise equal Releases.                               |
+| `priority`  | Optional, default `0`. Lower wins between Releases of equal Score.                                      |
 | `config`    | The plugin's fields. The plugin's defaults fill the ones you leave out.                                 |
 
 The fields of `config` (give a secret as `<field>_env`):

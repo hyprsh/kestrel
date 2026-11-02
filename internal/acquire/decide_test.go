@@ -96,13 +96,39 @@ func TestTieBreaks(t *testing.T) {
 		{"lower priority number after same size", []Candidate{movieCand("p25", 5, prio(25)), movieCand("p1", 5, prio(1))}, "p1"},
 		{"score beats newer", []Candidate{movieCand("old-high", 6, older), movieCand("new-low", 5)}, "old-high"},
 		{"post beats size", []Candidate{movieCand("old-big", 5, older, bigger), movieCand("new", 5)}, "new"},
-		{"size beats priority", []Candidate{movieCand("big-p9", 5, bigger, prio(9)), movieCand("small-p1", 5, prio(1))}, "big-p9"},
+		{"priority beats size", []Candidate{movieCand("big-p9", 5, bigger, prio(9)), movieCand("small-p1", 5, prio(1))}, "small-p1"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wantGUIDs(t, Decide(Input{Versions: []Version{movieVersion(nil)}, Candidates: tc.cs}), tc.want)
 		})
 	}
+}
+
+func TestHigherScoreBeatsBetterIndexerPriority(t *testing.T) {
+	plans := Decide(Input{
+		Versions: []Version{movieVersion(nil)},
+		Candidates: []Candidate{
+			movieCand("high-p9", 6, func(c *Candidate) { c.IndexerPriority = 9 }),
+			movieCand("low-p1", 5, func(c *Candidate) { c.IndexerPriority = 1 }),
+		},
+	})
+	wantGUIDs(t, plans, "high-p9")
+}
+
+func TestEqualScoreIndexerPriorityBeatsNewerAndLarger(t *testing.T) {
+	// The same post on two Indexers: the priority-1 copy is older and smaller,
+	// the priority-9 copy newer and larger. Priority decides.
+	older := func(c *Candidate) { c.PublishDate = t0.Add(-time.Hour) }
+	smaller := func(c *Candidate) { c.Size = 500 }
+	plans := Decide(Input{
+		Versions: []Version{movieVersion(nil)},
+		Candidates: []Candidate{
+			movieCand("new-big-p9", 5, func(c *Candidate) { c.IndexerPriority = 9 }, func(c *Candidate) { c.Size = 5000 }),
+			movieCand("old-small-p1", 5, older, smaller, func(c *Candidate) { c.IndexerPriority = 1 }),
+		},
+	})
+	wantGUIDs(t, plans, "old-small-p1")
 }
 
 func TestUpgradeThresholdAndMisfit(t *testing.T) {
