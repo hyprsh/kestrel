@@ -3,10 +3,13 @@
 import { Badge } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
 import { StatCard } from '../layout/StatCard'
+import { placePath, useOpenPlace } from '../place'
 import { Bar, BarHeader, BarRow, ChartTable, Columns, Legend, mark } from './charts'
+import { activityQuery } from './drillDown'
 import { answerText, dayText, grabsAlternative, grabsTotal, hitText, standOut } from './statsText'
 
 export function GrabsCard({ stats }: { stats: Stats }) {
+  const openPlace = useOpenPlace()
   const days = stats.grabs.per_day
   const sentence = standOut(stats)
   return (
@@ -27,6 +30,7 @@ export function GrabsCard({ stats }: { stats: Stats }) {
         <>
           <Columns
             height={120}
+            onOpen={(c, part) => openPlace(placePath('activity', activityQuery({ day: c.key, stage: part ? (part.name === 'Failed' ? 'failed' : 'done') : null })))}
             alternative={grabsAlternative(stats)}
             columns={days.map((d) => ({
               key: d.day,
@@ -50,6 +54,7 @@ const WIDE = 'minmax(0,1fr) minmax(0,1.6fr) 3rem 3.5rem 3.5rem'
 const NARROW = 'minmax(0,7rem) minmax(0,1fr) 2.5rem'
 
 export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean }) {
+  const openPlace = useOpenPlace()
   const ixs = stats.indexers
   const best = ixs.find((i) => i.id === stats.best_indexer_id)
   const most = Math.max(1, ...ixs.map((i) => i.imported))
@@ -86,6 +91,7 @@ export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean })
               <BarRow
                 key={i.id}
                 columns={columns}
+                onOpen={() => openPlace(placePath('activity', activityQuery({ indexer: i.id, from: stats.from, to: stats.to })))}
                 label={`${i.name}: ${i.imported} imported, ${i.failed} failed. Hit ${hitText(i.hit_rate)} of ${i.searches} searches, median answer ${answerText(i.median_answer_ms)}.`}
               >
                 <span className="label-13 truncate font-medium">{i.name}</span>
