@@ -84,10 +84,8 @@ type Slots interface {
 	List(ctx context.Context) ([]slot.Record, error)
 	Known(ctx context.Context, id slot.Slot) (bool, error)
 	Create(ctx context.Context, in slots.Create) (slot.Record, error)
-	Update(ctx context.Context, id slot.Slot, p slots.Patch) (slot.Record, error)
-	// Check is Update without the write, and Files the number of files a Slot's Versions hold.
-	Check(ctx context.Context, id slot.Slot, p slots.Patch) (slot.Record, error)
-	Files(ctx context.Context, id slot.Slot) (int, error)
+	// Change updates a Slot, or with dryRun only checks the rules, and says how many files a new label renames.
+	Change(ctx context.Context, id slot.Slot, p slots.Patch, dryRun bool) (slot.Record, *int, error)
 	Delete(ctx context.Context, id slot.Slot) error
 }
 

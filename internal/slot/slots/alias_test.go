@@ -112,3 +112,27 @@ func TestARelabelCallsTheHookOnceSaved(t *testing.T) {
 		t.Errorf("aliases = %v", a)
 	}
 }
+
+func TestAChangeSaysHowManyFilesANewLabelRenames(t *testing.T) {
+	s, st := newService(t)
+	ctx := context.Background()
+	addVersion(t, st, 1, "standard")
+	if _, err := st.Write().Exec(`INSERT INTO files (version_id, path, size, release_name, imported_at) SELECT id, '/m/a.mkv', 1, 'a', 'x' FROM versions`); err != nil {
+		t.Fatal(err)
+	}
+	l := "Original"
+	_, n, err := s.Change(ctx, "standard", slots.Patch{Label: &l}, true)
+	if err != nil || n == nil || *n != 1 {
+		t.Fatalf("dry run: renames = %v, %v", n, err)
+	}
+	if cur := list(t, s)[0]; cur.Label != "Standard" {
+		t.Errorf("a dry run saved: %+v", cur)
+	}
+	same := "Standard"
+	if _, n, err = s.Change(ctx, "standard", slots.Patch{Label: &same}, false); err != nil || n != nil {
+		t.Errorf("the stored label: renames = %v, %v", n, err)
+	}
+	if _, n, err = s.Change(ctx, "standard", slots.Patch{Label: &l}, false); err != nil || n == nil || *n != 1 {
+		t.Errorf("saved: renames = %v, %v", n, err)
+	}
+}

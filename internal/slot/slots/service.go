@@ -223,6 +223,37 @@ func (s *Service) Update(ctx context.Context, id slot.Slot, p Patch) (slot.Recor
 	return out, err
 }
 
+// Change is Update, or with dryRun Check, and also says how many files the
+// patch renames: the files of the Slot's Versions when the patch gives a label
+// other than the stored one, else nil.
+func (s *Service) Change(ctx context.Context, id slot.Slot, p Patch, dryRun bool) (slot.Record, *int, error) {
+	var renames *int
+	if p.Label != nil {
+		all, err := s.List(ctx)
+		if err != nil {
+			return slot.Record{}, nil, err
+		}
+		for _, cur := range all {
+			if cur.ID == id && cur.Label != *p.Label {
+				n, err := s.Files(ctx, id)
+				if err != nil {
+					return slot.Record{}, nil, err
+				}
+				renames = &n
+			}
+		}
+	}
+	update := s.Update
+	if dryRun {
+		update = s.Check
+	}
+	got, err := update(ctx, id, p)
+	if err != nil {
+		return slot.Record{}, nil, err
+	}
+	return got, renames, nil
+}
+
 // Check applies every rule of Update to the patch and saves nothing: the Slot
 // as it would stand, or the error Update would give.
 func (s *Service) Check(ctx context.Context, id slot.Slot, p Patch) (slot.Record, error) {

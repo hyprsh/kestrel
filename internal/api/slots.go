@@ -85,28 +85,7 @@ func (s *server) PatchSlot(ctx context.Context, r oapi.PatchSlotRequestObject) (
 	patch := slots.Patch{
 		Label: b.Label, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries, OnForNew: b.OnForNewTitles, Position: b.Position,
 	}
-	// A new label renames the Slot's files, and the answer says how many.
-	var renames *int
-	if b.Label != nil {
-		all, err := s.slots.List(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, cur := range all {
-			if cur.ID == id && cur.Label != *b.Label {
-				n, err := s.slots.Files(ctx, id)
-				if err != nil {
-					return nil, err
-				}
-				renames = &n
-			}
-		}
-	}
-	update := s.slots.Update
-	if r.Params.DryRun != nil && *r.Params.DryRun {
-		update = s.slots.Check
-	}
-	got, err := update(ctx, id, patch)
+	got, renames, err := s.slots.Change(ctx, id, patch, r.Params.DryRun != nil && *r.Params.DryRun)
 	if err != nil {
 		return nil, slotsProblem(err)
 	}
