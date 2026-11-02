@@ -2783,7 +2783,7 @@ export interface components {
         Display: {
             /** @description Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first. */
             season_order: components["schemas"]["SeasonOrder"];
-            /** @description Where a Series page starts. `latest_and_wanted` opens its newest season (Settings shows this as "Open the newest season"); `all` and `none` open the first season. A link to a season or episode wins. */
+            /** @description Where a Series page starts. `latest_and_wanted` opens its newest season and every season with something Wanted (Settings shows this as "Open the newest season"); `all` and `none` open the first season with something Wanted, else the first season. A link to a season or episode wins. */
             seasons_open: components["schemas"]["SeasonsOpen"];
             manual_search_sort: components["schemas"]["ManualSearchSort"];
             /** @description The display Upcoming opens with, Agenda or Month. A browser's own last choice wins. */
