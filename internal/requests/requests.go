@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -70,6 +71,9 @@ func invalid(field, code, msg string) error { return &ValidationError{field, cod
 type SlotInput struct {
 	Slot    slot.Slot
 	Profile string
+	// Filled says Kestrel added the Slot because the Request named none (it is on for new Titles), so a default Profile
+	// another Version already uses leaves the Slot out instead of failing the Request.
+	Filled bool
 }
 
 // Input is a Request as the source sends it.
@@ -293,8 +297,11 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	}
 	var specs []library.VersionSpec
 	chosen := map[slot.Slot]string{}
+	var kept []SlotInput
+	var skipped error
 	for i, sl := range in.Slots {
 		if have[sl.Slot] {
+			kept = append(kept, sl)
 			continue // accepted unchanged
 		}
 		key := sl.Profile
@@ -311,12 +318,24 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 			return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 		}
 		if used[key] {
-			return Result{}, invalid(fmt.Sprintf("slots[%d].profile", i), "profile_taken", fmt.Sprintf("Another Version of the Title already uses the Profile %s: name a different Profile for this Slot", profileByKey(all, key).Name))
+			taken := invalid(fmt.Sprintf("slots[%d].profile", i), "profile_taken", fmt.Sprintf("Another Version of the Title already uses the Profile %s: name a different Profile for this Slot", profileByKey(all, key).Name))
+			if !sl.Filled {
+				return Result{}, taken
+			}
+			// Slots sharing a default Profile is only a warning (ADR 0024): the first Slot in order gets it.
+			slog.Info("request: leaving a Slot out, its default Profile is already used by another Version of the Title", "slot", sl.Slot, "profile", key, "source", in.Source, "source_request_id", in.SourceRequestID)
+			skipped = taken
+			continue
 		}
 		used[key] = true
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
+		kept = append(kept, sl)
 	}
+	if len(kept) == 0 && skipped != nil {
+		return Result{}, skipped
+	}
+	in.Slots = kept
 
 	titleID, searchDue, err := s.apply(ctx, in, tgt, specs, region)
 	if err != nil {
@@ -361,7 +380,7 @@ func (s *Service) fillSlots(ctx context.Context, in *Input) error {
 	}
 	for _, r := range all {
 		if r.OnForNew {
-			in.Slots = append(in.Slots, SlotInput{Slot: r.ID})
+			in.Slots = append(in.Slots, SlotInput{Slot: r.ID, Filled: true})
 		}
 	}
 	return nil

@@ -54,3 +54,26 @@ func TestARequestNamingNoSlotReadsTheDefaultFromTheSlotRecord(t *testing.T) {
 		t.Errorf("profile = %q, want the Slot's default", profile)
 	}
 }
+
+func TestARequestNamingNoSlotSkipsALaterSlotWhoseDefaultAnEarlierOneTookInsteadOfFailing(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	// Both Slots are on for new Titles and share a default Profile: only a warning (ADR 0024), so the Request is not
+	// refused. A Title's Versions use different Profiles, so the first Slot in order gets the Profile.
+	if r := s.valid("PATCH", "/slots/4k", `{"on_for_new_titles":true,"default_movies":"hd-primary"}`); r.Status != 200 {
+		t.Fatalf("PATCH /slots/4k = %d %s", r.Status, r.Body)
+	}
+
+	r := s.valid("POST", "/requests", slotlessBody)
+
+	if r.Status != 201 {
+		t.Fatalf("POST /requests = %d %s", r.Status, r.Body)
+	}
+	req := decode[requestJSON](t, r)
+	if len(req.Slots) != 1 || req.Slots[0].Slot != "standard" {
+		t.Fatalf("slots = %+v, want standard only", req.Slots)
+	}
+	if _, _, profile, v := req.slot(t, "standard"); profile != "hd-primary" || v == 0 {
+		t.Errorf("standard = %s version %d", profile, v)
+	}
+}
