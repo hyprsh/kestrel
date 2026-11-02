@@ -1,7 +1,11 @@
 package api_test
 
 import (
+	"bytes"
+	"log/slog"
+
 	"context"
+	"github.com/hyprsh/kestrel/internal/app"
 	"strings"
 	"testing"
 )
@@ -43,6 +47,29 @@ func TestDeclaredProfilesAreAppliedAsAWhole(t *testing.T) {
 	}
 	if got["4k-primary"].OriginalLanguage != "offer" || got["any-primary"].OriginalLanguage != "accept" {
 		t.Errorf("original_language: 4k-primary %q, any-primary %q", got["4k-primary"].OriginalLanguage, got["any-primary"].OriginalLanguage)
+	}
+}
+
+func TestAProfileKeyForADefaultIsIgnoredAndWarnedAboutAtStartup(t *testing.T) {
+	t.Parallel()
+	var log bytes.Buffer
+	in := newInstance(t, "", func(o *app.Options) { o.Logger = slog.New(slog.NewTextHandler(&log, nil)) })
+	body := strings.Replace(declaredProfiles, "hd-original:  {enabled: true,  original_fallback: false}", "hd-original:  {enabled: true,  original_fallback: false, default_movies: true, default_series: false}", 1)
+	body = strings.Replace(body, "4k-primary:   {enabled: true,  original_language: offer}", "4k-primary:   {enabled: true,  original_language: offer, default_series: true}", 1)
+
+	in.mustDeclare(body)
+
+	out := log.String()
+	for _, want := range []string{"hd-original", "default_movies", "4k-primary", "default_series", "slots"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the log lacks %q: %s", want, out)
+		}
+	}
+	if strings.Contains(out, "any-primary") {
+		t.Errorf("the log names a Profile that sets no default: %s", out)
+	}
+	if p := profileMap(t, in.setUp())["hd-original"]; p.DefaultMovies {
+		t.Errorf("hd-original = %+v, the key must be ignored", p)
 	}
 }
 

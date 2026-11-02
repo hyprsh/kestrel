@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -73,6 +74,25 @@ func (a *App) EnforceConfigFile(ctx context.Context) error {
 		return fmt.Errorf("config file %s: completing setup: %w", f.Path, err)
 	}
 	return nil
+}
+
+// warnIgnoredDefaults logs each Profile the file gives a default_movies or default_series key: the defaults
+// for new Titles belong to the Slots now (ADR 0024), so Kestrel ignores the keys.
+func (d declarer) warnIgnoredDefaults() {
+	for _, key := range slices.Sorted(maps.Keys(d.file.Profiles)) {
+		p := d.file.Profiles[key]
+		var ignored []string
+		if p.DefaultMovies != nil {
+			ignored = append(ignored, "default_movies")
+		}
+		if p.DefaultSeries != nil {
+			ignored = append(ignored, "default_series")
+		}
+		if len(ignored) > 0 {
+			d.log.Warn("config file: the Profile's "+strings.Join(ignored, " and ")+" is ignored; the defaults for new Titles are set per Slot in the `slots` section",
+				"profile", key, "keys", ignored)
+		}
+	}
 }
 
 // sections are the declared sections in the order they apply, and the hand
@@ -150,7 +170,10 @@ func (d declarer) sections() []section {
 				}
 				return nil
 			},
-			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
+			apply: func(ctx context.Context) error {
+				d.warnIgnoredDefaults()
+				return d.profiles.SetAll(ctx, want)
+			},
 		})
 	}
 	if f.PluginInstances != nil {
