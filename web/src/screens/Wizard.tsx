@@ -7,6 +7,7 @@ import { Adoption } from '../adoption/Adoption'
 import { WidePage } from '../layout/WidePage'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
+import { EnableProfiles } from '../profiles/EnableProfiles'
 import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { SlotPresets } from '../slots/SlotPresets'
@@ -129,9 +130,9 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             id="profiles"
             title="Profiles"
             checked={sections.profiles === 'done'}
-            description="The Profiles your Slots use are enabled. Settings, Profiles lists the rest and suggests more."
+            description="Choose which Profiles to enable. The ones your Slots use are on and stay on. Tick a suggestion to add it; Settings, Profiles lists them all."
           >
-            <ProfilesSummary />
+            <EnableProfiles />
           </Section>
           <Section n={8} id="adopt" title="Adopt existing library (optional)">
             <Adoption embedded />
@@ -225,13 +226,6 @@ function SlotsSummary() {
   if (!slots || !profiles) return null
   const name = (key: string | null) => (key ? (profiles.find((p) => p.key === key)?.name ?? key) : 'none')
   return <>{slots.map((s) => `${s.label}: Movies ${name(s.default_movies)}, Series ${name(s.default_series)}${s.on_for_new_titles ? '' : ' (off for new Titles)'}`).join(' · ')}</>
-}
-
-function ProfilesSummary() {
-  const { data: profiles } = useProfiles()
-  if (!profiles) return null
-  const on = profiles.filter((p) => p.enabled).map((p) => p.name)
-  return <span className="copy-14 text-gray-900">Enabled: {on.length > 0 ? on.join(', ') : 'none yet'}.</span>
 }
 
 /**
