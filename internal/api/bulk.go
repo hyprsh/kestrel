@@ -251,6 +251,14 @@ func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesB
 	if err != nil {
 		return nil, err
 	}
+	label := sl.Name()
+	if recs, err := s.slots.List(ctx); err == nil {
+		for _, r := range recs {
+			if r.ID == sl {
+				label = r.Label
+			}
+		}
+	}
 	out := make([]oapi.TitleBulkOutcome, 0, len(ids))
 	kick := false
 	for _, id := range ids {
@@ -259,7 +267,7 @@ func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesB
 		case errors.Is(err, library.ErrNotFound):
 			out = append(out, bulkNotFound(id))
 		case errors.Is(err, library.ErrSlotTaken):
-			out = append(out, bulkSkipped(id, oapi.SlotTaken, "Already has a "+sl.Name()+" Version"))
+			out = append(out, bulkSkipped(id, oapi.SlotTaken, "Already has a "+label+" Version"))
 		case err != nil:
 			out = append(out, s.bulkFailed(id, err))
 		default:
