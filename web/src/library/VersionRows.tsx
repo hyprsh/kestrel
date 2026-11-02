@@ -1,7 +1,7 @@
 // chrome: domain-visual
 // A Series' Versions as an accordion of Slots above its Seasons, the Movie's accordion (MovieSection.tsx) with a Series' facts: a
-// closed row says the Slot and its Profile, its state, a bar of its episodes, a chip and the size on disk; an open one has the
-// Version's facts and its actions. VersionMenu, at the foot of this file, is the "More…" menu both accordions share.
+// row is one line saying the Slot and its Profile, its state, a bar of its episodes, their count and the size on disk; an open
+// one adds the Version's facts and its actions. VersionMenu, at the foot of this file, is the "More…" menu both accordions share.
 import { Button, DotsMenu, Menu, MenuDivider, MenuItem, Progress } from '@hyprsh/design'
 import { useEffect, useState } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
@@ -12,17 +12,15 @@ import { placePath, useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
 import { ago, span, useNow } from '../time'
 import { useReport } from '../toasts'
-import { dotState } from '../ui/slotState'
-import { barColor, chipColumn, rowColumns, rowColumnsPhone, StateBar } from './StateBar'
+import { barColor, chipColumn, StateBar } from './StateBar'
 import { size } from './bits'
-import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid } from './accordion'
+import { AccordionList, AccordionRow, BarCell, bodyWrap, Chevron, Count, CountCell, days, Fact, factsGrid, lineRow, phoneRow, RowName, SizeCell, StandingText } from './accordion'
 import { codeRuns, expandCodes } from './cellDetail'
 import { DeleteFile } from './DeleteFiles'
 import { useEpisodeView } from './episodeView'
 import { importedOn } from './EpisodeFilePopover'
 import { AddVersion, ProfilePicker, RemoveConfirm } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
-import { SlotChips } from './SlotChip'
 import { slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
@@ -35,7 +33,7 @@ type Props = { title: TitleDetail; profiles: Profile[]; profileName: (key: strin
 
 const unmonitored = (t: TitleDetail) => (t.kind === 'movie' ? !t.monitored : t.series_monitor === 'none')
 
-/** A Series Version's episodes in words, apart from the count its chip carries: "Complete", "2 Wanted · 4 not monitored", or what it is downloading. */
+/** A Series Version's episodes in words, apart from the count beside its bar: "Complete", "2 Wanted · 4 not monitored", or what it is downloading. */
 function coverageLine(v: Version, dl: SlotDownloads | null): { text: string; tone: string } {
   const c = v.coverage
   if (dl) {
@@ -155,14 +153,13 @@ function SlotRow({
   const line = coverageLine(v, downloads)
   const c = v.coverage
   const released = c ? c.episodes + c.unmonitored : 0
-  const state = downloads ? 'downloading' : dotState(v.state, (c?.long_missing ?? 0) > 0 || v.long_missing)
   // The row's name and the chip's tooltip say all of it, count included: "Standard: 228 of 240 episodes · 8 Wanted".
   const said = `${name}: ${c && !downloads ? `${c.filled} of ${plural(released, 'episode')}${line.text === 'Complete' ? '' : ` \u00b7 ${line.text}`}` : line.text}`
   const sizeText = c && c.size > 0 ? size(c.size) : '\u2014'
-  // A closed row says its coverage line and size once, in the header; opened, the facts below say them and the header keeps the name,
-  // the Profile, the bar and the chip. A Wanted or downloading Slot's Search and Downloading facts explain its chip.
-  const showFacts = !open
-  const chip = <SlotChips chips={[{ key: v.slot, short: slots.short(v.slot), state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: said }]} max={1} />
+  // The row says all of it on one line, open or closed: name and Profile, the state text, the bar, the count and the size. The count
+  // is mono text (the Slot's name and state are already on the row), so a Version has no chip; the facts below add the detail.
+  const count = c && released > 0 ? `${c.filled}/${released}` : ''
+  const bar = <CoverageBar v={v} />
   return (
     <AccordionRow
       id={`version-${v.slot}`}
@@ -171,30 +168,28 @@ function SlotRow({
       open={open}
       onToggle={onToggle}
       marked={marked}
-      gridClass={phone ? rowColumnsPhone : rowColumns}
+      rowClass={phone ? phoneRow : lineRow}
       header={
         <>
           <Chevron open={open} />
-          <span className="flex min-w-0 flex-col gap-px sm:col-span-2">
-            <span className="label-14 font-semibold">{name}</span>
-            <span className="label-12-mono truncate text-gray-900">{rest.profileName(v.profile)}</span>
-          </span>
-          {!phone && (
-            <span className="flex min-w-0 flex-col gap-1">
-              <CoverageBar v={v} />
-              {showFacts && <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>}
-            </span>
-          )}
-          <span className="relative flex items-center justify-end gap-2">
-            {chip}
-            {phone && showFacts && <span className="label-12 text-gray-900">{sizeText}</span>}
-          </span>
-          {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{showFacts ? sizeText : ''}</span>}
-          {phone && (
-            <span className="col-start-2 col-end-4 flex min-w-0 flex-col gap-1">
-              <CoverageBar v={v} />
-              {showFacts && <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>}
-            </span>
+          {phone ? (
+            <>
+              <RowName name={name} tag={rest.profileName(v.profile)} />
+              <SizeCell text={sizeText} />
+              <span className="pointer-events-none col-start-2 col-end-4 mt-1 flex min-w-0 items-center gap-2">
+                <StandingText text={line.text} tone={line.tone} className="flex-1" />
+                <BarCell className="w-24">{bar}</BarCell>
+                {count && <Count text={count} tip={said} />}
+              </span>
+            </>
+          ) : (
+            <>
+              <RowName name={name} tag={rest.profileName(v.profile)} />
+              <StandingText text={line.text} tone={line.tone} />
+              <BarCell>{bar}</BarCell>
+              <CountCell>{count && <Count text={count} tip={said} />}</CountCell>
+              <SizeCell text={sizeText} />
+            </>
           )}
         </>
       }
@@ -217,6 +212,7 @@ function SlotBody({ title, profiles, profileName, onManualSearch, version: v, do
     <div className={bodyWrap}>
       <OriginalOfferNote offer={v.original_offer} />
       <div className={factsGrid}>
+        <Fact k="Profile">{profileName(v.profile)}</Fact>
         <Fact k="Coverage">
           {c
             ? `${c.filled} of ${plural(released, 'episode')}${c.wanted > 0 && !downloads ? ` \u00b7 ${c.wanted} Wanted` : ''}${c.long_missing > 0 ? ` \u00b7 ${c.long_missing} Long Missing` : ''}${c.unmonitored > 0 ? ` \u00b7 ${c.unmonitored} not monitored` : ''}`

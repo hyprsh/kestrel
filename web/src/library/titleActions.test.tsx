@@ -152,11 +152,11 @@ describe('the Version rows', () => {
     // Opened (a lone Slot with something Wanted opens itself), each fact shows once: the facts say the coverage and size, the header does not.
     expect(row).toHaveAttribute('aria-expanded', 'true')
     expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('228 of 240 episodes · 8 Wanted · 2 Long Missing · 4 not monitored')
-    expect(within(hd).queryByText('8 Wanted · 2 Long Missing · 4 not monitored')).not.toBeInTheDocument()
-    expect(within(hd).getAllByText('412.0 GB')).toHaveLength(1)
-    expect(within(hd).getAllByText('Standard').length).toBeGreaterThan(0)
-    expect(within(hd).queryByText('Profile')).not.toBeInTheDocument() // the header names the Profile
-    // Closed, the header says them and the facts are folded away.
+    // The row is one line open or closed: the state text, the count and the size stay in the header, the facts add Profile, Coverage and Size on disk.
+    expect(within(hd).getByText('8 Wanted · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
+    expect(within(hd).getAllByText('412.0 GB')).toHaveLength(2)
+    expect(within(hd).getByText('Profile')).toBeInTheDocument()
+    // Closed, the header keeps saying them and the facts are folded away.
     await userEvent.click(row)
     expect(within(hd).getByText('8 Wanted · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
     expect(within(hd).getAllByText('412.0 GB')).toHaveLength(1)
@@ -177,9 +177,9 @@ describe('the Version rows', () => {
     expect(within(hd).getByText('Complete')).toBeInTheDocument()
     expect(within(hd).getAllByText('1.0 GB')).toHaveLength(1)
     await userEvent.click(row)
-    expect(within(hd).queryByText('Complete')).not.toBeInTheDocument() // opened, the Coverage fact says it
+    expect(within(hd).getByText('Complete')).toBeInTheDocument() // opened, the header still says it
     expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('62 of 62 episodes')
-    expect(within(hd).getAllByText('1.0 GB')).toHaveLength(1)
+    expect(within(hd).getAllByText('1.0 GB')).toHaveLength(2)
   })
 
   it('leave a Wanted Special out of a Series Version’s episode total but count it as Wanted', async () => {
@@ -262,7 +262,8 @@ describe('the Version rows', () => {
     const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
-    const fact = async (k: string) => (await within(hd).findByText(k)).nextElementSibling
+    // The row's chip also says "Imported"; a fact is the label with its value after it.
+    const fact = async (k: string) => (await within(hd).findAllByText(k)).find((e) => e.nextElementSibling)!.nextElementSibling
     expect(await fact('Quality')).toHaveTextContent('BluRay 1080p')
     expect(await fact('Video')).toHaveTextContent('H.264')
     expect(await fact('Audio')).toHaveTextContent('DTS 5.1 · English, German')

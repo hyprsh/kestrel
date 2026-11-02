@@ -1,6 +1,6 @@
 // chrome: domain-visual
-// What the Versions card and the Seasons rows of a Series page share, so the two cards sit on one grid: the columns of a row
-// (chevron, lead, name, progress, chips, trailing figure) and the bar in the progress column. Colour on the bar marks only what
+// What the Versions card and the Seasons rows of a Series page share, so the two cards line up: the width of the count/chips
+// cell right of the bar, and the bar itself (the accordion draws it 120 px wide). Colour on the bar marks only what
 // needs a look (Wanted, Downloading); what is Have is a quiet gray, and a complete row draws a thin line instead of a bar.
 import type { CSSProperties } from 'react'
 
@@ -15,11 +15,6 @@ export function chipColumn(slots: number): CSSProperties {
   const n = Math.max(1, slots > chipsShown ? chipsShown + 1 : slots)
   return { '--chips': `${n * chipWidth + (n - 1) * chipGap}px` } as CSSProperties
 }
-
-/** The columns of a row on a wide screen: chevron, lead (a season's bookmark), name, progress, chips, trailing figure. */
-export const rowColumns = 'grid-cols-[16px_28px_112px_minmax(0,1fr)_var(--chips)_64px] h-14'
-/** The same on a phone, where a row has its name and a line under it. */
-export const rowColumnsPhone = 'grid-cols-[16px_minmax(0,1fr)_auto] min-h-14 py-2.5'
 
 export type BarPart = { key: string; n: number; color: string }
 

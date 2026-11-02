@@ -2,12 +2,12 @@
 import type { ReactNode } from 'react'
 import type { Episode } from '../api/queries'
 import type { EpisodeActions } from './EpisodeActions'
-import { AccordionList, AccordionRow, Chevron } from './accordion'
+import { AccordionList, AccordionRow, BarCell, Chevron, Count, CountCell, lineRow, phoneRow, RowName, SizeCell, StandingText } from './accordion'
 import { MonitorToggle } from './MonitorToggle'
 import { SlotChips, type ChipData } from './SlotChip'
 import { seasonName, slotTally, tallyCount, type SlotTally } from './episodes'
 import { combinedState, type Combined, type SlotInfo } from './slots'
-import { barColor, chipsShown, rowColumns, StateBar, type BarPart } from './StateBar'
+import { barColor, chipsShown, StateBar, type BarPart } from './StateBar'
 import { usePhone } from '../responsive'
 import { plural } from '../format'
 
@@ -59,9 +59,16 @@ function standing(states: Combined[], monitored: boolean): { text: string; tone:
   return { text: unaired > 0 ? `Complete \u00b7 ${unaired} not aired` : 'Complete', tone: 'text-gray-900' }
 }
 
+/** The year of a season's first air date ("2024"), or null when no episode has one. */
+const firstYear = (eps: Episode[]): string | null => {
+  const dates = eps.map((e) => e.air_date).filter((d): d is string => !!d)
+  return dates.length > 0 ? dates.reduce((a, b) => (a < b ? a : b)).slice(0, 4) : null
+}
+
 /**
- * The seasons as an accordion: a row per season that says it all closed (its monitoring bookmark, a bar of its episodes by
- * state with a line under it, a chip per Slot with have/aired counts, the episode count), and opens its episodes in place.
+ * The seasons as an accordion: a row per season on one line (its monitoring bookmark, its name with "19 episodes · 2024", its
+ * state in words, a bar of its episodes by state, their have/aired count, or a chip per Slot with its count when there are
+ * several), and opens its episodes in place. The size column is kept empty so the bars line up with the Versions' above.
  * `body` draws an open season's tools and episodes. A season that is not monitored is dimmed.
  */
 export function SeasonAccordion({
@@ -95,38 +102,50 @@ export function SeasonAccordion({
         const isOpen = open.has(n)
         const bar: BarPart[] = (['filled', 'partial', 'downloading', 'unreleased', 'unmonitored'] as Combined[]).map((k) => ({ key: k, n: states.filter((s) => s === k).length, color: stateColor[k] }))
         const complete = eps.length > 0 && states.every((s) => s === 'filled')
-        // The chip counts what is Have; the trailing figure is the season's episodes, said only when it is not the chip's own total.
-        const total = tallies.some((t) => t.counted !== eps.length) ? plural(eps.length, 'ep') : ''
+        // One Slot: its count as mono text beside the bar. Several: a chip per Slot (short name, state dot, count).
+        const meta = [eps.length > 0 ? plural(eps.length, 'episode') : null, firstYear(eps)].filter(Boolean).join(' \u00b7 ')
+        const lone = tallies.length === 1 && !(tallies[0].counted === 0 && tallies[0].filled === 0) ? tallies[0] : null
+        const count = monitored ? (
+          lone ? (
+            <Count text={`${lone.filled}/${lone.counted}`} tip={say(lone, slots[0].name)} />
+          ) : tallies.length > 1 ? (
+            <SlotChips chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i]))} max={chipsShown} />
+          ) : null
+        ) : null
         return (
           <div key={n} data-monitored={monitored ? 'on' : 'off'} data-season={n}>
             <AccordionRow
               label={`${name}: ${line.text}${monitored ? `, ${tallies.map((t, i) => say(t, slots[i].name)).join('; ')}` : ''}`}
               open={isOpen}
               onToggle={() => onToggle(n)}
-              gridClass={phone ? 'grid-cols-[16px_minmax(0,1fr)] min-h-14 py-2.5' : rowColumns}
+              rowClass={phone ? phoneRow : lineRow}
               header={
                 phone ? (
                   <>
                     <Chevron open={isOpen} />
-                    <span className="flex min-w-0 flex-col gap-1.5">
-                      <span className={`label-14 font-semibold ${monitored ? '' : 'text-gray-900'}`}>{name}</span>
-                      <StateBar parts={bar} complete={complete} />
-                      <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
+                    <RowName name={name} meta={meta} dim={!monitored} />
+                    <span />
+                    <span className="pointer-events-none col-start-2 col-end-4 mt-1 flex min-w-0 items-center gap-2">
+                      <StandingText text={line.text} tone={line.tone} className="flex-1" />
+                      <BarCell className="w-24">
+                        <StateBar parts={bar} complete={complete} />
+                      </BarCell>
+                      {lone && <Count text={`${lone.filled}/${lone.counted}`} tip={say(lone, slots[0].name)} />}
                     </span>
                   </>
                 ) : (
                   <>
                     <Chevron open={isOpen} />
-                    <span className="relative">
+                    <span className="relative flex">
                       <MonitorToggle name={name} monitored={monitored} onToggle={() => actions.monitorSeason(n, !monitored)} />
                     </span>
-                    <span className={`label-14 font-semibold ${monitored ? '' : 'text-gray-900'}`}>{name}</span>
-                    <span className="flex min-w-0 flex-col gap-1">
+                    <RowName name={name} meta={meta} dim={!monitored} />
+                    <StandingText text={line.text} tone={line.tone} />
+                    <BarCell>
                       <StateBar parts={bar} complete={complete} />
-                      <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
-                    </span>
-                    <span className="relative flex justify-end gap-1.5">{monitored && <SlotChips chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i]))} max={chipsShown} />}</span>
-                    <span className="label-12 pointer-events-none text-right text-gray-900 tabular-nums">{total}</span>
+                    </BarCell>
+                    <CountCell>{count}</CountCell>
+                    <SizeCell text="" />
                   </>
                 )
               }
