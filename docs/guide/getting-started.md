@@ -116,7 +116,7 @@ The root folders are where Kestrel puts your Movies and your Series. They are pr
 
 ### 6. Profiles
 
-A Profile is a quality-and-language target. Here you pick the one each new Title gets per Slot. Standard is preselected (HD, for Movies and Series). Leave 4K at None and add 4K per Title when you want it. You can change all of it later in Settings > Profiles.
+A Profile is a quality-and-language target. Here you pick the one each new Title gets per Slot. Standard is preselected (HD, for Movies and Series). Leave 4K at None and add 4K per Title when you want it. You can change all of it later in Settings > Profiles, and add Slots of your own in Settings > Library > Slots ([Slots](slots.md)).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/07-profiles-dark.png">
@@ -140,7 +140,7 @@ Choose **+** in the side bar, or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</k
 
 The next step is the add panel. It is preselected from your defaults, and says why:
 
-- **Slots:** tick Standard, 4K or both. Each ticked Slot gets its own file, under the Profile you pick beside it.
+- **Slots:** tick the Slots you want, such as Standard, 4K or both (with a single Slot, there is nothing to tick). Each ticked Slot gets its own file, under the Profile you pick beside it.
 - **Monitor** (Series only): which seasons to want. All of them, only future episodes, only the first or latest season, or a pick.
 - **Root folder:** only shown when you have more than one.
 

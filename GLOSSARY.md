@@ -111,7 +111,7 @@ The sum of the points of every Custom Format a Release matches under one Profile
 _Avoid_: Rating (that is a Title's), rank
 
 **Grab**:
-Choosing a Release for a Version and handing it to the download client. Every download Kestrel tracks traces back to one Grab.
+Choosing a Release for a Version and handing it to the download client. Every download Kestrel tracks traces back to one Grab. One Grab may fill several Versions of a Title (a Movie or a Series) when the same Release is the pick for each: it is downloaded once and hardlinked under each Version.
 _Avoid_: Snatch, download (as a noun)
 
 **Original Offer**:
