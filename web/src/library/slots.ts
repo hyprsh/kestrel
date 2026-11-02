@@ -9,10 +9,14 @@ export type SlotInfo = { key: string; name: string; short: string }
 /** "german" as "German". */
 const capitalised = (key: string) => key.charAt(0).toUpperCase() + key.slice(1)
 
-/** A chip's short text for a label: the label itself in capitals when it is short, else its first `n` letters. */
+/**
+ * A chip's short text for a label: "Standard" keeps STD, any other label of four characters or fewer shows in full, and
+ * a longer one gives its first `n` letters. It reads the label, never the id: a Slot of any id can carry the label.
+ */
 const shorten = (label: string, n: number): string => {
   const letters = label.replace(/\s+/g, '')
-  return (letters.length <= 6 ? letters : letters.slice(0, n)).toUpperCase()
+  if (letters.toLowerCase() === 'standard') return 'STD'
+  return (letters.length <= 4 ? letters : letters.slice(0, n)).toUpperCase()
 }
 
 /**
@@ -24,7 +28,7 @@ export type SlotNames = {
   list: readonly SlotRecord[]
   /** The Slot's label. */
   name: (key: string) => string
-  /** The Slot's short label for a chip: its label when short, else its first three letters (more where two Slots would read alike). */
+  /** The Slot's short label for a chip: its label when it is four characters or fewer (STD for Standard), else its first three letters (more where two Slots would read alike). */
   short: (key: string) => string
   /** `keys` in Slot order; a key that is no Slot goes last. */
   order: <T extends string>(keys: readonly T[]) => T[]

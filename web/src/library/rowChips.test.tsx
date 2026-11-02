@@ -45,7 +45,7 @@ describe('Library rows: Slot chips', () => {
     const chips = Array.from(bb.querySelectorAll('[data-slot]'))
     expect(chips.map((c) => c.getAttribute('data-slot'))).toEqual(['standard', '4k', 'german', 'remux'])
     expect(chips.map((c) => c.getAttribute('data-state'))).toEqual(['wanted', 'downloading', 'filled', 'long_missing'])
-    expect(within(bb).getByRole('button', { name: /^Standard: Wanted/ })).toHaveTextContent('STA56/62')
+    expect(within(bb).getByRole('button', { name: /^Standard: Wanted/ })).toHaveTextContent('STD56/62')
     expect(within(bb).getByRole('button', { name: /^Remux: Long Missing/ })).toBeInTheDocument()
     const more = within(bb).getByRole('button', { name: '2 more Slots' })
     expect(more).toHaveTextContent('+2')
@@ -59,7 +59,7 @@ describe('Library rows: Slot chips', () => {
     fakeLibrary([row(1, 'Heat', 'Heat'), row(2, 'Zodiac', 'Zodiac', { slot_states: [entry('standard', 'Standard', 'filled'), entry('4k', '4K', 'filled')] })])
     const list = await openLibrary()
     const heat = await within(list).findByRole('option', { name: /heat/i })
-    expect(within(heat).getByRole('button', { name: 'Standard: Wanted' })).toHaveTextContent('STA')
+    expect(within(heat).getByRole('button', { name: 'Standard: Wanted' })).toHaveTextContent('STD')
   })
 
   it('drops the Slot name when every Title has one Slot, and says the state alone', async () => {

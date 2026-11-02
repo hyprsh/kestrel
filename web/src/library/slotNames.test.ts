@@ -20,6 +20,16 @@ describe('slotNamesOf', () => {
     expect(slotNamesOf(four).short('4k')).toBe('4K')
   })
 
+  it('keeps STD for the label Standard, shows a label of four characters or fewer in full, and shortens a longer one', () => {
+    const shorts = slotNamesOf([slotRecord('a', 'Standard', 0), slotRecord('b', '4K', 1), slotRecord('c', 'Kids', 2), slotRecord('d', 'Remux', 3), slotRecord('e', 'Original', 4)])
+    expect([...'abcde'].map((id) => shorts.short(id))).toEqual(['STD', '4K', 'KIDS', 'REM', 'ORI'])
+  })
+
+  it('keys STD on the label, not the id', () => {
+    expect(slotNamesOf([slotRecord('standard', 'Everyday', 0)]).short('standard')).toBe('EVE')
+    expect(slotNamesOf([slotRecord('movies', 'Standard', 0)]).short('movies')).toBe('STD')
+  })
+
   it('has Slot chrome unless the library is known to have exactly one Slot', () => {
     expect(slotNamesOf([slotRecord('standard', 'Standard', 0)]).several).toBe(false)
     expect(slotNamesOf(four).several).toBe(true)

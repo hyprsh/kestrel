@@ -125,7 +125,7 @@ describe('the episode list', () => {
   it('shows a row per episode of the open season and a chip per Slot with a Version, its full state in the tooltip', async () => {
     const { grid } = await openSeries()
     const pilot = within(grid).getByRole('row', { name: /Pilot/ })
-    expect(within(pilot).getByTitle('Standard: Have')).toHaveTextContent('STA')
+    expect(within(pilot).getByTitle('Standard: Have')).toHaveTextContent('STD')
     expect(within(pilot).getByTitle(/^4K: Wanted \d+ d$/)).toHaveTextContent('4K')
     const cat = within(grid).getByRole('row', { name: /Cat's in the Bag/ })
     expect(within(cat).getByTitle('Standard: not aired')).toHaveAttribute('data-state', 'unreleased')
