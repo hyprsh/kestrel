@@ -2,7 +2,7 @@ import { displayDefaults, noDisplayDeclared } from '../test/display'
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
@@ -129,14 +129,14 @@ describe('the wizard', () => {
     expect(await within(language).findByLabelText('Release-date country')).toHaveValue('US')
   })
 
-  it('orders the sections and ends with the optional Adopt step', async () => {
+  it('orders the sections and ends with the optional Adopt step and the Summary', async () => {
     fakeSettings()
     fakeSetup()
     fakeAdoption()
     renderApp()
     await screen.findByRole('region', { name: 'Root folders' })
     const titles = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent?.replace(/^\d+/, ''))
-    await waitFor(() => expect(titles()).toEqual(['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Slots', 'Profiles', 'Adopt existing library (optional)']))
+    await waitFor(() => expect(titles()).toEqual(['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Slots', 'Profiles', 'Adopt existing library', 'Summary']))
   })
 
   it('folds a section once it is saved', async () => {
@@ -409,5 +409,107 @@ describe('the Slots step', () => {
     const step = within(await slotsStep())
     expect(await step.findByRole('button', { name: 'Edit' })).toBeInTheDocument()
     expect(step.queryByRole('button', { name: /^Use / })).not.toBeInTheDocument()
+  })
+})
+
+describe('what each step asks of you', () => {
+  const doneAll = { language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' } as const
+  const stepOf = (name: string) => screen.findByRole('region', { name })
+
+  it('says on every step whether it is required or can be skipped', async () => {
+    fakeSettings()
+    fakeSetup()
+    fakeAdoption()
+    renderApp()
+    await screen.findByRole('region', { name: 'Root folders' })
+    const need = async (name: string) => (await within(await stepOf(name)).findAllByText(/^(Required|Optional)$/)).map((n) => n.textContent)
+    for (const name of ['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Slots', 'Summary']) expect(await need(name)).toEqual(['Required'])
+    for (const name of ['Profiles', 'Adopt existing library']) expect(await need(name)).toEqual(['Optional'])
+  })
+
+  it('explains the Cutoff and the size limits in the Profiles step', async () => {
+    fakeSettings()
+    fakeSetup()
+    fakeAdoption()
+    renderApp()
+    const profiles = await stepOf('Profiles')
+    expect(await within(profiles).findByText(/Good enough at/)).toHaveTextContent(/Cutoff/)
+    expect(profiles).toHaveTextContent(/size limits/)
+    expect(profiles).toHaveTextContent(/Slots & Profiles/)
+  })
+
+  it('ends with a Summary that links to the Overview and Health and says media servers are connected in Settings', async () => {
+    fakeSettings()
+    fakeSetup(doneAll)
+    fakeAdoption()
+    renderApp()
+    const summary = await stepOf('Summary')
+    expect(within(summary).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/')
+    expect(within(summary).getByRole('link', { name: 'Health' })).toHaveAttribute('href', '/health')
+    expect(within(summary).getByRole('link', { name: 'Slots & Profiles' })).toHaveAttribute('href', '/settings/slots-profiles')
+    expect(summary).toHaveTextContent(/Connect your media servers in Settings/)
+    expect(within(summary).getByRole('link', { name: 'Media servers' })).toHaveAttribute('href', '/settings/media-servers')
+    expect(summary).not.toHaveTextContent(/still to do/)
+  })
+
+  it('names what is still to do in the Summary, and a link finishes setup before it opens its place', async () => {
+    fakeSettings()
+    const setup = fakeSetup({ ...doneAll, indexer: 'todo' })
+    fakeAdoption()
+    renderApp()
+    const summary = await stepOf('Summary')
+    expect(summary).toHaveTextContent('Indexer: still to do')
+
+    await userEvent.click(within(summary).getByRole('link', { name: 'Health' }))
+    expect(await within(summary).findByRole('alert')).toHaveTextContent('Indexer')
+    expect(location.pathname).toBe('/') // refused: the address went back
+
+    setup.sections.indexer = 'done'
+    await userEvent.click(within(summary).getByRole('link', { name: 'Health' }))
+    expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument() // the shell
+    expect(location.pathname).toBe('/health')
+    history.replaceState(null, '', '/')
+  })
+
+  it('can be worked through with the keyboard from the first control to Finish setup', async () => {
+    fakeSettings()
+    const setup = fakeSetup(doneAll)
+    fakeAdoption()
+    const user = userEvent.setup()
+    renderApp()
+    await stepOf('Summary')
+    const reached: string[] = []
+    for (let i = 0; i < 80 && !reached.includes('Finish setup'); i++) {
+      await user.tab()
+      const el = document.activeElement as HTMLElement
+      reached.push(el.getAttribute('aria-label') ?? el.textContent ?? '')
+    }
+    // Every folded step's Edit button, the Summary's links and Finish setup, in page order.
+    expect(reached.filter((n) => n === 'Edit')).toHaveLength(5)
+    expect(reached.indexOf('Overview')).toBeLessThan(reached.indexOf('Health'))
+    expect(reached.indexOf('Health')).toBeLessThan(reached.indexOf('Media servers'))
+    expect(reached.at(-1)).toBe('Finish setup')
+
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
+    expect(setup.finishCalls).toBe(1)
+  })
+})
+
+describe('the wizard on a phone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('shows every step in one column down to the Summary, with the step tags beside the titles', async () => {
+    fakeSettings()
+    fakeSetup()
+    fakeAdoption()
+    renderApp()
+    const summary = await screen.findByRole('region', { name: 'Summary' })
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent?.replace(/^\d+/, ''))
+    expect(headings).toEqual(['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Slots', 'Profiles', 'Adopt existing library', 'Summary'])
+    expect(within(summary).getByRole('button', { name: 'Finish setup' })).toBeInTheDocument()
   })
 })

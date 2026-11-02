@@ -56,9 +56,9 @@ Kestrel tells SABnzbd which category to use, and reads back where each download 
 
 ## Walk through Kestrel's setup
 
-Open <http://localhost:7676>. A fresh Kestrel shows the setup screen, a short list of sections. A section folds to a one-line summary once it is done.
+Open <http://localhost:7676>. A fresh Kestrel shows the setup screen, a short list of steps. Each step is tagged **Required** or **Optional**, so you can see what you may skip. A step folds to a one-line summary once it is done, and **Edit** opens it again.
 
-### 1. Account
+### 1. Account (required)
 
 Choose a username and a password of at least eight characters, and type the password a second time to confirm it. Kestrel is never open without a login. This is the admin account.
 
@@ -67,13 +67,13 @@ Choose a username and a password of at least eight characters, and type the pass
   <img alt="The Account section of the setup screen, with username, password and confirm password fields" src="images/01-setup-account-light.png">
 </picture>
 
-### 2. Primary Language
+### 2. Primary Language (required)
 
 Choose the language your household watches in: English, German or French. Kestrel looks for Releases with that audio, falling back to a Title's original language when you allow it. The release-date country decides when a Title counts as released. It follows the language until you edit it.
 
 You can change both later in Settings. Changing the language re-scores the files you already have.
 
-### 3. Download client
+### 3. Download client (required)
 
 Connect SABnzbd:
 
@@ -91,7 +91,7 @@ Choose **Test connection**, then **Save**.
   <img alt="The Download client section filled in for SABnzbd" src="images/02-setup-download-client-light.png">
 </picture>
 
-### 4. Indexer
+### 4. Indexer (required)
 
 An indexer is the site that lists what's on usenet. Kestrel searches it and fetches the NZB files. It speaks Newznab, which almost every usenet indexer does.
 
@@ -110,11 +110,11 @@ Choose **Test connection**, then **Save**. You can add more indexers later in Se
   <img alt="The Indexer section filled in for a Newznab indexer" src="images/03-setup-indexer-light.png">
 </picture>
 
-### 5. Root folders
+### 5. Root folders (required)
 
 The root folders are where Kestrel puts your Movies and your Series. They are prefilled for the layout above: `/data/media/movies` and `/data/media/tv`. Each folder must exist and be writable by Kestrel. Keep them on the same mount as your downloads, or Imports can't hardlink. Add a second folder if you want one for another audience, such as `/data/media/movies-kids`. The first is the default.
 
-### 6. Slots
+### 6. Slots (required)
 
 A fresh Kestrel starts with one Slot, Standard, and no Profiles, so the wizard asks you to set both up. A Slot is a named place in every Title that holds at most one Version, such as Standard or 4K. Each has a default Profile for a new Movie and for a new Series. Under **Start from a preset**, choose one and **Use** it:
 
@@ -125,20 +125,32 @@ A fresh Kestrel starts with one Slot, Standard, and no Profiles, so the wizard a
 
 A preset replaces the Slots below it, adds each Profile it needs and enables it, in one step. It is only offered while the library holds no Version, and not while the Config File declares `slots` or `profiles`. Change anything afterwards in the editor under the presets, or skip them and set the Slots up yourself. Finishing the setup needs a default Profile for Movies and one for Series in every Slot that is on for new Titles, and the Finish step names the Slot that lacks one. [Slots](slots.md) explains them in full.
 
-### 7. Profiles
+### 7. Profiles (optional)
 
-Choose which Profiles to enable. Every Profile you have is listed, ticked while it is enabled, and the Profiles your Slots use are on and stay on. Under them the wizard lists suggestions that fit: the Original-Language twin of each default (HD gives HD Original) and Any for each HD default. Tick one to add it. **More…** and Settings > Slots & Profiles list every suggestion ([Concepts](concepts.md#profile) explains the recipes), and you can change all of it later there. Settings > Slots & Profiles looks like this:
+Choose which Profiles to enable. You can skip this step: the Profiles your Slots use are on already. Every Profile you have is listed, ticked while it is enabled, and the Profiles your Slots use are on and stay on. Under them the wizard lists suggestions that fit: the Original-Language twin of each default (HD gives HD Original) and Any for each HD default. Tick one to add it. **More…** and Settings > Slots & Profiles list every suggestion ([Concepts](concepts.md#profile) explains the recipes), and you can change all of it later there. Settings > Slots & Profiles looks like this:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/07-profiles-dark.png">
   <img alt="Settings, Slots & Profiles: the default Profile each Slot gives new Titles, then one card per Profile with its qualities, sizes and where Upgrades stop" src="images/07-profiles-light.png">
 </picture>
 
+Each Profile also has a **Cutoff** and size limits. Open a Profile in Settings > Slots & Profiles to set them, after setup (the sheet below shows them):
+
+- **Cutoff:** **Good enough at** names a quality, and **Upgrade until Score** a Score. Once a file reaches both, Kestrel stops upgrading it. A Profile with no Cutoff never stops ([Upgrade](concepts.md#upgrade)).
+- **Size limits:** **Size per episode** and **Size per Movie** give the smallest and the largest a Release may be, in GB. Leave a side empty for no limit there.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/13-profile-sheet-dark.png">
+  <img alt="A Profile's sheet: the qualities best first with the cutoff marked, then Good enough at, Upgrade until Score, Minimum Score and the size limits" src="images/13-profile-sheet-light.png">
+</picture>
+
 ### 8. Adopt existing library (optional)
 
 If you already have files in those folders, Kestrel can scan them and take them in, so it doesn't download them again. Skip this for now if the library is empty. [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md) covers it in detail.
 
-Choose **Finish setup**. If something is missing, Kestrel names the section. You'll land on the Overview.
+### 9. Summary (required)
+
+The last step lists what is set up and names any required step that is still to do. Choose **Finish setup**, and you land on the Overview. The links in it, to the **Overview**, to **Health** and to **Slots & Profiles**, finish setup first and then open that place. Media servers are not a step: Kestrel works without Jellyfin or Plex, and you connect them later in Settings > Media servers.
 
 ## Add your first Title
 
@@ -182,11 +194,42 @@ The Title page shows each Version as a row with a bar and a line of counts (a Se
   <img alt="Upcoming: a timeline of episodes and Movie releases around today" src="images/06-upcoming-light.png">
 </picture>
 
+## A tour of the screens
+
+Kestrel has a few screens, each with its own address. On a desktop they are the buttons of the **rail** down the left; on a phone the tab bar holds the Overview, Library, Upcoming and Activity, and **More** holds the rest.
+
+- **Rail:** the Kestrel mark opens the Overview (a badge counts what needs attention). Under it are **Search or add** (`Ctrl K` or `Cmd K`), Library, Upcoming, Activity and Log. At the bottom are the **Health** button, the theme switcher and, last, **Settings**.
+- **Side panel:** most screens have a column beside the rail with the screen's name, a filter field, the **Filter** menu and **Views**, a short list of ready-made pages of that screen. [Concepts](concepts.md#views-and-the-filter-menu) explains how Views and Filter differ. On a phone the same controls sit in the header, and the Views join the Filter menu.
+- **Overview:** what needs you now, and what Kestrel is doing.
+- **Library:** every Title, with its Versions and files.
+- **Activity:** every Grab from Searching to Done.
+- **Upcoming:** what airs or is released soon.
+- **Settings:** the sections of Kestrel, in groups: General (language and display, Slots & Profiles, Library), Connections (Downloads, Media servers) and System (Account, Security & Access, About). "Find a setting" at the top of the list finds one by name.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/08-overview-dark.png">
+  <img alt="The Overview: figures for the library, Needs attention, what is downloading and what is Wanted" src="images/08-overview-light.png">
+</picture>
+
 ## The Overview and Activity
 
-The **Overview** is the home screen. The rail down the left (a tab bar on a phone, with the rest under **More**) holds the Overview (the Kestrel mark, with a badge counting what needs attention), **Search or add** (`Ctrl K` or `Cmd K`, which also adds Movies and Series), Library, Upcoming, Activity, Log and Settings. The **Health** button (a heart-pulse icon with a status dot, at the bottom of the rail and on a phone in the top bar next to the **+** that adds a Title) is green when all checks are OK, amber with Warnings and red with Blocking issues; hover it for "Health · 1 Blocking, 2 Warnings". It opens the Health screen and reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. When something runs, an indicator above it says what and opens Health's Background jobs. **Log Out** and **Log Out Everywhere** are in Settings > Account (and under **More** on a phone), and **About**, with the version and the keyboard shortcuts, is the last page of Settings. A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. The figures for the range you pick (Grabs, Indexers, the download client, Quality, Storage, Release groups and Requests) sit above and below it. At the bottom, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
+The **Overview** is the home screen. The rail down the left (a tab bar on a phone, with the rest under **More**) holds the Overview (the Kestrel mark, with a badge counting what needs attention), **Search or add** (`Ctrl K` or `Cmd K`, which also adds Movies and Series), Library, Upcoming, Activity and Log, with Settings last at the bottom. The **Health** button (a heart-pulse icon with a status dot, near the bottom of the rail and on a phone in the top bar next to the **+** that adds a Title) is green when all checks are OK, amber with Warnings and red with Blocking issues; hover it for "Health · 1 Blocking, 2 Warnings". It opens the Health screen and reads "Offline" when Kestrel can't be reached, and a Blocking issue also puts a banner across every screen. When something runs, an indicator above it says what and opens Health's Background jobs. **Log Out** and **Log Out Everywhere** are in Settings > Account (and under **More** on a phone), and **About**, with the version and the keyboard shortcuts, is the last page of Settings. A disk that is running low shows as a Health check and a row in **Happening now**. **Happening now** is one list of what wants a decision (Needs attention, one compact row per item with its poster and buttons, plus an Adoption plan waiting for review, versions that have been missing for a long time and Originals on offer) and what is downloading. The figures for the range you pick (Grabs, Indexers, the download client, Quality, Storage, Release groups and Requests) sit above and below it. At the bottom, **Recently added**, **Recent requests** and **Coming this week** are three short lists side by side, each with a link to its screen. Press `j` and `k` to move through the rows.
 
-**Activity** (`/activity`) shows every Grab from Searching to Done, in stage order: Searching, Queued, Downloading, Post-processing, Importing, Stalled, Done and Failed. The side panel's Views (Everything, In progress, Imported, Failed) narrow it to some of them, and a Grab opens to show its steps. While a search pass runs, the Searching stage shows it like a download: what is being searched now, a progress bar with how many Wanted Versions are done and the time left, and how many releases have been checked and Grabs made so far. Between passes it says what waits, when the next pass starts and how the last one went. Narrow it further with the filter field or the Filter button (`stage:` takes the stage names).
+**Activity** (`/activity`) shows every Grab from Searching to Done, in stage order: Searching, Queued, Downloading, Post-processing, Importing, Stalled, Done and Failed. The side panel's Views (Everything, In progress, Imported, Failed) narrow it to some of them, and a Grab opens to show its steps (see below). While a search pass runs, the Searching stage shows it like a download: what is being searched now, a progress bar with how many Wanted Versions are done and the time left, and how many releases have been checked and Grabs made so far. Between passes it says what waits, when the next pass starts and how the last one went. Narrow it further with the filter field or the Filter button (`stage:` takes the stage names).
+
+Choose a row in the History to open it. The steps run oldest first: when the Grab was made and by what, when it downloaded and how fast, and how it ended, as an Import with the files it wrote or a failure with its reason. A failed Grab adds a **Now** note saying whether its Release is blocklisted and whether the Title is still Wanted, with **Search … Now** and **Manual Search…** buttons.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/10-grab-steps-dark.png">
+  <img alt="A failed Grab opened in Activity: its steps (grabbed, downloaded, download failed) and what happens next" src="images/10-grab-steps-light.png">
+</picture>
+
+The **Manual search** of a Title lists every Release the indexers offered for one Version, the ones that fit its Profile first and the rejected ones, with why, under a **Best fit** card. **Grab** sends one to the download client.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/09-manual-search-dark.png">
+  <img alt="Manual search of Paddington 2: the best fit with its Score, the other Releases that fit and two rejected ones" src="images/09-manual-search-light.png">
+</picture>
 
 **Health** (`/health`) is a screen of its own, opened by the Health button; it is not in the side bar's list of screens. It opens with the verdict in words, then has three sections, chosen in the side panel and each with its own address:
 
@@ -196,6 +239,12 @@ The **Overview** is the home screen. The rail down the left (a tab bar on a phon
 - **Background jobs** (`/health/jobs`) shows what Kestrel is running now and when each periodic job last ran and runs next. The indicator above the Health button that says what is running opens it. Its Search job shows the same progress as Activity's Searching stage and has a **Search all Wanted** button, the same as the command menu's, which is off while a search pass is running or nothing is Wanted. A search you start from there, from the command menu or with **Run now** shows one Toast that follows the pass live and ends with a summary; passes Kestrel starts on its own show none.
 
 The old `/activity/health`, `/activity/jobs` and `/activity/running` addresses still work and open the same places.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/12-health-dark.png">
+  <img alt="The Health screen: the verdict, then the checks in groups and the background jobs" src="images/12-health-light.png">
+</picture>
+
 
 ## Where to go next
 

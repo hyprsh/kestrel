@@ -2,7 +2,10 @@
 // The screenshots of docs/guide, in light and dark, as NN-<name>-<theme>.png in <out dir>.
 // `make docs-shots` runs it through docs-shots.sh against the demo, which starts the right
 // instance for each phase: `setup` on an unseeded one (the setup wizard), `app` on the seeded one.
+import { execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { demoURL, launch, open, wait } from './lib.mjs'
 
 const [phase, out] = process.argv.slice(2)
@@ -107,6 +110,48 @@ async function app() {
       await wait(1500)
       await h.page.getByRole('heading', { name: 'Profiles', exact: true }).first().evaluate((el) => el.scrollIntoView())
       await save(h.page, '07-profiles', theme)
+
+      // A Profile's sheet: where Upgrades stop, the size limits and the qualities.
+      await h.page.getByRole('button', { name: /^Edit / }).first().click()
+      await h.page.getByLabel('Good enough at').waitFor()
+      await h.page.getByText('Size per Movie', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'end' }))
+      await save(h.page, '13-profile-sheet', theme)
+
+      await h.page.goto(h.base + '/', { waitUntil: 'domcontentloaded' })
+      await h.page.getByRole('heading', { name: 'Needs attention' }).waitFor()
+      await wait(1500)
+      await save(h.page, '08-overview', theme)
+
+      // Manual search of a Wanted Movie, with the fake indexer's Releases on for the moment only: a search pass would grab them.
+      const releases = (state) => execFileSync(`${dirname(fileURLToPath(import.meta.url))}/demo.sh`, ['releases', state], { stdio: 'ignore' })
+      const titles = await h.page.evaluate(async () => (await fetch('api/v1/titles')).json())
+      const movie = (Array.isArray(titles) ? titles : titles.items).find((t) => t.title === 'Paddington 2')
+      const version = movie.slot_states[0].version_id
+      releases('on')
+      try {
+        await h.page.goto(`${h.base}/library/${movie.id}/search?version=${version}`, { waitUntil: 'domcontentloaded' })
+        await h.page.getByText('Best fit').waitFor()
+        await save(h.page, '09-manual-search', theme)
+      } finally {
+        releases('off')
+      }
+
+      // A failed Grab in Activity, opened to show its steps.
+      await h.page.goto(h.base + '/activity', { waitUntil: 'domcontentloaded' })
+      await h.page.getByText(/Failed · the download failed/).first().click()
+      await h.page.getByRole('list', { name: 'What happened' }).waitFor()
+      await save(h.page, '10-grab-steps', theme)
+
+      // The Log, with an error opened: its details and "Same error before".
+      await h.page.goto(h.base + '/log', { waitUntil: 'domcontentloaded' })
+      await h.page.getByRole('button', { name: /^Open event: Download failed/ }).first().click()
+      await h.page.getByText('Same error before').waitFor()
+      await h.page.getByText(/^Last \d+ days$/).first().evaluate((el) => el.scrollIntoView({ block: 'start' }))
+      await save(h.page, '11-log', theme)
+
+      await h.page.goto(h.base + '/health', { waitUntil: 'domcontentloaded' })
+      await wait(2000)
+      await save(h.page, '12-health', theme)
     } finally {
       await h.close()
     }

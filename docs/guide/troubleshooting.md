@@ -107,6 +107,25 @@ It asks for the new password. Pass `--password-stdin` to read it from stdin inst
 
 If a [Config File](configuration.md#the-config-file) declares the account, Kestrel refuses: change the password's environment variable and restart.
 
+## Reading the Log and a failed Grab
+
+Start from the **Log** when something went wrong and you want to know what Kestrel did. The strip at the top shows how many events happened in each four hours of the last days, as columns: gray for events, amber for warnings and red for errors. Hover a column for its counts, and click it to jump the list to that time. A red column is where to look first.
+
+Choose the **Errors** or **Warnings** View in the side panel, or type `kind:errors`, to list only those. Click a row to open it. It shows the event's details (the Release, the indexer, the Score and why Kestrel grabbed it) and, for an error, **Same error before**: the times the same error happened earlier, and how often since when. "First time in the Log" means it is new. An error that keeps coming back at similar times usually points at the other side, such as a download client that restarts or a server that sleeps. **Copy Details** copies the event for a bug report.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/11-log-dark.png">
+  <img alt="The Log with a failed download opened: its details, and Same error before listing the earlier times" src="images/11-log-light.png">
+</picture>
+
+To follow a single Grab, open **Activity** and choose its row in the History. Its steps run oldest first:
+
+1. **Grabbed:** when, from which indexer and why (by hand, by the search pass, or by the RSS sweep).
+2. **Downloaded:** when it started and finished in the download client, its size and the average speed.
+3. **Imported** (with the files it wrote and how many it replaced) or **Download failed** or **Import rejected**, with the reason.
+
+Under a failed Grab, **Now** says whether its Release is blocklisted and whether the Title is still Wanted. If it is, the next search pass tries the next best Release, or choose **Search … Now**.
+
 ## Where are the logs and backups?
 
 - **What Kestrel did:** the Log screen lists every search, Grab, Import and rename as a sentence with its Title, under a strip of the last days, and you can filter it with the side panel's Views (Everything, Errors, Warnings, Grabs, Imports, Adoption, Searches) or the filter field (try `kind:` and `title:`). Its **...** menu opens the Blocklist. Done and Failed Grabs in Activity reach back 7 days. The Log keeps routine events for 30 days.

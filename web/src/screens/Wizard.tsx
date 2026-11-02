@@ -1,6 +1,6 @@
-import { Badge, Button, Fieldset, Input, Note, Separator } from '@hyprsh/design'
+import { Badge, Button, Fieldset, Input, Link, Note, Separator } from '@hyprsh/design'
 import { Check } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { ApiError, useCompleteSetup, useCreateAccount, usePluginInstances, usePlugins, useProfiles, useSetup, useSettings } from '../api/queries'
 import { useSlots } from '../api/slots'
 import { Adoption } from '../adoption/Adoption'
@@ -12,6 +12,7 @@ import { LanguageForm } from '../profiles/Language'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { SlotPresets } from '../slots/SlotPresets'
 import { SlotsSection } from '../slots/SlotsSection'
+import { showPlace } from '../place'
 import { KestrelLogo } from '../ui'
 
 const MIN_PASSWORD = 8
@@ -51,6 +52,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
         n={1}
         id="account"
         title="Account"
+        need="required"
         checked={signedIn}
         description={signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
       >
@@ -76,6 +78,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={2}
             id="language"
             title="Primary Language"
+            need="required"
             state={sections.language}
             summary={<LanguageSummary />}
             description="Choose the language your household watches in. You can change it later in Settings."
@@ -86,6 +89,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={3}
             id="download-client"
             title="Download client"
+            need="required"
             state={sections.download_client}
             summary={<InstanceSummary contract="download_client.v1" />}
             description="Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history."
@@ -96,6 +100,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={4}
             id="indexer"
             title="Indexer"
+            need="required"
             state={sections.indexer}
             summary={<InstanceSummary contract="indexer.v1" />}
             description="Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings."
@@ -106,6 +111,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={5}
             id="root-folders"
             title="Root folders"
+            need="required"
             state={sections.root_folders}
             summary={<RootFoldersSummary />}
             description="Choose where Kestrel puts Movies and Series. The paths are prefilled for the standard /data layout."
@@ -116,6 +122,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={6}
             id="slots"
             title="Slots"
+            need="required"
             state={sections.slots}
             summary={<SlotsSummary />}
             description="A Slot is a named place in every Title that holds at most one Version, such as Standard or 4K. Each has a default Profile for a new Movie and a new Series. Start from a preset, then adjust the Slots."
@@ -129,15 +136,23 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={7}
             id="profiles"
             title="Profiles"
+            need="optional"
             checked={sections.slots === 'done'}
-            description="Choose which Profiles to enable. The ones your Slots use are on and stay on. Tick a Profile to enable it, or a suggestion to add it; More… lists every suggestion."
+            description="Choose which Profiles to enable. The ones your Slots use are on and stay on, so you can skip this and add more later. Tick a Profile to enable it, or a suggestion to add it; More… lists every suggestion."
           >
-            <EnableProfiles />
+            <div className="flex flex-col gap-3">
+              <EnableProfiles />
+              <p className="copy-13 text-gray-900">
+                Every Profile also has a <strong>Cutoff</strong> (&ldquo;Good enough at&rdquo;): Kestrel stops upgrading a file once it reaches that quality and the Score you set, and a Profile with
+                no Cutoff never stops. It has size limits too, the smallest and largest a Release may be per episode and per Movie. Neither needs setting now. Open a Profile in Settings &rsaquo; Slots
+                &amp; Profiles after setup to set them.
+              </p>
+            </div>
           </Section>
-          <Section n={8} id="adopt" title="Adopt existing library (optional)">
+          <Section n={8} id="adopt" title="Adopt existing library" need="optional">
             <Adoption embedded />
           </Section>
-          <Finish completed={setup.data.completed} onLeave={onLeave} />
+          <Summary n={9} sections={sections} completed={setup.data.completed} onLeave={onLeave} />
         </>
       )}
     </WidePage>
@@ -153,40 +168,103 @@ const sectionTitles: Record<string, string> = {
   slots: 'Slots',
 }
 
-/** "Finish setup" names whatever is still missing instead of letting the admin through. */
-function Finish({ completed, onLeave }: { completed: boolean; onLeave: () => void }) {
+/** The address of a place under the base URL, for a link's href. */
+const hrefOf = (path: string) => new URL(path.replace(/^\//, ''), document.baseURI).pathname
+
+/**
+ * The last step: what is set up, where to go next and "Finish setup", which names whatever is still missing instead of letting
+ * the admin through. The links finish setup first and then open their place, so they work like the button. Media servers are
+ * not a step: Kestrel works without them, and they are connected in Settings.
+ */
+function Summary({ n, sections, completed, onLeave }: { n: number; sections: Record<string, 'done' | 'todo'>; completed: boolean; onLeave: () => void }) {
   const finish = useCompleteSetup()
   const missing = finish.error instanceof ApiError ? finish.error.fields.filter((f) => f.field.startsWith('sections.')) : []
+  // The place goes into the address bar first: the Shell reads it when it replaces the wizard. A refusal puts the address back.
+  const finishTo = (path: string) => {
+    const before = location.href
+    showPlace(path)
+    finish.mutate(undefined, { onSuccess: onLeave, onError: () => history.replaceState(history.state, '', before) })
+  }
+  const link = (path: string) => ({
+    href: hrefOf(path),
+    onClick: (e: MouseEvent<HTMLAnchorElement>) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || finish.isPending) return
+      e.preventDefault()
+      finishTo(path)
+    },
+  })
   return (
-    <div className="mt-6 flex flex-col gap-3">
-      <Separator />
-      {finish.isError && (
-        <Note variant="error" size="small">
-          {missing.length > 0 ? (
-            <>
-              <p className="mb-1 font-medium">Finish these sections first:</p>
-              <ul className="list-disc pl-5">
-                {missing.map((f) => (
-                  <li key={f.field}>{sectionTitles[f.field.slice('sections.'.length)] ?? f.field}</li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            'Could not finish setup. Try again.'
+    <section aria-labelledby="wizard-summary" className="mt-4">
+      <Fieldset>
+        <Fieldset.Content>
+          <div className="flex flex-wrap items-center gap-2">
+            <Fieldset.Title as="h2" id="wizard-summary">
+              <span className="flex items-center gap-2">
+                <span aria-hidden>
+                  <Badge size="sm" contrast="low" variant={completed ? 'green' : 'gray'}>
+                    {completed ? <Check className="size-3" /> : n}
+                  </Badge>
+                </span>
+                Summary
+              </span>
+            </Fieldset.Title>
+            <Need need="required" />
+          </div>
+          <Fieldset.Subtitle>Finish setup to open Kestrel. If a required step was missed, Finish names it.</Fieldset.Subtitle>
+          <ul className="copy-14 flex flex-col gap-1">
+            {Object.entries(sectionTitles).map(([key, title]) => (
+              <li key={key}>
+                {title}: {key === 'account' || sections[key] === 'done' ? 'done' : 'still to do'}
+              </li>
+            ))}
+          </ul>
+          <p className="copy-14">
+            After setup, open the <Link {...link('/')}>Overview</Link> to see what needs attention, or <Link {...link('/health')}>Health</Link> to check that the download client, indexers and disks
+            are fine. Set each Profile&rsquo;s Cutoff and size limits in <Link {...link('/settings/slots-profiles')}>Slots &amp; Profiles</Link>.
+          </p>
+          <p className="copy-14">
+            Jellyfin and Plex are not part of setup, and Kestrel works without them. Connect your media servers in Settings, under <Link {...link('/settings/media-servers')}>Media servers</Link>, so
+            new files show up at once.
+          </p>
+          {finish.isError && (
+            <Note variant="error" size="small">
+              {missing.length > 0 ? (
+                <>
+                  <p className="mb-1 font-medium">Finish these sections first:</p>
+                  <ul className="list-disc pl-5">
+                    {missing.map((f) => (
+                      <li key={f.field}>{sectionTitles[f.field.slice('sections.'.length)] ?? f.field}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                'Could not finish setup. Try again.'
+              )}
+            </Note>
           )}
-        </Note>
-      )}
-      <div className="flex gap-2">
-        <Button size="small" variant="primary" disabled={finish.isPending} onClick={() => finish.mutate(undefined, { onSuccess: onLeave })}>
-          Finish setup
-        </Button>
-        {completed && (
-          <Button size="small" onClick={onLeave}>
-            Back to Kestrel
-          </Button>
-        )}
-      </div>
-    </div>
+          <Separator />
+          <div className="flex gap-2">
+            <Button size="small" variant="primary" disabled={finish.isPending} onClick={() => finish.mutate(undefined, { onSuccess: onLeave })}>
+              Finish setup
+            </Button>
+            {completed && (
+              <Button size="small" onClick={onLeave}>
+                Back to Kestrel
+              </Button>
+            )}
+          </div>
+        </Fieldset.Content>
+      </Fieldset>
+    </section>
+  )
+}
+
+/** Whether a step must be done or can be skipped. */
+function Need({ need }: { need: 'required' | 'optional' }) {
+  return (
+    <Badge size="sm" contrast="low" variant={need === 'required' ? 'blue' : 'gray'}>
+      {need === 'required' ? 'Required' : 'Optional'}
+    </Badge>
   )
 }
 
@@ -237,6 +315,7 @@ function Section({
   n,
   id,
   title,
+  need,
   description,
   state,
   checked,
@@ -246,6 +325,8 @@ function Section({
   n: number
   id: string
   title: string
+  /** Required to finish setup, or can be skipped. */
+  need: 'required' | 'optional'
   description?: string
   state?: 'done' | 'todo'
   /** Shows the check mark without folding, for a step that has no form once done. */
@@ -261,16 +342,19 @@ function Section({
       <Fieldset>
         <Fieldset.Content>
           <div className="flex items-center justify-between gap-4">
-            <Fieldset.Title as="h2" id={`wizard-${id}`}>
-              <span className="flex items-center gap-2">
-                <span aria-hidden>
-                  <Badge size="sm" contrast="low" variant={done ? 'green' : 'gray'}>
-                    {done ? <Check className="size-3" /> : n}
-                  </Badge>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Fieldset.Title as="h2" id={`wizard-${id}`}>
+                <span className="flex items-center gap-2">
+                  <span aria-hidden>
+                    <Badge size="sm" contrast="low" variant={done ? 'green' : 'gray'}>
+                      {done ? <Check className="size-3" /> : n}
+                    </Badge>
+                  </span>
+                  {title}
                 </span>
-                {title}
-              </span>
-            </Fieldset.Title>
+              </Fieldset.Title>
+              <Need need={need} />
+            </div>
             {folded && (
               <Button size="small" onClick={() => setEditing(true)}>
                 Edit

@@ -93,6 +93,15 @@ Replacing a Version's file with a better-scoring Release. A monitored Version ke
 
 Example: you import a 1080p WEB-DL of a new film. Weeks later a BluRay Release with a higher Score appears, and Kestrel grabs it and replaces the file.
 
+## Views and the Filter menu
+
+Two ways to narrow a list that look alike and do different things. Both write into the same filter field, so what you pick shows there as text (`kind:errors`, `slot:4k`) and a bookmarked address (`?q=`) keeps it.
+
+- **Views** are ready-made pages of a screen, in the side panel (on a phone, the first section of the Filter menu): the Log's Errors, Warnings and Grabs, Activity's In progress and Failed, Upcoming's Wanted when out and Recently out. You are on one View at a time, and each shows how many rows it holds. Choosing one replaces the filter with its own terms, and keeps only the sort.
+- **The Filter menu** refines the View you are on. Each section (Kind, Slot and so on) lists values to tick. Ticking several values of one section shows rows that match any of them, and ticking in several sections shows rows that match all. Shift+click on a value excludes it (`-slot:4k`). The button counts the sections in use, and **Clear all** at the top empties the filter.
+
+Example: in the Log, choose the **Errors** View for failures only, then tick **Slot > 4K** in the Filter menu to see the failures of 4K Versions. Choosing **Grabs** next starts over from that View.
+
 ## Requests
 
 An ask from someone other than the admin, such as a person who shares your Plex server or a Silo user, for a Title in one or more Slots. A Request adds the Title or its missing Versions, and never changes existing ones. It carries who asked. You adding a Title yourself is not a Request. [Configuration](configuration.md#requesters-plex-sign-in) explains how people sign in.
