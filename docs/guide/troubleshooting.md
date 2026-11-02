@@ -82,14 +82,14 @@ Many indexers allow only so many API requests, and so many downloads, a day. In 
 
 Health shows how fast the indexers that answer are, from the searches Kestrel really made over the last day ("Answering · 0.6 – 0.9 s" is the range of their median times). If the indexer reports its limits, Kestrel shows them on the Health screen next to the indexer ("18 searches today"). An indexer that says it is rate limiting Kestrel is left alone for as long as it asks.
 
-To stop downloads altogether for a while, such as when you reach a monthly cap, switch on **Pause Grabs** in Settings > Downloads > Automatic Grabs. Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client on its own. A Release you grab by hand still goes through. Switch it off and the next search sweep grabs as usual.
+To stop downloads altogether for a while, such as when you reach a monthly cap, switch off **Grab automatically** in Settings > Downloads > Automatic Grabs. Health then shows "Automatic Grabs are paused". Searches keep running, so Wanted and Upgrade candidates still show up, but nothing is sent to the download client on its own. A Release you grab by hand still goes through. Switch it back on and the next search sweep grabs as usual.
 
 ## Nothing is downloading
 
 Check these in order:
 
 1. **Is the Version Wanted?** Open the Title. A Version that is unmonitored, or not released yet (it says "Unreleased"), isn't searched. [Concepts](concepts.md#wanted) says when something counts as released.
-2. **Is Pause Grabs on?** See above.
+2. **Is Grab automatically switched off?** See above.
 3. **Is Needs attention asking for something?** A Release in your language may have been held back, because the Profile offers Releases that have only the Original Language ([Concepts](concepts.md#profile)). Accept or dismiss it.
 4. **Did the search find a Release that scores well enough?** Open the Title and choose Manual search. It lists every Release with its Score, and says why one was rejected. "Grab anyway" overrides most rejections.
 5. **Are the download client and indexer healthy?** Health shows each with a status. Settings > Downloads has a Test connection button.
