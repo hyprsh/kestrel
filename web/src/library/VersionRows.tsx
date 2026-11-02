@@ -41,7 +41,7 @@ function coverageLine(v: Version, dl: SlotDownloads | null): { text: string; ton
     return { text: `Downloading${eps.length > 0 ? ` ${codeRuns(eps)}` : ''}`, tone: 'text-blue-900' }
   }
   if (!c) return { text: v.state === 'unmonitored' ? 'Not monitored' : '', tone: 'text-gray-900' }
-  const released = c.filled + c.wanted + c.unmonitored
+  const released = c.episodes + c.unmonitored
   const parts = [`${c.filled} of ${plural(released, 'episode')}`, c.wanted > 0 ? `${c.wanted} Wanted` : null, c.unmonitored > 0 ? `${c.unmonitored} not monitored` : null].filter(Boolean)
   return { text: parts.join(' \u00b7 '), tone: c.long_missing > 0 ? 'text-red-900' : c.wanted > 0 ? 'text-amber-900' : 'text-gray-900' }
 }
@@ -133,7 +133,7 @@ function SlotRow({
   const name = slotName(v.slot)
   const line = coverageLine(v, downloads)
   const c = v.coverage
-  const released = c ? c.filled + c.wanted + c.unmonitored : 0
+  const released = c ? c.episodes + c.unmonitored : 0
   const state = downloads ? 'downloading' : dotState(v.state, (c?.long_missing ?? 0) > 0 || v.long_missing)
   const sizeText = c && c.size > 0 ? size(c.size) : '\u2014'
   const chip = <SlotChips chips={[{ key: v.slot, short: slotShort(v.slot), state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: `${name}: ${line.text}` }]} max={1} />
@@ -182,7 +182,7 @@ function SlotBody({ title, profiles, profileName, onManualSearch, version: v, do
   const search = useSearchVersion(title, v.id)
   const [whyOpen, setWhyOpen] = useState(false)
   const c = v.coverage
-  const released = c ? c.filled + c.wanted + c.unmonitored : 0
+  const released = c ? c.episodes + c.unmonitored : 0
   const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   const wanted = v.state === 'wanted' && !downloads
   const d = days(v.wanted_since, now)

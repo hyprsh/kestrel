@@ -4784,11 +4784,11 @@ components:
         episodes_have:
           type: integer
           nullable: true
-          description: A Series Version's episodes that hold a file; null for a Movie.
+          description: A Series Version's regular episodes (Specials left out) that hold a file; null for a Movie.
         episodes_aired:
           type: integer
           nullable: true
-          description: A Series Version's episodes that have aired; null for a Movie.
+          description: A Series Version's regular episodes (Specials left out) that have aired; null for a Movie.
         last_search:
           allOf:
             - $ref: "#/components/schemas/LastSearch"
@@ -5022,27 +5022,31 @@ components:
       description: |
         How far a Series Version is filled, in episodes and bytes; present only for a Series
         Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+        Specials (season 0) are left out of `episodes`, `filled` and `unmonitored`, but a
+        monitored Special that is Wanted counts in `wanted`, `long_missing`, `downloading` and
+        `downloading_long_missing`.
       required: [episodes, filled, wanted, long_missing, unmonitored, downloading, downloading_long_missing, size]
       properties:
         episodes:
           type: integer
           description: |
-            The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
-            and unreleased episodes without a file are left out; see `unmonitored`.
+            The regular episodes the Version counts: those it holds a file for and those it Wants.
+            Specials, and unmonitored and unreleased episodes without a file, are left out; see
+            `unmonitored`. It is `filled + wanted` less the Wanted Specials.
         filled:
           type: integer
-          description: Episodes the Version holds a file for.
+          description: Regular episodes the Version holds a file for.
         wanted:
           type: integer
-          description: Episodes that are Wanted.
+          description: Episodes that are Wanted, monitored Specials included.
         long_missing:
           type: integer
           description: The Wanted episodes that are Long Missing, those with a Grab in flight included.
         unmonitored:
           type: integer
           description: |
-            Released episodes without a file that aren't monitored. The released episodes are
-            `filled + wanted + unmonitored`.
+            Released regular episodes without a file that aren't monitored. The released regular
+            episodes and the Wanted Specials are `filled + wanted + unmonitored`.
         downloading:
           type: integer
           description: |
@@ -5054,7 +5058,7 @@ components:
             The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
             `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
             (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
-            they add up to the released episodes.
+            they add up to the released regular episodes and the Wanted Specials.
         size:
           type: integer
           format: int64

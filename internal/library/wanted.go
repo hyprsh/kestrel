@@ -13,6 +13,9 @@ type Unit struct {
 	AddedAt   time.Time
 	// Grabbing is whether a Grab in flight covers it; only the Coverage reads it.
 	Grabbing bool
+	// Special is whether it is an episode of season 0. A Series' episode totals
+	// leave Specials out; a monitored Special still counts as Wanted.
+	Special bool
 }
 
 // StateAt (the spec's Wanted(now)) is the state of one Unit at now, and for a Wanted Unit since when it

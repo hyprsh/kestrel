@@ -311,7 +311,7 @@ func unitsOf(eps []db.Episode, released map[int64]*time.Time, held map[int64]*in
 	out := make([]Unit, 0, len(eps))
 	for _, e := range eps {
 		_, has := held[e.ID]
-		out = append(out, Unit{Monitored: e.Monitored == 1, HasFile: has, Released: released[e.ID], AddedAt: addedAt})
+		out = append(out, Unit{Monitored: e.Monitored == 1, HasFile: has, Released: released[e.ID], AddedAt: addedAt, Special: e.Season == 0})
 	}
 	return out
 }

@@ -3433,9 +3433,9 @@ export interface components {
             upgrade_wanted: boolean;
             /** @description A Series Version's episodes whose file is below the Profile's cutoff; null for a Movie. */
             episodes_upgrade?: number | null;
-            /** @description A Series Version's episodes that hold a file; null for a Movie. */
+            /** @description A Series Version's regular episodes (Specials left out) that hold a file; null for a Movie. */
             episodes_have?: number | null;
-            /** @description A Series Version's episodes that have aired; null for a Movie. */
+            /** @description A Series Version's regular episodes (Specials left out) that have aired; null for a Movie. */
             episodes_aired?: number | null;
             /** @description What the last search of a Wanted Version found. Only a Wanted Version has it here; null when it was never searched. */
             last_search?: components["schemas"]["LastSearch"] | null;
@@ -3574,22 +3574,26 @@ export interface components {
         /**
          * @description How far a Series Version is filled, in episodes and bytes; present only for a Series
          *     Version. It agrees with the Version's `state`: Wanted while `wanted` is above zero.
+         *     Specials (season 0) are left out of `episodes`, `filled` and `unmonitored`, but a
+         *     monitored Special that is Wanted counts in `wanted`, `long_missing`, `downloading` and
+         *     `downloading_long_missing`.
          */
         VersionCoverage: {
             /**
-             * @description The episodes the Version counts: those it holds a file for and those it Wants. Unmonitored
-             *     and unreleased episodes without a file are left out; see `unmonitored`.
+             * @description The regular episodes the Version counts: those it holds a file for and those it Wants.
+             *     Specials, and unmonitored and unreleased episodes without a file, are left out; see
+             *     `unmonitored`. It is `filled + wanted` less the Wanted Specials.
              */
             episodes: number;
-            /** @description Episodes the Version holds a file for. */
+            /** @description Regular episodes the Version holds a file for. */
             filled: number;
-            /** @description Episodes that are Wanted. */
+            /** @description Episodes that are Wanted, monitored Specials included. */
             wanted: number;
             /** @description The Wanted episodes that are Long Missing, those with a Grab in flight included. */
             long_missing: number;
             /**
-             * @description Released episodes without a file that aren't monitored. The released episodes are
-             *     `filled + wanted + unmonitored`.
+             * @description Released regular episodes without a file that aren't monitored. The released regular
+             *     episodes and the Wanted Specials are `filled + wanted + unmonitored`.
              */
             unmonitored: number;
             /**
@@ -3601,7 +3605,7 @@ export interface components {
              * @description The `downloading` episodes that are also Long Missing. For a bar of disjoint states, count
              *     `filled`, `downloading`, `long_missing - downloading_long_missing`, the rest of `wanted`
              *     (`wanted - downloading - (long_missing - downloading_long_missing)`) and `unmonitored`:
-             *     they add up to the released episodes.
+             *     they add up to the released regular episodes and the Wanted Specials.
              */
             downloading_long_missing: number;
             /**

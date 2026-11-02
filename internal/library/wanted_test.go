@@ -100,3 +100,44 @@ func TestSeriesState(t *testing.T) {
 		})
 	}
 }
+
+func TestASeriesTotalsLeaveSpecialsOutButAMonitoredWantedSpecialStaysWanted(t *testing.T) {
+	now := *day("2026-10-18")
+	added := *day("2026-01-01")
+	past := day("2025-01-01")
+	regular := []Unit{
+		{Monitored: true, HasFile: true, Released: past, AddedAt: added},
+		{Monitored: true, HasFile: true, Released: past, AddedAt: added},
+	}
+	with := func(special Unit) []Unit {
+		special.Special = true
+		return append(append([]Unit{}, regular...), special)
+	}
+	cases := []struct {
+		name        string
+		units       []Unit
+		state       State
+		have, aired int
+		cov         Coverage
+	}{
+		{"an unmonitored Special without a file", with(Unit{Released: past, AddedAt: added}), Filled, 2, 2,
+			Coverage{Episodes: 2, Filled: 2}},
+		{"a monitored aired Special without a file", with(Unit{Monitored: true, Released: past, AddedAt: added}), Wanted, 2, 2,
+			Coverage{Episodes: 2, Filled: 2, Wanted: 1, LongMissing: 1}},
+		{"a Special with a file", with(Unit{Monitored: true, HasFile: true, Released: past, AddedAt: added}), Filled, 2, 2,
+			Coverage{Episodes: 2, Filled: 2}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if st, _ := SeriesState(c.units, now); st != c.state {
+				t.Errorf("state = %s, want %s", st, c.state)
+			}
+			if have, aired := episodeTotals(c.units, now); have != c.have || aired != c.aired {
+				t.Errorf("have/aired = %d/%d, want %d/%d", have, aired, c.have, c.aired)
+			}
+			if got := coverageOf(c.units, 0, now); *got != c.cov {
+				t.Errorf("coverage = %+v, want %+v", *got, c.cov)
+			}
+		})
+	}
+}

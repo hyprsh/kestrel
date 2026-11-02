@@ -115,7 +115,8 @@ type SlotState struct {
 	LongMissing bool
 	// WantedSince is set while the Version is Wanted.
 	WantedSince *time.Time
-	// EpisodesHave and EpisodesAired count a Series Version's episodes that hold a file and that have aired; nil for a Movie.
+	// EpisodesHave and EpisodesAired count a Series Version's regular episodes
+	// (Specials left out) that hold a file and that have aired; nil for a Movie.
 	EpisodesHave, EpisodesAired *int
 }
 
@@ -191,14 +192,17 @@ type Version struct {
 	Coverage    *Coverage // Series only
 }
 
-// Coverage is how far a Series Version is filled. Episodes counts those it
-// holds a file for and those it Wants, so a Version is Wanted exactly when
-// Wanted is above zero. Unmonitored counts the released episodes without a file
-// that are not monitored. Downloading is the Wanted episodes a Grab in flight
-// covers, Long Missing or not, and DownloadingLongMissing those of them that
-// are also Long Missing. So Filled, Downloading, LongMissing less
-// DownloadingLongMissing, the rest of Wanted and Unmonitored are disjoint and
-// add up to the released episodes.
+// Coverage is how far a Series Version is filled. Episodes counts the regular
+// episodes (Specials left out) it holds a file for or Wants, Filled those it
+// holds a file for, and Unmonitored the released regular episodes without a
+// file that are not monitored. Wanted counts every episode it Wants, a
+// monitored Special too, so a Version is Wanted exactly when Wanted is above
+// zero; Episodes is Filled plus Wanted less the Wanted Specials. Downloading is
+// the Wanted episodes a Grab in flight covers, Long Missing or not, and
+// DownloadingLongMissing those of them that are also Long Missing. So Filled,
+// Downloading, LongMissing less DownloadingLongMissing, the rest of Wanted and
+// Unmonitored are disjoint and add up to the released regular episodes and the
+// Wanted Specials.
 type Coverage struct {
 	Episodes               int
 	Filled                 int
@@ -217,9 +221,15 @@ func coverageOf(units []Unit, size int64, now time.Time) *Coverage {
 		st, since := StateAt(u, now)
 		switch st {
 		case Filled:
-			c.Filled++
+			if !u.Special {
+				c.Filled++
+				c.Episodes++
+			}
 		case Wanted:
 			c.Wanted++
+			if !u.Special {
+				c.Episodes++
+			}
 			long := IsLongMissing(st, since, now)
 			if long {
 				c.LongMissing++
@@ -231,13 +241,29 @@ func coverageOf(units []Unit, size int64, now time.Time) *Coverage {
 				}
 			}
 		case Unmonitored:
-			if u.Released != nil && !u.Released.After(now) {
+			if !u.Special && u.Released != nil && !u.Released.After(now) {
 				c.Unmonitored++
 			}
 		}
 	}
-	c.Episodes = c.Filled + c.Wanted
 	return c
+}
+
+// episodeTotals counts one Series Version's regular episodes at now, Specials
+// left out: those that hold a file and those that have aired (or hold a file).
+func episodeTotals(units []Unit, now time.Time) (have, aired int) {
+	for _, u := range units {
+		if u.Special {
+			continue
+		}
+		if u.HasFile {
+			have++
+		}
+		if u.HasFile || (u.Released != nil && !u.Released.After(now)) {
+			aired++
+		}
+	}
+	return have, aired
 }
 
 // Alias is an alternative title or translation.
@@ -631,15 +657,8 @@ func (s *Service) buildList(ctx context.Context, view View) ([]Row, error) {
 			if row.Kind == Series {
 				units := unitsOf(epsOf[t.ID], released, heldBy[v.ID], parseTime(v.AddedAt))
 				st, since = SeriesState(units, view.Now)
-				have, aired = new(int), new(int)
-				for _, u := range units {
-					if u.HasFile {
-						*have++
-					}
-					if u.HasFile || (u.Released != nil && !u.Released.After(view.Now)) {
-						*aired++
-					}
-				}
+				h, a := episodeTotals(units, view.Now)
+				have, aired = &h, &a
 				countWanted(wantedEps, epsOf[t.ID], units, view.Now)
 			} else {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
