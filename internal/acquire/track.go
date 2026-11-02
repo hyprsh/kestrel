@@ -371,21 +371,37 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 	obs := ObserverOf(ctx)
 	obs.Searching(targetOf(sub.detail, in))
 	out.asked = true
-	entries, failures, err := s.candidates(ctx, sub, library.Scope{}, fromCache)
-	if err != nil {
-		return out, err
-	}
-	obs.Releases(len(entries))
-	out.found(entries)
-	out.Failures = failures
+	// The indexers are asked by Indexer Priority: each group only while the earlier ones left a Version with
+	// nothing to grab, and its Releases count only for what was left (ADR 0025).
+	var entries []*entry
+	var plans []GrabPlan
 	byRelease := map[string]*entry{}
-	for _, e := range entries {
-		in.Candidates = append(in.Candidates, e.cand)
-		byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
+	left := in.Versions
+	for _, g := range s.groupsOf(ctx) {
+		found, failures, err := s.candidates(ctx, sub, library.Scope{}, g, fromCache)
+		if err != nil {
+			return out, err
+		}
+		obs.Releases(len(found))
+		out.Failures = append(out.Failures, failures...)
+		round := Input{Versions: left}
+		for _, e := range found {
+			in.Candidates = append(in.Candidates, e.cand)
+			round.Candidates = append(round.Candidates, e.cand)
+			byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
+		}
+		entries = append(entries, found...)
+		got := s.plan(round)
+		plans = append(plans, got...)
+		if left = leftover(left, got); len(left) == 0 {
+			break
+		}
 	}
-	plans, err := s.decide(ctx, in)
-	if err != nil {
+	out.found(entries)
+	if paused, err := s.grabsPaused(ctx); err != nil {
 		return out, err
+	} else if paused {
+		plans = nil
 	}
 	var errs []error
 	for _, plan := range plans {
