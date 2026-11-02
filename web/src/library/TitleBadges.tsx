@@ -3,7 +3,7 @@ import { Badge } from '@hyprsh/design'
 import { useSetMovieMonitored } from '../api/titleActions'
 import { placePath, useOpenPlace } from '../place'
 import { ago, span, useNow } from '../time'
-import { useEpisodes, type TitleDetail } from '../api/queries'
+import { useEpisodes, type TitleDetail, type TitleRow } from '../api/queries'
 import { plural } from '../format'
 import { episodeCode, seasonStanding } from './episodes'
 import { dotOf } from './bits'
@@ -14,12 +14,14 @@ import type { ManualSearchTarget } from './TitleDetail'
 import { useSearchWanted } from './VersionSearch'
 import { foundText } from './WantedLine'
 import { slotsOf, useSlotNames } from './slots'
+import { MonitoringChip, RequestChips, SentenceChip } from './KestrelChips'
 import { downloadsOf, useTitleDownloads } from './TitleDownloads'
 
 const day = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' })
+const dayYear = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 
-/** "Mon, Nov 2" for a date as the API gives it ("2026-11-02"). */
-const dayName = (date: string) => day.format(new Date(`${date}T00:00:00`))
+/** "Mon, Nov 2" for a date as the API gives it ("2026-11-02"); a year other than this one adds it: "Thu, Nov 7, 2019". */
+export const dayName = (date: string, now: number = Date.now()) => (date.slice(0, 4) === String(new Date(now).getFullYear()) ? day : dayYear).format(new Date(`${date}T00:00:00`))
 
 const today = (now: number) => {
   const d = new Date(now)
@@ -27,15 +29,32 @@ const today = (now: number) => {
 }
 
 /** A Series' "Wanted" in amber, "downloading" in blue and the next episode to air in gray; a Movie's a chip per Slot (STD, "4K 40%", "DE Wanted") and its release ("Released: …", or the next one). */
-export function TitleBadges({ title, profileName, onManualSearch }: { title: TitleDetail; profileName: (key: string) => string; onManualSearch: (t: ManualSearchTarget) => void }) {
-  return title.kind === 'series' ? <SeriesBadges title={title} /> : <MovieBadges title={title} profileName={profileName} onManualSearch={onManualSearch} />
-}
-
-/** The pills of a header, in one style for a Series and a Movie: Wanted amber, downloading blue, the date gray. */
-function Pills({ wanted, downloading, date }: { wanted: string | null; downloading: string | null; date: string | null }) {
-  if (!wanted && !downloading && !date) return null
+export function TitleBadges({
+  title,
+  row,
+  profileName,
+  onManualSearch,
+}: {
+  title: TitleDetail
+  row?: TitleRow
+  profileName: (key: string) => string
+  onManualSearch: (t: ManualSearchTarget) => void
+}) {
+  // One wrapping row: the Slot chips (or a Series' counts), the release, then monitoring and the Cutoff and the Requests.
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {title.kind === 'series' ? <SeriesBadges title={title} /> : <MovieBadges title={title} profileName={profileName} onManualSearch={onManualSearch} />}
+      <MonitoringChip title={title} row={row} />
+      <RequestChips title={title} />
+    </div>
+  )
+}
+
+/** The pills of a header: Wanted amber, downloading blue, the date gray. */
+function Pills({ wanted, downloading, date }: { wanted: string | null; downloading: string | null; date: { text: string; sentence: string } | null }) {
+  if (!wanted && !downloading && !date) return null
+  return (
+    <>
       {wanted && (
         <Badge variant="amber" contrast="low" size="sm">
           {wanted}
@@ -46,12 +65,8 @@ function Pills({ wanted, downloading, date }: { wanted: string | null; downloadi
           {downloading}
         </Badge>
       )}
-      {date && (
-        <Badge variant="gray" contrast="low" size="sm">
-          {date}
-        </Badge>
-      )}
-    </div>
+      {date && <SentenceChip name="Release" text={date.text} sentence={date.sentence} />}
+    </>
   )
 }
 
@@ -71,7 +86,7 @@ function SeriesBadges({ title }: { title: TitleDetail }) {
     <Pills
       wanted={standing.wanted > 0 ? `${standing.wanted} Wanted` : null}
       downloading={standing.downloading > 0 ? `${standing.downloading} downloading${pct !== null ? ` · ${pct}%` : ''}` : null}
-      date={next ? `Next: ${episodeCode(next)} · ${dayName(next.air_date as string)}` : null}
+      date={next ? { text: `Next: ${episodeCode(next)} \u00b7 ${dayName(next.air_date as string, now)}`, sentence: `${episodeCode(next)} airs ${dayName(next.air_date as string, now)}.` } : null}
     />
   )
 }
@@ -88,7 +103,11 @@ function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetai
   const dates = title.release_dates.map((r) => ({ ...r, day: r.date.slice(0, 10) })).sort((a, b) => a.day.localeCompare(b.day))
   const next = dates.find((r) => r.day >= today(now))
   const out = dates[0]
-  const date = next ? `Next: ${releaseName[next.type]} \u00b7 ${dayName(next.day)}` : out ? `Released: ${dayName(out.day)}` : null
+  const date = next
+    ? { text: `Next: ${releaseName[next.type]} \u00b7 ${dayName(next.day, now)}`, sentence: `The ${releaseName[next.type]} is on ${dayName(next.day, now)}.` }
+    : out
+      ? { text: `Released ${dayName(out.day, now)}`, sentence: `The ${releaseName[out.type]} was on ${dayName(out.day, now)}.` }
+      : null
   // One chip per Slot, from the Title's Versions: its short label, a state dot and the state in a word or a percent.
   const chips: ChipData[] = slotsOf(title, slotNames).map((s) => {
     const v = title.versions.find((x) => x.slot === s.key)
@@ -141,13 +160,9 @@ function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetai
     }
   })
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <>
       <SlotChips chips={chips} max={chips.length} label="Slots" align="start" wrap />
-      {date && (
-        <Badge variant="gray" contrast="low" size="sm">
-          {date}
-        </Badge>
-      )}
-    </div>
+      {date && <SentenceChip name="Release" text={date.text} sentence={date.sentence} />}
+    </>
   )
 }

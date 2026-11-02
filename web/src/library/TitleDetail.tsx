@@ -3,12 +3,10 @@ import { forwardRef, type ReactNode } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
 import { plural } from '../format'
-import { sourceName } from '../requests/source'
 import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { MovieSection } from './MovieSection'
 import { TitleHistory } from './TitleHistory'
-import { MonitoringLine } from './MonitorButton'
 import { TitleActions } from './TitleActions'
 import { TitleBadges } from './TitleBadges'
 import { VersionRows } from './VersionRows'
@@ -40,7 +38,7 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
           Could not load this Title.
         </Note>
       ) : data ? (
-        <Body title={data} onManualSearch={onManualSearch} />
+        <Body title={data} row={row} onManualSearch={onManualSearch} />
       ) : (
         <>
           <p role="status" className="sr-only">
@@ -117,7 +115,7 @@ const statusWord = (status: string) => status.charAt(0).toUpperCase() + status.s
 /** The Version a manual search is opened for, of a Series maybe narrowed to a season or episodes. */
 export type ManualSearchTarget = { versionId: number; slot: string; profileName: string; scope?: { body: EpisodeScope; label: string; code: string | null } }
 
-function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (search: ManualSearchTarget) => void }) {
+function Body({ title, row, onManualSearch }: { title: Detail; row?: TitleRow; onManualSearch: (search: ManualSearchTarget) => void }) {
   const profiles = useProfiles()
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const profileName = (key: string) => names.get(key) ?? key
@@ -149,14 +147,8 @@ function Body({ title, onManualSearch }: { title: Detail; onManualSearch: (searc
               <span key={i}>{i < meta.length - 1 ? <>{m}&nbsp;·</> : m}</span>
             ))}
           </div>
-          <MonitoringLine title={title} />
-          <TitleBadges title={title} profileName={profileName} onManualSearch={onManualSearch} />
-          {title.requests.map((r) => (
-            <div key={r.id} className="copy-13 text-gray-900">
-              Requested by {r.requester_name} via {sourceName(r.source)}
-            </div>
-          ))}
           {title.overview && <p className="copy-14 line-clamp-2 max-w-prose text-gray-900">{title.overview}</p>}
+          <TitleBadges title={title} row={row} profileName={profileName} onManualSearch={onManualSearch} />
         </div>
       </div>
 

@@ -276,7 +276,9 @@ describe('the Library detail pane', () => {
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(detail(rows()[0], { requests: [{ id: 5, source: 'silo', requester_name: 'Anna', created_at: '2026-10-01T10:00:00Z' }] }))))
     await openLibrary()
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    expect(await within(pane).findByText('Requested by Anna via Silo')).toBeInTheDocument()
+    const chip = await within(pane).findByRole('link', { name: /^Request: Requested by Anna via Silo on Oct 1, 2026/ })
+    expect(chip).toHaveTextContent('Requested by Anna \u00b7 Silo')
+    expect(chip).toHaveAttribute('href', expect.stringContaining('requests?q=requester%3AAnna'))
   })
 
   it('shows the poster when the Title has one', async () => {
