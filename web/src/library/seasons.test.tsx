@@ -345,7 +345,7 @@ describe('what a season says when some of its episodes are not monitored', () =>
     const row = (name: RegExp) => screen.getByRole('button', { name }).closest<HTMLElement>('[role=listitem]')!
 
     const specials = row(/^Specials:/)
-    expect(within(specials).getByText('1 of 6 · 5 not monitored')).toBeInTheDocument()
+    expect(within(specials).getByText('5 not monitored')).toBeInTheDocument()
     expect(within(specials).queryByText('Complete')).not.toBeInTheDocument()
     expect(within(specials).getByRole('button', { name: 'Stop monitoring Specials' })).toBeInTheDocument() // some of it is monitored
     expect(within(row(/^Season 1:/)).getByText('Complete')).toBeInTheDocument()

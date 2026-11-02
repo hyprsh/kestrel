@@ -13,6 +13,7 @@ import { usePhone } from '../responsive'
 import { ago, span, useNow } from '../time'
 import { useReport } from '../toasts'
 import { dotState } from '../ui/slotState'
+import { barColor, chipColumn, rowColumns, rowColumnsPhone, StateBar } from './StateBar'
 import { size } from './bits'
 import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid } from './accordion'
 import { codeRuns, expandCodes } from './cellDetail'
@@ -34,7 +35,7 @@ type Props = { title: TitleDetail; profiles: Profile[]; profileName: (key: strin
 
 const unmonitored = (t: TitleDetail) => (t.kind === 'movie' ? !t.monitored : t.series_monitor === 'none')
 
-/** A Series Version's episodes in words: "55 of 61 episodes · 2 Wanted · 4 not monitored", or what it is downloading. */
+/** A Series Version's episodes in words, apart from the count its chip carries: "Complete", "2 Wanted · 4 not monitored", or what it is downloading. */
 function coverageLine(v: Version, dl: SlotDownloads | null): { text: string; tone: string } {
   const c = v.coverage
   if (dl) {
@@ -42,31 +43,22 @@ function coverageLine(v: Version, dl: SlotDownloads | null): { text: string; ton
     return { text: `Downloading${eps.length > 0 ? ` ${codeRuns(eps)}` : ''}`, tone: 'text-blue-900' }
   }
   if (!c) return { text: v.state === 'unmonitored' ? 'Not monitored' : '', tone: 'text-gray-900' }
-  const released = c.episodes + c.unmonitored
-  const parts = [`${c.filled} of ${plural(released, 'episode')}`, c.wanted > 0 ? `${c.wanted} Wanted` : null, c.unmonitored > 0 ? `${c.unmonitored} not monitored` : null].filter(Boolean)
-  return { text: parts.join(' \u00b7 '), tone: c.long_missing > 0 ? 'text-red-900' : c.wanted > 0 ? 'text-amber-900' : 'text-gray-900' }
+  const parts = [c.wanted > 0 ? `${c.wanted} Wanted` : null, c.long_missing > 0 ? `${c.long_missing} Long Missing` : null, c.unmonitored > 0 ? `${c.unmonitored} not monitored` : null].filter(Boolean)
+  return { text: parts.length > 0 ? parts.join(' \u00b7 ') : 'Complete', tone: c.long_missing > 0 ? 'text-red-900' : c.wanted > 0 ? 'text-amber-900' : 'text-gray-900' }
 }
 
-/** A bar of a Version's episodes: filled green, downloading blue, Wanted amber, not monitored gray. */
+/** A bar of a Version's episodes: Have gray, downloading blue, Wanted amber, not monitored light gray; thin when it is complete. */
 function CoverageBar({ v }: { v: Version }) {
   const c = v.coverage
   if (!c) return null
   const wanted = Math.max(0, c.wanted - c.downloading)
   const parts = [
-    ['filled', c.filled, 'bg-green-700'],
-    ['downloading', c.downloading, 'bg-blue-700'],
-    ['wanted', wanted, 'bg-amber-700'],
-    ['unmonitored', c.unmonitored, 'bg-gray-300'],
-  ] as const
-  return (
-    <span aria-hidden className="flex h-1.5 gap-0.5 overflow-hidden rounded-full bg-gray-100">
-      {parts
-        .filter(([, n]) => n > 0)
-        .map(([k, n, color]) => (
-          <span key={k} data-bar={k} style={{ flex: `${n} 0 0` }} className={color} />
-        ))}
-    </span>
-  )
+    { key: 'filled', n: c.filled, color: barColor.filled },
+    { key: 'downloading', n: c.downloading, color: barColor.downloading },
+    { key: 'wanted', n: wanted, color: barColor.wanted },
+    { key: 'unmonitored', n: c.unmonitored, color: barColor.quiet },
+  ]
+  return <StateBar parts={parts} complete={c.filled > 0 && c.wanted === 0 && c.downloading === 0 && c.unmonitored === 0} />
 }
 
 /** One running Grab of a Slot on a line: the episodes it covers, its progress and time left, and a link into Activity. */
@@ -120,11 +112,11 @@ export function VersionRows({ title, profiles, profileName, onManualSearch }: Pr
   if (versions.length === 0) return null
   const toggle = (slot: string) => setOpen((o) => (o.has(slot) ? new Set([...o].filter((x) => x !== slot)) : new Set(o).add(slot)))
   return (
-    <section aria-label="Versions" className="my-6 flex flex-col gap-2">
+    <section aria-label="Versions" className="my-6 flex flex-col gap-2" style={chipColumn(versions.length)}>
       <div className="flex items-center gap-2">
         <h3 className="heading-16 flex-1">Versions</h3>
         {title.versions.length < slots.list.length && (
-          <Button variant="tertiary" size="small" onClick={() => setAdding(true)}>
+          <Button variant="secondary" size="small" onClick={() => setAdding(true)}>
             Add a Slot
           </Button>
         )}
@@ -164,44 +156,41 @@ function SlotRow({
   const c = v.coverage
   const released = c ? c.episodes + c.unmonitored : 0
   const state = downloads ? 'downloading' : dotState(v.state, (c?.long_missing ?? 0) > 0 || v.long_missing)
+  // The row's name and the chip's tooltip say all of it, count included: "Standard: 228 of 240 episodes · 8 Wanted".
+  const said = `${name}: ${c && !downloads ? `${c.filled} of ${plural(released, 'episode')}${line.text === 'Complete' ? '' : ` \u00b7 ${line.text}`}` : line.text}`
   const sizeText = c && c.size > 0 ? size(c.size) : '\u2014'
-  const chip = (
-    <SlotChips
-      chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: `${name}: ${line.text}` }]}
-      max={1}
-    />
-  )
+  const chip = <SlotChips chips={[{ key: v.slot, short: slots.short(v.slot), state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: said }]} max={1} />
   return (
     <AccordionRow
       id={`version-${v.slot}`}
       itemLabel={name}
-      label={`${name}: ${line.text}`}
+      label={said}
       open={open}
       onToggle={onToggle}
       marked={marked}
-      gridClass={phone ? 'grid-cols-[16px_minmax(0,1fr)_auto] min-h-14 py-2.5' : 'grid-cols-[16px_120px_minmax(0,1fr)_auto_72px] h-14'}
+      gridClass={phone ? rowColumnsPhone : rowColumns}
       header={
         <>
           <Chevron open={open} />
-          <span className="flex min-w-0 flex-col gap-px">
+          <span className="flex min-w-0 flex-col gap-px sm:col-span-2">
             <span className="label-14 font-semibold">{name}</span>
             <span className="label-12-mono truncate text-gray-900">{rest.profileName(v.profile)}</span>
           </span>
           {!phone && (
-            <span className="flex min-w-0 flex-col gap-1.5">
-              <span className={`label-13 truncate ${line.tone}`}>{line.text}</span>
+            <span className="flex min-w-0 flex-col gap-1">
               <CoverageBar v={v} />
+              <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
             </span>
           )}
-          <span className="relative flex items-center gap-2">
+          <span className="relative flex items-center justify-end gap-2">
             {chip}
             {phone && <span className="label-12 text-gray-900">{sizeText}</span>}
           </span>
           {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{sizeText}</span>}
           {phone && (
-            <span className="col-start-2 col-end-4 flex min-w-0 flex-col gap-1.5">
-              <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
+            <span className="col-start-2 col-end-4 flex min-w-0 flex-col gap-1">
               <CoverageBar v={v} />
+              <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
             </span>
           )}
         </>

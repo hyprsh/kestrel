@@ -292,7 +292,7 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
 export function SeasonSearchButton({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; season: number; episodes: Episode[] }) {
   const wanted = wantedIn(episodes, actions.versions)
   return (
-    <Button variant="default" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, seasonName(season), () => ({ season }))}>
+    <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, seasonName(season), () => ({ season }))}>
       Search season
     </Button>
   )

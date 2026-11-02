@@ -16,6 +16,7 @@ import { bySeason, defaultSeasons, episodeCode, isUnaired, matchesFilter, orderE
 import { grabsByEpisode } from './cellDetail'
 import { MonitorToggle } from './MonitorToggle'
 import { SeasonAccordion } from './SeasonAccordion'
+import { chipColumn } from './StateBar'
 import { cellOf, slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 
@@ -166,7 +167,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
     )
   }
   return (
-    <section aria-label="Seasons" className="mt-6 flex flex-col gap-2">
+    <section aria-label="Seasons" className="mt-6 flex flex-col gap-2" style={chipColumn(slotList.length)}>
       <div className="flex items-center gap-2">
         <h3 className="heading-16 flex-1">Seasons</h3>
         {showField ? (
@@ -179,11 +180,11 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
             <FindEpisodeField find={find} autoFocus />
           </div>
         ) : (
-          <Button variant="tertiary" size="small" svgOnly aria-label="Find an episode" title="Find an episode" onClick={() => setFinding(true)}>
-            <Search aria-hidden className="size-4" />
+          <Button variant="secondary" size="small" aria-label="Find an episode" title="Find an episode" prefix={<Search aria-hidden className="size-4" />} onClick={() => setFinding(true)}>
+            Find
           </Button>
         )}
-        <Button variant="tertiary" size="small" onClick={() => view.setOpen(allOpen ? [] : seasons)}>
+        <Button variant="secondary" size="small" onClick={() => view.setOpen(allOpen ? [] : seasons)}>
           {allOpen ? 'Collapse all' : 'Expand all'}
         </Button>
       </div>
