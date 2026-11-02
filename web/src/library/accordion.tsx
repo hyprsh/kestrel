@@ -82,9 +82,9 @@ export const bodyWrap = 'flex flex-col gap-3 border-t border-gray-alpha-200 bg-b
 export const factsGrid = 'grid grid-cols-4 gap-3 max-sm:grid-cols-2'
 
 /** A fact of an open row: a small label over its value. */
-export function Fact({ k, children, wide }: { k: string; children: ReactNode; wide?: boolean }) {
+export function Fact({ k, children, wide, full }: { k: string; children: ReactNode; wide?: boolean; /** Spans every column of the grid. */ full?: boolean }) {
   return (
-    <div className={`flex min-w-0 flex-col gap-0.5 ${wide ? 'col-span-2 max-sm:col-span-1' : ''}`}>
+    <div className={`flex min-w-0 flex-col gap-0.5 ${full ? 'col-span-full' : wide ? 'col-span-2 max-sm:col-span-1' : ''}`}>
       <span className="label-12 text-gray-900">{k}</span>
       <span className="label-13 min-w-0 break-words">{children}</span>
     </div>

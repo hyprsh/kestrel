@@ -2,14 +2,15 @@
 // A Series' Versions as an accordion of Slots above its Seasons, the Movie's accordion (MovieSection.tsx) with a Series' facts: a
 // closed row says the Slot and its Profile, its state, a bar of its episodes, a chip and the size on disk; an open one has the
 // Version's facts and its actions. VersionMenu, at the foot of this file, is the "More…" menu both accordions share.
-import { Button, DotsMenu, Menu, MenuDivider, MenuItem } from '@hyprsh/design'
+import { Button, DotsMenu, Menu, MenuDivider, MenuItem, Progress } from '@hyprsh/design'
 import { useEffect, useState } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
 import { useRemoveVersion, useSwitchProfile } from '../api/versions'
-import { plural } from '../format'
+import type { QueueItem } from '../api/queue'
+import { percent, plural } from '../format'
 import { placePath, useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
-import { ago, useNow } from '../time'
+import { ago, span, useNow } from '../time'
 import { useReport } from '../toasts'
 import { dotState } from '../ui/slotState'
 import { size } from './bits'
@@ -65,6 +66,32 @@ function CoverageBar({ v }: { v: Version }) {
           <span key={k} data-bar={k} style={{ flex: `${n} 0 0` }} className={color} />
         ))}
     </span>
+  )
+}
+
+/** One running Grab of a Slot on a line: the episodes it covers, its progress and time left, and a link into Activity. */
+function GrabLine({ grab: g, slotName, now, onActivity }: { grab: QueueItem; slotName: string; now: number; onActivity: () => void }) {
+  const what = g.episodes.length > 0 ? codeRuns(expandCodes(g.episodes)) : g.release_name
+  const pct = percent(g.bytes_total, g.phase === 'importing' ? 0 : g.bytes_left)
+  const progress = [pct !== null ? `${pct}%` : null, g.eta != null ? `${span(g.eta * 1000)} left` : null].filter(Boolean).join(' \u00b7 ')
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-center gap-x-3 gap-y-1 max-sm:grid-cols-[minmax(0,1fr)_auto]">
+      <span className="label-13 truncate" title={g.release_name}>
+        {what}
+        <span className="text-gray-900">{` \u00b7 ${ago(g.grabbed_at, now)}`}</span>
+      </span>
+      <span className="flex min-w-0 items-center gap-2 max-sm:order-last max-sm:col-span-2">
+        {pct !== null && (
+          <span className="min-w-12 flex-1">
+            <Progress value={pct} type="success" height={6} aria-label={`${slotName} ${what} download progress`} />
+          </span>
+        )}
+        {progress && <span className="label-13 whitespace-nowrap text-blue-900 tabular-nums">{progress}</span>}
+      </span>
+      <Button variant="tertiary" size="tiny" aria-label={`${what} in Activity`} onClick={onActivity}>
+        Activity
+      </Button>
+    </li>
   )
 }
 
@@ -186,6 +213,7 @@ function SlotRow({
 
 function SlotBody({ title, profiles, profileName, onManualSearch, version: v, downloads, now }: Props & { version: Version; downloads: SlotDownloads | null; now: number }) {
   const openPlace = useOpenPlace()
+  const slotName = useSlotNames().name(v.slot)
   const search = useSearchVersion(title, v.id)
   const [whyOpen, setWhyOpen] = useState(false)
   const c = v.coverage
@@ -211,15 +239,12 @@ function SlotBody({ title, profiles, profileName, onManualSearch, version: v, do
           </Fact>
         )}
         {downloads && (
-          <Fact k="Downloading" wide>
-            <span className="flex flex-wrap gap-x-3 gap-y-1">
+          <Fact k="Downloading" full>
+            <ul className="flex flex-col gap-2">
               {downloads.items.map((g) => (
-                <Button key={g.grab_id} variant="tertiary" size="tiny" title={g.release_name} onClick={() => openPlace(placePath('activity'))}>
-                  {`${g.episodes.length > 0 ? codeRuns(expandCodes(g.episodes)) : g.release_name} \u00b7 ${ago(g.grabbed_at, now)}`}
-                </Button>
+                <GrabLine key={g.grab_id} grab={g} slotName={slotName} now={now} onActivity={() => openPlace(placePath('activity'))} />
               ))}
-              {downloads.pct !== null && <span className="text-blue-900">{`${downloads.pct}%`}</span>}
-            </span>
+            </ul>
           </Fact>
         )}
       </div>
