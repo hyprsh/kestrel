@@ -534,6 +534,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description A Profile's `key` from `GET /profiles`. The six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary`, `4k-original`) are not the only ones, as importing a recipe or copying a Profile makes more. */
                 key: components["parameters"]["ProfileKey"];
             };
             cookie?: never;
@@ -5797,7 +5798,8 @@ export interface components {
         GrabId: number;
         /** @description A Slot's `id` from `GET /slots`. */
         SlotIdParam: components["schemas"]["SlotId"];
-        ProfileKey: "hd-primary" | "hd-original" | "any-primary" | "any-original" | "4k-primary" | "4k-original";
+        /** @description A Profile's `key` from `GET /profiles`. The six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary`, `4k-original`) are not the only ones, as importing a recipe or copying a Profile makes more. */
+        ProfileKey: string;
     };
     requestBodies: never;
     headers: {
@@ -6524,6 +6526,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description A Profile's `key` from `GET /profiles`. The six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary`, `4k-original`) are not the only ones, as importing a recipe or copying a Profile makes more. */
                 key: components["parameters"]["ProfileKey"];
             };
             cookie?: never;
@@ -6548,6 +6551,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description A Profile's `key` from `GET /profiles`. The six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary`, `4k-original`) are not the only ones, as importing a recipe or copying a Profile makes more. */
                 key: components["parameters"]["ProfileKey"];
             };
             cookie?: never;

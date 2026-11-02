@@ -189,8 +189,8 @@ func TestDeclaredProfilesAreWrittenOnlyWhenTheyDiffer(t *testing.T) {
 func TestInvalidDeclaredProfilesFailStartupAndWriteNothing(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct{ name, body, want string }{
-		{"missing key", strings.Replace(declaredProfiles, "  4k-original:", "  # 4k-original:", 1), "profiles.4k-original"},
-		{"unknown key", strings.Replace(declaredProfiles, "slots:", "  8k-primary:   {enabled: true, original_fallback: false}\nslots:", 1), "profiles.8k-primary"},
+		{"a Slot's default left out", strings.Replace(declaredProfiles, "  4k-primary:   {enabled: true,  original_language: offer}\n", "", 1), "4k-primary"},
+		{"a recipe Profile without a recipe", strings.Replace(declaredProfiles, "slots:", "  8k-primary:   {enabled: true, original_fallback: false}\nslots:", 1), "profiles.8k-primary"},
 		{"fallback on an original", strings.Replace(declaredProfiles, "hd-original:  {enabled: true,  original_fallback: false", "hd-original:  {enabled: true,  original_fallback: true", 1), "profiles.hd-original.original_fallback"},
 		{"a Slot's default switched off", strings.Replace(declaredProfiles, "4k-primary:   {enabled: true", "4k-primary:   {enabled: false", 1), "profiles.4k-primary.enabled"},
 	} {

@@ -2,8 +2,11 @@ package profiles
 
 import (
 	"context"
+	"fmt"
 	"maps"
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
@@ -19,11 +22,51 @@ type State struct {
 	// named language's code (en, de or fr). Empty leaves the Profile's own.
 	Family   scoring.ReleaseFamily
 	Language string
+	// Name and Resolution complete the recipe. A Profile that is not one of the six builtin ones needs all four of Name,
+	// Family, Resolution and Language; a builtin one leaves them empty to keep its own.
+	Name       string
+	Resolution Resolution
 }
 
-// recipeOf is the Profile with the recipe the declared State names; empty fields leave the Profile's own.
-// A field the State names wrongly is a *ValidationError on field.
-func recipeOf(p Profile, s State, prefix string) (Profile, error) {
+// builtinProfile is the builtin Profile with the key, as shipped.
+func builtinProfile(key string) (Profile, bool) {
+	for _, p := range Builtin() {
+		if p.Key == key {
+			return p, true
+		}
+	}
+	return Profile{}, false
+}
+
+// keyOK is the shape of a Profile key: lower-case letters and digits in words joined by single hyphens.
+var keyOK = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// declaredProfile is the Profile a Config File's entry for key makes. base is the Profile as it stands, or as shipped for a
+// builtin key that is not stored; the fields the State leaves empty keep base's. A key that is not a builtin one has no
+// base and must give its name and its whole recipe. A field named wrongly is a *ValidationError on prefix+field.
+func declaredProfile(base Profile, key string, s State, prefix string) (Profile, error) {
+	p := base
+	p.Key = key
+	if _, builtin := builtinProfile(key); !builtin {
+		if !keyOK.MatchString(key) {
+			return p, invalid(strings.TrimSuffix(prefix, "."), "A Profile key is lower-case letters and digits, with single hyphens between")
+		}
+		for _, f := range []struct {
+			field string
+			given bool
+		}{{"name", s.Name != ""}, {"release_family", s.Family != ""}, {"resolution", s.Resolution != ""}, {"language_rule", s.Language != ""}} {
+			if !f.given {
+				return p, invalid(prefix+f.field, "required: a Profile that is not one of the six builtin ones declares its name, release_family, resolution and language_rule")
+			}
+		}
+		p = Profile{Key: key, Custom: true, Enabled: true, OriginalChoice: scoring.OriginalReject, Family: scoring.FamilyBlurayWeb}
+	}
+	if s.Name != "" {
+		p.Name = strings.TrimSpace(s.Name)
+	}
+	if err := checkDeclaredName(p.Name, prefix); err != nil {
+		return p, err
+	}
 	if s.Family != "" {
 		if !s.Family.Valid() {
 			return p, invalid(prefix+"release_family", "Choose bluray-web, remux-web, web or sqp")
@@ -37,53 +80,87 @@ func recipeOf(p Profile, s State, prefix string) (Profile, error) {
 		}
 		p.Rule, p.Named = rule, named
 	}
+	if s.Resolution != "" {
+		if !slices.Contains(Resolutions, s.Resolution) {
+			return p, invalid(prefix+"resolution", "Choose hd, uhd or any")
+		}
+		p.Any = s.Resolution == ResAny
+		p.MinHeight, p.MaxHeight = scoring.HeightBounds(s.Resolution == ResUHD, p.Any)
+	}
 	return p, nil
 }
 
-// CheckAll applies Patch's rules to the settings of every Profile at once,
-// as a Config File declares them: every Profile is named, Original-Language
-// Profiles always reject Original-only Releases and an enabled Profile's recipe
-// has a backing TRaSH profile under the Primary Language. It writes nothing; a
-// rejection is a *ValidationError whose Field is "<key>.<field>" or "<key>".
+func checkDeclaredName(name, prefix string) error {
+	switch {
+	case name == "":
+		return invalid(prefix+"name", "Give the Profile a name")
+	case len([]rune(name)) > maxNameLength:
+		return invalid(prefix+"name", fmt.Sprintf("A name is at most %d characters", maxNameLength))
+	}
+	return nil
+}
+
+// CheckAll applies Patch's rules to the settings of every Profile at once, as a Config File declares them: the file
+// names every Profile the household has, any subset of the six builtin ones plus recipe Profiles, each under a name of
+// its own; Original-Language Profiles always reject Original-only Releases and an enabled Profile's recipe has a backing
+// TRaSH profile under the Primary Language. It writes nothing; a rejection is a *ValidationError whose Field is
+// "<key>.<field>" or "<key>".
 func CheckAll(want map[string]State, primary Language) error {
-	builtin := Builtin()
-	known := map[string]bool{}
-	for _, p := range builtin {
-		known[p.Key] = true
-		if _, ok := want[p.Key]; !ok {
-			return invalid(p.Key, "missing: the Config File declares every Profile or none")
-		}
-	}
+	names := map[string]string{}
 	for _, key := range slices.Sorted(maps.Keys(want)) {
-		if !known[key] {
-			return invalid(key, "no such Profile")
-		}
-	}
-	for _, p := range builtin {
-		next, err := recipeOf(p, want[p.Key], p.Key+".")
+		st := want[key]
+		base, _ := builtinProfile(key)
+		next, err := declaredProfile(base, key, st, key+".")
 		if err != nil {
 			return err
 		}
-		if err := checkRecipe(next, want[p.Key].Enabled, primary, p.Key+"."); err != nil {
+		if other, dup := names[strings.ToLower(next.Name)]; dup {
+			return invalid(key+".name", "Another Profile ("+other+") has that name")
+		}
+		names[strings.ToLower(next.Name)] = key
+		if err := checkRecipe(next, st.Enabled, primary, key+"."); err != nil {
 			return err
 		}
-		if err := checkOwn(next.Rule, want[p.Key], p.Key+"."); err != nil {
+		if err := checkOwn(next.Rule, st, key+"."); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// AppliesTo reports whether the builtin Profile key, as declared, applies to a kind under the Primary Language: whether
-// a TRaSH profile backs its recipe for the kind. A Slot's default for a kind must be a Profile that does.
-func AppliesTo(key string, st State, primary Language, kind release.Kind) bool {
-	for _, p := range Builtin() {
-		if p.Key == key {
-			next, err := recipeOf(p, st, "")
-			return err == nil && next.LacksBacking(primary, kind) == nil
+// CheckKept is nil when every stored Profile the file leaves out can go: no Version uses it. A Slot's default is the
+// caller's to check, as the Slots are the file's or the saved ones. A rejection is an error naming the Profile.
+func (s *Service) CheckKept(ctx context.Context, want map[string]State) error {
+	q := db.New(s.st.Read())
+	rows, err := q.ListProfiles(ctx)
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if _, ok := want[r.Key]; ok {
+			continue
+		}
+		n, err := q.ProfileVersionCount(ctx, r.Key)
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			noun := "Versions"
+			if n == 1 {
+				noun = "Version"
+			}
+			return fmt.Errorf("the Profile %q (%s) is used by %d %s and the file leaves it out: keep it in the file, or move its Versions to another Profile first", r.Key, r.Name, n, noun)
 		}
 	}
-	return false
+	return nil
+}
+
+// AppliesTo reports whether the Profile key, as declared, applies to a kind under the Primary Language: whether
+// a TRaSH profile backs its recipe for the kind. A Slot's default for a kind must be a Profile that does.
+func AppliesTo(key string, st State, primary Language, kind release.Kind) bool {
+	base, _ := builtinProfile(key)
+	next, err := declaredProfile(base, key, st, "")
+	return err == nil && next.LacksBacking(primary, kind) == nil
 }
 
 // checkRecipe applies the rules of a recipe: Any is only Bluray + WEB, and an enabled Profile has a backing TRaSH
@@ -102,10 +179,11 @@ func checkRecipe(p Profile, enabled bool, primary Language, prefix string) error
 	return nil
 }
 
-// SetAll brings every Profile to want after checking it with CheckAll. It
-// writes only the Profiles that differ, so the same state twice writes
-// nothing. A Profile a Slot names as its default stays enabled: the file declares the Slots
-// first (see the Config File's order), so the Slot's default is already the one it wants.
+// SetAll brings the Profiles to want after checking it with CheckAll: the ones the file names are made if missing and
+// changed if they differ, and a stored Profile it leaves out is removed. It writes only what differs, so the same state
+// twice writes nothing. A Profile a Slot names as its default stays: the file declares the Slots first (see the Config
+// File's order), so the Slot's default is already the one it wants, and a Profile a Version uses cannot go
+// (CheckKept asks first; this is the same rule held in the transaction).
 // declared is the Primary Language the Config File declares, which the recipes are backed under; empty takes the saved one, so a
 // file that changes the language and the Profiles at once is checked against the language it brings.
 func (s *Service) SetAll(ctx context.Context, want map[string]State, declared Language) error {
@@ -125,9 +203,8 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 		if err != nil {
 			return err
 		}
-		// A fresh install has none of the six (ADR 0026): the file declares them into being, as shipped, and the loop
-		// below applies what it says.
-		if rows, err = s.insertMissingBuiltins(ctx, q, rows, primary); err != nil {
+		// A fresh install has none of the six (ADR 0026): the file declares them into being, as it says.
+		if rows, err = s.insertMissing(ctx, q, rows, want, primary); err != nil {
 			return err
 		}
 		for _, r := range rows {
@@ -135,11 +212,14 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 			if err != nil {
 				return err
 			}
-			if cur.Custom {
-				continue // a Config File declares the builtin Profiles only
+			w, kept := want[cur.Key]
+			if !kept {
+				if err := removeUndeclared(ctx, q, cur); err != nil {
+					return err
+				}
+				continue
 			}
-			w := want[cur.Key]
-			next, err := recipeOf(cur, w, cur.Key+".")
+			next, err := declaredProfile(cur, cur.Key, w, cur.Key+".")
 			if err != nil {
 				return err
 			}
@@ -160,8 +240,21 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 				})
 			}
 			setRecipe := func() error {
-				if next.Family == cur.Family && next.RuleKey() == cur.RuleKey() {
+				if next.Name != cur.Name {
+					if err := q.SetProfileName(ctx, db.SetProfileNameParams{Name: next.Name, Key: cur.Key}); err != nil {
+						return err
+					}
+				}
+				shape := next.Any != cur.Any || next.MinHeight != cur.MinHeight || next.MaxHeight != cur.MaxHeight
+				if !shape && next.Family == cur.Family && next.RuleKey() == cur.RuleKey() {
 					return nil
+				}
+				if shape {
+					if err := q.SetProfileShape(ctx, db.SetProfileShapeParams{
+						Any: b2i(next.Any), MinHeight: int64(next.MinHeight), MaxHeight: int64(next.MaxHeight), Key: cur.Key,
+					}); err != nil {
+						return err
+					}
 				}
 				if err := q.SetProfileRecipe(ctx, db.SetProfileRecipeParams{
 					ReleaseFamily: string(next.Family), LanguageRule: next.RuleKey(), Key: cur.Key,
@@ -187,22 +280,66 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 	})
 }
 
-// insertMissingBuiltins makes each builtin Profile the rows lack, enabled and as shipped, and returns the rows again.
-func (s *Service) insertMissingBuiltins(ctx context.Context, q *db.Queries, rows []db.Profile, primary Language) ([]db.Profile, error) {
+// removeUndeclared deletes a Profile the Config File leaves out, unless a Slot defaults to it (*DefaultError) or a Version
+// uses it (ErrInUse).
+func removeUndeclared(ctx context.Context, q *db.Queries, p Profile) error {
+	if err := notADefault(ctx, q, p.Key); err != nil {
+		return err
+	}
+	n, err := q.ProfileVersionCount(ctx, p.Key)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: %s (%s)", ErrInUse, p.Key, p.Name)
+	}
+	_, err = q.DeleteProfile(ctx, p.Key)
+	return err
+}
+
+// insertMissing makes each Profile the file declares that the rows lack, enabled, and returns the rows again. A builtin
+// one is made as shipped and a recipe one from its recipe; SetAll then applies the rest of what the file says.
+func (s *Service) insertMissing(ctx context.Context, q *db.Queries, rows []db.Profile, want map[string]State, primary Language) ([]db.Profile, error) {
 	have := map[string]bool{}
 	for _, r := range rows {
 		have[r.Key] = true
 	}
+	top, err := q.MaxProfileSort(ctx)
+	if err != nil {
+		return nil, err
+	}
+	next := toInt64(top)
 	var inserted bool
-	for i, p := range Builtin() {
-		if have[p.Key] {
+	for _, key := range slices.Sorted(maps.Keys(want)) {
+		if have[key] {
 			continue
 		}
+		base, builtin := builtinProfile(key)
+		p, err := declaredProfile(base, key, want[key], key+".")
+		if err != nil {
+			return nil, err
+		}
 		movies, series, _ := p.Backing(primary)
-		if err := q.InsertBuiltinProfile(ctx, db.InsertBuiltinProfileParams{
-			Key: p.Key, Name: p.Name, Sort: int64(i + 1), Any: b2i(p.Any), ReleaseFamily: string(p.Family), LanguageRule: p.RuleKey(),
-			MinHeight: int64(p.MinHeight), MaxHeight: int64(p.MaxHeight), TrashProfileMovies: movies, TrashProfileSeries: series,
-		}); err != nil {
+		sort := int64(0)
+		if builtin {
+			sort = int64(slices.IndexFunc(Builtin(), func(b Profile) bool { return b.Key == key }) + 1)
+		} else {
+			next++
+			sort = next
+		}
+		if builtin {
+			err = q.InsertBuiltinProfile(ctx, db.InsertBuiltinProfileParams{
+				Key: p.Key, Name: p.Name, Sort: sort, Any: b2i(p.Any), ReleaseFamily: string(p.Family), LanguageRule: p.RuleKey(),
+				MinHeight: int64(p.MinHeight), MaxHeight: int64(p.MaxHeight), TrashProfileMovies: movies, TrashProfileSeries: series,
+			})
+		} else {
+			err = q.InsertCustomProfile(ctx, db.InsertCustomProfileParams{
+				Key: p.Key, Name: p.Name, Sort: sort, Any: b2i(p.Any), ReleaseFamily: string(p.Family), LanguageRule: p.RuleKey(),
+				MinHeight: int64(p.MinHeight), MaxHeight: int64(p.MaxHeight), TrashProfileMovies: movies, TrashProfileSeries: series,
+				OriginalLanguage: string(scoring.OriginalReject),
+			})
+		}
+		if err != nil {
 			return nil, err
 		}
 		inserted = true
@@ -213,10 +350,10 @@ func (s *Service) insertMissingBuiltins(ctx context.Context, q *db.Queries, rows
 	return q.ListProfiles(ctx)
 }
 
-// EnsureBuiltin makes the builtin Profiles the database lacks, as shipped. A fresh install has none (ADR 0026); a Config
-// File that declares the Profiles needs them there before the Slots name them. declared is the Primary Language the file
+// EnsureDeclared makes the Profiles the file declares and the database lacks: a fresh install has none (ADR 0026), and a
+// Slot's default must name a Profile that is there, so they come before the Slots. declared is the Primary Language the file
 // declares, empty for the stored one.
-func (s *Service) EnsureBuiltin(ctx context.Context, declared Language) error {
+func (s *Service) EnsureDeclared(ctx context.Context, want map[string]State, declared Language) error {
 	region, _, err := s.Region(ctx)
 	if err != nil {
 		return err
@@ -230,7 +367,7 @@ func (s *Service) EnsureBuiltin(ctx context.Context, declared Language) error {
 		if err != nil {
 			return err
 		}
-		_, err = s.insertMissingBuiltins(ctx, q, rows, primary)
+		_, err = s.insertMissing(ctx, q, rows, want, primary)
 		return err
 	})
 }

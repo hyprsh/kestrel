@@ -204,7 +204,7 @@ func TestOnlyAnUnusedCustomProfileCanBeDeleted(t *testing.T) {
 	}
 }
 
-func TestSettingAllProfilesFromTheConfigFileLeavesCustomOnesAlone(t *testing.T) {
+func TestSettingAllProfilesFromTheConfigFileRemovesAnUnusedOneItLeavesOut(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newRig(t)
 	p, _ := s.Create(ctx, "Mine", "hd-primary")
@@ -215,9 +215,8 @@ func TestSettingAllProfilesFromTheConfigFileLeavesCustomOnesAlone(t *testing.T) 
 	if err := s.SetAll(ctx, want, ""); err != nil {
 		t.Fatal(err)
 	}
-	got := byKey(t, s)[p.Key]
-	if !got.Enabled || !got.Custom {
-		t.Errorf("custom Profile = %+v", got)
+	if _, ok := byKey(t, s)[p.Key]; ok {
+		t.Error("the custom Profile the file leaves out is still there")
 	}
 }
 

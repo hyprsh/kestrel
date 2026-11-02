@@ -52,6 +52,14 @@ INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_h
     trash_profile_movies, trash_profile_series, original_language, custom)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, 'reject', 0);
 
+-- name: SetProfileShape :exec
+-- The resolution range of a Profile (ADR 0026), as a Config File declares it.
+UPDATE profiles SET any = ?, min_height = ?, max_height = ? WHERE key = ?;
+
+-- name: DeleteProfile :execrows
+-- A Profile the Config File leaves out; the caller has checked that no Version or Slot default uses it.
+DELETE FROM profiles WHERE key = ?;
+
 -- name: DeleteCustomProfile :execrows
 DELETE FROM profiles WHERE key = ? AND custom = 1;
 

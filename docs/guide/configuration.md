@@ -92,13 +92,18 @@ root_folders: # the first of each list is the default
   movies: [/data/media/movies, /data/media/movies-kids]
   series: [/data/media/tv]
 
-profiles: # all six or none, each with enabled and original_language
+profiles: # every Profile you have, each with enabled and original_language
   hd-primary: { enabled: true, original_language: accept }
-  hd-original: { enabled: true, original_language: reject }
-  any-primary: { enabled: false, original_language: reject }
-  any-original: { enabled: false, original_language: reject }
   4k-primary: { enabled: true, original_language: accept }
-  4k-original: { enabled: false, original_language: reject }
+  remux-4k:
+    {
+      enabled: true,
+      original_language: reject,
+      name: 4K Remux,
+      release_family: remux-web,
+      resolution: uhd,
+      language_rule: primary,
+    }
 
 slots: # in order; at least one, at most four, one on for new Titles
   - id: standard
@@ -236,23 +241,27 @@ Every folder must exist and be writable.
 
 #### profiles
 
-List all six Profiles or none: `hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`. Each takes `enabled` and `original_language`.
+List every Profile you have, under a key of your choosing: lower-case letters and digits, with single hyphens between. The section is the whole set, so a Profile it leaves out is removed, and the Profile endpoints and Settings > Profiles are read-only. Any of the six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`) may appear, in any combination, and keeps its builtin recipe when it gives none. Any other key is a recipe Profile and gives its `name`, `release_family`, `resolution` and `language_rule`. Every Profile takes `enabled` and `original_language`.
 
 | Field               | Value                                                                                                                                                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`           | `true` or `false`.                                                                                                                                                                                                                                                              |
 | `original_language` | What the Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject`, `offer` it for approval in Needs attention, or `accept`. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). |
-| `release_family`    | Optional. The Profile's Release Family: `bluray-web`, `remux-web`, `web` or `sqp`. Left out, the Profile keeps its own (the six start as `bluray-web`). Any is only `bluray-web`.                                                                                               |
-| `language_rule`     | Optional. `primary`, `original`, or one named language: `en`, `de` or `fr`. Left out, the Profile keeps its own. A named-language Profile takes `original_language` like a `primary` one, judged against its own language.                                                      |
+| `name`              | The Profile's name, at most 40 characters and unique. Required for a key that is not a builtin one; a builtin key keeps its own name when it leaves this out.                                                                                                                   |
+| `resolution`        | `hd` (720p to 1080p), `uhd` (2160p) or `any` (SD to 1080p). Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out.                                                                                                                  |
+| `release_family`    | The Profile's Release Family: `bluray-web`, `remux-web`, `web` or `sqp`. Required for a key that is not a builtin one; a builtin key keeps its own (the six start as `bluray-web`) when it leaves this out. Any is only `bluray-web`.                                           |
+| `language_rule`     | `primary`, `original`, or one named language: `en`, `de` or `fr`. Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out. A named-language Profile takes `original_language` like a `primary` one, judged against its own language.  |
 | `default_movies`    | Ignored: the defaults for new Titles belong to the Slots (see `slots`). Kestrel logs a warning at startup naming each Profile that still sets it.                                                                                                                               |
 | `default_series`    | Ignored, like `default_movies`.                                                                                                                                                                                                                                                 |
 
 **Upgrading.** Four changes of the Slots release are deliberate breaks, not additions, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo ([ADR 0024](../adr/0024-admins-define-the-slots.md)). Here, in the Config File: the `default_movies` and `default_series` keys of a Profile are ignored, so move each into the `slots` section. In the API: a Profile's `slot` is optional and deprecated; `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`; and the Slot fields are strings, with the schema once called `Slot` now `SlotId` and `Slot` naming the Slot record. [Slots, Upgrading](slots.md#upgrading) has the detail.
 
-The rules of Settings > Profiles hold across the six:
+The rules of Settings > Profiles hold across the set:
+
+- A Profile the file leaves out is removed at startup, unless a Version uses it or a Slot names it as its default (the file's Slots, else the saved ones): then startup fails naming the Profile. Move the Versions or the default first, or keep the Profile in the file.
 
 - An enabled Profile's recipe needs a TRaSH profile for at least one of Movies and Series in the language its rule names, under the Primary Language the file declares (else the saved one), and applies to the kinds that have one. Kestrel never falls back to another language, so German WEB is refused, and so is Any with anything but `bluray-web`. SQP and French Remux have Movies only: such a Profile cannot be a Slot's default for Series, and the file is refused if it is ([ADR 0026](../adr/0026-profiles-are-recipes-backed-by-trash.md)).
-- An Original-Language Profile (`*-original`) always rejects.
+- An Original-Language Profile (`language_rule: original`) always rejects.
 - A Profile that a Slot names as its default stays enabled: declare the new default in `slots` before switching the old one off.
 
 #### slots

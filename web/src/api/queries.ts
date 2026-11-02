@@ -313,7 +313,7 @@ export function usePatchProfile() {
   return useMutation({
     mutationFn: async (v: { key: string; patch: ProfilePatch }) => {
       const { data, error, response } = await api.PATCH('/profiles/{key}', {
-        params: { path: { key: v.key as components['parameters']['ProfileKey'] } },
+        params: { path: { key: v.key } },
         body: v.patch,
       })
       if (!data) throw failure(error, response)
@@ -345,7 +345,7 @@ export function useDeleteProfile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (key: string) => {
-      const { error, response } = await api.DELETE('/profiles/{key}', { params: { path: { key: key as components['parameters']['ProfileKey'] } } })
+      const { error, response } = await api.DELETE('/profiles/{key}', { params: { path: { key } } })
       if (!response.ok) throw failure(error, response)
     },
     onSuccess: () => invalidateProfiles(qc),

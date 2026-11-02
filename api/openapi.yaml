@@ -3262,9 +3262,9 @@ components:
       name: key
       in: path
       required: true
+      description: A Profile's `key` from `GET /profiles`. The six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary`, `4k-original`) are not the only ones, as importing a recipe or copying a Profile makes more.
       schema:
         type: string
-        enum: [hd-primary, hd-original, any-primary, any-original, 4k-primary, 4k-original]
   headers:
     SetCookie:
       description: The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL).
