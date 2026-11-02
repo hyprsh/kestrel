@@ -1,6 +1,7 @@
 // chrome: domain-visual
-// The Overview's chart marks in plain React: stacked columns (Grabs per day, the download client's speed), a bar list
-// (indexers, release groups) and a segmented bar (Library quality). They follow the dataviz rules: thin marks, a 2px gap
+// The Overview's chart marks the design system lacks, in plain React: stacked columns that open Activity per column (Grabs per
+// day), a bar list with extra columns that opens Activity per row (indexers) and a segmented bar (Library quality). The download
+// client's speed and the release groups use the design's ColumnChart and BarList. They follow the dataviz rules: thin marks, a 2px gap
 // between touching marks, a 4px rounded data end on a square baseline, a legend for two or more series, status colours only
 // for status, text in text tokens, and a tooltip on every mark that shows on hover and on keyboard focus. Every chart also
 // has a text alternative: a summary in its label and a table for screen readers, so nothing is only in a tooltip.
@@ -93,6 +94,7 @@ const sum = (c: Column) => c.parts.reduce((t, p) => t + p.n, 0)
  * shows a tooltip with every part, and arrow keys move between columns. `format` writes a part's value; `alternative` is the
  * chart's summary for screen readers; `axis` labels the first, middle and last column.
  */
+// chrome-ok: ColumnChart opens nothing on click. Grabs per day opens Activity per column and per mark (hyprsh/kestrel#321 inventory)
 export function Columns({
   columns,
   height,
@@ -226,6 +228,7 @@ export function Columns({
  * reads the same sentence as the row's name (its cells are hidden from it; the chart's table twin lists them). The row lays
  * its `children` out in `columns`, a CSS grid template, with the bar among them (see Bar). With `onOpen` the row is a button.
  */
+// chrome-ok: BarList rows hold one bar and a figure, with no click handler or extra columns. Indexers opens Activity per row and shows Hit, Answer and Failed
 export function BarRow({ columns, label, onOpen, children }: { columns: string; label: string; onOpen?: () => void; children: ReactNode }) {
   const className = 'grid w-full items-center gap-x-3 border-b border-gray-alpha-200 py-1.5 outline-offset-2 last:border-b-0'
   const cells = (
@@ -256,6 +259,7 @@ export function BarRow({ columns, label, onOpen, children }: { columns: string; 
 }
 
 /** The column titles over a bar list, in the same `columns` as its rows; decoration (each row names its own cells). */
+// chrome-ok: goes with BarRow: the column titles of the Indexers list
 export function BarHeader({ columns, children }: { columns: string; children: ReactNode }) {
   return (
     <div aria-hidden className="label-12 grid items-center gap-x-3 border-b border-gray-alpha-300 pb-1.5 text-gray-900" style={{ gridTemplateColumns: columns }}>
@@ -265,6 +269,7 @@ export function BarHeader({ columns, children }: { columns: string; children: Re
 }
 
 /** The bar of a bar list: `share` (0 to 1) of the cell, a 4px rounded tip and a square start, with its figure after the tip. */
+// chrome-ok: goes with BarRow: the bar cell of the Indexers list
 export function Bar({ share, figure, className = mark.blue }: { share: number; figure: string; className?: string }) {
   return (
     <span className="flex min-w-0 items-center gap-2">

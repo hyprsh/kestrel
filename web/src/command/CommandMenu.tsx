@@ -36,6 +36,7 @@ type Item = {
  * single search across both kinds. In Add mode a result opens the add panel;
  * results already in the Library open that Title instead.
  */
+// chrome-ok: the Kestrel screen that fills the design CommandMenu with its Titles and actions, not a copy of it
 export function CommandMenu({
   initialMode,
   actions,

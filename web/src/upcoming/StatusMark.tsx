@@ -10,6 +10,7 @@ const state = (kind: StatusKind, long: boolean): SlotDotState =>
   ({ searching: 'unreleased', downloading: 'downloading', imported: 'filled', missing: long ? 'long_missing' : 'wanted', unmonitored: 'unmonitored' })[kind] as SlotDotState
 
 /** The dot of a status. `className` is its size, `size-2` by default. */
+// chrome-ok: a Kestrel entry status mapped to a Slot dot, not the design StatusDot (state words and a label)
 export function StatusDot({ kind, long = false, className }: { kind: StatusKind; long?: boolean; className?: string }) {
   return (
     <span data-status={kind} className="contents">

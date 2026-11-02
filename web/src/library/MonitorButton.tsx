@@ -29,6 +29,7 @@ const seriesModes: { value: SeriesMonitor; label: string; description: string; t
 /** Whether a Title is monitored: a Movie by its flag, a Series by its mode. */
 export const isMonitored = (title: Pick<TitleDetail, 'kind' | 'monitored' | 'series_monitor'>) => (title.kind === 'movie' ? title.monitored : title.series_monitor !== 'none')
 
+// chrome-ok: the monitored/unmonitored bookmark glyph, not the design Icon wrapper
 function Icon({ monitored }: { monitored: boolean }) {
   const I = monitored ? BookmarkCheck : Bookmark
   return <I aria-hidden className="size-4" />

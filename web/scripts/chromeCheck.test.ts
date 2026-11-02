@@ -168,4 +168,34 @@ describe('the chrome check', () => {
       expect(messages(`// chrome-ok: x\nexpect(1).toBe(1)\n`).join('\n')).toContain('stale')
     })
   })
+
+  describe('a copy of a design component', () => {
+    const design = new Set(['NavList', 'ColumnChart'])
+    const names = (file: string, source: string) => checkSource(file, source, design).map((v) => v.message)
+
+    it('fails a piece declared under a design export name, in any form, and names the component', () => {
+      expect(names('src/a/Nav.tsx', 'export function NavList() { return null }\n')).toEqual([expect.stringContaining('NavList duplicates the design')])
+      expect(names('src/a/Nav.tsx', 'const NavList = () => null\n')).toHaveLength(1)
+      expect(names('src/a/Nav.tsx', 'export class ColumnChart {}\n')).toHaveLength(1)
+    })
+
+    it('fails a known alias of a design component', () => {
+      expect(names('src/a/Chart.tsx', 'export function Columns() { return null }\n')).toEqual([expect.stringContaining("design's ColumnChart")])
+      expect(names('src/a/Nav.tsx', 'export const JumpNav = () => null\n')).toEqual([expect.stringContaining("design's NavList")])
+    })
+
+    it('ignores using or importing a design component and unrelated names', () => {
+      expect(names('src/a/Nav.tsx', 'import { NavList } from \'@hyprsh/design\'\nexport const Menu = () => <NavList aria-label="x" />\n')).toEqual([])
+    })
+
+    it('still checks a file with a marker, which a chrome-ok reason above the declaration excuses', () => {
+      expect(names('src/layout/Nav.tsx', '// chrome: layout\nexport function NavList() { return null }\n')).toHaveLength(1)
+      expect(names('src/layout/Nav.tsx', '// chrome: layout\n// chrome-ok: opens a route per row, which NavList cannot\nexport function NavList() { return null }\n')).toEqual([])
+      expect(names('src/a/Nav.tsx', '// chrome-ok: opens a route per row, which NavList cannot\nexport function NavList() { return null }\n')).toEqual([])
+    })
+
+    it('is off without the design names, as in the other tests', () => {
+      expect(checkSource('src/a/Nav.tsx', 'export function NavList() { return null }\n')).toEqual([])
+    })
+  })
 })
