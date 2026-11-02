@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/probe"
 	"github.com/hyprsh/kestrel/internal/release"
@@ -88,6 +89,14 @@ func (s *Service) Rename(ctx context.Context, titleID int64) (Renamed, error) {
 	if err != nil {
 		return Renamed{}, err
 	}
+	labels := map[Slot]string{}
+	for _, f := range files {
+		if _, ok := labels[f.Slot]; !ok {
+			if labels[f.Slot], err = labelOf(ctx, s.slots, f.Slot); err != nil {
+				return Renamed{}, err
+			}
+		}
+	}
 	primary := codeOfLanguage(region.Primary.Release())
 	original := title.OriginalLanguage
 	var moves []library.FileMove
@@ -96,7 +105,7 @@ func (s *Service) Rename(ctx context.Context, titleID int64) (Renamed, error) {
 		if rest, ok := strings.CutPrefix(cur, oldDir+string(filepath.Separator)); ok {
 			cur = filepath.Join(newDir, rest)
 		}
-		want, err := s.wantedPath(d, title, f, cur, primary, original)
+		want, err := s.wantedPath(d, title, f, labels[f.Slot], cur, primary, original)
 		if err != nil || want == cur {
 			want = cur
 		} else if !exists(cur) && exists(want) {
@@ -128,8 +137,48 @@ func (s *Service) Rename(ctx context.Context, titleID int64) (Renamed, error) {
 	return out, nil
 }
 
+// RenameSlot renames the files of every Title that has a Version in the Slot
+// after its current label (ADR 0024), through Rename: the same moves, the same
+// idempotence, and a Log entry for each Title whose files changed. It returns
+// how many files it renamed. A Title that fails to rename is skipped and
+// reported in the error, so the rest still follow the new label.
+func (s *Service) RenameSlot(ctx context.Context, id Slot) (int, error) {
+	if s.slots == nil {
+		return 0, errors.New("imports: Slot labels are not configured")
+	}
+	label, err := labelOf(ctx, s.slots, id)
+	if err != nil {
+		return 0, err
+	}
+	titles, err := s.slots.TitleIDs(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	var total int
+	var errs []error
+	for _, tid := range titles {
+		res, err := s.Rename(ctx, tid)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("title %d: %w", tid, err))
+		}
+		if res.Files == 0 {
+			continue
+		}
+		total += res.Files
+		noun := "files"
+		if res.Files == 1 {
+			noun = "file"
+		}
+		s.record(ctx, history.Event{
+			Kind: history.Renamed, TitleID: tid, Data: jsonOf(map[string]any{"from": res.Folder, "to": res.Folder, "files": res.Files, "slot": string(id), "label": label}),
+			Message: fmt.Sprintf("Renamed %d %s for the Slot label %q", res.Files, noun, label),
+		})
+	}
+	return total, errors.Join(errs...)
+}
+
 // wantedPath is the path a file should have in its folder under the current names.
-func (s *Service) wantedPath(d library.Detail, title Title, f library.RenameFile, cur, primary, original string) (string, error) {
+func (s *Service) wantedPath(d library.Detail, title Title, f library.RenameFile, label, cur, primary, original string) (string, error) {
 	var parsed release.ParsedRelease
 	var info probe.Info
 	if err := json.Unmarshal([]byte(f.ParsedRelease), &parsed); err != nil {
@@ -151,9 +200,9 @@ func (s *Service) wantedPath(d library.Detail, title Title, f library.RenameFile
 		for _, e := range f.Episodes {
 			ep.First, ep.Last = min(ep.First, e.Number), max(ep.Last, e.Number)
 		}
-		name, err = EpisodeFileName(title, f.Slot, ep, facts, ext)
+		name, err = EpisodeFileName(title, label, ep, facts, ext)
 	} else {
-		name, err = MovieFileName(title, f.Slot, facts, ext)
+		name, err = MovieFileName(title, label, facts, ext)
 	}
 	if err != nil {
 		return "", err

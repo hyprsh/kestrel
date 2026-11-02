@@ -212,7 +212,6 @@ func TestMalformedRequestsAre422(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)
 	for name, body := range map[string]string{
-		"no slots":          requestBody("a", "movie", 116149, `[]`, "null"),
 		"duplicate slot":    requestBody("b", "movie", 116149, `[{"slot":"standard"},{"slot":"standard"}]`, "null"),
 		"unknown key":       requestBody("c", "movie", 116149, `[{"slot":"standard","profile":"nope"}]`, "null"),
 		"one Profile twice": requestBody("d", "movie", 116149, `[{"slot":"standard","profile":"hd-primary"},{"slot":"4k","profile":"hd-primary"}]`, "null"),

@@ -362,7 +362,14 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 
 	first, last := numbers[0], numbers[len(numbers)-1]
 	ext := strings.ToLower(filepath.Ext(video))
-	name, err := EpisodeFileName(in.title, in.ver.Slot, Episode{Season: season, First: first, Last: last},
+	label, err := labelOf(ctx, s.slots, in.ver.Slot)
+	if err != nil {
+		for _, ep := range wanted {
+			add(ep, Stalled, stalledBy(err).Reason, "", 0)
+		}
+		return
+	}
+	name, err := EpisodeFileName(in.title, label, Episode{Season: season, First: first, Last: last},
 		FileFacts{Release: fileParsed, Probe: info, Languages: languages, Primary: in.primary}, ext)
 	if err != nil {
 		for _, ep := range wanted {

@@ -11,7 +11,7 @@ import (
 func TestDetachingProfilesKeepsTheDefaultsAnExistingLibraryResolved(t *testing.T) {
 	dir := t.TempDir()
 	ctx := context.Background()
-	old, err := store.Open(ctx, store.Options{Dir: dir, Migrations: migrationsBefore(t, "00047")})
+	old, err := store.Open(ctx, store.Options{Dir: dir, Migrations: migrationsBefore(t, "00048")})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -155,8 +155,13 @@ type Deps struct {
 	Library     *library.Service
 	Profiles    *profiles.Service
 	RootFolders *rootfolders.Service
-	Meta        metadata.Provider
-	TVDB        metadata.TVDBProvider
+	// Slots lists the Slots, for a Request that names none (ADR 0024). Nil
+	// leaves such a Request a validation error.
+	Slots interface {
+		List(ctx context.Context) ([]slot.Record, error)
+	}
+	Meta metadata.Provider
+	TVDB metadata.TVDBProvider
 	// Grabs lists the active Grabs.
 	Grabs interface {
 		Active(ctx context.Context) ([]acquire.Active, error)
@@ -235,6 +240,9 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 
 	all, err := s.d.Profiles.List(ctx)
 	if err != nil {
+		return Result{}, err
+	}
+	if err := s.fillSlots(ctx, &in); err != nil {
 		return Result{}, err
 	}
 	if err := validate(in, all); err != nil {
@@ -338,6 +346,25 @@ func slotRecord(all []slot.Record, id slot.Slot) slot.Record {
 		return all[i]
 	}
 	return slot.Record{ID: id}
+}
+
+// fillSlots gives a Request that names no Slot every Slot that is on for new
+// Titles (ADR 0024); Profile resolution then picks each one's default Profile.
+// A Request that names Slots is left as it is.
+func (s *Service) fillSlots(ctx context.Context, in *Input) error {
+	if len(in.Slots) > 0 || s.d.Slots == nil {
+		return nil
+	}
+	all, err := s.d.Slots.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, r := range all {
+		if r.OnForNew {
+			in.Slots = append(in.Slots, SlotInput{Slot: r.ID})
+		}
+	}
+	return nil
 }
 
 func profileByKey(all []profiles.Profile, key string) profiles.Profile {

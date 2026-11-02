@@ -229,6 +229,22 @@ func (c *client) requests(ctx context.Context, ids []int64) (map[int64]kestrelRe
 	return got, nil
 }
 
+type kestrelSlot struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+// slots reads the Slots Kestrel has, in its order.
+func (c *client) slots(ctx context.Context) ([]kestrelSlot, error) {
+	var out struct {
+		Items []kestrelSlot `json:"items"`
+	}
+	if _, err := c.do(ctx, http.MethodGet, "/slots", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
 func (c *client) profiles(ctx context.Context) ([]profile, error) {
 	var out struct {
 		Items []profile `json:"items"`

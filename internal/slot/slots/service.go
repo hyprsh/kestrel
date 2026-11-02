@@ -21,11 +21,26 @@ var ErrNotFound = errors.New("slot not found")
 
 // Service reads and writes the Slots.
 type Service struct {
-	st *store.Store
+	st        *store.Store
+	onRelabel func(context.Context, slot.Slot)
 }
 
 // New returns a Service over st.
 func New(st *store.Store) *Service { return &Service{st: st} }
+
+// OnRelabel sets what runs for each Slot whose label was changed, after the
+// change is saved: it renames the Slot's files (ADR 0003). The API and a Config
+// File both change labels through this Service, so one hook covers both.
+func (s *Service) OnRelabel(f func(ctx context.Context, id slot.Slot)) { s.onRelabel = f }
+
+func (s *Service) relabeled(ctx context.Context, ids []slot.Slot) {
+	if s.onRelabel == nil {
+		return
+	}
+	for _, id := range ids {
+		s.onRelabel(ctx, id)
+	}
+}
 
 // Create is a new Slot. It goes last in the order, and its id comes from the label.
 type Create struct {
@@ -131,7 +146,10 @@ func profileKeys(ctx context.Context, q *db.Queries, field string, enabled bool,
 }
 
 // writeSet writes the Slots of set that differ from cur, with positions 0..n-1 in set's order.
-func writeSet(ctx context.Context, q *db.Queries, cur, set []slot.Record) error {
+// A Slot whose label changed keeps the old label as an alias, and a label a
+// Slot takes stops being an alias of any Slot. It returns the Slots relabeled.
+func writeSet(ctx context.Context, q *db.Queries, cur, set []slot.Record) ([]slot.Slot, error) {
+	var relabeled []slot.Slot
 	have := map[slot.Slot]slot.Record{}
 	for _, r := range cur {
 		have[r.ID] = r
@@ -142,15 +160,29 @@ func writeSet(ctx context.Context, q *db.Queries, cur, set []slot.Record) error 
 		switch {
 		case !ok:
 			if err := q.InsertSlot(ctx, db.InsertSlotParams{ID: string(r.ID), Label: r.Label, DefaultMovies: nullText(r.DefaultMovies), DefaultSeries: nullText(r.DefaultSeries), OnForNew: b2i(r.OnForNew), Position: int64(i)}); err != nil {
-				return err
+				return nil, err
+			}
+			if err := q.DeleteAliasesNamed(ctx, r.Label); err != nil {
+				return nil, err
 			}
 		case old != r:
 			if err := q.UpdateSlot(ctx, db.UpdateSlotParams{ID: string(r.ID), Label: r.Label, DefaultMovies: nullText(r.DefaultMovies), DefaultSeries: nullText(r.DefaultSeries), OnForNew: b2i(r.OnForNew), Position: int64(i)}); err != nil {
-				return err
+				return nil, err
+			}
+			if old.Label != r.Label {
+				if err := q.DeleteAliasesNamed(ctx, r.Label); err != nil {
+					return nil, err
+				}
+				if !strings.EqualFold(old.Label, r.Label) {
+					if err := q.InsertSlotAlias(ctx, db.InsertSlotAliasParams{Slot: string(r.ID), Alias: old.Label}); err != nil {
+						return nil, err
+					}
+				}
+				relabeled = append(relabeled, r.ID)
 			}
 		}
 	}
-	return nil
+	return relabeled, nil
 }
 
 // Create adds a Slot last in the order.
@@ -175,14 +207,32 @@ func (s *Service) Create(ctx context.Context, in Create) (slot.Record, error) {
 		if err := profileKeys(ctx, q, "default_series", true, in.DefaultSeries); err != nil {
 			return err
 		}
-		return writeSet(ctx, q, cur, append(slices.Clone(cur), out))
+		_, err = writeSet(ctx, q, cur, append(slices.Clone(cur), out))
+		return err
 	})
 	return out, err
 }
 
-// Update changes a Slot. A rejected patch changes nothing.
+// Update changes a Slot. A rejected patch changes nothing. A new label keeps
+// the old one as an alias, and the OnRelabel hook then renames the Slot's files.
 func (s *Service) Update(ctx context.Context, id slot.Slot, p Patch) (slot.Record, error) {
+	out, relabeled, err := s.update(ctx, id, p, true)
+	if err == nil {
+		s.relabeled(ctx, relabeled)
+	}
+	return out, err
+}
+
+// Check applies every rule of Update to the patch and saves nothing: the Slot
+// as it would stand, or the error Update would give.
+func (s *Service) Check(ctx context.Context, id slot.Slot, p Patch) (slot.Record, error) {
+	out, _, err := s.update(ctx, id, p, false)
+	return out, err
+}
+
+func (s *Service) update(ctx context.Context, id slot.Slot, p Patch, apply bool) (slot.Record, []slot.Slot, error) {
 	var out slot.Record
+	var relabeled []slot.Slot
 	err := s.write(ctx, func(q *db.Queries) error {
 		cur, err := list(ctx, q)
 		if err != nil {
@@ -223,14 +273,15 @@ func (s *Service) Update(ctx context.Context, id slot.Slot, p Patch) (slot.Recor
 		if err := profileKeys(ctx, q, "default_series", true, r.DefaultSeries); err != nil {
 			return err
 		}
-		if err := writeSet(ctx, q, cur, set); err != nil {
-			return err
-		}
 		out = r
 		out.Position = slices.IndexFunc(set, func(x slot.Record) bool { return x.ID == id })
-		return nil
+		if !apply {
+			return nil
+		}
+		relabeled, err = writeSet(ctx, q, cur, set)
+		return err
 	})
-	return out, err
+	return out, relabeled, err
 }
 
 // Delete removes a Slot that no Version uses, as long as another Slot is left
@@ -258,7 +309,8 @@ func (s *Service) Delete(ctx context.Context, id slot.Slot) error {
 		for j := range rest {
 			rest[j].Position = j
 		}
-		return writeSet(ctx, q, slices.Delete(slices.Clone(cur), i, i+1), rest)
+		_, err = writeSet(ctx, q, slices.Delete(slices.Clone(cur), i, i+1), rest)
+		return err
 	})
 }
 
@@ -333,7 +385,8 @@ func (s *Service) Declare(ctx context.Context, want []Declared) error {
 }
 
 func (s *Service) declare(ctx context.Context, want []Declared, apply bool) error {
-	return s.write(ctx, func(q *db.Queries) error {
+	var relabeled []slot.Slot
+	err := s.write(ctx, func(q *db.Queries) error {
 		cur, err := list(ctx, q)
 		if err != nil {
 			return err
@@ -366,6 +419,35 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool) erro
 				return err
 			}
 		}
-		return writeSet(ctx, q, cur, set)
+		relabeled, err = writeSet(ctx, q, cur, set)
+		return err
 	})
+	if err == nil {
+		s.relabeled(ctx, relabeled)
+	}
+	return err
+}
+
+// Aliases are the labels each Slot used to have, which Adoption still reads as that Slot.
+func (s *Service) Aliases(ctx context.Context) (map[slot.Slot][]string, error) {
+	rows, err := db.New(s.st.Read()).ListSlotAliases(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := map[slot.Slot][]string{}
+	for _, r := range rows {
+		out[slot.Slot(r.Slot)] = append(out[slot.Slot(r.Slot)], r.Alias)
+	}
+	return out, nil
+}
+
+// Files is how many files the Slot's Versions hold: what a new label renames.
+func (s *Service) Files(ctx context.Context, id slot.Slot) (int, error) {
+	n, err := db.New(s.st.Read()).SlotFileCount(ctx, string(id))
+	return int(n), err
+}
+
+// TitleIDs are the Titles that have a Version in the Slot.
+func (s *Service) TitleIDs(ctx context.Context, id slot.Slot) ([]int64, error) {
+	return db.New(s.st.Read()).SlotTitleIDs(ctx, string(id))
 }

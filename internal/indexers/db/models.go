@@ -358,6 +358,11 @@ type Slot struct {
 	Position      int64
 }
 
+type SlotAlias struct {
+	Slot  string
+	Alias string
+}
+
 type Title struct {
 	ID                int64
 	Kind              string

@@ -10,6 +10,15 @@ import (
 	"database/sql"
 )
 
+const deleteAliasesNamed = `-- name: DeleteAliasesNamed :exec
+DELETE FROM slot_aliases WHERE alias = ?
+`
+
+func (q *Queries) DeleteAliasesNamed(ctx context.Context, alias string) error {
+	_, err := q.db.ExecContext(ctx, deleteAliasesNamed, alias)
+	return err
+}
+
 const deleteSlot = `-- name: DeleteSlot :execrows
 DELETE FROM slots WHERE id = ?
 `
@@ -72,6 +81,47 @@ func (q *Queries) InsertSlot(ctx context.Context, arg InsertSlotParams) error {
 		arg.Position,
 	)
 	return err
+}
+
+const insertSlotAlias = `-- name: InsertSlotAlias :exec
+INSERT OR IGNORE INTO slot_aliases (slot, alias) VALUES (?, ?)
+`
+
+type InsertSlotAliasParams struct {
+	Slot  string
+	Alias string
+}
+
+func (q *Queries) InsertSlotAlias(ctx context.Context, arg InsertSlotAliasParams) error {
+	_, err := q.db.ExecContext(ctx, insertSlotAlias, arg.Slot, arg.Alias)
+	return err
+}
+
+const listSlotAliases = `-- name: ListSlotAliases :many
+SELECT slot, alias FROM slot_aliases ORDER BY slot, alias
+`
+
+func (q *Queries) ListSlotAliases(ctx context.Context) ([]SlotAlias, error) {
+	rows, err := q.db.QueryContext(ctx, listSlotAliases)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SlotAlias
+	for rows.Next() {
+		var i SlotAlias
+		if err := rows.Scan(&i.Slot, &i.Alias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSlots = `-- name: ListSlots :many
@@ -147,6 +197,44 @@ type SetSlotPositionParams struct {
 func (q *Queries) SetSlotPosition(ctx context.Context, arg SetSlotPositionParams) error {
 	_, err := q.db.ExecContext(ctx, setSlotPosition, arg.Position, arg.ID)
 	return err
+}
+
+const slotFileCount = `-- name: SlotFileCount :one
+SELECT COUNT(*) FROM files f JOIN versions v ON v.id = f.version_id WHERE v.slot = ?
+`
+
+func (q *Queries) SlotFileCount(ctx context.Context, slot string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, slotFileCount, slot)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const slotTitleIDs = `-- name: SlotTitleIDs :many
+SELECT DISTINCT title_id FROM versions WHERE slot = ? ORDER BY title_id
+`
+
+func (q *Queries) SlotTitleIDs(ctx context.Context, slot string) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, slotTitleIDs, slot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var title_id int64
+		if err := rows.Scan(&title_id); err != nil {
+			return nil, err
+		}
+		items = append(items, title_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const slotVersionCount = `-- name: SlotVersionCount :one

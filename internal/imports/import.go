@@ -154,6 +154,9 @@ type Deps struct {
 	Health Health
 	// Renames enables Rename; *library.Service satisfies it.
 	Renames RenameStore
+	// Slots holds the labels that name the files; *slots.Service satisfies it.
+	// Without it the two seeded Slots keep their seeded labels, which tests rely on.
+	Slots SlotLabels
 	// FolderChanged, when set, is told the path of every Title folder that
 	// Rename changed, so the media servers can be asked to refresh it. The
 	// media-server module wires it.
@@ -196,6 +199,7 @@ type Service struct {
 	guard titleGuard
 
 	renames       RenameStore
+	slots         SlotLabels
 	folderChanged func(ctx context.Context, folder string)
 	hist          History
 	blocklist     Blocklist
@@ -226,7 +230,7 @@ func New(d Deps) (*Service, error) {
 	if d.Remove == nil {
 		d.Remove = os.Remove
 	}
-	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, folderChanged: d.FolderChanged, hist: d.History, blocklist: d.Blocklist, remove: d.Remove}, nil
+	return &Service{lib: d.Library, prof: d.Profiles, probe: d.Prober, clock: d.Clock, snap: d.Scoring, step: d.Step, link: d.Link, rename: d.Rename, hl: d.Health, renames: d.Renames, slots: d.Slots, folderChanged: d.FolderChanged, hist: d.History, blocklist: d.Blocklist, remove: d.Remove}, nil
 }
 
 func (s *Service) hook(step string) error {
@@ -411,7 +415,11 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	}
 
 	ext := strings.ToLower(filepath.Ext(src.video))
-	fileName, err := MovieFileName(title, ver.Slot, FileFacts{Release: parsed, Probe: info, Languages: languages, Primary: primary}, ext)
+	label, err := labelOf(ctx, s.slots, ver.Slot)
+	if err != nil {
+		return stalledBy(err)
+	}
+	fileName, err := MovieFileName(title, label, FileFacts{Release: parsed, Probe: info, Languages: languages, Primary: primary}, ext)
 	if err != nil {
 		return stalledBy(err)
 	}

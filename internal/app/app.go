@@ -35,6 +35,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/updates"
@@ -228,12 +229,18 @@ func New(opts Options) *App {
 		Servers: imports.InstanceServers(pluginInstances), Health: healthSvc, Checks: pluginInstances, Feed: folderFeed, Logger: opts.Logger, Delay: opts.MediaRefreshDelay,
 	})
 	imp, err := imports.New(imports.Deps{
-		Library: lib, Renames: lib, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,
+		Library: lib, Renames: lib, Slots: slotSvc, Profiles: profs, Prober: prober, Clock: opts.Clock, Health: healthSvc,
 		FolderChanged: mediaRefresh.FolderChanged, Scoring: live, Rename: opts.RenameFolder, History: hist, Blocklist: acq,
 	})
 	if err != nil {
 		panic("app: Import cannot start: " + err.Error())
 	}
+	// A new Slot label, from the API or the Config File, renames that Slot's files (ADR 0024).
+	slotSvc.OnRelabel(func(ctx context.Context, id slot.Slot) {
+		if _, err := imp.RenameSlot(context.WithoutCancel(ctx), id); err != nil {
+			opts.Logger.Warn("renaming a Slot's files after its label changed failed", "slot", string(id), "err", err)
+		}
+	})
 	adoption, err := imports.NewAdoption(imports.AdoptionDeps{
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
 		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
@@ -263,7 +270,7 @@ func New(opts Options) *App {
 		panic("app: loading the stored TRaSH snapshot: " + err.Error())
 	}
 	reqs := requests.New(requests.Deps{
-		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs, RootFolders: roots,
+		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs, RootFolders: roots, Slots: slotSvc,
 		Meta: meta, TVDB: tvdb, Grabs: acq,
 	})
 	refresher := jobs.NewRefresher(jobs.RefresherDeps{

@@ -4,7 +4,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
 
@@ -50,12 +49,6 @@ func TestContains(t *testing.T) {
 	}
 	if !slot.FourK.Contains(2160, 2160) || slot.FourK.Contains(1080, 2160) {
 		t.Error("4k bounds")
-	}
-}
-
-func TestOfClass(t *testing.T) {
-	if slot.OfClass(resolution.UHD) != slot.FourK || slot.OfClass(resolution.HD) != slot.Standard || slot.OfClass(resolution.SD) != slot.Standard {
-		t.Error("class mapping")
 	}
 }
 

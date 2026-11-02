@@ -98,7 +98,7 @@ func adoptionRowToAPI(r imports.Row) oapi.AdoptionRow {
 	}
 	for _, f := range r.Files {
 		af := oapi.AdoptionFile{
-			Path: f.Path, To: f.To, Size: f.Size, Slot: slotToAPI(f.Slot), Profile: f.Profile, Score: f.Score,
+			Path: f.Path, To: f.To, Size: f.Size, Slot: slotToAPI(f.Slot), SlotGuessed: f.SlotGuessed, Profile: f.Profile, Score: f.Score,
 			Action: oapi.AdoptionFileAction(f.Action), HeldScore: f.HeldScore, Ticked: f.Ticked, Subtitles: []oapi.AdoptionSubtitle{},
 		}
 		af.Episodes = make([]struct {
