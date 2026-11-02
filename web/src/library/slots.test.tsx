@@ -54,7 +54,7 @@ describe('a Series with four Slots', () => {
 
     const dead = within(grid).getByRole('row', { name: /Dead Freight/ })
     const chips = Array.from(dead.querySelectorAll('[data-slot]'))
-    expect(chips.map((c) => c.textContent)).toEqual(['STD', '4K', 'GERMAN', 'REMUX'])
+    expect(chips.map((c) => c.textContent)).toEqual(['STA', '4K', 'GERMAN', 'REMUX'])
     expect(chips.map((c) => c.getAttribute('data-state'))).toEqual(['filled', 'wanted', 'filled', 'downloading'])
     expect(within(dead).getByTitle(/^4K: Wanted \d+ d$/)).toBeInTheDocument()
     expect(grid.querySelectorAll('th').length).toBeLessThanOrEqual(7) // the columns do not grow with the Slots
@@ -131,7 +131,7 @@ describe('a Series with four Slots', () => {
       .getByRole('button', { name: /^Season 1:/ })
       .closest<HTMLElement>('[role=listitem]')!
     expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial'])
-    expect(row).toHaveTextContent(/STD\s*2\/2/)
+    expect(row).toHaveTextContent(/STA\s*2\/2/)
     expect(row).toHaveTextContent(/4K\s*1\/2/)
     expect(row).toHaveTextContent(/GERMAN\s*2\/2/)
     expect(row).toHaveTextContent(/REMUX\s*1\/2/)
@@ -187,7 +187,7 @@ describe('a Movie with four Slots', () => {
   it('shows a chip per Slot in the header and a row per Version in the accordion', async () => {
     const pane = await openMovie()
     const chips = within(pane).getByRole('group', { name: 'Slots' })
-    expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['STD', '4KWanted', 'GERMANWanted', 'REMUXWanted'])
+    expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['STA', '4KWanted', 'GERMANWanted', 'REMUXWanted'])
     const cards = within(pane).getByRole('region', { name: 'Versions' })
     expect(within(cards).getAllByRole('listitem')).toHaveLength(4)
     for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('listitem', { name: n })).toBeInTheDocument()

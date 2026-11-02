@@ -20,7 +20,7 @@ import { audioLine, qualityLine, qualityName } from './media'
 import { AddVersion } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
 import { SlotChips } from './SlotChip'
-import { slotName, slotShort, slotsOf } from './slots'
+import { slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
 import { VersionMenu } from './VersionRows'
@@ -59,7 +59,8 @@ export function MovieSection({
 }) {
   const downloads = useTitleDownloads(title.id)
   const now = useNow()
-  const versions = slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
+  const slots = useSlotNames()
+  const versions = slotsOf(title, slots).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
   const at = useEpisodeView(title.id).slot
   // Open: the Slot the page was opened at, else the Slots that need a look (downloading or Wanted), else the first one.
   const [open, setOpen] = useState<Set<string>>(() => {
@@ -72,7 +73,7 @@ export function MovieSection({
     document.getElementById(`version-${at}`)?.scrollIntoView?.({ block: 'nearest' })
   }, [at, title.id])
   const [adding, setAdding] = useState(false)
-  const free = title.versions.length < 2
+  const free = title.versions.length < slots.list.length // a Slot is left without a Version
   if (versions.length === 0) return null
   const toggle = (slot: string) => setOpen((o) => (o.has(slot) ? new Set([...o].filter((x) => x !== slot)) : new Set(o).add(slot)))
   return (
@@ -128,7 +129,8 @@ function SlotRow({
   marked: boolean
 }) {
   const phone = usePhone()
-  const name = slotName(v.slot)
+  const slots = useSlotNames()
+  const name = slots.name(v.slot)
   const line = stateLine(v, downloads, now)
   const f = v.file
   const grab = downloads?.items[0]
@@ -136,7 +138,7 @@ function SlotRow({
   const total = grab ? downloads!.items.reduce((n, i) => n + i.bytes_total, 0) : 0
   const sizeText = f ? size(f.size) : total > 0 ? size(total) : '—'
   const chip = (
-    <SlotChips chips={[{ key: v.slot, short: slotShort(v.slot), state: line.state, text: downloads?.pct != null ? `${downloads.pct}%` : undefined, tip: `${name}: ${line.text}` }]} max={1} />
+    <SlotChips chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: downloads?.pct != null ? `${downloads.pct}%` : undefined, tip: `${name}: ${line.text}` }]} max={1} />
   )
   const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   return (
@@ -197,6 +199,7 @@ function SlotBody({
   const search = useSearchWanted(title)
   const cancel = useCancelDownloads()
   const client = useDownloadClient()
+  const slots = useSlotNames()
   const f = v.file
   const more = <VersionMenu {...{ title, profiles, profileName }} version={v} downloads={downloads} onManualSearch={() => onManualSearch()} more />
   const wrap = bodyWrap
@@ -219,7 +222,7 @@ function SlotBody({
       <div className={wrap}>
         <OriginalOfferNote offer={v.original_offer} />
         <div className="flex flex-col gap-1.5">
-          {downloads.pct !== null && <Progress value={downloads.pct} type="success" height={6} aria-label={`${slotName(v.slot)} download progress`} />}
+          {downloads.pct !== null && <Progress value={downloads.pct} type="success" height={6} aria-label={`${slots.name(v.slot)} download progress`} />}
           <span className="label-13 text-blue-900">{progress}</span>
         </div>
         <div className={grid}>

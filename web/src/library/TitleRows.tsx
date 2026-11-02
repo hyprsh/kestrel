@@ -10,6 +10,7 @@ import { SkeletonRow } from '../loading'
 import { TitlePoster } from '../poster'
 import type { Selection } from '../selection'
 import { KindIcon, size } from './bits'
+import { useSlotNames } from './slots'
 import { isMonitoredRow, stateLine, toneText } from './rowState'
 import { rowChips } from './rowChips'
 import { SlotChips } from './SlotChip'
@@ -87,6 +88,7 @@ export function TitleRows({
   /** Opens the Title at one of its Slots (a chip's popover and the "+N" list go there). */
   onOpenSlot?: (row: TitleRow, slot: string) => void
 }) {
+  const slots = useSlotNames()
   // Where the Titles start in the scroller: below the Episode results (the `lead` rows) the filter finds.
   const [topOffset, setTopOffset] = useState(0)
   const { virtualizer, items, total } = useWindowedRows(rows.length, listRef, index, phone, topOffset)
@@ -134,7 +136,7 @@ export function TitleRows({
           const monitored = isMonitoredRow(r)
           const chips = (
             <SlotChips
-              chips={rowChips(r, g, { single, profileName, now, onOpen: onOpenSlot && ((slot) => onOpenSlot(r, slot)) })}
+              chips={rowChips(r, g, { single, profileName, slots, now, onOpen: onOpenSlot && ((slot) => onOpenSlot(r, slot)) })}
               max={phone ? 3 : 4}
               wrap
               align="start"

@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
 import { useAddVersion, useRemoveTitle } from '../api/versions'
 import { useReport } from '../toasts'
-import { slotKeys, slotLabel, type SlotKey } from './bits'
+import { useSlotNames } from './slots'
 
 /**
  * Asks before removing, in a modal that closes on confirm: the caller reports the outcome as a Toast.
@@ -105,12 +105,13 @@ export function RemoveTitle({ titleId, onCancel }: { titleId: number; onCancel: 
  */
 export function AddVersion({ title, profiles, onClose }: { title: TitleDetail; profiles: Profile[]; onClose: () => void }) {
   const add = useAddVersion(title.id)
-  const free = slotKeys.filter((k) => !title.versions.some((v) => v.slot === k))
-  const [slot, setSlot] = useState<SlotKey>(free[0])
-  const options = (k: SlotKey) => profiles.filter((p) => p.slot === k && p.enabled)
-  const initial = (k: SlotKey) => (options(k).find((p) => (title.kind === 'series' ? p.default_series : p.default_movies)) ?? options(k)[0])?.key ?? ''
+  const slots = useSlotNames()
+  const free = slots.list.map((r) => r.id).filter((k) => !title.versions.some((v) => v.slot === k))
+  const [slot, setSlot] = useState<string>(free[0])
+  const options = (k: string) => profiles.filter((p) => p.slot === k && p.enabled)
+  const initial = (k: string) => (options(k).find((p) => (title.kind === 'series' ? p.default_series : p.default_movies)) ?? options(k)[0])?.key ?? ''
   const [profile, setProfile] = useState(initial(free[0]))
-  const pick = (k: SlotKey) => {
+  const pick = (k: string) => {
     setSlot(k)
     setProfile(initial(k))
   }
@@ -132,10 +133,10 @@ export function AddVersion({ title, profiles, onClose }: { title: TitleDetail; p
       }
     >
       <div className="flex flex-col gap-3">
-        <Select size="small" aria-label="Slot" value={slot} onChange={(e) => pick(e.target.value as SlotKey)}>
+        <Select size="small" aria-label="Slot" value={slot} onChange={(e) => pick(e.target.value)}>
           {free.map((k) => (
             <option key={k} value={k}>
-              {slotLabel[k]}
+              {slots.name(k)}
             </option>
           ))}
         </Select>

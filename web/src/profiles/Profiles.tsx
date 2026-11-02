@@ -1,7 +1,7 @@
 import { Note, Select } from '@hyprsh/design'
 import { SkeletonRows } from '../loading'
 import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
-import { slotKeys, slotLabel } from '../library/bits'
+import { useSlotNames } from '../library/slots'
 import { useReport } from '../toasts'
 
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
@@ -18,6 +18,7 @@ export function DefaultsPerSlot() {
   const profiles = useProfiles()
   const patch = usePatchProfile()
   const report = useReport()
+  const slots = useSlotNames()
   if (profiles.isError)
     return (
       <Note variant="error" size="small">
@@ -41,8 +42,7 @@ export function DefaultsPerSlot() {
             {k.kind}
           </span>
         ))}
-        {slotKeys.map((slot) => {
-          const label = slotLabel[slot]
+        {slots.list.map(({ id: slot, label }) => {
           const inSlot = profiles.data.filter((p) => p.slot === slot)
           return (
             <Row key={slot} label={label}>
@@ -62,7 +62,7 @@ export function DefaultsPerSlot() {
                       else if (current) void report(patch.mutateAsync({ key: current.key, patch: { [flag]: false } }), saved)
                     }}
                   >
-                    {slot !== 'standard' && <option value="">None</option>}
+                    {slot !== slots.list[0]?.id && <option value="">None</option>}
                     {inSlot
                       .filter((p) => p.enabled)
                       .map((p) => (

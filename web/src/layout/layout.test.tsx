@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
 import { MenuItem } from '@hyprsh/design'
-import { slotKeys } from '../library/bits'
+const slotKeys = ['standard', '4k']
 import type { Facet } from '../filter/qualifiers'
 import { FacetFilterButton, FilterButton, SortButton } from './FilterButton'
 import { FilterStrip } from './FilterStrip'

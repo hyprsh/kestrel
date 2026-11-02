@@ -335,7 +335,7 @@ var plexPublic = map[string]bool{"GET /auth/plex": true, "POST /auth/plex/pin": 
 // is added.
 func requesterMayCall(route string) bool {
 	switch route {
-	case "GET /auth/me", "POST /auth/logout", "GET /system", "GET /lookup", "GET /my/requests", "POST /my/requests":
+	case "GET /auth/me", "POST /auth/logout", "GET /system", "GET /lookup", "GET /my/requests", "POST /my/requests", "GET /slots":
 		return true
 	}
 	id, ok := strings.CutPrefix(route, "GET /titles/")

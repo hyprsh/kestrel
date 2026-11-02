@@ -53,7 +53,7 @@ describe('the Seasons at a glance on the Title page', () => {
         .map((b) => b.getAttribute('aria-label')),
     ).toEqual([expect.stringMatching(/^Season 2:/)])
     // One chip per Slot with its count, amber while Wanted.
-    expect(within(region).getByTitle('Standard 1 of 2, 1 Wanted')).toHaveTextContent(/^STD\s*1\/2$/)
+    expect(within(region).getByTitle('Standard 1 of 2, 1 Wanted')).toHaveTextContent(/^STA\s*1\/2$/)
     expect(within(region).getByTitle('Standard 1 of 2, 1 Wanted')).toHaveAttribute('data-state', 'wanted')
     expect(within(region).getByTitle('4K 0 of 2, 2 Wanted')).toHaveTextContent(/^4K\s*0\/2$/)
     expect(within(region).getByTitle('Standard 2 of 2')).toHaveAttribute('data-state', 'filled')

@@ -4,13 +4,14 @@ import { Button, Entity } from '@hyprsh/design'
 import { Languages } from 'lucide-react'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer } from '../api/offers'
 import { useReport } from '../toasts'
-import { slotName } from './slots'
+import { useSlotNames } from './slots'
 
 /** A slim row under its Version (`row` makes it a row of the Versions list): the offer in words, Accept and, while it is open, Dismiss. */
 export function OriginalOfferNote({ offer, row = false }: { offer?: OriginalOffer | null; row?: boolean }) {
   const accept = useAcceptOffer()
   const dismiss = useDismissOffer()
   const report = useReport()
+  const slots = useSlotNames()
   if (!offer) return null
   const units = offerUnits(offer)
   const busy = accept.isPending || dismiss.isPending
@@ -18,7 +19,7 @@ export function OriginalOfferNote({ offer, row = false }: { offer?: OriginalOffe
     <div className="label-13 flex min-w-0 flex-1 items-center gap-3" title={offer.release}>
       <Languages aria-hidden className="size-4 shrink-0 text-gray-900" />
       <span className="min-w-0 flex-1">
-        {`A ${slotName(offer.slot)} release in the original language only is available${units ? `: ${units}` : ''} · Score ${offer.score}${offer.dismissed ? ' · Dismissed' : ''}`}
+        {`A ${slots.name(offer.slot)} release in the original language only is available${units ? `: ${units}` : ''} · Score ${offer.score}${offer.dismissed ? ' · Dismissed' : ''}`}
       </span>
       <Button
         variant="secondary"

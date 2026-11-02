@@ -3,11 +3,11 @@
 // path such as "/activity?q=stage:done" opens the screen on one stage.
 import { valuesOf, type Query } from '@hyprsh/design'
 import { matchText } from '../fuzzy'
-import { kindQualifier, type Facet } from '../filter/qualifiers'
-import { slotKeys, slotLabel } from '../library/bits'
+import { kindQualifier, slotQualifier, type Facet } from '../filter/qualifiers'
+import type { SlotNames } from '../library/slots'
 import { facetsOf, stageLabel, stages, type Entry, type Stage } from './stages'
 
-export const activityQualifiers: Facet[] = [
+export const activityQualifiers = (slots: SlotNames): Facet[] => [
   {
     // No label, so no menu section: the Views are the stages, and a phone's Filter menu opens with them.
     name: 'stage',
@@ -16,7 +16,7 @@ export const activityQualifiers: Facet[] = [
     options: Object.fromEntries(stages.map((s) => [s, { label: stageLabel[s] }])),
   },
   { ...kindQualifier(), label: 'Kind', options: { movie: { label: 'Movies' }, series: { label: 'Series' } } },
-  { name: 'slot', label: 'Slot', help: 'Grabs for a Version in that Slot', values: slotKeys, options: Object.fromEntries(slotKeys.map((k) => [k, { label: slotLabel[k] }])) },
+  slotQualifier(slots, { label: 'Slot', help: 'Grabs for a Version in that Slot' }),
   { name: 'grab', help: 'One Grab, by its id, in whatever stage it is in' },
 ]
 

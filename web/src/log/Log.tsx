@@ -21,6 +21,7 @@ import { useNow } from '../time'
 import { useReport } from '../toasts'
 import { EventList } from './EventList'
 import { useFeed, useFollowLive } from './feed'
+import { useSlotNames } from '../library/slots'
 import { currentView, logFilter, logQualifiers, logViews, oldestFirst, refinements, viewCount, viewQuery } from './filter'
 import { foldRows, type Row } from './rows'
 import { recoveriesByKey, recoveryAfter } from './sentence'
@@ -296,7 +297,8 @@ function Events({ query, onQuery, onOpenTitle, onBlocklist }: { query: string; o
   const [folds, setFolds] = useState<ReadonlySet<number>>(new Set())
   const [follow, setFollow] = useFollowLive()
   const { list: titles, names } = useTitleNames()
-  const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))]), [titles])
+  const slots = useSlotNames()
+  const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))], slots), [titles, slots])
   const parsed = useMemo(() => parseQuery(query, qualifiers), [query, qualifiers])
   const byTitle = parsed.terms.some((t) => t.name === 'title')
   // A title: filter names Titles, so it waits for the Library to know which.
@@ -468,7 +470,8 @@ function Blocklist({ query, onQuery, onBack, onView }: { query: string; onQuery:
   const items = list.data ?? []
   useListNav('block', items.length, sel, setSel)
   const { list: titles } = useTitleNames()
-  const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))]), [titles])
+  const slots = useSlotNames()
+  const qualifiers = useMemo(() => logQualifiers(kindLabels, [...new Set((titles ?? []).map((t) => t.title))], slots), [titles, slots])
 
   return (
     <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>

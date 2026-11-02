@@ -7,6 +7,7 @@ import { Poster, TitlePoster } from '../poster'
 import { RequestSlots, requestStatus } from '../requests/RequestSlots'
 import { reasons, seasonsText } from '../requests/status'
 import { ago, useNow } from '../time'
+import { useSlotNames } from '../library/slots'
 
 /** Why a Request was turned down. The Profile reason is the admin's to fix, so a Requester is sent to them. */
 function rejection(r: Request): string {
@@ -46,6 +47,7 @@ export function MyRequests({ list, requests }: { list: ReturnType<typeof useMyRe
 
 function MyRequest({ request: r }: { request: Request }) {
   const now = useNow()
+  const slots = useSlotNames()
   return (
     <Entity
       className={stackedRow}
@@ -72,7 +74,7 @@ function MyRequest({ request: r }: { request: Request }) {
             {r.seasons.length > 0 && <span className="font-normal text-gray-900"> · {seasonsText(r.seasons)}</span>}
           </>
         }
-        description={r.outcome === 'rejected' ? `Asked ${ago(r.created_at, now)}` : `Asked ${ago(r.created_at, now)} · ${requestStatus(r, [])}`}
+        description={r.outcome === 'rejected' ? `Asked ${ago(r.created_at, now)}` : `Asked ${ago(r.created_at, now)} · ${requestStatus(r, [], slots)}`}
       />
     </Entity>
   )

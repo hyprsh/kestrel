@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRef } from 'react'
@@ -38,7 +39,11 @@ afterEach(() => vi.restoreAllMocks())
 
 describe('the Library list of thousands of Titles', () => {
   it('draws only the rows in view and a few around them, with the rest as margin', () => {
-    render(<TitleRows {...props} rows={rows} index={0} listRef={createRef<HTMLDivElement>()} />)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <TitleRows {...props} rows={rows} index={0} listRef={createRef<HTMLDivElement>()} />
+      </QueryClientProvider>,
+    )
     const drawn = screen.getAllByRole('option')
     expect(drawn.length).toBeGreaterThan(5)
     expect(drawn.length).toBeLessThan(40)

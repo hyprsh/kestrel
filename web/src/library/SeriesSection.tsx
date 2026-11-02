@@ -16,7 +16,7 @@ import { bySeason, defaultSeason, episodeCode, isUnaired, matchesFilter, orderEp
 import { grabsByEpisode } from './cellDetail'
 import { MonitorToggle } from './MonitorToggle'
 import { SeasonAccordion } from './SeasonAccordion'
-import { cellOf, slotsOf } from './slots'
+import { cellOf, slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 
 const noEpisodes: Episode[] = []
@@ -29,7 +29,8 @@ const noEpisodes: Episode[] = []
  * "?season=2"), as does the found episode (episodeView.ts). The Slots come from the Title's Versions, any number.
  */
 export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; onManualSearch?: (t: ManualSearchTarget) => void }) {
-  const slotList = useMemo(() => slotsOf(title), [title])
+  const slotNames = useSlotNames()
+  const slotList = useMemo(() => slotsOf(title, slotNames), [title, slotNames])
   const slots = useMemo(() => slotList.map((s) => s.key), [slotList])
   const { display, ready } = useDisplay()
   const phone = usePhone()
