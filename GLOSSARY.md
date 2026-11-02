@@ -90,8 +90,16 @@ _Avoid_: Untracked, orphaned, stray (file)
 
 ### Downloading
 
+**Indexer**:
+A service Kestrel searches for Releases and fetches their NZBs from. Every RSS read and every manual search asks each enabled Indexer; an automatic search asks them by Indexer Priority.
+_Avoid_: Provider, tracker, source
+
+**Indexer Priority**:
+An Indexer's rank, lowest number first; Indexers with the same number form one group and are asked together. An automatic search asks the groups in turn and asks the next group only for what the earlier ones left: Wanted episodes or Upgrades no Release would be grabbed for, and Versions that found only an Original Offer. Among Releases of equal Score, the one from the higher-priority Indexer wins. When the NZB of a chosen Release cannot be fetched, the same Release is fetched from the next Indexer that offered it.
+_Avoid_: Order, weight, tier (TRaSH uses it for release groups)
+
 **Release**:
-One downloadable post found on an indexer, identified by its release name.
+One downloadable post found on an Indexer, identified by its release name. The same post found on several Indexers is the same Release.
 _Avoid_: NZB, result, torrent
 
 **Custom Format**:
