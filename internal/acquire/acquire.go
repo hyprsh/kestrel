@@ -742,14 +742,9 @@ func (s *Service) Grab(ctx context.Context, versionID int64, releaseID string, o
 	return s.grabBy(ctx, versionID, releaseID, override, GrabbedByHand)
 }
 
-// grabShared is grab for a Release that is the pick for several Versions of a Movie: one download, bound to each.
+// grabShared is the search pass's Grab (it already holds the snapshot gate) for a Release that is the pick for several Versions of a Movie: one download, bound to each.
 func (s *Service) grabShared(ctx context.Context, versionIDs []int64, releaseID string) (Grab, error) {
 	return s.grabBy(ctx, versionIDs[0], releaseID, false, GrabbedBySearch, versionIDs[1:]...)
-}
-
-// grab is Grab for the search pass, which already holds the snapshot gate.
-func (s *Service) grab(ctx context.Context, versionID int64, releaseID string, override bool) (Grab, error) {
-	return s.grabBy(ctx, versionID, releaseID, override, GrabbedBySearch)
 }
 
 // also are further Versions of the Title the Grab fills: those the Release fits without a rejection (a Movie only).
