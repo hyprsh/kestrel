@@ -21,7 +21,7 @@ func TestRenamingALabelKeepsTheOldOneAsAnAlias(t *testing.T) {
 	s, _ := newService(t)
 	ctx := context.Background()
 	orig := "Original"
-	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &orig}); err != nil {
+	if _, err := change(s, ctx, "standard", slots.Patch{Label: &orig}); err != nil {
 		t.Fatal(err)
 	}
 	if got := aliasesOf(t, s, "standard"); len(got) != 1 || got[0] != "Standard" {
@@ -29,7 +29,7 @@ func TestRenamingALabelKeepsTheOldOneAsAnAlias(t *testing.T) {
 	}
 	// Taking the old label back drops it from the aliases.
 	back := "Standard"
-	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &back}); err != nil {
+	if _, err := change(s, ctx, "standard", slots.Patch{Label: &back}); err != nil {
 		t.Fatal(err)
 	}
 	if got := aliasesOf(t, s, "standard"); len(got) != 1 || got[0] != "Original" {
@@ -37,7 +37,7 @@ func TestRenamingALabelKeepsTheOldOneAsAnAlias(t *testing.T) {
 	}
 	// A change that leaves the label alone adds none.
 	on := true
-	if _, err := s.Update(ctx, "4k", slots.Patch{OnForNew: &on}); err != nil {
+	if _, err := change(s, ctx, "4k", slots.Patch{OnForNew: &on}); err != nil {
 		t.Fatal(err)
 	}
 	if got := aliasesOf(t, s, "4k"); len(got) != 0 {
@@ -48,7 +48,7 @@ func TestRenamingALabelKeepsTheOldOneAsAnAlias(t *testing.T) {
 func TestACaseOnlyRenameAddsNoAlias(t *testing.T) {
 	s, _ := newService(t)
 	l := "STANDARD"
-	if _, err := s.Update(context.Background(), "standard", slots.Patch{Label: &l}); err != nil {
+	if _, err := change(s, context.Background(), "standard", slots.Patch{Label: &l}); err != nil {
 		t.Fatal(err)
 	}
 	if got := aliasesOf(t, s, "standard"); len(got) != 0 {
@@ -64,7 +64,7 @@ func TestACheckedPatchWritesNothingAndCountsTheFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	l := "Original"
-	got, err := s.Check(ctx, "standard", slots.Patch{Label: &l})
+	got, err := checked(s, ctx, "standard", slots.Patch{Label: &l})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestACheckedPatchWritesNothingAndCountsTheFiles(t *testing.T) {
 		t.Errorf("Files = %d, %v", n, err)
 	}
 	bad := "4K"
-	if _, err := s.Check(ctx, "standard", slots.Patch{Label: &bad}); err == nil {
+	if _, err := checked(s, ctx, "standard", slots.Patch{Label: &bad}); err == nil {
 		t.Error("Check accepted a taken label")
 	}
 }
@@ -89,11 +89,11 @@ func TestARelabelCallsTheHookOnceSaved(t *testing.T) {
 	var got []slot.Slot
 	s.OnRelabel(func(_ context.Context, id slot.Slot) { got = append(got, id) })
 	l := "Original"
-	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &l}); err != nil {
+	if _, err := change(s, ctx, "standard", slots.Patch{Label: &l}); err != nil {
 		t.Fatal(err)
 	}
 	on := true
-	if _, err := s.Update(ctx, "4k", slots.Patch{OnForNew: &on}); err != nil {
+	if _, err := change(s, ctx, "4k", slots.Patch{OnForNew: &on}); err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got[0] != "standard" {
@@ -126,7 +126,7 @@ func TestEverySavedChangeToTheSlotsCallsTheChangeHookAndADryRunDoesNot(t *testin
 		t.Fatal(err)
 	}
 	pos := 0
-	if _, err := s.Update(ctx, "remux", slots.Patch{Position: &pos}); err != nil {
+	if _, err := change(s, ctx, "remux", slots.Patch{Position: &pos}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Delete(ctx, "remux"); err != nil {

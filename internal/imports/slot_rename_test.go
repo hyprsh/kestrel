@@ -19,7 +19,7 @@ func TestRenamingASlotLabelRenamesItsFilesAndLogsIt(t *testing.T) {
 	}
 
 	label := "Original"
-	if _, err := r.slotSvc.Update(ctx, "standard", slots.Patch{Label: &label}); err != nil {
+	if _, _, err := r.slotSvc.Change(ctx, "standard", slots.Patch{Label: &label}, false); err != nil {
 		t.Fatal(err)
 	}
 	n, err := r.svc.RenameSlot(ctx, "standard")
@@ -54,7 +54,7 @@ func TestANewFileIsNamedFromTheCurrentLabel(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
 	label := "Original"
-	if _, err := r.slotSvc.Update(ctx, "standard", slots.Patch{Label: &label}); err != nil {
+	if _, _, err := r.slotSvc.Change(ctx, "standard", slots.Patch{Label: &label}, false); err != nil {
 		t.Fatal(err)
 	}
 	f := r.importPaddington(t)

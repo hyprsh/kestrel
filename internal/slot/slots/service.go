@@ -228,20 +228,12 @@ func (s *Service) Create(ctx context.Context, in Create) (slot.Record, error) {
 	return out, err
 }
 
-// Update changes a Slot. A rejected patch changes nothing. A new label keeps
-// the old one as an alias, and the OnRelabel hook then renames the Slot's files.
-func (s *Service) Update(ctx context.Context, id slot.Slot, p Patch) (slot.Record, error) {
-	out, relabeled, err := s.update(ctx, id, p, true)
-	if err == nil {
-		s.changed()
-		s.relabeled(ctx, relabeled)
-	}
-	return out, err
-}
-
-// Change is Update, or with dryRun Check, and also says how many files the
-// patch renames: the files of the Slot's Versions when the patch gives a label
-// other than the stored one, else nil.
+// Change updates a Slot, or with dryRun applies every rule and saves nothing,
+// answering the Slot as it would stand. A rejected patch changes nothing. A new
+// label keeps the old one as an alias, and the OnRelabel hook then renames the
+// Slot's files. It also says how many files that rename touches: the files of
+// the Slot's Versions when the patch gives a label other than the stored one,
+// else nil.
 func (s *Service) Change(ctx context.Context, id slot.Slot, p Patch, dryRun bool) (slot.Record, *int, error) {
 	var renames *int
 	if p.Label != nil {
@@ -259,22 +251,15 @@ func (s *Service) Change(ctx context.Context, id slot.Slot, p Patch, dryRun bool
 			}
 		}
 	}
-	update := s.Update
-	if dryRun {
-		update = s.Check
-	}
-	got, err := update(ctx, id, p)
+	out, relabeled, err := s.update(ctx, id, p, !dryRun)
 	if err != nil {
 		return slot.Record{}, nil, err
 	}
-	return got, renames, nil
-}
-
-// Check applies every rule of Update to the patch and saves nothing: the Slot
-// as it would stand, or the error Update would give.
-func (s *Service) Check(ctx context.Context, id slot.Slot, p Patch) (slot.Record, error) {
-	out, _, err := s.update(ctx, id, p, false)
-	return out, err
+	if !dryRun {
+		s.changed()
+		s.relabeled(ctx, relabeled)
+	}
+	return out, renames, nil
 }
 
 func (s *Service) update(ctx context.Context, id slot.Slot, p Patch, apply bool) (slot.Record, []slot.Slot, error) {

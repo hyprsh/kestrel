@@ -167,7 +167,7 @@ func TestUpdateChangesLabelDefaultsOnForNewAndPosition(t *testing.T) {
 	ctx := context.Background()
 	label, onNew, pos := "Ultra HD", true, 0
 	movies := "4k-primary"
-	got, err := s.Update(ctx, "4k", slots.Patch{Label: &label, DefaultMovies: &movies, OnForNew: &onNew, Position: &pos})
+	got, err := change(s, ctx, "4k", slots.Patch{Label: &label, DefaultMovies: &movies, OnForNew: &onNew, Position: &pos})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestUpdateChangesLabelDefaultsOnForNewAndPosition(t *testing.T) {
 		t.Errorf("order = %s", ids(list(t, s)))
 	}
 	none := ""
-	if got, err = s.Update(ctx, "4k", slots.Patch{DefaultMovies: &none}); err != nil || got.DefaultMovies != "" {
+	if got, err = change(s, ctx, "4k", slots.Patch{DefaultMovies: &none}); err != nil || got.DefaultMovies != "" {
 		t.Errorf("clearing a default: %+v, %v", got, err)
 	}
 }
@@ -187,22 +187,22 @@ func TestUpdateRefusesWhatBreaksARule(t *testing.T) {
 	s, _ := newService(t)
 	ctx := context.Background()
 	dup := "4k"
-	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &dup}); ruleOf(t, err).Conflict {
+	if _, err := change(s, ctx, "standard", slots.Patch{Label: &dup}); ruleOf(t, err).Conflict {
 		t.Errorf("a duplicate label: %v", err)
 	}
 	same := "STANDARD" // a Slot may change the case of its own label
-	if _, err := s.Update(ctx, "standard", slots.Patch{Label: &same}); err != nil {
+	if _, err := change(s, ctx, "standard", slots.Patch{Label: &same}); err != nil {
 		t.Errorf("recasing its own label: %v", err)
 	}
 	off := false
-	if _, err := s.Update(ctx, "standard", slots.Patch{OnForNew: &off}); !ruleOf(t, err).Conflict {
+	if _, err := change(s, ctx, "standard", slots.Patch{OnForNew: &off}); !ruleOf(t, err).Conflict {
 		t.Errorf("turning off the last on-for-new Slot: %v", err)
 	}
-	if _, err := s.Update(ctx, "nope", slots.Patch{}); !errors.Is(err, slots.ErrNotFound) {
+	if _, err := change(s, ctx, "nope", slots.Patch{}); !errors.Is(err, slots.ErrNotFound) {
 		t.Errorf("updating an unknown Slot: %v", err)
 	}
 	far := 9
-	if _, err := s.Update(ctx, "4k", slots.Patch{Position: &far}); ruleOf(t, err).Field != "position" {
+	if _, err := change(s, ctx, "4k", slots.Patch{Position: &far}); ruleOf(t, err).Field != "position" {
 		t.Errorf("a position past the end: %v", err)
 	}
 }
@@ -291,4 +291,16 @@ func TestADeclaredSetObeysTheSameRules(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
+}
+
+// change is a saved Service.Change, without the rename count.
+func change(s *slots.Service, ctx context.Context, id slot.Slot, p slots.Patch) (slot.Record, error) {
+	r, _, err := s.Change(ctx, id, p, false)
+	return r, err
+}
+
+// checked is a dry-run Service.Change, without the rename count.
+func checked(s *slots.Service, ctx context.Context, id slot.Slot, p slots.Patch) (slot.Record, error) {
+	r, _, err := s.Change(ctx, id, p, true)
+	return r, err
 }
