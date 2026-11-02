@@ -160,32 +160,39 @@ func (s *server) bulkRows(ctx context.Context) (map[int64]library.Row, error) {
 	return out, nil
 }
 
-// bulkSlot reads the action's Slot and, given a Profile, checks the Profile
-// can be used: an unknown or disabled one refuses the whole call.
-func (s *server) bulkSlot(ctx context.Context, sl oapi.SlotId, profile *string, ids []int64) (slot.Slot, error) {
+// bulkSlot reads the action's Slot and, given a Profile, checks the Profile can be used: an unknown or disabled one
+// refuses the whole call. It returns the Profile, whose kinds the Titles are then held to one by one.
+func (s *server) bulkSlot(ctx context.Context, sl oapi.SlotId, profile *string) (slot.Slot, profiles.Profile, error) {
 	out, err := s.slotFromAPI(ctx, sl, "slot")
 	if err != nil || profile == nil {
-		return out, err
+		return out, profiles.Profile{}, err
 	}
 	all, err := s.profiles.List(ctx)
 	if err != nil {
-		return out, err
+		return out, profiles.Profile{}, err
 	}
-	if _, err := profiles.Pick(all, *profile); err != nil { // unknown or disabled, whatever the Titles
-		return out, profileProblem("profile", all, *profile, release.KindMovie)
-	}
+	p, err := profiles.Pick(all, *profile)
+	return out, p, pickProblem("profile", err)
+}
+
+// bulkOutOfKind is the Titles the Profile does not apply to, which a bulk call skips as profile_kind: a Series for a
+// Movies-only Profile.
+func (s *server) bulkOutOfKind(ctx context.Context, p profiles.Profile, ids []int64) (map[int64]bool, error) {
 	rows, err := s.bulkRows(ctx)
 	if err != nil {
-		return out, err
+		return nil, err
 	}
+	kinds := make(map[int64]release.Kind, len(ids))
 	for _, id := range ids {
 		if row, ok := rows[id]; ok {
-			if err := profileProblem("profile", all, *profile, kindOf(row.Kind)); err != nil {
-				return out, err
-			}
+			kinds[id] = kindOf(row.Kind)
 		}
 	}
-	return out, nil
+	return profiles.OutOfKind(p, kinds), nil
+}
+
+func bulkWrongKind(id int64) oapi.TitleBulkOutcome {
+	return bulkSkipped(id, oapi.ProfileKind, "The Profile does not apply to this kind of Title")
 }
 
 // bulkMonitor sets monitored on Movies and the monitoring mode on Series.
@@ -226,12 +233,16 @@ func (s *server) bulkMonitor(ctx context.Context, ids []int64, b oapi.TitlesBulk
 
 // bulkSwitchProfile moves each Title's Version in the Slot to the Profile.
 func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.TitlesBulkSwitchProfile) ([]oapi.TitleBulkOutcome, error) {
-	sl, err := s.bulkSlot(ctx, b.Slot, &b.Profile, ids)
+	sl, p, err := s.bulkSlot(ctx, b.Slot, &b.Profile)
 	if err != nil {
 		return nil, err
 	}
 	label := s.slotLabel(ctx, sl)
 	rows, err := s.bulkRows(ctx)
+	if err != nil {
+		return nil, err
+	}
+	wrong, err := s.bulkOutOfKind(ctx, p, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +256,8 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 			out = append(out, bulkNotFound(id))
 		case v == nil:
 			out = append(out, bulkNoVersion(id, label))
+		case wrong[id]:
+			out = append(out, bulkWrongKind(id))
 		case v.Profile == b.Profile:
 			out = append(out, bulkUnchanged(id))
 		default:
@@ -268,14 +281,22 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 // bulkAddVersion adds a Version in the Slot under the Profile to each Title
 // whose Slot is empty.
 func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesBulkAddVersion) ([]oapi.TitleBulkOutcome, error) {
-	sl, err := s.bulkSlot(ctx, b.Slot, &b.Profile, ids)
+	sl, p, err := s.bulkSlot(ctx, b.Slot, &b.Profile)
 	if err != nil {
 		return nil, err
 	}
 	label := s.slotLabel(ctx, sl)
+	wrong, err := s.bulkOutOfKind(ctx, p, ids)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]oapi.TitleBulkOutcome, 0, len(ids))
 	kick := false
 	for _, id := range ids {
+		if wrong[id] {
+			out = append(out, bulkWrongKind(id))
+			continue
+		}
 		_, err := s.library.AddVersion(ctx, id, library.VersionSpec{Slot: sl, Profile: b.Profile})
 		switch {
 		case errors.Is(err, library.ErrNotFound):
@@ -389,7 +410,7 @@ func (s *server) bulkRemove(ctx context.Context, ids []int64, deleteFiles bool) 
 
 // bulkRemoveVersion removes each Title's Version in the Slot.
 func (s *server) bulkRemoveVersion(ctx context.Context, ids []int64, b oapi.TitlesBulkRemoveVersion) ([]oapi.TitleBulkOutcome, error) {
-	sl, err := s.bulkSlot(ctx, b.Slot, nil, ids)
+	sl, _, err := s.bulkSlot(ctx, b.Slot, nil)
 	if err != nil {
 		return nil, err
 	}

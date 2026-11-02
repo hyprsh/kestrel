@@ -1590,6 +1590,7 @@ const (
 	NoVersion      TitleBulkOutcomeReason = "no_version"
 	NotFound       TitleBulkOutcomeReason = "not_found"
 	NothingWanted  TitleBulkOutcomeReason = "nothing_wanted"
+	ProfileKind    TitleBulkOutcomeReason = "profile_kind"
 	ProfileTaken   TitleBulkOutcomeReason = "profile_taken"
 	SlotTaken      TitleBulkOutcomeReason = "slot_taken"
 	Unchanged      TitleBulkOutcomeReason = "unchanged"
@@ -1609,6 +1610,8 @@ func (e TitleBulkOutcomeReason) Valid() bool {
 	case NotFound:
 		return true
 	case NothingWanted:
+		return true
+	case ProfileKind:
 		return true
 	case ProfileTaken:
 		return true
@@ -5430,7 +5433,8 @@ type TitleBulkOutcome struct {
 	// Reason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
 	// already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
 	// in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
-	// Title already uses the Profile; `nothing_wanted`, none of its
+	// Title already uses the Profile; `profile_kind`, the Profile does not apply to the kind of Title
+	// (a Movies-only Profile, for a Series); `nothing_wanted`, none of its
 	// Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
 	// download client could not cancel the Title's download (`message` has what it said);
 	// `internal`, an unexpected error, which the log has.
@@ -5444,7 +5448,8 @@ type TitleBulkOutcomeOutcome string
 // TitleBulkOutcomeReason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
 // already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
 // in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
-// Title already uses the Profile; `nothing_wanted`, none of its
+// Title already uses the Profile; `profile_kind`, the Profile does not apply to the kind of Title
+// (a Movies-only Profile, for a Series); `nothing_wanted`, none of its
 // Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
 // download client could not cancel the Title's download (`message` has what it said);
 // `internal`, an unexpected error, which the log has.

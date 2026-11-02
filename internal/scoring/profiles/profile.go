@@ -226,6 +226,17 @@ func PickFor(all []Profile, key string, kind release.Kind) (Profile, error) {
 	return p, err
 }
 
+// OutOfKind is the Titles, by id, whose kind the Profile does not apply to: a Movies-only Profile cannot serve a Series.
+func OutOfKind(p Profile, kinds map[int64]release.Kind) map[int64]bool {
+	out := map[int64]bool{}
+	for id, k := range kinds {
+		if !p.AppliesTo(k) {
+			out[id] = true
+		}
+	}
+	return out
+}
+
 // Pick finds the Profile with the key and checks it can be used: it exists and is enabled.
 // Any Profile can fill any Slot.
 func Pick(all []Profile, key string) (Profile, error) {

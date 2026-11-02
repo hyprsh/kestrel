@@ -50,12 +50,6 @@ func TestAMoviesOnlyProfileCannotBeUsedForASeries(t *testing.T) {
 	wantProfileKind(t, "switch Version", b.do("PATCH", fmt.Sprintf("/versions/%d", vid), `{"profile":"hd-original"}`))
 	// A Request.
 	wantProfileKind(t, "POST /requests", b.do("POST", "/requests", requestBody("r-9", "series", 7001, `[{"slot":"standard","profile":"hd-original"}]`, "null")))
-	// A bulk call naming a Series.
-	wantProfileKind(t, "bulk switch", b.do("POST", "/titles/bulk",
-		fmt.Sprintf(`{"action":"switch_profile","slot":"standard","profile":"hd-original","title_ids":[%d]}`, b.breakingBad)))
-	wantProfileKind(t, "bulk add", b.do("POST", "/titles/bulk",
-		fmt.Sprintf(`{"action":"add_version","slot":"4k","profile":"hd-original","title_ids":[%d]}`, b.breakingBad)))
-
 	// A Movie takes it, one by one and in bulk.
 	if r := b.do("POST", fmt.Sprintf("/titles/%d/versions", b.memento), `{"slot":"standard","profile":"hd-original"}`); r.Status != 201 {
 		t.Errorf("a Movie Version under a Movies-only Profile = %d %s", r.Status, r.Body)
@@ -72,5 +66,31 @@ func TestASlotsDefaultForAKindMustApplyToIt(t *testing.T) {
 	}
 	if r := b.do("PATCH", "/slots/standard", `{"default_movies":"hd-original"}`); r.Status != 200 {
 		t.Errorf("a Movies-only Movies default = %d %s, want 200", r.Status, r.Body)
+	}
+}
+
+// A bulk call skips the Series a Movies-only Profile cannot serve, as it skips a taken Profile, and goes on with the rest.
+func TestABulkCallSkipsASeriesForAMoviesOnlyProfile(t *testing.T) {
+	t.Parallel()
+	b := newBulkLibrary(t)
+	b.moviesOnly(t)
+
+	got := b.bulk(t, fmt.Sprintf(`{"action":"switch_profile","slot":"standard","profile":"hd-original","title_ids":[%d,%d]}`, b.paddington, b.breakingBad))
+	if o := got.outcomes(); o["changed"] != 1 || o["skipped/profile_kind"] != 1 {
+		t.Errorf("switch outcomes = %v, want the Movie changed and the Series skipped as profile_kind", o)
+	}
+	if got.Items[1].TitleID != b.breakingBad || got.Items[1].Reason == nil || *got.Items[1].Reason != "profile_kind" {
+		t.Errorf("Breaking Bad = %+v", got.Items[1])
+	}
+	if p := b.profileIn(t, b.breakingBad, "standard"); p == "hd-original" {
+		t.Error("the Series moved to a Movies-only Profile")
+	}
+
+	got = b.bulk(t, fmt.Sprintf(`{"action":"add_version","slot":"4k","profile":"hd-original","title_ids":[%d,%d]}`, b.memento, b.breakingBad))
+	if o := got.outcomes(); o["skipped/profile_kind"] != 1 {
+		t.Errorf("add outcomes = %v, want the Series skipped as profile_kind", o)
+	}
+	if p := b.profileIn(t, b.breakingBad, "4k"); p != "" {
+		t.Errorf("the Series got a Version under %q", p)
 	}
 }

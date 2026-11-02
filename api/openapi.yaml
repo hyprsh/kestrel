@@ -5157,12 +5157,13 @@ components:
         reason:
           type: string
           nullable: true
-          enum: [unchanged, not_found, no_version, slot_taken, profile_taken, nothing_wanted, frozen, download_client, internal]
+          enum: [unchanged, not_found, no_version, slot_taken, profile_taken, profile_kind, nothing_wanted, frozen, download_client, internal]
           description: |
             Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
             already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
             in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
-            Title already uses the Profile; `nothing_wanted`, none of its
+            Title already uses the Profile; `profile_kind`, the Profile does not apply to the kind of Title
+            (a Movies-only Profile, for a Series); `nothing_wanted`, none of its
             Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
             download client could not cancel the Title's download (`message` has what it said);
             `internal`, an unexpected error, which the log has.

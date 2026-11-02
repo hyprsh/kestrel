@@ -56,9 +56,16 @@ func errProfileTaken(field string) error {
 
 // profileProblem is nil when the key names an enabled Profile (any Profile can fill any Slot), else the 422 saying why not.
 func profileProblem(field string, all []profiles.Profile, key string, kind release.Kind) error {
-	switch _, err := profiles.PickFor(all, key, kind); {
-	case errors.Is(err, profiles.ErrWrongKind):
+	_, err := profiles.PickFor(all, key, kind)
+	if errors.Is(err, profiles.ErrWrongKind) {
 		return invalid(field, "profile_kind", "That Profile does not apply to "+kindName(kind)+": its TRaSH profile covers the other kind only")
+	}
+	return pickProblem(field, err)
+}
+
+// pickProblem is the 422 for a Profile that profiles.Pick refused, or nil.
+func pickProblem(field string, err error) error {
+	switch {
 	case errors.Is(err, profiles.ErrDisabled):
 		return invalid(field, "disabled", "That Profile is disabled")
 	case err != nil:
