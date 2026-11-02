@@ -22,6 +22,8 @@ func profilesProblem(err error) error {
 	switch {
 	case errors.Is(err, profiles.ErrNotFound):
 		return problem(http.StatusNotFound, "not_found", "no such Profile")
+	case errors.Is(err, profiles.ErrRecipeExists):
+		return problem(http.StatusConflict, "conflict", "The household already has a Profile for that recipe")
 	case errors.Is(err, profiles.ErrInUse):
 		return problem(http.StatusConflict, "conflict", "A Version still uses that Profile: switch it to another Profile first")
 	case errors.As(err, &de):
@@ -47,9 +49,11 @@ func (s *server) profileToAPI(p profiles.Profile, slots []slot.Record) oapi.Prof
 		movies = movies || r.DefaultMovies == p.Key
 		series = series || r.DefaultSeries == p.Key
 	}
-	rule := oapi.ProfileLanguageRule("primary")
-	if p.Rule == scoring.OriginalLanguage {
-		rule = "original"
+	var applies []release.Kind
+	for _, k := range []release.Kind{release.KindMovie, release.KindSeries} {
+		if p.AppliesTo(k) {
+			applies = append(applies, k)
+		}
 	}
 	var custom *bool
 	if p.Custom {
@@ -57,7 +61,8 @@ func (s *server) profileToAPI(p profiles.Profile, slots []slot.Record) oapi.Prof
 		custom = &yes
 	}
 	return oapi.Profile{
-		Key: p.Key, Name: p.Name, Slot: sl, LanguageRule: rule,
+		Key: p.Key, Name: p.Name, Slot: sl, LanguageRule: oapi.ProfileLanguageRule(p.RuleKey()), Kinds: kindsToAPI(applies), ReleaseFamily: oapi.ProfileReleaseFamily(p.Family.OrDefault()),
+		Resolution:       oapi.ProfileResolution(p.Resolution()),
 		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalChoice), OriginalFallback: p.OriginalChoice.DeprecatedFlag(),
 		Enabled: p.Enabled, DefaultMovies: movies, DefaultSeries: series,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
@@ -143,7 +148,30 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 	if err := s.refuseDeclared(configfile.SectionProfiles); err != nil {
 		return nil, err
 	}
-	p, err := s.profiles.Create(ctx, r.Body.Name, r.Body.CopyFrom)
+	b := r.Body
+	var p profiles.Profile
+	var err error
+	switch recipe := b.ReleaseFamily != nil || b.Resolution != nil || b.LanguageRule != nil; {
+	case recipe && b.CopyFrom != nil:
+		return nil, invalid("copy_from", "invalid", "Send copy_from to copy a Profile, or a recipe to import one, not both")
+	case recipe:
+		if b.ReleaseFamily == nil || b.Resolution == nil || b.LanguageRule == nil {
+			return nil, invalid("release_family", "required", "A recipe needs release_family, resolution and language_rule")
+		}
+		name := ""
+		if b.Name != nil {
+			name = *b.Name
+		}
+		var rc profiles.Recipe
+		if rc, err = profiles.ParseRecipe(scoring.ReleaseFamily(*b.ReleaseFamily), profiles.Resolution(*b.Resolution), string(*b.LanguageRule)); err != nil {
+			return nil, profilesProblem(err)
+		}
+		p, err = s.profiles.Import(ctx, rc, name)
+	case b.CopyFrom != nil && b.Name != nil:
+		p, err = s.profiles.Create(ctx, *b.Name, *b.CopyFrom)
+	default:
+		return nil, invalid("copy_from", "required", "Send name and copy_from to copy a Profile, or a recipe to import one")
+	}
 	if err != nil {
 		return nil, profilesProblem(err)
 	}
@@ -152,6 +180,27 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 		return nil, err
 	}
 	return oapi.CreateProfile201JSONResponse(s.profileToAPI(p, slots)), nil
+}
+
+func (s *server) ListProfileSuggestions(ctx context.Context, _ oapi.ListProfileSuggestionsRequestObject) (oapi.ListProfileSuggestionsResponseObject, error) {
+	all, err := s.profiles.Suggestions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.ProfileSuggestionList{Groups: []oapi.ProfileSuggestionGroup{}}
+	for _, sg := range all {
+		if n := len(out.Groups); n == 0 || out.Groups[n-1].ReleaseFamily != oapi.ProfileReleaseFamily(sg.Recipe.Family) {
+			out.Groups = append(out.Groups, oapi.ProfileSuggestionGroup{
+				ReleaseFamily: oapi.ProfileReleaseFamily(sg.Recipe.Family), Name: sg.Recipe.Family.Name(), Items: []oapi.ProfileSuggestion{},
+			})
+		}
+		g := &out.Groups[len(out.Groups)-1]
+		g.Items = append(g.Items, oapi.ProfileSuggestion{
+			Name: sg.Name, ReleaseFamily: oapi.ProfileReleaseFamily(sg.Recipe.Family), Resolution: oapi.ProfileResolution(sg.Recipe.Resolution),
+			LanguageRule: oapi.ProfileLanguageRule(sg.Recipe.RuleKey()), Kinds: kindsToAPI(sg.Kinds),
+		})
+	}
+	return oapi.ListProfileSuggestions200JSONResponse(out), nil
 }
 
 func (s *server) DeleteProfile(ctx context.Context, r oapi.DeleteProfileRequestObject) (oapi.DeleteProfileResponseObject, error) {
@@ -291,7 +340,11 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if err != nil {
 		return oapi.Settings{}, err
 	}
-	if w := settingsWarnings(recs); len(w) > 0 {
+	all, err := s.profiles.List(ctx)
+	if err != nil {
+		return oapi.Settings{}, err
+	}
+	if w := append(settingsWarnings(recs), duplicateWarnings(all, region.Primary)...); len(w) > 0 {
 		out.Warnings = &w
 	}
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
@@ -313,6 +366,16 @@ func settingsWarnings(recs []slot.Record) []oapi.SettingsWarning {
 			ids[i] = id.Key()
 		}
 		out = append(out, oapi.SettingsWarning{Code: oapi.SharedSlotDefault, Kind: &kind, Profile: &profile, Slots: &ids, Message: w.Message()})
+	}
+	return out
+}
+
+// duplicateWarnings names each pair of Profiles that became the same recipe by a change of Primary Language.
+func duplicateWarnings(all []profiles.Profile, primary profiles.Language) []oapi.SettingsWarning {
+	var out []oapi.SettingsWarning
+	for _, d := range profiles.Duplicates(all, primary) {
+		keys := []string{d.A.Key, d.B.Key}
+		out = append(out, oapi.SettingsWarning{Code: oapi.DuplicateProfile, Profiles: &keys, Message: d.Message(primary)})
 	}
 	return out
 }
@@ -359,6 +422,10 @@ func (s *server) queueLanguage(ctx context.Context, r oapi.PatchSettingsRequestO
 		next.Country = *l.ReleaseDateCountry
 	}
 	if err := profiles.CheckRegion(next); err != nil {
+		return nil, profilesProblem(err)
+	}
+	// Refuse now, naming the Profiles, rather than fail in the background pass that saves the Language.
+	if err := s.profiles.CheckPrimary(ctx, want); err != nil {
 		return nil, profilesProblem(err)
 	}
 	if _, pending := s.trash.PendingLanguage(); want == cur.Primary && !pending {

@@ -505,13 +505,15 @@ paths:
       summary: Change settings
       description: |
         A JSON merge patch over the sections: send only what changes. Changing `primary_language`
-        re-points the eight Profiles to their backing TRaSH profiles and, unless the same patch
+        re-points the Profiles to their backing TRaSH profiles and, unless the same patch
         names `release_date_country`, moves the country to the new language's default. Both change
         in the background, in one step with a re-score of every stored file under the new Profiles:
         the answer still shows the old `primary_language`, with `pending_primary_language`, until the
         `trash` job has finished (see Activity); files are not renamed and nothing is searched. A
         second change while one waits replaces it, and a failed re-score changes neither the
-        setting nor the Scores. A patch that names a section the Config File declares
+        setting nor the Scores. A new `primary_language` that would leave an enabled Profile without a backing TRaSH
+        profile (ADR 0026) is a `422 validation` on `primary_language` that names each such Profile, and changes nothing.
+        A patch that names a section the Config File declares
         (`language_region`, `root_folders`, `check_github_updates`, or a `display` setting it declares) answers `409 conflict` and saves
         nothing, not even its other sections.
       tags: [settings]
@@ -573,6 +575,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Slot"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /slots/presets:
+    get:
+      operationId: listSlotPresets
+      summary: The Slot presets the setup wizard offers
+      description: |
+        The four presets, each a set of Slots with the recipe of every default Profile. `available` is
+        `false`, and `items` empty, once the library holds any Version: a preset replaces the Slots, so a library that
+        has Versions edits them one by one (`PATCH /slots/{id}`). The Primary Language names the preset that is
+        labelled with it ("German + Original") and the Profiles that follow it. `items` is empty too while the
+        Config File declares `slots` or `profiles`.
+      tags: [slots]
+      responses:
+        "200":
+          description: The presets, in the order the wizard shows them.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlotPresetList"
+        default:
+          $ref: "#/components/responses/Problem"
+  /slots/presets/{id}:
+    post:
+      operationId: applySlotPreset
+      summary: Replace the Slots with a preset
+      description: |
+        In one transaction: replaces the Slots with the preset's, imports each default Profile that the household
+        has no Profile for yet (one it has is reused) and enables it, and sets the defaults and the on-for-new
+        switches. A failure leaves the Slots and Profiles as they were. `404 not_found` for an unknown preset;
+        `409 conflict` once the library holds a Version, and while the Config File declares `slots` or `profiles`;
+        `422 validation` when a default has no backing TRaSH profile under the Primary Language.
+      tags: [slots]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SlotPresetId"
+      responses:
+        "200":
+          description: The Slots as they now stand.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlotList"
+        "404":
+          $ref: "#/components/responses/Problem"
         "409":
           $ref: "#/components/responses/Problem"
         "422":
@@ -657,10 +711,13 @@ paths:
       operationId: createProfile
       summary: Make a custom Profile
       description: |
-        Copies the Profile `copy_from` under a new `name`: the same audio rule, resolutions, TRaSH backing and
-        settings on top of TRaSH. It starts enabled. `422 validation` for an empty,
-        too long or taken `name`; `404 not_found` for an unknown `copy_from`; `409 conflict` while the Config File
-        declares `profiles`.
+        Either copies the Profile `copy_from` under a new `name` (the same audio rule, resolutions, TRaSH backing and
+        settings on top of TRaSH), or imports a recipe from `GET /profiles/suggestions`: send its `release_family`,
+        `resolution` and `language_rule`, and `name` if the generated one is not wanted. Send one of the two, not
+        both. Either way the Profile starts enabled and can be renamed later. `422 validation` for an empty, too long
+        or taken `name`, for a body that is neither, and for a recipe that has no TRaSH profile to back it (Any only
+        exists as Bluray + WEB, HD); `404 not_found` for an unknown `copy_from`; `409 conflict` for a recipe the
+        household already has a Profile for, and while the Config File declares `profiles`.
       tags: [profiles]
       requestBody:
         required: true
@@ -683,6 +740,25 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /profiles/suggestions:
+    get:
+      operationId: listProfileSuggestions
+      summary: The Profile recipes the household can import
+      description: |
+        Every recipe that has a TRaSH profile to back it for at least one kind and that the household has no Profile
+        for yet, grouped by Release Family in display order (families with nothing to offer are left out). A recipe
+        with a named language that is the Primary Language is not listed: it is the same as the Primary-Language
+        one. Import one with `POST /profiles`.
+      tags: [profiles]
+      responses:
+        "200":
+          description: The suggestions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileSuggestionList"
+        default:
+          $ref: "#/components/responses/Problem"
   /profiles/{key}:
     parameters:
       - $ref: "#/components/parameters/ProfileKey"
@@ -699,7 +775,8 @@ paths:
         `ProfileOverlay`); it is a `validation` error when a size's smallest bound is above its largest, a quality list
         names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. When `overlay` changes what the Profile does, the Versions under it are re-scored from
         what was stored at Import.
-        `409 conflict` while the Config File declares `profiles`.
+        `409 conflict` while the Config File declares `profiles`. Enabling a Profile whose recipe has no backing
+        TRaSH profile under the Primary Language is a `validation` error on `enabled`.
       tags: [profiles]
       requestBody:
         required: true
@@ -3237,9 +3314,9 @@ components:
       name: key
       in: path
       required: true
+      description: A Profile's `key` from `GET /profiles`. The six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary`, `4k-original`) are not the only ones, as importing a recipe or copying a Profile makes more.
       schema:
         type: string
-        enum: [hd-primary, hd-original, any-primary, any-original, 4k-primary, 4k-original]
   headers:
     SetCookie:
       description: The `kestrel_session` cookie (HttpOnly, SameSite=Lax, Path from KESTREL_BASE_URL).
@@ -3488,7 +3565,7 @@ components:
           type: boolean
         sections:
           type: object
-          required: [account, language, download_client, indexer, root_folders, profiles]
+          required: [account, language, download_client, indexer, root_folders, slots]
           properties:
             account:
               $ref: "#/components/schemas/SetupSectionState"
@@ -3500,7 +3577,7 @@ components:
               $ref: "#/components/schemas/SetupSectionState"
             root_folders:
               $ref: "#/components/schemas/SetupSectionState"
-            profiles:
+            slots:
               $ref: "#/components/schemas/SetupSectionState"
     PrimaryLanguage:
       type: string
@@ -3783,6 +3860,53 @@ components:
           description: In order, at least one and at most four.
           items:
             $ref: "#/components/schemas/Slot"
+    SlotPresetId:
+      type: string
+      enum: [one-copy, standard-plus-4k, streaming-remux-archive, language-plus-original]
+    SlotPresetSlot:
+      type: object
+      required: [label, default_movies, default_series, on_for_new_titles]
+      properties:
+        label:
+          type: string
+          example: Remux
+        default_movies:
+          type: string
+          nullable: true
+          description: The name of the Profile the preset makes the Movies default, or `null` for none.
+          example: 4K Remux
+        default_series:
+          type: string
+          nullable: true
+          description: The name of the Profile the preset makes the Series default, or `null` for none.
+        on_for_new_titles:
+          type: boolean
+    SlotPreset:
+      type: object
+      required: [id, name, slots]
+      properties:
+        id:
+          $ref: "#/components/schemas/SlotPresetId"
+        name:
+          type: string
+          example: German + Original
+          description: Labelled with the Primary Language where it is part of the preset.
+        slots:
+          type: array
+          description: In order.
+          items:
+            $ref: "#/components/schemas/SlotPresetSlot"
+    SlotPresetList:
+      type: object
+      required: [available, items]
+      properties:
+        available:
+          type: boolean
+          description: "`false` once the library holds a Version, or while the Config File declares `slots` or `profiles`."
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotPreset"
     SlotCreate:
       type: object
       required: [label]
@@ -3823,8 +3947,10 @@ components:
       properties:
         code:
           type: string
-          enum: [shared_slot_default]
-          description: "`shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it."
+          enum: [shared_slot_default, duplicate_profile]
+          description: |
+            `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+            `duplicate_profile`: a Profile with a named language and a Primary-Language Profile are the same recipe now that the Primary Language is that language (ADR 0026). Both stay; nothing is merged.
         message:
           type: string
         kind:
@@ -3838,9 +3964,14 @@ components:
           items:
             $ref: "#/components/schemas/SlotId"
           description: The ids of the Slots that share it, in order.
+        profiles:
+          type: array
+          items:
+            type: string
+          description: "`duplicate_profile`: the keys of the two Profiles that are the same recipe."
     Profile:
       type: object
-      required: [key, name, language_rule, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
+      required: [key, name, release_family, resolution, language_rule, kinds, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
       properties:
         from_config_file:
           type: boolean
@@ -3859,10 +3990,21 @@ components:
             for a Profile no Slot names as its default.
           allOf:
             - $ref: "#/components/schemas/SlotId"
+        release_family:
+          allOf:
+            - $ref: "#/components/schemas/ProfileReleaseFamily"
+          description: Which kind of Releases the Profile goes after, as TRaSH groups them. Any is always `bluray-web`.
+        resolution:
+          allOf:
+            - $ref: "#/components/schemas/ProfileResolution"
+          description: The resolution range the Profile takes, as a recipe names it; `min_height` and `max_height` are its bounds.
         language_rule:
-          type: string
-          description: Which audio the Profile requires.
-          enum: [primary, original]
+          allOf:
+            - $ref: "#/components/schemas/ProfileLanguageRule"
+          description: |
+            Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
+            Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
+            `original_language` choice as a `primary` one, judged against its own language.
         original_language:
           $ref: "#/components/schemas/OriginalLanguageChoice"
         original_fallback:
@@ -3887,23 +4029,91 @@ components:
           type: integer
         trash_profile_movies:
           type: string
-          description: The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
+          description: The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. Empty when the Profile does not apply to Movies.
         trash_profile_series:
           type: string
-          description: The same for Series.
+          description: The same for Series. Empty when the Profile does not apply to Series (SQP and French Remux have a TRaSH profile for Movies only).
+        kinds:
+          type: array
+          description: |
+            The kinds the Profile applies to: those with a backing TRaSH profile under the current Primary Language.
+            A Movies-only Profile cannot be a Series' Version (`422 profile_kind`) or a Slot's Series default.
+          items:
+            $ref: "#/components/schemas/TitleKind"
         custom:
           type: boolean
           description: "`true` for a Profile made with `POST /profiles`, which can be renamed and deleted."
     ProfileCreate:
       type: object
-      required: [name, copy_from]
+      description: |
+        A copy (`name` and `copy_from`) or an import (`release_family`, `resolution` and `language_rule`, with an
+        optional `name`).
       properties:
         name:
           type: string
           maxLength: 40
+          description: Required for a copy. For an import it replaces the generated name.
         copy_from:
           type: string
           description: The `key` of the Profile to copy.
+        release_family:
+          $ref: "#/components/schemas/ProfileReleaseFamily"
+        resolution:
+          $ref: "#/components/schemas/ProfileResolution"
+        language_rule:
+          $ref: "#/components/schemas/ProfileLanguageRule"
+    ProfileReleaseFamily:
+      type: string
+      enum: [bluray-web, remux-web, web, sqp]
+      description: "`bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`."
+    ProfileResolution:
+      type: string
+      enum: [hd, uhd, any]
+      description: "`hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only)."
+    ProfileLanguageRule:
+      type: string
+      enum: [primary, original, en, de, fr]
+      description: The audio the Profile requires; see `Profile.language_rule`.
+    ProfileSuggestion:
+      type: object
+      required: [name, release_family, resolution, language_rule, kinds]
+      properties:
+        name:
+          type: string
+          description: The generated name, such as "4K Remux", "HD Original" or "HD French".
+          example: 4K Remux
+        release_family:
+          $ref: "#/components/schemas/ProfileReleaseFamily"
+        resolution:
+          $ref: "#/components/schemas/ProfileResolution"
+        language_rule:
+          $ref: "#/components/schemas/ProfileLanguageRule"
+        kinds:
+          type: array
+          description: The kinds the recipe applies to under the current Primary Language, which are those with a TRaSH profile to back it. SQP is Movies only.
+          items:
+            $ref: "#/components/schemas/TitleKind"
+    ProfileSuggestionGroup:
+      type: object
+      required: [release_family, name, items]
+      properties:
+        release_family:
+          $ref: "#/components/schemas/ProfileReleaseFamily"
+        name:
+          type: string
+          example: Remux + WEB
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileSuggestion"
+    ProfileSuggestionList:
+      type: object
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileSuggestionGroup"
     ProfileSize:
       type: object
       required: [min, max]
@@ -4006,8 +4216,8 @@ components:
       type: string
       enum: [reject, offer, accept]
       description: |
-        What a Primary-Language Profile does with a Release that has the Title's Original Language but
-        no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+        What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+        Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
         attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
         Original-Language Profiles.
     SetupSectionState:
@@ -4951,12 +5161,13 @@ components:
         reason:
           type: string
           nullable: true
-          enum: [unchanged, not_found, no_version, slot_taken, profile_taken, nothing_wanted, frozen, download_client, internal]
+          enum: [unchanged, not_found, no_version, slot_taken, profile_taken, profile_kind, nothing_wanted, frozen, download_client, internal]
           description: |
             Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
             already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
             in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
-            Title already uses the Profile; `nothing_wanted`, none of its
+            Title already uses the Profile; `profile_kind`, the Profile does not apply to the kind of Title
+            (a Movies-only Profile, for a Series); `nothing_wanted`, none of its
             Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
             download client could not cancel the Title's download (`message` has what it said);
             `internal`, an unexpected error, which the log has.

@@ -109,12 +109,48 @@ func (q *Queries) DeleteCustomProfile(ctx context.Context, key string) (int64, e
 	return result.RowsAffected()
 }
 
+const insertBuiltinProfile = `-- name: InsertBuiltinProfile :exec
+INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
+    trash_profile_movies, trash_profile_series, original_language, custom)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, 'reject', 0)
+`
+
+type InsertBuiltinProfileParams struct {
+	Key                string
+	Name               string
+	Sort               int64
+	Any                int64
+	ReleaseFamily      string
+	LanguageRule       string
+	MinHeight          int64
+	MaxHeight          int64
+	TrashProfileMovies string
+	TrashProfileSeries string
+}
+
+// One of the six builtin Profiles that a fresh install does not seed (#304), made when a Config File declares them.
+func (q *Queries) InsertBuiltinProfile(ctx context.Context, arg InsertBuiltinProfileParams) error {
+	_, err := q.db.ExecContext(ctx, insertBuiltinProfile,
+		arg.Key,
+		arg.Name,
+		arg.Sort,
+		arg.Any,
+		arg.ReleaseFamily,
+		arg.LanguageRule,
+		arg.MinHeight,
+		arg.MaxHeight,
+		arg.TrashProfileMovies,
+		arg.TrashProfileSeries,
+	)
+	return err
+}
+
 const insertCustomProfile = `-- name: InsertCustomProfile :exec
-INSERT INTO profiles (key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
     trash_profile_movies, trash_profile_series, original_language, custom,
     series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
     movie_min_size, movie_max_size, episode_min_size, episode_max_size)
-VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertCustomProfileParams struct {
@@ -122,6 +158,7 @@ type InsertCustomProfileParams struct {
 	Name               string
 	Sort               int64
 	Any                int64
+	ReleaseFamily      string
 	LanguageRule       string
 	MinHeight          int64
 	MaxHeight          int64
@@ -147,6 +184,7 @@ func (q *Queries) InsertCustomProfile(ctx context.Context, arg InsertCustomProfi
 		arg.Name,
 		arg.Sort,
 		arg.Any,
+		arg.ReleaseFamily,
 		arg.LanguageRule,
 		arg.MinHeight,
 		arg.MaxHeight,
@@ -169,7 +207,7 @@ func (q *Queries) InsertCustomProfile(ctx context.Context, arg InsertCustomProfi
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+SELECT key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
        trash_profile_movies, trash_profile_series, original_language,
        custom, series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
        movie_min_size, movie_max_size, episode_min_size, episode_max_size
@@ -190,6 +228,7 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 			&i.Name,
 			&i.Sort,
 			&i.Any,
+			&i.ReleaseFamily,
 			&i.LanguageRule,
 			&i.MinHeight,
 			&i.MaxHeight,
@@ -327,6 +366,44 @@ func (q *Queries) SetProfileOverlay(ctx context.Context, arg SetProfileOverlayPa
 	return err
 }
 
+const setProfileRecipe = `-- name: SetProfileRecipe :exec
+UPDATE profiles SET release_family = ?, language_rule = ? WHERE key = ?
+`
+
+type SetProfileRecipeParams struct {
+	ReleaseFamily string
+	LanguageRule  string
+	Key           string
+}
+
+// The Release Family and language rule of a Profile (ADR 0026); the caller sets its backing profiles with SetProfileTrash.
+func (q *Queries) SetProfileRecipe(ctx context.Context, arg SetProfileRecipeParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileRecipe, arg.ReleaseFamily, arg.LanguageRule, arg.Key)
+	return err
+}
+
+const setProfileShape = `-- name: SetProfileShape :exec
+UPDATE profiles SET any = ?, min_height = ?, max_height = ? WHERE key = ?
+`
+
+type SetProfileShapeParams struct {
+	Any       int64
+	MinHeight int64
+	MaxHeight int64
+	Key       string
+}
+
+// The resolution range of a Profile, as a Config File declares it.
+func (q *Queries) SetProfileShape(ctx context.Context, arg SetProfileShapeParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileShape,
+		arg.Any,
+		arg.MinHeight,
+		arg.MaxHeight,
+		arg.Key,
+	)
+	return err
+}
+
 const setProfileTrash = `-- name: SetProfileTrash :exec
 UPDATE profiles SET trash_profile_movies = ?, trash_profile_series = ? WHERE key = ?
 `
@@ -340,6 +417,39 @@ type SetProfileTrashParams struct {
 func (q *Queries) SetProfileTrash(ctx context.Context, arg SetProfileTrashParams) error {
 	_, err := q.db.ExecContext(ctx, setProfileTrash, arg.TrashProfileMovies, arg.TrashProfileSeries, arg.Key)
 	return err
+}
+
+const slotDefaultProfiles = `-- name: SlotDefaultProfiles :many
+SELECT label, default_movies, default_series FROM slots ORDER BY position
+`
+
+type SlotDefaultProfilesRow struct {
+	Label         string
+	DefaultMovies sql.NullString
+	DefaultSeries sql.NullString
+}
+
+func (q *Queries) SlotDefaultProfiles(ctx context.Context) ([]SlotDefaultProfilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, slotDefaultProfiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SlotDefaultProfilesRow
+	for rows.Next() {
+		var i SlotDefaultProfilesRow
+		if err := rows.Scan(&i.Label, &i.DefaultMovies, &i.DefaultSeries); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const slotsDefaulting = `-- name: SlotsDefaulting :many
@@ -394,6 +504,39 @@ func (q *Queries) VersionProfileKeys(ctx context.Context) ([]VersionProfileKeysR
 	for rows.Next() {
 		var i VersionProfileKeysRow
 		if err := rows.Scan(&i.ID, &i.ProfileKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const versionProfileKinds = `-- name: VersionProfileKinds :many
+SELECT DISTINCT v.profile_key AS profile_key, t.kind AS kind FROM versions v JOIN titles t ON t.id = v.title_id
+`
+
+type VersionProfileKindsRow struct {
+	ProfileKey string
+	Kind       string
+}
+
+// The kinds each Profile is used for by a Version, as the Title's kind.
+func (q *Queries) VersionProfileKinds(ctx context.Context) ([]VersionProfileKindsRow, error) {
+	rows, err := q.db.QueryContext(ctx, versionProfileKinds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VersionProfileKindsRow
+	for rows.Next() {
+		var i VersionProfileKindsRow
+		if err := rows.Scan(&i.ProfileKey, &i.Kind); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

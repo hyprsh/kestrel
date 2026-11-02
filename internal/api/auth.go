@@ -22,6 +22,7 @@ import (
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/settings"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -397,11 +398,12 @@ type setupSources struct {
 	settings    *settings.Settings
 	plugins     PluginInstances
 	profiles    Profiles
+	slots       Slots
 	rootFolders RootFolders
 }
 
 func (s *server) setupState(ctx context.Context) (oapi.Setup, error) {
-	return setupSources{settings: s.auth.settings, plugins: s.plugins, profiles: s.profiles, rootFolders: s.rootFolders}.state(ctx)
+	return setupSources{settings: s.auth.settings, plugins: s.plugins, profiles: s.profiles, slots: s.slots, rootFolders: s.rootFolders}.state(ctx)
 }
 
 // state reads where every wizard section stands.
@@ -439,15 +441,34 @@ func (s setupSources) state(ctx context.Context) (oapi.Setup, error) {
 		return out, err
 	}
 	out.Sections.RootFolders = state(rootsSaved)
-	// Profiles have nothing to save: the builtin rows ship configured and Standard
-	// always keeps its defaults, so the section is always done.
-	out.Sections.Profiles = oapi.Done
+	// A fresh install has no Profiles and a Standard Slot without defaults (#304): the section is done when every Slot
+	// that is on for new Titles has a default Profile for Movies and for Series.
+	gaps, err := s.slotGaps(ctx)
+	if err != nil {
+		return out, err
+	}
+	out.Sections.Slots = state(len(gaps) == 0)
 	_, out.Completed, err = s.settings.Get(ctx, setupCompletedKey)
 	return out, err
 }
 
-// missingSections lists the sections still to set up, as field errors.
-func missingSections(st oapi.Setup) []fieldError {
+// slotGaps names each Slot that is on for new Titles and lacks a default Profile for Movies or Series, as the field errors
+// of the Slots section.
+func (s setupSources) slotGaps(ctx context.Context) ([]fieldError, error) {
+	set, err := s.slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []fieldError
+	for _, m := range slot.MissingDefaults(set) {
+		out = append(out, fieldError{Field: "sections.slots", Code: "todo", Message: m.Message()})
+	}
+	return out, nil
+}
+
+// missingSections lists the sections still to set up, as field errors, then the Slots' gaps, one per Slot and kind: the
+// Slots section is worded by them.
+func missingSections(st oapi.Setup, gaps []fieldError) []fieldError {
 	var missing []fieldError
 	for _, sec := range []struct {
 		name  string
@@ -455,13 +476,13 @@ func missingSections(st oapi.Setup) []fieldError {
 	}{
 		{"account", st.Sections.Account}, {"language", st.Sections.Language},
 		{"download_client", st.Sections.DownloadClient}, {"indexer", st.Sections.Indexer},
-		{"root_folders", st.Sections.RootFolders}, {"profiles", st.Sections.Profiles},
+		{"root_folders", st.Sections.RootFolders},
 	} {
 		if sec.state != oapi.Done {
 			missing = append(missing, fieldError{Field: "sections." + sec.name, Code: "todo", Message: sec.name + " is not set up yet"})
 		}
 	}
-	return missing
+	return append(missing, gaps...)
 }
 
 func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oapi.GetSetupResponseObject, error) {
@@ -477,7 +498,11 @@ func (s *server) CompleteSetup(ctx context.Context, _ oapi.CompleteSetupRequestO
 	if err != nil {
 		return nil, err
 	}
-	if missing := missingSections(st); len(missing) > 0 {
+	gaps, err := setupSources{slots: s.slots}.slotGaps(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if missing := missingSections(st, gaps); len(missing) > 0 {
 		p := problem(http.StatusUnprocessableEntity, "validation", "setup is not finished: some sections are missing")
 		p.fields = missing
 		return nil, p

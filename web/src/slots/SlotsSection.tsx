@@ -27,9 +27,9 @@ function defaultsText(slot: Slot, profiles: Profile[]) {
  * Settings, Library, Slots (ADR 0024): the Slots in order, each with its default Profile for Movies and Series, its "on for
  * new Titles" switch and the Versions it holds. A row's drag handle (or the arrow keys on it) changes the order. Add and
  * Edit open a form; Delete asks first, and can delete the Slot's Versions with it. While the Config File declares `slots`
- * the list is read-only.
+ * the list is read-only. `embedded` leaves out the section's own heading, for the setup wizard's Slots step, which names it.
  */
-export function SlotsSection() {
+export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
   const slots = useSlots()
   const profiles = useProfiles()
   const titles = useTitles()
@@ -85,8 +85,8 @@ export function SlotsSection() {
 
   return (
     <SettingsSection
-      title="Slots"
-      count={rows.length}
+      title={embedded ? undefined : 'Slots'}
+      count={embedded ? undefined : rows.length}
       action={
         rows.length < MAX_SLOTS && (
           <Button size="small" disabled={declared} onClick={() => setEditing('new')}>
@@ -171,7 +171,7 @@ export function SlotsSection() {
       <span className="label-12 text-gray-900">
         {declared
           ? 'The Config File sets the Slots, so they cannot be changed here. Change the file and restart Kestrel instead.'
-          : 'A Slot is a copy of a Title: its label names the files. Drag to change the order.'}
+          : 'A Slot is a named place in every Title that holds at most one Version: its label names the files. Drag to change the order.'}
       </span>
       {editing === 'new' && <SlotForm profiles={profiles.data} titles={titles.data ?? []} onClose={() => setEditing(null)} />}
       {editingSlot && <SlotForm key={editingSlot.id} slot={editingSlot} profiles={profiles.data} titles={titles.data ?? []} onClose={() => setEditing(null)} />}

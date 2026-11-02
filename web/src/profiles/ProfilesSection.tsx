@@ -4,6 +4,7 @@ import { useProfileDetails, type ProfileDetail, type ProfileScoring } from '../a
 import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
 import { declaresSlots, useSlots, type Slot } from '../api/slots'
 import { SlotWarnings } from '../slots/SlotWarnings'
+import { ProfileWarnings } from './ProfileWarnings'
 import { plural } from '../format'
 import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
 import { SettingsBlock } from '../layout/SettingsPage'
@@ -12,14 +13,11 @@ import { useReport } from '../toasts'
 import { DefaultsPerSlot, declaredNote, declaredSlotsNote, declaresProfiles } from './Profiles'
 import { cardLadder, qualityLabel, sizeFacts, upgradeFact } from './ladder'
 import { ProfileSheet } from './ProfileSheet'
+import { audioText, familyName, kindsText } from './recipe'
+import { Suggested } from './Suggested'
 
 /** The kind whose scoring a card shows: Series, or Movies when the Profile has no Series qualities. */
 const mainScoring = (d?: ProfileDetail): ProfileScoring | undefined => (d && d.series.qualities.length > 0 ? d.series : d?.movies)
-
-function audioText(p: Profile) {
-  if (p.language_rule === 'original') return 'Title’s Original Language audio'
-  return p.original_language === 'reject' ? 'Primary Language audio' : 'Primary Language audio, or the original'
-}
 
 /**
  * Settings, Profiles: "New Profile…", the defaults for new Titles, then one card per Profile: its qualities as a ladder (the
@@ -83,6 +81,7 @@ export function ProfilesSection() {
           <DefaultsPerSlot />
         </SettingsBlock>
       )}
+      <ProfileWarnings />
       {list.map((p) => {
         const d = detailOf(p.key)
         const scoring = mainScoring(d)
@@ -111,6 +110,8 @@ export function ProfilesSection() {
               </QualityChips>
             )}
             <ProfileFacts>
+              <span>{familyName(p.release_family)}</span>
+              <span>{kindsText(p.kinds)}</span>
               {d && sizeFacts(d.overlay).map((text) => <span key={text}>{text}</span>)}
               <span>{audioText(p)}</span>
               {d && <span>{upgradeFact(d.overlay, cutoff)}</span>}
@@ -120,6 +121,7 @@ export function ProfilesSection() {
           </ProfileCard>
         )
       })}
+      <Suggested declared={declared} />
       {declared && declaredNote}
       {sheeted && <ProfileSheet key={sheeted.key} profile={sheeted} detail={detailOf(sheeted.key)} declared={declared} onClose={() => setOpen(null)} />}
       {making && (

@@ -39,36 +39,42 @@ func (s *Service) Create(ctx context.Context, name, copyKey string) (Profile, er
 		if err := checkName(name, "", rows); err != nil {
 			return err
 		}
-		top, err := q.MaxProfileSort(ctx)
-		if err != nil {
-			return err
-		}
-		var b [4]byte
-		_, _ = rand.Read(b[:])
-		key := "custom-" + hex.EncodeToString(b[:])
-		if err := q.InsertCustomProfile(ctx, db.InsertCustomProfileParams{
-			Key: key, Name: name, Sort: toInt64(top) + 1, Any: src.Any, LanguageRule: src.LanguageRule,
+		out, err = insertCustom(ctx, q, db.InsertCustomProfileParams{
+			Name: name, Any: src.Any, ReleaseFamily: src.ReleaseFamily, LanguageRule: src.LanguageRule,
 			MinHeight: src.MinHeight, MaxHeight: src.MaxHeight, OriginalFallback: src.OriginalFallback,
 			TrashProfileMovies: src.TrashProfileMovies, TrashProfileSeries: src.TrashProfileSeries, OriginalLanguage: src.OriginalLanguage,
 			SeriesQualities: src.SeriesQualities, MovieQualities: src.MovieQualities, SeriesCutoff: src.SeriesCutoff, MovieCutoff: src.MovieCutoff,
 			UpgradeUntil: src.UpgradeUntil, MinScore: src.MinScore, MovieMinSize: src.MovieMinSize, MovieMaxSize: src.MovieMaxSize,
 			EpisodeMinSize: src.EpisodeMinSize, EpisodeMaxSize: src.EpisodeMaxSize,
-		}); err != nil {
-			return err
-		}
-		rows, err = q.ListProfiles(ctx)
-		if err != nil {
-			return err
-		}
-		for _, r := range rows {
-			if r.Key == key {
-				out, err = fromRow(r)
-				return err
-			}
-		}
-		return ErrNotFound
+		})
+		return err
 	})
 	return out, err
+}
+
+// insertCustom adds a custom Profile under a fresh key at the end of the order, enabled, and reads it back. p carries the
+// rest of its columns; its Key and Sort are set here.
+func insertCustom(ctx context.Context, q *db.Queries, p db.InsertCustomProfileParams) (Profile, error) {
+	top, err := q.MaxProfileSort(ctx)
+	if err != nil {
+		return Profile{}, err
+	}
+	var b [4]byte
+	_, _ = rand.Read(b[:])
+	p.Key, p.Sort = "custom-"+hex.EncodeToString(b[:]), toInt64(top)+1
+	if err := q.InsertCustomProfile(ctx, p); err != nil {
+		return Profile{}, err
+	}
+	rows, err := q.ListProfiles(ctx)
+	if err != nil {
+		return Profile{}, err
+	}
+	for _, r := range rows {
+		if r.Key == p.Key {
+			return fromRow(r)
+		}
+	}
+	return Profile{}, ErrNotFound
 }
 
 func toInt64(v interface{}) int64 {

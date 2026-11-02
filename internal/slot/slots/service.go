@@ -22,12 +22,23 @@ var ErrNotFound = errors.New("slot not found")
 // Service reads and writes the Slots.
 type Service struct {
 	st        *store.Store
+	tx        *sql.Tx // set by InTx: writes join the caller's transaction, which notifies nobody
 	onRelabel func(context.Context, slot.Slot)
 	onChange  func()
 }
 
 // New returns a Service over st.
 func New(st *store.Store) *Service { return &Service{st: st} }
+
+// InTx returns a Service whose writes run inside tx; the caller commits or rolls back, and calls Notify after a commit.
+func (s *Service) InTx(tx *sql.Tx) *Service {
+	c := *s
+	c.tx = tx
+	return &c
+}
+
+// Notify runs what OnChange set, for a change made through InTx once it is committed.
+func (s *Service) Notify() { s.changed() }
 
 // OnRelabel sets what runs for each Slot whose label was changed, after the
 // change is saved: it renames the Slot's files (ADR 0003). The API and a Config
@@ -122,6 +133,9 @@ func (s *Service) Known(ctx context.Context, id slot.Slot) (bool, error) {
 // write runs f in a transaction on the one write connection, so a check and
 // the write it allows cannot race.
 func (s *Service) write(ctx context.Context, f func(*db.Queries) error) error {
+	if s.tx != nil {
+		return f(db.New(s.tx))
+	}
 	tx, err := s.st.Write().BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -137,11 +151,24 @@ func (s *Service) write(ctx context.Context, f func(*db.Queries) error) error {
 // the Profile must also be enabled, as a default is (ADR 0024): a Config File skips that here, because
 // it declares the Profiles' settings in the same pass.
 func profileKeys(ctx context.Context, q *db.Queries, field string, enabled bool, keys ...string) error {
+	return checkProfileKeys(ctx, q, field, enabled, enabled, keys...)
+}
+
+// checkProfileKeys is profileKeys with the two checks apart: enabled that the Profile is enabled, and kinds that it applies to the
+// kind of the field (default_movies or default_series): a Movies-only Profile cannot be a Series default.
+func checkProfileKeys(ctx context.Context, q *db.Queries, field string, enabled, kinds bool, keys ...string) error {
 	have, err := q.ProfileKeys(ctx)
 	if err != nil {
 		return err
 	}
 	on, err := q.EnabledProfileKeys(ctx)
+	if err != nil {
+		return err
+	}
+	applies, err := q.MoviesProfileKeys(ctx)
+	if field == "default_series" {
+		applies, err = q.SeriesProfileKeys(ctx)
+	}
 	if err != nil {
 		return err
 	}
@@ -152,6 +179,8 @@ func profileKeys(ctx context.Context, q *db.Queries, field string, enabled bool,
 			return &slot.RuleError{Field: field, Message: fmt.Sprintf("no such Profile %q", k)}
 		case enabled && !slices.Contains(on, k):
 			return &slot.RuleError{Field: field, Message: fmt.Sprintf("the Profile %q is disabled: a default must be enabled", k)}
+		case kinds && !slices.Contains(applies, k):
+			return &slot.RuleError{Field: field, Message: fmt.Sprintf("the Profile %q does not apply to %s: its TRaSH profile covers the other kind only", k, strings.TrimPrefix(field, "default_"))}
 		}
 	}
 	return nil
@@ -409,18 +438,52 @@ func plan(cur []slot.Record, want []Declared) (set, dropped []slot.Record, err e
 // CheckDeclared applies the Slot rules to a Config File's Slots and writes
 // nothing: the rules of the API, valid Profile keys, and that no Slot the file
 // leaves out still holds Versions.
-func (s *Service) CheckDeclared(ctx context.Context, want []Declared) error {
-	return s.declare(ctx, want, false)
+//
+// A file that declares the Profiles brings them with it: declaredProfiles are their keys, which a default may name before
+// they are stored (a fresh install has none, #304). Nil when the file declares none.
+func (s *Service) CheckDeclared(ctx context.Context, want []Declared, declaredProfiles []string) error {
+	return s.declare(ctx, want, false, false, declaredProfiles)
+}
+
+// CheckDefaultKinds is nil when each default a Config File names applies to its kind under the saved Profiles. A file that
+// declares the Profiles checks that against the Profiles it declares, so it does not call this.
+func (s *Service) CheckDefaultKinds(ctx context.Context, want []Declared) error {
+	q := db.New(s.st.Read())
+	for _, r := range want {
+		if err := checkProfileKeys(ctx, q, "default_movies", false, true, r.DefaultMovies); err != nil {
+			return err
+		}
+		if err := checkProfileKeys(ctx, q, "default_series", false, true, r.DefaultSeries); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Declare brings the Slots to a Config File's: a Slot the file leaves out is
 // removed if it is empty, and startup fails if it holds Versions. It writes
 // only what differs, so the same file twice writes nothing.
 func (s *Service) Declare(ctx context.Context, want []Declared) error {
-	return s.declare(ctx, want, true)
+	return s.declare(ctx, want, true, false, nil)
 }
 
-func (s *Service) declare(ctx context.Context, want []Declared, apply bool) error {
+// Replace makes the Slots those of want, as Declare does, but with the rules of the API: each default must be an
+// enabled Profile. It is how a setup preset replaces the Slots (#304), inside the caller's transaction (InTx).
+func (s *Service) Replace(ctx context.Context, want []Declared) error {
+	return s.declare(ctx, want, true, true, nil)
+}
+
+// HasVersions reports whether any Version exists: a preset replaces the Slots, which only a library without Versions allows.
+func (s *Service) HasVersions(ctx context.Context) (bool, error) {
+	var d db.DBTX = s.st.Read()
+	if s.tx != nil {
+		d = s.tx // a check made inside a transaction sees what the transaction sees
+	}
+	n, err := db.New(d).VersionCount(ctx)
+	return n > 0, err
+}
+
+func (s *Service) declare(ctx context.Context, want []Declared, apply, enabled bool, declaredProfiles []string) error {
 	var relabeled []slot.Slot
 	err := s.write(ctx, func(q *db.Queries) error {
 		cur, err := list(ctx, q)
@@ -434,11 +497,24 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool) erro
 		if err := slot.CheckSet(set); err != nil {
 			return err
 		}
+		stored := func(field string, keys ...string) error {
+			var missing []string
+			for _, k := range keys {
+				// A file that declares the Profiles has all of them: a stored one it leaves out goes.
+				if declaredProfiles != nil && k != "" && !slices.Contains(declaredProfiles, k) {
+					return &slot.RuleError{Field: field, Message: fmt.Sprintf("no such Profile %q: the file's profiles section does not declare it", k)}
+				}
+				if !slices.Contains(declaredProfiles, k) {
+					missing = append(missing, k)
+				}
+			}
+			return profileKeys(ctx, q, field, enabled, missing...)
+		}
 		for _, r := range set {
-			if err := profileKeys(ctx, q, "default_movies", false, r.DefaultMovies); err != nil {
+			if err := stored("default_movies", r.DefaultMovies); err != nil {
 				return err
 			}
-			if err := profileKeys(ctx, q, "default_series", false, r.DefaultSeries); err != nil {
+			if err := stored("default_series", r.DefaultSeries); err != nil {
 				return err
 			}
 		}
@@ -458,7 +534,7 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool) erro
 		relabeled, err = writeSet(ctx, q, cur, set)
 		return err
 	})
-	if err == nil && apply {
+	if err == nil && apply && s.tx == nil {
 		s.changed()
 		s.relabeled(ctx, relabeled)
 	}

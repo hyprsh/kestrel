@@ -114,16 +114,27 @@ Choose **Test connection**, then **Save**. You can add more indexers later in Se
 
 The root folders are where Kestrel puts your Movies and your Series. They are prefilled for the layout above: `/data/media/movies` and `/data/media/tv`. Each folder must exist and be writable by Kestrel. Keep them on the same mount as your downloads, or Imports can't hardlink. Add a second folder if you want one for another audience, such as `/data/media/movies-kids`. The first is the default.
 
-### 6. Profiles
+### 6. Slots
 
-A Profile is a quality-and-language target. Here you pick the one each new Title gets per Slot. Standard is preselected (HD, for Movies and Series). Leave 4K at None and add 4K per Title when you want it. You can change all of it later in Settings > Profiles, and add Slots of your own in Settings > Library > Slots ([Slots](slots.md)).
+A fresh Kestrel starts with one Slot, Standard, and no Profiles, so the wizard asks you to set both up. A Slot is a named place in every Title that holds at most one Version, such as Standard or 4K. Each has a default Profile for a new Movie and for a new Series. Under **Start from a preset**, choose one and **Use** it:
+
+- **One copy:** Standard, HD for Movies and Series.
+- **Standard + 4K:** Standard as above, plus a 4K Slot with 4K as its default (opt-in per Title).
+- **Streaming + Remux archive:** Standard as above, plus a Remux Slot that defaults to 4K Remux for Movies.
+- **Your language + Original:** a Slot in your Primary Language (such as "German"), plus an Original Slot that wants the Title's Original Language. Both are on for new Titles.
+
+A preset replaces the Slots below it, adds each Profile it needs and enables it, in one step. It is only offered while the library holds no Version, and not while the Config File declares `slots` or `profiles`. Change anything afterwards in the editor under the presets, or skip them and set the Slots up yourself. Finishing the setup needs a default Profile for Movies and one for Series in every Slot that is on for new Titles, and the Finish step names the Slot that lacks one. [Slots](slots.md) explains them in full.
+
+### 7. Profiles
+
+Choose which Profiles to enable. The Profiles your Slots use are on and stay on. Under them the wizard lists suggestions that fit: the Original-Language twin of each default (HD gives HD Original) and Any for each HD default. Tick one to add it. Settings > Profiles lists every suggestion ([Concepts](concepts.md#profile) explains the recipes), and you can change all of it later there.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/07-profiles-dark.png">
-  <img alt="Settings, Profiles: the default Profile per Slot, and the six Profiles that can be switched on or off" src="images/07-profiles-light.png">
+  <img alt="Settings, Profiles: the default Profile per Slot, and the Profiles that can be switched on or off" src="images/07-profiles-light.png">
 </picture>
 
-### 7. Adopt existing library (optional)
+### 8. Adopt existing library (optional)
 
 If you already have files in those folders, Kestrel can scan them and take them in, so it doesn't download them again. Skip this for now if the library is empty. [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md) covers it in detail.
 

@@ -194,3 +194,37 @@ func SharedDefaults(set []Record) []SharedDefault {
 	}
 	return out
 }
+
+// MissingDefault is a Slot that is on for new Titles but names no default Profile for a kind of Title, so a new Title of
+// that kind could not get a Version in it.
+type MissingDefault struct {
+	Slot  Slot
+	Label string
+	Kind  release.Kind
+}
+
+// Message words it for an admin, naming the Slot by label and the kind.
+func (m MissingDefault) Message() string {
+	kind := "Movies"
+	if m.Kind == release.KindSeries {
+		kind = "Series"
+	}
+	return m.Label + " has no default Profile for " + kind
+}
+
+// MissingDefaults lists every Slot that is on for new Titles and lacks a default for Movies or for Series, in the order of
+// the set, Movies before Series within a Slot. Finishing setup needs none (#304).
+func MissingDefaults(set []Record) []MissingDefault {
+	var out []MissingDefault
+	for _, r := range set {
+		if !r.OnForNew {
+			continue
+		}
+		for _, kind := range []release.Kind{release.KindMovie, release.KindSeries} {
+			if r.Default(kind) == "" {
+				out = append(out, MissingDefault{Slot: r.ID, Label: r.Label, Kind: kind})
+			}
+		}
+	}
+	return out
+}

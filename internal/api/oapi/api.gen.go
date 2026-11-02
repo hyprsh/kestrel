@@ -966,19 +966,19 @@ func (e PluginFieldType) Valid() bool {
 
 // Defines values for PrimaryLanguage.
 const (
-	De PrimaryLanguage = "de"
-	En PrimaryLanguage = "en"
-	Fr PrimaryLanguage = "fr"
+	PrimaryLanguageDe PrimaryLanguage = "de"
+	PrimaryLanguageEn PrimaryLanguage = "en"
+	PrimaryLanguageFr PrimaryLanguage = "fr"
 )
 
 // Valid indicates whether the value is a known member of the PrimaryLanguage enum.
 func (e PrimaryLanguage) Valid() bool {
 	switch e {
-	case De:
+	case PrimaryLanguageDe:
 		return true
-	case En:
+	case PrimaryLanguageEn:
 		return true
-	case Fr:
+	case PrimaryLanguageFr:
 		return true
 	default:
 		return false
@@ -987,16 +987,70 @@ func (e PrimaryLanguage) Valid() bool {
 
 // Defines values for ProfileLanguageRule.
 const (
-	Original ProfileLanguageRule = "original"
-	Primary  ProfileLanguageRule = "primary"
+	ProfileLanguageRuleDe       ProfileLanguageRule = "de"
+	ProfileLanguageRuleEn       ProfileLanguageRule = "en"
+	ProfileLanguageRuleFr       ProfileLanguageRule = "fr"
+	ProfileLanguageRuleOriginal ProfileLanguageRule = "original"
+	ProfileLanguageRulePrimary  ProfileLanguageRule = "primary"
 )
 
 // Valid indicates whether the value is a known member of the ProfileLanguageRule enum.
 func (e ProfileLanguageRule) Valid() bool {
 	switch e {
-	case Original:
+	case ProfileLanguageRuleDe:
 		return true
-	case Primary:
+	case ProfileLanguageRuleEn:
+		return true
+	case ProfileLanguageRuleFr:
+		return true
+	case ProfileLanguageRuleOriginal:
+		return true
+	case ProfileLanguageRulePrimary:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileReleaseFamily.
+const (
+	BlurayWeb ProfileReleaseFamily = "bluray-web"
+	RemuxWeb  ProfileReleaseFamily = "remux-web"
+	Sqp       ProfileReleaseFamily = "sqp"
+	Web       ProfileReleaseFamily = "web"
+)
+
+// Valid indicates whether the value is a known member of the ProfileReleaseFamily enum.
+func (e ProfileReleaseFamily) Valid() bool {
+	switch e {
+	case BlurayWeb:
+		return true
+	case RemuxWeb:
+		return true
+	case Sqp:
+		return true
+	case Web:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileResolution.
+const (
+	Any ProfileResolution = "any"
+	Hd  ProfileResolution = "hd"
+	Uhd ProfileResolution = "uhd"
+)
+
+// Valid indicates whether the value is a known member of the ProfileResolution enum.
+func (e ProfileResolution) Valid() bool {
+	switch e {
+	case Any:
+		return true
+	case Hd:
+		return true
+	case Uhd:
 		return true
 	default:
 		return false
@@ -1347,12 +1401,15 @@ func (e ServiceStatusState) Valid() bool {
 
 // Defines values for SettingsWarningCode.
 const (
+	DuplicateProfile  SettingsWarningCode = "duplicate_profile"
 	SharedSlotDefault SettingsWarningCode = "shared_slot_default"
 )
 
 // Valid indicates whether the value is a known member of the SettingsWarningCode enum.
 func (e SettingsWarningCode) Valid() bool {
 	switch e {
+	case DuplicateProfile:
+		return true
 	case SharedSlotDefault:
 		return true
 	default:
@@ -1372,6 +1429,30 @@ func (e SetupSectionState) Valid() bool {
 	case Done:
 		return true
 	case Todo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SlotPresetId.
+const (
+	LanguagePlusOriginal  SlotPresetId = "language-plus-original"
+	OneCopy               SlotPresetId = "one-copy"
+	StandardPlus4k        SlotPresetId = "standard-plus-4k"
+	StreamingRemuxArchive SlotPresetId = "streaming-remux-archive"
+)
+
+// Valid indicates whether the value is a known member of the SlotPresetId enum.
+func (e SlotPresetId) Valid() bool {
+	switch e {
+	case LanguagePlusOriginal:
+		return true
+	case OneCopy:
+		return true
+	case StandardPlus4k:
+		return true
+	case StreamingRemuxArchive:
 		return true
 	default:
 		return false
@@ -1509,6 +1590,7 @@ const (
 	NoVersion      TitleBulkOutcomeReason = "no_version"
 	NotFound       TitleBulkOutcomeReason = "not_found"
 	NothingWanted  TitleBulkOutcomeReason = "nothing_wanted"
+	ProfileKind    TitleBulkOutcomeReason = "profile_kind"
 	ProfileTaken   TitleBulkOutcomeReason = "profile_taken"
 	SlotTaken      TitleBulkOutcomeReason = "slot_taken"
 	Unchanged      TitleBulkOutcomeReason = "unchanged"
@@ -1528,6 +1610,8 @@ func (e TitleBulkOutcomeReason) Valid() bool {
 	case NotFound:
 		return true
 	case NothingWanted:
+		return true
+	case ProfileKind:
 		return true
 	case ProfileTaken:
 		return true
@@ -1798,36 +1882,6 @@ func (e UpcomingSlotState) Valid() bool {
 	case UpcomingSlotStateNotOut:
 		return true
 	case UpcomingSlotStateWanted:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ProfileKey.
-const (
-	AnyOriginal ProfileKey = "any-original"
-	AnyPrimary  ProfileKey = "any-primary"
-	HdOriginal  ProfileKey = "hd-original"
-	HdPrimary   ProfileKey = "hd-primary"
-	N4kOriginal ProfileKey = "4k-original"
-	N4kPrimary  ProfileKey = "4k-primary"
-)
-
-// Valid indicates whether the value is a known member of the ProfileKey enum.
-func (e ProfileKey) Valid() bool {
-	switch e {
-	case AnyOriginal:
-		return true
-	case AnyPrimary:
-		return true
-	case HdOriginal:
-		return true
-	case HdPrimary:
-		return true
-	case N4kOriginal:
-		return true
-	case N4kPrimary:
 		return true
 	default:
 		return false
@@ -3457,8 +3511,8 @@ type OfferedRelease struct {
 	Size   int64 `json:"size"`
 }
 
-// OriginalLanguageChoice What a Primary-Language Profile does with a Release that has the Title's Original Language but
-// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+// OriginalLanguageChoice What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+// Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
 // attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 // Original-Language Profiles.
 type OriginalLanguageChoice string
@@ -3802,7 +3856,13 @@ type Profile struct {
 	// Key Example: hd-primary
 	Key string `json:"key"`
 
-	// LanguageRule Which audio the Profile requires.
+	// Kinds The kinds the Profile applies to: those with a backing TRaSH profile under the current Primary Language.
+	// A Movies-only Profile cannot be a Series' Version (`422 profile_kind`) or a Slot's Series default.
+	Kinds []TitleKind `json:"kinds"`
+
+	// LanguageRule Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
+	// Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
+	// `original_language` choice as a `primary` one, judged against its own language.
 	LanguageRule ProfileLanguageRule `json:"language_rule"`
 	MaxHeight    int                 `json:"max_height"`
 	MinHeight    int                 `json:"min_height"`
@@ -3815,11 +3875,17 @@ type Profile struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	OriginalFallback bool `json:"original_fallback"`
 
-	// OriginalLanguage What a Primary-Language Profile does with a Release that has the Title's Original Language but
-	// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+	// OriginalLanguage What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+	// Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
 	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 	// Original-Language Profiles.
 	OriginalLanguage OriginalLanguageChoice `json:"original_language"`
+
+	// ReleaseFamily Which kind of Releases the Profile goes after, as TRaSH groups them. Any is always `bluray-web`.
+	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
+
+	// Resolution The resolution range the Profile takes, as a recipe names it; `min_height` and `max_height` are its bounds.
+	Resolution ProfileResolution `json:"resolution"`
 
 	// Slot Deprecated: a Profile belongs to no Slot (any Profile can fill any Slot). For v1 clients this is derived
 	// from the Slots: the first Slot, in order, that names the Profile as its default for either kind. Left out
@@ -3827,21 +3893,30 @@ type Profile struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Slot *SlotId `json:"slot,omitempty"`
 
-	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
+	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. Empty when the Profile does not apply to Movies.
 	TrashProfileMovies string `json:"trash_profile_movies"`
 
-	// TrashProfileSeries The same for Series.
+	// TrashProfileSeries The same for Series. Empty when the Profile does not apply to Series (SQP and French Remux have a TRaSH profile for Movies only).
 	TrashProfileSeries string `json:"trash_profile_series"`
 }
 
-// ProfileLanguageRule Which audio the Profile requires.
-type ProfileLanguageRule string
-
-// ProfileCreate defines model for ProfileCreate.
+// ProfileCreate A copy (`name` and `copy_from`) or an import (`release_family`, `resolution` and `language_rule`, with an
+// optional `name`).
 type ProfileCreate struct {
 	// CopyFrom The `key` of the Profile to copy.
-	CopyFrom string `json:"copy_from"`
-	Name     string `json:"name"`
+	CopyFrom *string `json:"copy_from,omitempty"`
+
+	// LanguageRule The audio the Profile requires; see `Profile.language_rule`.
+	LanguageRule *ProfileLanguageRule `json:"language_rule,omitempty"`
+
+	// Name Required for a copy. For an import it replaces the generated name.
+	Name *string `json:"name,omitempty"`
+
+	// ReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+	ReleaseFamily *ProfileReleaseFamily `json:"release_family,omitempty"`
+
+	// Resolution `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+	Resolution *ProfileResolution `json:"resolution,omitempty"`
 }
 
 // ProfileCustomFormat defines model for ProfileCustomFormat.
@@ -3895,6 +3970,9 @@ type ProfileKindOverlay struct {
 	Qualities *[]ProfileQuality `json:"qualities"`
 }
 
+// ProfileLanguageRule The audio the Profile requires; see `Profile.language_rule`.
+type ProfileLanguageRule string
+
 // ProfileList defines model for ProfileList.
 type ProfileList struct {
 	Items []Profile `json:"items"`
@@ -3938,8 +4016,8 @@ type ProfilePatch struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	OriginalFallback *bool `json:"original_fallback,omitempty"`
 
-	// OriginalLanguage What a Primary-Language Profile does with a Release that has the Title's Original Language but
-	// no Primary-Language audio: `reject` it, `offer` it to the admin as an Original Offer (Needs
+	// OriginalLanguage What a Primary-Language or named-language Profile does with a Release that has the Title's Original
+	// Language but no audio in the Profile's language: `reject` it, `offer` it to the admin as an Original Offer (Needs
 	// attention, never grabbed on its own), or `accept` it like any other. Always `reject` on
 	// Original-Language Profiles.
 	OriginalLanguage *OriginalLanguageChoice `json:"original_language,omitempty"`
@@ -3958,6 +4036,12 @@ type ProfileQuality struct {
 	// Name Example: WEBDL-1080p
 	Name string `json:"name"`
 }
+
+// ProfileReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+type ProfileReleaseFamily string
+
+// ProfileResolution `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+type ProfileResolution string
 
 // ProfileScoring What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
 type ProfileScoring struct {
@@ -3987,6 +4071,42 @@ type ProfileScoring struct {
 type ProfileSize struct {
 	Max *int64 `json:"max"`
 	Min *int64 `json:"min"`
+}
+
+// ProfileSuggestion defines model for ProfileSuggestion.
+type ProfileSuggestion struct {
+	// Kinds The kinds the recipe applies to under the current Primary Language, which are those with a TRaSH profile to back it. SQP is Movies only.
+	Kinds []TitleKind `json:"kinds"`
+
+	// LanguageRule The audio the Profile requires; see `Profile.language_rule`.
+	LanguageRule ProfileLanguageRule `json:"language_rule"`
+
+	// Name The generated name, such as "4K Remux", "HD Original" or "HD French".
+	//
+	// Example: 4K Remux
+	Name string `json:"name"`
+
+	// ReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
+
+	// Resolution `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+	Resolution ProfileResolution `json:"resolution"`
+}
+
+// ProfileSuggestionGroup defines model for ProfileSuggestionGroup.
+type ProfileSuggestionGroup struct {
+	Items []ProfileSuggestion `json:"items"`
+
+	// Name Example: Remux + WEB
+	Name string `json:"name"`
+
+	// ReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
+}
+
+// ProfileSuggestionList defines model for ProfileSuggestionList.
+type ProfileSuggestionList struct {
+	Groups []ProfileSuggestionGroup `json:"groups"`
 }
 
 // QueueItem defines model for QueueItem.
@@ -4790,6 +4910,7 @@ type SettingsPatch struct {
 // SettingsWarning defines model for SettingsWarning.
 type SettingsWarning struct {
 	// Code `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+	// `duplicate_profile`: a Profile with a named language and a Primary-Language Profile are the same recipe now that the Primary Language is that language (ADR 0026). Both stay; nothing is merged.
 	Code SettingsWarningCode `json:"code"`
 
 	// Kind `movies` or `series`: the kind whose default is shared.
@@ -4799,11 +4920,15 @@ type SettingsWarning struct {
 	// Profile The Profile key the Slots share.
 	Profile *string `json:"profile,omitempty"`
 
+	// Profiles `duplicate_profile`: the keys of the two Profiles that are the same recipe.
+	Profiles *[]string `json:"profiles,omitempty"`
+
 	// Slots The ids of the Slots that share it, in order.
 	Slots *[]SlotId `json:"slots,omitempty"`
 }
 
 // SettingsWarningCode `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+// `duplicate_profile`: a Profile with a named language and a Primary-Language Profile are the same recipe now that the Primary Language is that language (ADR 0026). Both stay; nothing is merged.
 type SettingsWarningCode string
 
 // Setup defines model for Setup.
@@ -4815,8 +4940,8 @@ type Setup struct {
 		DownloadClient SetupSectionState `json:"download_client"`
 		Indexer        SetupSectionState `json:"indexer"`
 		Language       SetupSectionState `json:"language"`
-		Profiles       SetupSectionState `json:"profiles"`
 		RootFolders    SetupSectionState `json:"root_folders"`
+		Slots          SetupSectionState `json:"slots"`
 	} `json:"sections"`
 }
 
@@ -4923,6 +5048,44 @@ type SlotPatch struct {
 
 	// Position The 0-based place to move the Slot to; the others shift to make room.
 	Position *int `json:"position,omitempty"`
+}
+
+// SlotPreset defines model for SlotPreset.
+type SlotPreset struct {
+	Id SlotPresetId `json:"id"`
+
+	// Name Labelled with the Primary Language where it is part of the preset.
+	//
+	// Example: German + Original
+	Name string `json:"name"`
+
+	// Slots In order.
+	Slots []SlotPresetSlot `json:"slots"`
+}
+
+// SlotPresetId defines model for SlotPresetId.
+type SlotPresetId string
+
+// SlotPresetList defines model for SlotPresetList.
+type SlotPresetList struct {
+	// Available `false` once the library holds a Version, or while the Config File declares `slots` or `profiles`.
+	Available bool         `json:"available"`
+	Items     []SlotPreset `json:"items"`
+}
+
+// SlotPresetSlot defines model for SlotPresetSlot.
+type SlotPresetSlot struct {
+	// DefaultMovies The name of the Profile the preset makes the Movies default, or `null` for none.
+	//
+	// Example: 4K Remux
+	DefaultMovies *string `json:"default_movies"`
+
+	// DefaultSeries The name of the Profile the preset makes the Series default, or `null` for none.
+	DefaultSeries *string `json:"default_series"`
+
+	// Label Example: Remux
+	Label          string `json:"label"`
+	OnForNewTitles bool   `json:"on_for_new_titles"`
 }
 
 // SlotState `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
@@ -5273,7 +5436,8 @@ type TitleBulkOutcome struct {
 	// Reason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
 	// already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
 	// in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
-	// Title already uses the Profile; `nothing_wanted`, none of its
+	// Title already uses the Profile; `profile_kind`, the Profile does not apply to the kind of Title
+	// (a Movies-only Profile, for a Series); `nothing_wanted`, none of its
 	// Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
 	// download client could not cancel the Title's download (`message` has what it said);
 	// `internal`, an unexpected error, which the log has.
@@ -5287,7 +5451,8 @@ type TitleBulkOutcomeOutcome string
 // TitleBulkOutcomeReason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
 // already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
 // in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
-// Title already uses the Profile; `nothing_wanted`, none of its
+// Title already uses the Profile; `profile_kind`, the Profile does not apply to the kind of Title
+// (a Movies-only Profile, for a Series); `nothing_wanted`, none of its
 // Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
 // download client could not cancel the Title's download (`message` has what it said);
 // `internal`, an unexpected error, which the log has.
@@ -5857,7 +6022,7 @@ type InstanceId = int64
 type PluginId = string
 
 // ProfileKey defines model for ProfileKey.
-type ProfileKey string
+type ProfileKey = string
 
 // SlotIdParam The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
 // (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
@@ -6723,6 +6888,9 @@ type ServerInterface interface {
 	// ListProfileDetails What each Profile accepts and what uses it
 	// (GET /profiles/details)
 	ListProfileDetails(w http.ResponseWriter, r *http.Request)
+	// ListProfileSuggestions The Profile recipes the household can import
+	// (GET /profiles/suggestions)
+	ListProfileSuggestions(w http.ResponseWriter, r *http.Request)
 	// DeleteProfile Delete a custom Profile
 	// (DELETE /profiles/{key})
 	DeleteProfile(w http.ResponseWriter, r *http.Request, key ProfileKey)
@@ -6792,6 +6960,12 @@ type ServerInterface interface {
 	// CreateSlot Define a Slot
 	// (POST /slots)
 	CreateSlot(w http.ResponseWriter, r *http.Request)
+	// ListSlotPresets The Slot presets the setup wizard offers
+	// (GET /slots/presets)
+	ListSlotPresets(w http.ResponseWriter, r *http.Request)
+	// ApplySlotPreset Replace the Slots with a preset
+	// (POST /slots/presets/{id})
+	ApplySlotPreset(w http.ResponseWriter, r *http.Request, id SlotPresetId)
 	// DeleteSlot Remove a Slot
 	// (DELETE /slots/{id})
 	DeleteSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam)
@@ -8466,6 +8640,20 @@ func (siw *ServerInterfaceWrapper) ListProfileDetails(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ListProfileSuggestions operation middleware
+func (siw *ServerInterfaceWrapper) ListProfileSuggestions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProfileSuggestions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteProfile operation middleware
 func (siw *ServerInterfaceWrapper) DeleteProfile(w http.ResponseWriter, r *http.Request) {
 
@@ -8937,6 +9125,46 @@ func (siw *ServerInterfaceWrapper) CreateSlot(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateSlot(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSlotPresets operation middleware
+func (siw *ServerInterfaceWrapper) ListSlotPresets(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSlotPresets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplySlotPreset operation middleware
+func (siw *ServerInterfaceWrapper) ApplySlotPreset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id SlotPresetId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplySlotPreset(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9986,10 +10214,13 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/slots", wrapper.ListSlots)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/slots", wrapper.CreateSlot)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/slots/presets", wrapper.ListSlotPresets)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/slots/presets/{id}", wrapper.ApplySlotPreset)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/slots/{id}", wrapper.DeleteSlot)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/slots/{id}", wrapper.PatchSlot)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/profiles", wrapper.CreateProfile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles/suggestions", wrapper.ListProfileSuggestions)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/profiles/{key}", wrapper.DeleteProfile)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles/details", wrapper.ListProfileDetails)
@@ -13587,6 +13818,44 @@ func (response ListProfileDetailsdefaultApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type ListProfileSuggestionsRequestObject struct {
+}
+
+type ListProfileSuggestionsResponseObject interface {
+	VisitListProfileSuggestionsResponse(w http.ResponseWriter) error
+}
+
+type ListProfileSuggestions200JSONResponse ProfileSuggestionList
+
+func (response ListProfileSuggestions200JSONResponse) VisitListProfileSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProfileSuggestionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProfileSuggestionsdefaultApplicationProblemPlusJSONResponse) VisitListProfileSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteProfileRequestObject struct {
 	Key ProfileKey `json:"key"`
 }
@@ -14845,6 +15114,127 @@ type CreateSlotdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response CreateSlotdefaultApplicationProblemPlusJSONResponse) VisitCreateSlotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSlotPresetsRequestObject struct {
+}
+
+type ListSlotPresetsResponseObject interface {
+	VisitListSlotPresetsResponse(w http.ResponseWriter) error
+}
+
+type ListSlotPresets200JSONResponse SlotPresetList
+
+func (response ListSlotPresets200JSONResponse) VisitListSlotPresetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSlotPresetsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListSlotPresetsdefaultApplicationProblemPlusJSONResponse) VisitListSlotPresetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPresetRequestObject struct {
+	Id SlotPresetId `json:"id"`
+}
+
+type ApplySlotPresetResponseObject interface {
+	VisitApplySlotPresetResponse(w http.ResponseWriter) error
+}
+
+type ApplySlotPreset200JSONResponse SlotList
+
+func (response ApplySlotPreset200JSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPreset404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplySlotPreset404ApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPreset409ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplySlotPreset409ApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPreset422ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplySlotPreset422ApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPresetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ApplySlotPresetdefaultApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -16857,6 +17247,9 @@ type StrictServerInterface interface {
 	// ListProfileDetails What each Profile accepts and what uses it
 	// (GET /profiles/details)
 	ListProfileDetails(ctx context.Context, request ListProfileDetailsRequestObject) (ListProfileDetailsResponseObject, error)
+	// ListProfileSuggestions The Profile recipes the household can import
+	// (GET /profiles/suggestions)
+	ListProfileSuggestions(ctx context.Context, request ListProfileSuggestionsRequestObject) (ListProfileSuggestionsResponseObject, error)
 	// DeleteProfile Delete a custom Profile
 	// (DELETE /profiles/{key})
 	DeleteProfile(ctx context.Context, request DeleteProfileRequestObject) (DeleteProfileResponseObject, error)
@@ -16926,6 +17319,12 @@ type StrictServerInterface interface {
 	// CreateSlot Define a Slot
 	// (POST /slots)
 	CreateSlot(ctx context.Context, request CreateSlotRequestObject) (CreateSlotResponseObject, error)
+	// ListSlotPresets The Slot presets the setup wizard offers
+	// (GET /slots/presets)
+	ListSlotPresets(ctx context.Context, request ListSlotPresetsRequestObject) (ListSlotPresetsResponseObject, error)
+	// ApplySlotPreset Replace the Slots with a preset
+	// (POST /slots/presets/{id})
+	ApplySlotPreset(ctx context.Context, request ApplySlotPresetRequestObject) (ApplySlotPresetResponseObject, error)
 	// DeleteSlot Remove a Slot
 	// (DELETE /slots/{id})
 	DeleteSlot(ctx context.Context, request DeleteSlotRequestObject) (DeleteSlotResponseObject, error)
@@ -18718,6 +19117,30 @@ func (sh *strictHandler) ListProfileDetails(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// ListProfileSuggestions operation middleware
+func (sh *strictHandler) ListProfileSuggestions(w http.ResponseWriter, r *http.Request) {
+	var request ListProfileSuggestionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProfileSuggestions(ctx, request.(ListProfileSuggestionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProfileSuggestions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProfileSuggestionsResponseObject); ok {
+		if err := validResponse.VisitListProfileSuggestionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteProfile operation middleware
 func (sh *strictHandler) DeleteProfile(w http.ResponseWriter, r *http.Request, key ProfileKey) {
 	var request DeleteProfileRequestObject
@@ -19329,6 +19752,56 @@ func (sh *strictHandler) CreateSlot(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateSlotResponseObject); ok {
 		if err := validResponse.VisitCreateSlotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListSlotPresets operation middleware
+func (sh *strictHandler) ListSlotPresets(w http.ResponseWriter, r *http.Request) {
+	var request ListSlotPresetsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSlotPresets(ctx, request.(ListSlotPresetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSlotPresets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListSlotPresetsResponseObject); ok {
+		if err := validResponse.VisitListSlotPresetsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplySlotPreset operation middleware
+func (sh *strictHandler) ApplySlotPreset(w http.ResponseWriter, r *http.Request, id SlotPresetId) {
+	var request ApplySlotPresetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplySlotPreset(ctx, request.(ApplySlotPresetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplySlotPreset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplySlotPresetResponseObject); ok {
+		if err := validResponse.VisitApplySlotPresetResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

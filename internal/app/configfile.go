@@ -16,6 +16,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
@@ -70,7 +71,8 @@ func (a *App) EnforceConfigFile(ctx context.Context) error {
 			return fmt.Errorf("config file %s: %w", f.Path, err)
 		}
 	}
-	if err := a.declarer.api.CompleteSetup(ctx); err != nil {
+	// A file that declares the Profiles and the Slots has checked the Slots' defaults above.
+	if err := a.declarer.api.CompleteSetup(ctx, f.Profiles != nil && f.Slots != nil); err != nil {
 		return fmt.Errorf("config file %s: completing setup: %w", f.Path, err)
 	}
 	return nil
@@ -106,12 +108,15 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.api.DeclareAccount(ctx, *a) },
 		})
 	}
+	// The language applies after the Profiles and the Slots: the Profiles it re-backs and the Slots it checks them against
+	// are then the file's, so a file that changes the language and the Profiles at once starts (#304).
+	var language *section
 	if l := f.LanguageRegion; l != nil {
 		want := profiles.Region{Primary: profiles.Language(l.PrimaryLanguage), Country: l.ReleaseDateCountry}
-		out = append(out, section{
+		language = &section{
 			check: func(context.Context) error { return validation("language_region", profiles.CheckRegion(want)) },
 			apply: func(ctx context.Context) error { return d.declareRegion(ctx, want) },
-		})
+		}
 	}
 	if r := f.RootFolders; r != nil {
 		want := rootfolders.Folders{Movies: r.Movies, Series: r.Series}
@@ -127,6 +132,37 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.declareDisplay(ctx, patch) },
 		})
 	}
+	// A fresh install has none of the six builtin Profiles (#304), and a Slot's default must name one: a file that
+	// declares the Profiles makes them first, then the Slots and the Profiles' settings apply as before.
+	var wantProfiles map[string]profiles.State
+	var profileKeys []string // non-nil when the file declares the Profiles
+	if f.Profiles != nil {
+		wantProfiles = map[string]profiles.State{}
+		profileKeys = []string{}
+		for key, p := range f.Profiles {
+			st := profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
+			if p.ReleaseFamily != nil {
+				st.Family = *p.ReleaseFamily
+			}
+			if p.LanguageRule != nil {
+				st.Language = *p.LanguageRule
+			}
+			if p.Name != nil {
+				st.Name = *p.Name
+			}
+			if p.Resolution != nil {
+				st.Resolution = *p.Resolution
+			}
+			wantProfiles[key] = st
+			profileKeys = append(profileKeys, key)
+		}
+		out = append(out, section{
+			check: func(context.Context) error { return nil },
+			apply: func(ctx context.Context) error {
+				return d.profiles.EnsureDeclared(ctx, wantProfiles, declaredPrimary(f))
+			},
+		})
+	}
 	// The Slots go first: a Profile a Slot names as its default can't be disabled, so the file's new
 	// defaults must be in place before it switches the old ones off.
 	if f.Slots != nil {
@@ -135,26 +171,50 @@ func (d declarer) sections() []section {
 			want[i] = slots.Declared{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries, OnForNew: sl.OnForNew}
 		}
 		out = append(out, section{
-			check: func(ctx context.Context) error { return slotsError(d.slots.CheckDeclared(ctx, want)) },
+			check: func(ctx context.Context) error {
+				if err := slotsError(d.slots.CheckDeclared(ctx, want, profileKeys)); err != nil {
+					return err
+				}
+				// A file that declares the Profiles and the Slots owns the setup finish rule (#304): it fails here, naming the
+				// Slot and the kind, rather than setup never completing.
+				if f.Profiles != nil {
+					for _, m := range slot.MissingDefaults(declaredRecords(f)) {
+						return fmt.Errorf("slots: %s", m.Message())
+					}
+				}
+				// A file that declares the Profiles checks the defaults against them; else against the saved ones.
+				if f.Profiles == nil {
+					return slotsError(d.slots.CheckDefaultKinds(ctx, want))
+				}
+				return nil
+			},
 			apply: func(ctx context.Context) error { return slotsError(d.slots.Declare(ctx, want)) },
 		})
 	}
 	if f.Profiles != nil {
-		want := map[string]profiles.State{}
-		for key, p := range f.Profiles {
-			want[key] = profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
-		}
+		want := wantProfiles
 		out = append(out, section{
 			check: func(ctx context.Context) error {
-				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want))); err != nil {
+				// The recipes are backed under the Primary Language the file declares, else the stored one.
+				primary := declaredPrimary(f)
+				if primary == "" {
+					region, _, err := d.profiles.Region(ctx)
+					if err != nil {
+						return err
+					}
+					primary = region.Primary
+				}
+				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want, primary))); err != nil {
 					return err
+				}
+				// A Profile the file leaves out is disabled and kept (#304), so no Version may use it.
+				if err := d.profiles.CheckKept(ctx, want); err != nil {
+					return fmt.Errorf("profiles: %w", err)
 				}
 				// A Slot's default stays enabled: the Slots the file declares, else the stored ones.
 				var recs []slot.Record
 				if f.Slots != nil {
-					for _, sl := range f.Slots {
-						recs = append(recs, slot.Record{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries})
-					}
+					recs = declaredRecords(f)
 				} else {
 					var err error
 					if recs, err = d.slots.List(ctx); err != nil {
@@ -163,8 +223,23 @@ func (d declarer) sections() []section {
 				}
 				for _, r := range recs {
 					for _, key := range []string{r.DefaultMovies, r.DefaultSeries} {
+						if _, ok := want[key]; !ok && key != "" {
+							return fmt.Errorf("profiles: the Profile %q is the default of the Slot %s and the file leaves it out: keep it in the file, or choose another default first", key, r.Label)
+						}
 						if w, ok := want[key]; ok && !w.Enabled {
 							return fmt.Errorf("profiles.%s.enabled: the Profile is the default of the Slot %s: choose another default for it first", key, r.Label)
+						}
+					}
+				}
+				// A Slot's default for a kind applies to that kind: SQP and French Remux are Movies-only.
+				for _, r := range recs {
+					for _, c := range []struct {
+						key  string
+						kind release.Kind
+						name string
+					}{{r.DefaultMovies, release.KindMovie, "Movies"}, {r.DefaultSeries, release.KindSeries, "Series"}} {
+						if w, ok := want[c.key]; ok && !profiles.AppliesTo(c.key, w, primary, c.kind) {
+							return fmt.Errorf("profiles.%s.release_family: the Profile is the default of the Slot %s for %s, which it does not apply to (it has no TRaSH profile for %s): choose another default for it first", c.key, r.Label, c.name, c.name)
 						}
 					}
 				}
@@ -172,9 +247,22 @@ func (d declarer) sections() []section {
 			},
 			apply: func(ctx context.Context) error {
 				d.warnIgnoredDefaults()
-				return d.profiles.SetAll(ctx, want)
+				left, err := d.profiles.LeftOut(ctx, want)
+				if err != nil {
+					return err
+				}
+				if err := d.profiles.SetAll(ctx, want, declaredPrimary(f)); err != nil {
+					return err
+				}
+				for _, p := range left {
+					d.log.Info("config file: the Profile is not in the file's profiles section, so it is disabled and kept", "profile", p.Key, "name", p.Name)
+				}
+				return nil
 			},
 		})
+	}
+	if language != nil {
+		out = append(out, *language)
 	}
 	if f.PluginInstances != nil {
 		var want []instances.Declared
@@ -468,4 +556,21 @@ func validation(section string, err error) error {
 		field = section
 	}
 	return fmt.Errorf("%s: %s", field, msg)
+}
+
+// declaredRecords are the Slots the file declares, as records.
+func declaredRecords(f *configfile.File) []slot.Record {
+	recs := make([]slot.Record, len(f.Slots))
+	for i, sl := range f.Slots {
+		recs[i] = slot.Record{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries, OnForNew: sl.OnForNew}
+	}
+	return recs
+}
+
+// declaredPrimary is the Primary Language the file declares, or empty when it leaves the language to the saved one.
+func declaredPrimary(f *configfile.File) profiles.Language {
+	if l := f.LanguageRegion; l != nil {
+		return profiles.Language(l.PrimaryLanguage)
+	}
+	return ""
 }

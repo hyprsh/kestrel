@@ -22,6 +22,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/presets"
 	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
@@ -33,6 +34,7 @@ type Deps struct {
 	Plugins     PluginInstances
 	Profiles    Profiles
 	Slots       Slots
+	Presets     Presets
 	RootFolders RootFolders
 	Settings    SettingsTx
 	Display     Display
@@ -91,10 +93,23 @@ type Slots interface {
 	OnChange(f func())
 }
 
+// Presets are the setup wizard's Slot presets.
+type Presets interface {
+	// List is the presets on offer: none once the library holds a Version.
+	List(ctx context.Context) ([]presets.Preset, error)
+	// Apply replaces the Slots with a preset's and imports and enables its default Profiles, all or nothing.
+	Apply(ctx context.Context, id presets.ID) ([]slot.Record, error)
+}
+
 // Profiles is the household's language settings and the Profiles.
 type Profiles interface {
 	Region(ctx context.Context) (profiles.Region, bool, error)
 	List(ctx context.Context) ([]profiles.Profile, error)
+	// CheckPrimary refuses a Primary Language that would leave an enabled Profile without a backing profile.
+	CheckPrimary(ctx context.Context, primary profiles.Language) error
+	// Suggestions lists the recipes the household can import; Import makes a Profile of one.
+	Suggestions(ctx context.Context) ([]profiles.Suggestion, error)
+	Import(ctx context.Context, r profiles.Recipe, name string) (profiles.Profile, error)
 	Patch(ctx context.Context, key string, p profiles.Patch) (profiles.Profile, error)
 	Create(ctx context.Context, name, copyKey string) (profiles.Profile, error)
 	Delete(ctx context.Context, key string) error

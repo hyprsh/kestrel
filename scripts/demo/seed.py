@@ -83,6 +83,23 @@ def call(method, path, body=None):
 for d in ("movies", "movies-family", "tv"):
     os.makedirs(f"{ROOT}/{d}", exist_ok=True)
 
+# A fresh install has no Profiles and only the Standard Slot (#304), and the demo library is today's: the six Profiles
+# and the 4K Slot, with the defaults they always had. Written straight into SQLite before the first API call reads them.
+_seed = sqlite3.connect(args.db, timeout=60)
+_seed.executescript("""
+INSERT INTO profiles (key, name, sort, any, language_rule, min_height, max_height, trash_profile_movies, trash_profile_series) VALUES
+    ('hd-primary',   'HD',           1, 0, 'primary',  720,  1080, 'hd-bluray-web',  'web-1080p'),
+    ('hd-original',  'HD Original',  2, 0, 'original', 720,  1080, 'hd-bluray-web',  'web-1080p'),
+    ('any-primary',  'Any',          3, 1, 'primary',  0,    1080, 'hd-bluray-web',  'web-1080p'),
+    ('any-original', 'Any Original', 4, 1, 'original', 0,    1080, 'hd-bluray-web',  'web-1080p'),
+    ('4k-primary',   '4K',           5, 0, 'primary',  2160, 2160, 'uhd-bluray-web', 'web-2160p'),
+    ('4k-original',  '4K Original',  6, 0, 'original', 2160, 2160, 'uhd-bluray-web', 'web-2160p');
+UPDATE slots SET default_movies = 'hd-primary', default_series = 'hd-primary' WHERE id = 'standard';
+INSERT INTO slots (id, label, default_movies, default_series, on_for_new, position) VALUES ('4k', '4K', '4k-primary', '4k-primary', 0, 1);
+""")
+_seed.commit()
+_seed.close()
+
 call("POST", "/setup/account", {"username": "demo", "password": "demo-password-123"})
 call("PATCH", "/settings", {"language_region": {"primary_language": "en", "release_date_country": "US"},
                             "root_folders": {"movies": [f"{ROOT}/movies", f"{ROOT}/movies-family"], "series": [f"{ROOT}/tv"]},

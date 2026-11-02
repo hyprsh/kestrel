@@ -426,6 +426,13 @@ func validate(in Input, all []profiles.Profile) error {
 		if _, err := profiles.Pick(all, sl.Profile); errors.Is(err, profiles.ErrNoSuchProfile) {
 			return invalid(field+".profile", "not_found", "No such Profile")
 		}
+		kind := release.KindMovie
+		if in.Kind == library.Series {
+			kind = release.KindSeries
+		}
+		if p := profileByKey(all, sl.Profile); p.Key != "" && !p.AppliesTo(kind) {
+			return invalid(field+".profile", "profile_kind", fmt.Sprintf("The Profile %s does not apply to a %s: its TRaSH profile covers the other kind only", p.Name, in.Kind))
+		}
 		if named[sl.Profile] {
 			return invalid(field+".profile", "profile_taken", "A Title's Versions use different Profiles: two Slots name the same one")
 		}

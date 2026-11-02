@@ -49,7 +49,19 @@ type instance struct {
 // newInstance starts Kestrel; each option adjusts app.Options first (e.g. Plugins).
 func newInstance(t *testing.T, base string, with ...func(*app.Options)) *instance {
 	t.Helper()
-	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
+	return newInstanceOn(t, storetest.Dir(t), base, with...)
+}
+
+// newFreshInstance is newInstance over a database as a fresh install leaves it: no Profiles and only the Standard Slot,
+// without the six Profiles and the 4K Slot that newInstance starts with.
+func newFreshInstance(t *testing.T, base string, with ...func(*app.Options)) *instance {
+	t.Helper()
+	return newInstanceOn(t, storetest.FreshDir(t), base, with...)
+}
+
+func newInstanceOn(t *testing.T, dir, base string, with ...func(*app.Options)) *instance {
+	t.Helper()
+	st, err := store.Open(context.Background(), store.Options{Dir: dir})
 	if err != nil {
 		t.Fatal(err)
 	}

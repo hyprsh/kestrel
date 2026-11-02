@@ -1,7 +1,7 @@
 import { http } from './handlers'
 import { server } from './server'
 
-export type SectionKey = 'account' | 'language' | 'download_client' | 'indexer' | 'root_folders' | 'profiles'
+export type SectionKey = 'account' | 'language' | 'download_client' | 'indexer' | 'root_folders' | 'slots'
 export type SetupFake = { completed: boolean; sections: Record<SectionKey, 'done' | 'todo'>; finishCalls: number }
 
 const names: Record<SectionKey, string> = {
@@ -10,7 +10,7 @@ const names: Record<SectionKey, string> = {
   download_client: 'Download client',
   indexer: 'Indexer',
   root_folders: 'Root folders',
-  profiles: 'Profiles',
+  slots: 'Slots',
 }
 
 /**
@@ -21,7 +21,7 @@ export function fakeSetup(over: Partial<Record<SectionKey, 'done' | 'todo'>> = {
   const state: SetupFake = {
     completed,
     finishCalls: 0,
-    sections: { account: 'done', language: 'todo', download_client: 'todo', indexer: 'todo', root_folders: 'todo', profiles: 'todo', ...over },
+    sections: { account: 'done', language: 'todo', download_client: 'todo', indexer: 'todo', root_folders: 'todo', slots: 'todo', ...over },
   }
   server.use(
     http.get('/setup', ({ response }) => response(200).json({ account_exists: true, completed: state.completed, sections: state.sections })),

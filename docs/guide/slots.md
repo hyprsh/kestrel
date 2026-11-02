@@ -45,6 +45,17 @@ Open Settings > Library > Slots. Each row shows the Slot's label, its default Pr
 
 If the Config File declares `slots`, every control here is read-only.
 
+## Start from a preset
+
+The setup wizard's Slots step offers four presets while the library holds no Version (and the Config File declares neither `slots` nor `profiles`). Each one replaces your Slots with its own, brings in the Profiles those Slots default to (reusing one you already have, else adding it enabled), and sets the defaults, all or nothing. A preset fails, and changes nothing, if a Profile it needs doesn't exist in your Primary Language or its name is taken by a different Profile.
+
+| Preset                    | Slots                                                                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| One copy                  | Standard, defaulting to HD. On for new Titles.                                                                             |
+| Standard + 4K             | Standard as above, and 4K defaulting to 4K. 4K is off for new Titles.                                                      |
+| Streaming + Remux archive | Standard as above, and Remux defaulting to 4K Remux for Movies and none for Series. Off for new Titles.                    |
+| Your language + Original  | A Slot named for your Primary Language, defaulting to HD, and Original, defaulting to HD Original. Both on for new Titles. |
+
 ## How Slots work elsewhere
 
 - **Adding a Title.** The add panel ticks the Slots that are on for new Titles and have an enabled default Profile. With one Slot in the library, the Slot controls disappear.
@@ -70,3 +81,13 @@ Existing libraries keep what they had, and nothing on disk changes: no file is r
   `GET /slots`, `POST /slots`, `PATCH /slots/{id}` and `DELETE /slots/{id}` are new, and `Request.slots` is optional.
 
 - **Silo plugin:** `standard_profile` and `4k_profile` still work. See [Silo requests](configuration.md#silo-requests-and-slots).
+
+### Profile recipes
+
+The release that makes Profiles recipes (a resolution, a Release Family and a language) changes these on purpose, and nothing on disk is renamed or moved:
+
+- **An existing library keeps its six Profiles and its Slots**, exactly as they were: its Profiles become Bluray + WEB, with no change in scoring. Only a fresh install starts with no Profiles and only Standard, with no default Profile, and sets them up in the wizard's Slots and Profiles steps.
+- **Setup can't finish** until every Slot that is on for new Titles has a default Profile for Movies and for Series. This only matters to a fresh install. A Config File that declares `profiles` and `slots` is checked at startup instead, and fails naming the Slot and the kind.
+- **A Profile can cover only Movies.** SQP and French Remux have no TRaSH profile for Series. Such a Profile can't be a Slot's default for Series, and `422 profile_kind` answers a Series Version under it. A bulk action skips a Series for it as `profile_kind`, as it skips a taken Profile, and goes on with the other Titles. Changing your Primary Language is refused (`422` on `primary_language`) if a Profile that a Slot's default or a Version uses would lose its TRaSH profile for a kind it is used for. A Profile nothing uses is disabled instead.
+- **Config File:** the `profiles` section names the whole set, and may now declare any Profile. A Profile it leaves out is disabled and kept, with a log line at startup, never deleted; startup fails, naming the Profile, if a Version uses it or a Slot names it as its default. Declare the Slot's new default in `slots` first, or keep the Profile in the file. [Config File, profiles](configuration.md#profiles) has the fields.
+- **API clients:** a Profile gains `release_family`, `resolution`, `kinds` and a wider `language_rule` (`primary`, `original`, `en`, `de` or `fr`). The `key` path parameter of `/profiles/{key}` is a string, not the enum of the six builtin keys, so a generated client needs regenerating. `GET /profiles/suggestions` lists the recipes you could add, and `POST /profiles` with a recipe's `release_family`, `resolution` and `language_rule` adds one. `GET /slots/presets` and `POST /slots/presets/{id}` are the presets. In `GET /setup`, the section that was `profiles` is now `slots`, which is what it checks.

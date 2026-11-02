@@ -72,10 +72,20 @@ type RootFolders struct {
 // Profile is one Profile's declared settings. A nil field is one the file left out.
 type Profile struct {
 	Enabled *bool `yaml:"enabled"`
+	// Name and Resolution (hd, 4k or any) complete the recipe with ReleaseFamily and LanguageRule (ADR 0026). A key that
+	// is not one of the six builtin Profiles is a recipe Profile and gives all four; a builtin key may leave them out
+	// to keep its builtin recipe.
+	Name       *string `yaml:"name"`
+	Resolution *string `yaml:"resolution"`
 	// OriginalChoice is original_language: reject, offer or accept. The
 	// deprecated OriginalFallback stands in for it (scoring.OriginalChoiceOf).
 	OriginalChoice   *scoring.OriginalChoice `yaml:"original_language"`
 	OriginalFallback *bool                   `yaml:"original_fallback"`
+	// ReleaseFamily is bluray-web, remux-web, web or sqp, and LanguageRule is primary, original or a named
+	// language (en, de or fr); both are the Profile's recipe (ADR 0026). A key the file leaves out keeps the
+	// Profile's own, and Kestrel refuses an enabled Profile whose recipe has no backing TRaSH profile.
+	ReleaseFamily *scoring.ReleaseFamily `yaml:"release_family"`
+	LanguageRule  *string                `yaml:"language_rule"`
 	// DefaultMovies and DefaultSeries are deprecated and ignored: the defaults for new Titles belong to
 	// the Slots (ADR 0024), declared in the `slots` section. They stay parsed so a file written before
 	// still loads, and are not required.

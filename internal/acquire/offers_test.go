@@ -100,6 +100,36 @@ func TestAnOriginalOnlyReleaseIsOfferedInsteadOfGrabbed(t *testing.T) {
 	}
 }
 
+// A named-language Profile offers as a Primary-Language one does, judged against its own language: in an English
+// household, a German Profile that offers holds back the English Release of an English Title.
+func TestANamedLanguageProfileOffersTheOriginalLanguageNotItsOwn(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	ps := r.deps.Profiles.(*profiles.Service)
+	all, err := ps.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]profiles.State{}
+	for _, p := range all {
+		want[p.Key] = profiles.State{Enabled: p.Enabled, OriginalChoice: p.OriginalChoice}
+	}
+	want["hd-primary"] = profiles.State{Enabled: true, OriginalChoice: scoring.OriginalOffer, Language: "de"}
+	if err := ps.SetAll(ctx, want, ""); err != nil {
+		t.Fatal(err)
+	}
+	r.publish(t, hd1080, time.Hour)
+
+	out, err := r.svc.SearchNew(ctx, r.titleID, r.wanted(t, slot.Standard))
+	if err != nil || len(out.Grabbed) != 0 {
+		t.Fatalf("outcome = %+v, %v: want nothing grabbed", out, err)
+	}
+	offers := r.offers(t)
+	if len(offers) != 1 || offers[0].Profile != "hd-primary" || len(offers[0].Releases) != 1 || offers[0].Releases[0].Name != hd1080 {
+		t.Errorf("offers = %+v, want the English Release offered under the German Profile", offers)
+	}
+}
+
 func TestOnlyAnOfferingProfileOffers(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)

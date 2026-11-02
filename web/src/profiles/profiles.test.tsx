@@ -21,10 +21,15 @@ type Settings = components['schemas']['Settings']
 type Sent = { path: string; body: unknown }
 type Details = components['schemas']['ProfileDetail']
 type Slot = components['schemas']['Slot']
+type Suggestion = components['schemas']['ProfileSuggestion']
+type SuggestionGroup = components['schemas']['ProfileSuggestionGroup']
 
 const profile = (key: string, name: string, rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
   key,
   name,
+  release_family: 'bluray-web',
+  resolution: 'hd',
+  kinds: ['movie', 'series'],
   language_rule: rule,
   original_language: 'reject',
   original_fallback: false,
@@ -49,13 +54,14 @@ const seeded = (): Profile[] => [
 ]
 
 /** The Profile and settings API with real behaviour for the rules the UI leans on. */
-function fakeProfiles(opts: { fresh?: boolean } = {}) {
+function fakeProfiles(opts: { fresh?: boolean; groups?: SuggestionGroup[]; warnings?: Settings['warnings']; primary?: Settings['language_region']['primary_language'] } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
   let profiles = seeded()
   let slots = seededSlots()
+  let groups = opts.groups ?? []
   let settings: Settings = {
-    language_region: { primary_language: 'en', release_date_country: 'US' },
+    language_region: { primary_language: opts.primary ?? 'en', release_date_country: 'US' },
     check_github_updates: true,
     pause_grabs: false,
     display: displayDefaults,
@@ -63,6 +69,7 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
     trash: { auto_update: true },
     metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
     root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
+    ...(opts.warnings ? { warnings: opts.warnings } : {}),
   }
   if (opts.fresh) fakeSetup()
   server.use(
@@ -89,6 +96,16 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
       return response(200).json(settings)
     }),
     http.get('/profiles', ({ response }) => response(200).json({ items: profiles })),
+    http.get('/profiles/suggestions', ({ response }) => response(200).json({ groups })),
+    http.post('/profiles', async ({ request, response }) => {
+      const body = (await request.json()) as Partial<Suggestion>
+      sent.push({ path: 'import', body })
+      const hit = groups.flatMap((g) => g.items).find((i) => i.release_family === body.release_family && i.resolution === body.resolution && i.language_rule === body.language_rule)!
+      const made = profile(`made-${profiles.length}`, hit.name, hit.language_rule, { release_family: hit.release_family, kinds: hit.kinds, custom: true })
+      profiles = [...profiles, made]
+      groups = groups.map((g) => ({ ...g, items: g.items.filter((i) => i !== hit) })).filter((g) => g.items.length > 0)
+      return response(201).json(made)
+    }),
     http.get('/slots', ({ response }) => response(200).json({ items: slots })),
     http.patch('/slots/{id}', async ({ request, params, response }) => {
       const body = (await request.json()) as Partial<Slot>
@@ -150,37 +167,40 @@ describe('the wizard Primary Language section', () => {
   })
 })
 
-describe('the wizard Profiles section', () => {
-  it('sets a default per Slot for Movies and for Series ', async () => {
-    const sent = fakeProfiles({ fresh: true })
+describe('the default Profile per Slot in Settings', () => {
+  const openDefaults = async () => {
     renderApp()
-    await createAccount()
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Profiles' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Change…' }))
+  }
 
-    const section = await screen.findByRole('region', { name: 'Profiles' })
+  it('sets a default per Slot for Movies and for Series ', async () => {
+    const sent = fakeProfiles()
+    await openDefaults()
+
     // Each Slot shows its own default for both kinds, whatever the Profile is (no Profile belongs to a Slot).
-    const hdMovies = await within(section).findByLabelText('Standard default for Movies')
+    const hdMovies = await screen.findByLabelText('Standard default for Movies')
     expect(hdMovies).toHaveValue('hd-primary')
-    expect(within(section).getByLabelText('4K default for Movies')).toHaveValue('4k-primary')
-    expect(within(within(section).getByLabelText('4K default for Series')).getByRole('option', { name: 'HD Original' })).toBeInTheDocument()
+    expect(screen.getByLabelText('4K default for Movies')).toHaveValue('4k-primary')
+    expect(within(screen.getByLabelText('4K default for Series')).getByRole('option', { name: 'HD Original' })).toBeInTheDocument()
 
-    await userEvent.selectOptions(within(section).getByLabelText('Standard default for Series'), 'hd-original')
+    await userEvent.selectOptions(screen.getByLabelText('Standard default for Series'), 'hd-original')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'slot standard', body: { default_series: 'hd-original' } }))
-    expect(await within(section).findByLabelText('Standard default for Series')).toHaveValue('hd-original')
+    expect(await screen.findByLabelText('Standard default for Series')).toHaveValue('hd-original')
 
     // A Slot can have none: "None" clears it.
-    await userEvent.selectOptions(within(section).getByLabelText('4K default for Movies'), '')
+    await userEvent.selectOptions(screen.getByLabelText('4K default for Movies'), '')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'slot 4k', body: { default_movies: '' } }))
   })
 
   it('shows why a default cannot be saved', async () => {
-    fakeProfiles({ fresh: true })
-    renderApp()
-    await createAccount()
-    const section = await screen.findByRole('region', { name: 'Profiles' })
+    fakeProfiles()
+    await openDefaults()
     // The server refuses a default that is a disabled Profile; the message reaches the admin.
     server.use(http.patch('/slots/{id}', ({ response }) => response('default').json(problem(422, 'validation', 'HD is turned off'), { status: 422 })))
-    await userEvent.selectOptions(await within(section).findByLabelText('Standard default for Movies'), 'hd-original')
-    expect(await within(section).findByRole('alert')).toHaveTextContent('HD is turned off')
+    await userEvent.selectOptions(await screen.findByLabelText('Standard default for Movies'), 'hd-original')
+    expect(await screen.findByRole('alert')).toHaveTextContent('HD is turned off')
   })
 })
 
@@ -429,6 +449,97 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: 'Change…' })).toBeEnabled()
     expect(screen.getByText(/The Config File sets the Profiles/)).toBeInTheDocument()
     expect(screen.queryByText(/The Config File sets the Slots/)).not.toBeInTheDocument()
+  })
+
+  const remux4k: Suggestion = { name: '4K Remux', release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary', kinds: ['movie', 'series'] }
+  const suggested: SuggestionGroup[] = [
+    { release_family: 'remux-web', name: 'Remux + WEB', items: [remux4k, { name: '4K Remux German', release_family: 'remux-web', resolution: 'uhd', language_rule: 'de', kinds: ['movie'] }] },
+    { release_family: 'sqp', name: 'SQP', items: [{ name: 'SQP 1080p', release_family: 'sqp', resolution: 'hd', language_rule: 'primary', kinds: ['movie'] }] },
+  ]
+
+  it('lists Suggested Profiles by Release Family with their kinds and the resolved language', async () => {
+    fakeProfiles({ groups: suggested })
+    serveDetails()
+    await open('Profiles')
+    const section = await screen.findByRole('region', { name: 'Suggested' })
+    const remux = within(within(section).getAllByRole('group', { name: 'Remux + WEB' })[0])
+    expect(remux.getByText('4K Remux')).toBeInTheDocument()
+    expect(remux.getByText('Movies and Series · Primary Language (English)')).toBeInTheDocument()
+    expect(within(section).getAllByRole('group', { name: 'SQP' })).toHaveLength(1)
+  })
+
+  it('puts the named-language recipes under Other languages, closed until opened', async () => {
+    fakeProfiles({ groups: suggested })
+    serveDetails()
+    await open('Profiles')
+    const section = within(await screen.findByRole('region', { name: 'Suggested' }))
+    const toggle = section.getByText('Other languages')
+    const disclosure = toggle.closest('details')!
+    expect(disclosure).not.toHaveAttribute('open')
+    // The Primary and Original recipes are outside it, the named one inside.
+    expect(within(disclosure).queryByText('4K Remux')).not.toBeInTheDocument()
+    expect(within(disclosure).getByText('4K Remux German')).toBeInTheDocument()
+    expect(section.getByText('Movies · German')).toBeInTheDocument()
+    await userEvent.click(toggle)
+    expect(disclosure).toHaveAttribute('open')
+  })
+
+  it('names the Primary Language a Primary recipe resolves to', async () => {
+    fakeProfiles({ groups: suggested, primary: 'de' })
+    serveDetails()
+    await open('Profiles')
+    expect(await screen.findByText('Movies and Series · Primary Language (German)')).toBeInTheDocument()
+  })
+
+  it('moves an added Suggested Profile into the Profiles list, enabled, without a reload', async () => {
+    const sent = fakeProfiles({ groups: suggested })
+    serveDetails()
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add 4K Remux' }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'import', body: { release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary' } }))
+    expect(await screen.findByRole('button', { name: 'Edit 4K Remux' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add 4K Remux' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add 4K Remux German' })).toBeInTheDocument() // still listed, under Other languages
+  })
+
+  it('hides Suggested when there are no suggestions', async () => {
+    fakeProfiles()
+    serveDetails()
+    await open('Profiles')
+    await screen.findByRole('button', { name: 'Edit HD' })
+    expect(screen.queryByRole('region', { name: 'Suggested' })).not.toBeInTheDocument()
+  })
+
+  it('makes Suggested read-only when the Config File declares the Profiles', async () => {
+    fakeProfiles({ groups: suggested })
+    server.use(http.get('/profiles', ({ response }) => response(200).json({ items: seeded().map((p) => ({ ...p, from_config_file: true })) })))
+    serveDetails()
+    await open('Profiles')
+    expect(await screen.findByRole('button', { name: 'Add 4K Remux' })).toBeDisabled()
+    expect(screen.getAllByText(/The Config File sets the Profiles/)).toHaveLength(1)
+  })
+
+  it('shows each Profile’s Release Family, language and kinds', async () => {
+    fakeProfiles()
+    server.use(
+      http.get('/profiles', ({ response }) => response(200).json({ items: [profile('r', '4K Remux German', 'de', { release_family: 'remux-web', kinds: ['movie'] }), ...seeded().slice(0, 1)] })),
+    )
+    serveDetails()
+    await open('Profiles')
+    const card = await screen.findByRole('region', { name: '4K Remux German' })
+    expect(within(card).getByText('Remux + WEB')).toBeInTheDocument()
+    expect(within(card).getByText('German audio')).toBeInTheDocument()
+    expect(within(card).getByText('Movies')).toBeInTheDocument()
+    const hd = screen.getByRole('region', { name: 'HD' })
+    expect(within(hd).getByText('Bluray + WEB')).toBeInTheDocument()
+    expect(within(hd).getByText('Movies and Series')).toBeInTheDocument()
+  })
+
+  it('warns when two Profiles are the same recipe', async () => {
+    fakeProfiles({ warnings: [{ code: 'duplicate_profile', profiles: ['hd-primary', 'hd-original'], message: 'HD and HD English are the same recipe' }] })
+    serveDetails()
+    await open('Profiles')
+    expect(await screen.findByText('HD and HD English are the same recipe')).toBeInTheDocument()
   })
 
   it('says No Upgrades past the cutoff for a cutoff with no Upgrade-until Score', async () => {

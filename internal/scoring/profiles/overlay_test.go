@@ -204,7 +204,9 @@ func TestOnlyAnUnusedCustomProfileCanBeDeleted(t *testing.T) {
 	}
 }
 
-func TestSettingAllProfilesFromTheConfigFileLeavesCustomOnesAlone(t *testing.T) {
+// An upgrade's file names the six builtin Profiles: the household's own Profiles it leaves out are disabled and kept
+// (#304), never deleted, and LeftOut names them for the startup log.
+func TestSettingAllProfilesFromTheConfigFileDisablesAndKeepsAnUnusedOneItLeavesOut(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newRig(t)
 	p, _ := s.Create(ctx, "Mine", "hd-primary")
@@ -212,12 +214,19 @@ func TestSettingAllProfilesFromTheConfigFileLeavesCustomOnesAlone(t *testing.T) 
 	for _, b := range profiles.Builtin() {
 		want[b.Key] = profiles.State{Enabled: true, OriginalChoice: scoring.OriginalReject}
 	}
-	if err := s.SetAll(ctx, want); err != nil {
+	left, err := s.LeftOut(ctx, want)
+	if err != nil || len(left) != 1 || left[0].Key != p.Key || left[0].Name != "Mine" {
+		t.Fatalf("LeftOut = %+v, %v; want the custom Profile", left, err)
+	}
+	if err := s.SetAll(ctx, want, ""); err != nil {
 		t.Fatal(err)
 	}
-	got := byKey(t, s)[p.Key]
-	if !got.Enabled || !got.Custom {
-		t.Errorf("custom Profile = %+v", got)
+	got, ok := byKey(t, s)[p.Key]
+	if !ok {
+		t.Fatal("the custom Profile the file leaves out was deleted")
+	}
+	if got.Enabled {
+		t.Error("the custom Profile the file leaves out is still enabled")
 	}
 }
 

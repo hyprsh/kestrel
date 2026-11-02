@@ -16,6 +16,9 @@ DELETE FROM slots WHERE id = ?;
 -- name: SlotVersionCount :one
 SELECT COUNT(*) FROM versions WHERE slot = ?;
 
+-- name: VersionCount :one
+SELECT COUNT(*) FROM versions;
+
 -- name: ProfileKeys :many
 SELECT key FROM profiles;
 
@@ -36,3 +39,10 @@ SELECT COUNT(*) FROM files f JOIN versions v ON v.id = f.version_id WHERE v.slot
 
 -- name: SlotTitleIDs :many
 SELECT DISTINCT title_id FROM versions WHERE slot = ? ORDER BY title_id;
+
+-- The Profiles that apply to a kind: those a TRaSH profile backs for it under the Primary Language (ADR 0026).
+-- name: MoviesProfileKeys :many
+SELECT key FROM profiles WHERE trash_profile_movies <> '';
+
+-- name: SeriesProfileKeys :many
+SELECT key FROM profiles WHERE trash_profile_series <> '';

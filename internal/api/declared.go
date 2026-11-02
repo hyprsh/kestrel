@@ -37,7 +37,7 @@ func NewDeclared(opts Options, d Deps) *Declared {
 		settings: cfg,
 		write:    db.New(opts.Store.Write()),
 		cost:     cost,
-		setup:    setupSources{settings: cfg, plugins: d.Plugins, profiles: d.Profiles, rootFolders: d.RootFolders},
+		setup:    setupSources{settings: cfg, plugins: d.Plugins, profiles: d.Profiles, slots: d.Slots, rootFolders: d.RootFolders},
 	}
 }
 
@@ -115,11 +115,21 @@ func declaredProxy(p configfile.ReverseProxy) proxyConfig {
 }
 
 // CompleteSetup marks setup completed when no section is left to do. It never
-// un-completes it.
-func (d *Declared) CompleteSetup(ctx context.Context) error {
+// un-completes it. slotsChecked is true for a file that declares the Profiles and the Slots: it has checked the Slots'
+// defaults at startup, so the finish rule about them is skipped here.
+func (d *Declared) CompleteSetup(ctx context.Context, slotsChecked bool) error {
 	st, err := d.setup.state(ctx)
-	if err != nil || st.Completed || len(missingSections(st)) > 0 {
+	if err != nil || st.Completed {
 		return err
+	}
+	var gaps []fieldError
+	if !slotsChecked {
+		if gaps, err = d.setup.slotGaps(ctx); err != nil {
+			return err
+		}
+	}
+	if len(missingSections(st, gaps)) > 0 {
+		return nil
 	}
 	return d.settings.Put(ctx, setupCompletedKey, []byte("true"))
 }

@@ -58,7 +58,10 @@ export function entriesOf(
         at: entry.created_at,
       })),
   ]
-  ended.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+  // Newest first by the minute the row shows, then by key (the Grab's id, numerically), so rows that ended in the same
+  // minute keep one order however the pages arrive.
+  const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000)
+  ended.sort((a, b) => minute(b.at) - minute(a.at) || a.key.localeCompare(b.key, undefined, { numeric: true }))
   return [...active, ...held, ...ended]
 }
 

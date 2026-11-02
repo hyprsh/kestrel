@@ -24,20 +24,28 @@ Example: _Dune_ has two Versions, Standard and 4K. Kestrel finds a better 1080p 
 
 ## Profile
 
-A named quality-and-language target that a Version follows, such as HD, Any or 4K. Each Profile covers a fixed range of resolutions and belongs to no Slot: any Profile can fill any Slot, and a Slot names its default Profile per kind. Kestrel has six, backed by [TRaSH Guides](https://trash-guides.info) profiles:
+A named quality-and-language target that a Version follows, such as HD, Any or 4K Remux. A Profile is a recipe of three choices, and belongs to no Slot: any Profile can fill any Slot, and a Slot names its default Profile per kind. Kestrel backs each recipe with the matching [TRaSH Guides](https://trash-guides.info) profile.
 
-| Profile      | Takes                        | Language                            |
-| ------------ | ---------------------------- | ----------------------------------- |
-| HD           | HD resolutions, up to 1080p  | Needs your Primary Language         |
-| HD Original  | HD resolutions, up to 1080p  | Needs the Title's Original Language |
-| Any          | Every resolution up to 1080p | Needs your Primary Language         |
-| Any Original | Every resolution up to 1080p | Needs the Title's Original Language |
-| 4K           | 4K                           | Needs your Primary Language         |
-| 4K Original  | 4K                           | Needs the Title's Original Language |
+- **Resolution:** HD (up to 1080p), 4K, or Any (every resolution up to 1080p, for Titles that never had an HD Release).
+- **Release Family:** which kind of Releases it goes after, as TRaSH groups them. **Bluray + WEB** takes encodes from either source, **Remux + WEB** takes untouched Blu-ray remuxes and WEB downloads, **WEB** takes WEB downloads only, and **SQP** is TRaSH's streaming-quality set. Any is always Bluray + WEB.
+- **Language:** your Primary Language, the Title's Original Language, or one named language (English, German or French).
+
+A fresh install starts with no Profiles: you add the ones you want from a Slot preset in the setup, or from **Suggested** in Settings > Profiles ([Slots](slots.md#start-from-a-preset)). An install that already had Profiles keeps its six, listed below. A Profile that names a language, such as "HD German", always wants that language, whatever your Primary Language is.
+
+| Profile      | Resolution | Release Family | Language                            |
+| ------------ | ---------- | -------------- | ----------------------------------- |
+| HD           | HD         | Bluray + WEB   | Needs your Primary Language         |
+| HD Original  | HD         | Bluray + WEB   | Needs the Title's Original Language |
+| Any          | Any        | Bluray + WEB   | Needs your Primary Language         |
+| Any Original | Any        | Bluray + WEB   | Needs the Title's Original Language |
+| 4K           | 4K         | Bluray + WEB   | Needs your Primary Language         |
+| 4K Original  | 4K         | Bluray + WEB   | Needs the Title's Original Language |
 
 Your **Primary Language** is the one language your library is for: English, German or French, set once in Settings. The **Original Language** is the language a Title was made in.
 
 Example: a German household sets German. For a Japanese anime, the HD Profile wants German audio, and HD Original wants Japanese. If only a Japanese Release exists, the HD Profile can reject it, offer it to you in Needs attention, or accept it, as you choose in Settings > Profiles. A release with both languages in one file (marked "DL" in German release names and "MULTi" in French ones) counts as having your Primary Language.
+
+Not every recipe exists, because Kestrel never falls back to another language or another Release Family. A recipe is only offered where TRaSH has a profile for it. English has all four Release Families. German has Bluray + WEB and Remux + WEB, and no WEB or SQP: a German household has no WEB recipe for its Primary Language, but it can add "WEB English", which asks for English audio and is backed by TRaSH's English WEB profile. French has Bluray + WEB, and Remux + WEB for Movies only. SQP has Movies only. A Profile that covers only Movies can't be a Slot's default for Series, and Kestrel refuses a Version of a Series under it.
 
 You can switch a Version to another Profile at any time. A Title can't use the same Profile in two Versions.
 

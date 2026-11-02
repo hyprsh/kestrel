@@ -1,4 +1,5 @@
 // chrome: layout
+import { Entity } from '@hyprsh/design'
 import { Check } from 'lucide-react'
 import type { HTMLAttributes, ReactNode } from 'react'
 
@@ -152,6 +153,35 @@ export function DefaultsLine({ label, action, children }: { label: string; actio
       <div className="label-13 flex flex-wrap gap-x-6 gap-y-1">{children}</div>
       {action}
     </section>
+  )
+}
+
+/** A titled group of suggestions: its heading, then an `Entity` row each (a name, what it holds and a button). */
+export function SuggestionGroup({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <div role="group" aria-label={name} className="flex flex-col gap-1">
+      <h4 className="label-13 text-gray-900">{name}</h4>
+      <Entity.List>{children}</Entity.List>
+    </div>
+  )
+}
+
+/** One suggestion in a `SuggestionGroup`. */
+export function SuggestionRow({ name, holds, action }: { name: string; holds: ReactNode; action: ReactNode }) {
+  return (
+    <Entity right={action}>
+      <Entity.Content fill title={name} description={<span className="block whitespace-normal">{holds}</span>} />
+    </Entity>
+  )
+}
+
+/** A closed-by-default disclosure for the rest of a list: its `summary` is the toggle. */
+export function SuggestionMore({ summary, children }: { summary: string; children: ReactNode }) {
+  return (
+    <details className="flex flex-col gap-2.5 [&>summary]:cursor-pointer">
+      <summary className="label-13 text-gray-900">{summary}</summary>
+      <div className="flex flex-col gap-2.5 pt-2.5">{children}</div>
+    </details>
   )
 }
 

@@ -24,3 +24,5 @@ Saving an overlay re-scores the Versions under the Profile from what Import stor
 - `GET /profiles/details` carries the ladder, TRaSH's ladder, the Cutoff, the minimum Score, the overlay, `below_cutoff` and `rescores` per Profile; `POST /profiles`, `DELETE /profiles/{key}` and `PATCH /profiles/{key}` (`name`, `overlay`) are new. `GET /stats` carries `below_cutoff` for the Overview.
 - `Release` in a manual search carries `size_limit`, and the `size` rejection says whether the Release is over or under.
 - The Upgrade search of a Version whose files are all at the Cutoff costs no indexer request. "Search now" on such a Version finds nothing to upgrade; a manual search still lists and grabs what the user chooses.
+
+**Note, from ADR 0026 and #304:** the Config File no longer declares only the six builtin Profiles and ignores custom rows. It may declare any set of Profiles, each from a recipe, and disables and keeps the stored Profiles it leaves out; it never deletes one.

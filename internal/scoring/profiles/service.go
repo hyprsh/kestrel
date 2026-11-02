@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"slices"
 	"strings"
@@ -134,17 +135,21 @@ type Service struct {
 	tx       *sql.Tx // set by InTx: writes join the caller's transaction
 	live     *scoring.Holder
 	cutoffs  *cutoffCache // BelowCutoff's last answer; shared by the Service and what InTx makes of it
+	log      *slog.Logger // nil logs nothing
 }
 
 // InTx returns a Service whose settings and Profile writes run inside tx; the
 // caller commits or rolls back.
 func (s *Service) InTx(tx *sql.Tx) *Service {
-	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live, cutoffs: s.cutoffs}
+	return &Service{st: s.st, settings: s.settings.InTx(tx), tx: tx, live: s.live, cutoffs: s.cutoffs, log: s.log}
 }
 
 // UseScoring makes the Service back Profiles with the live TRaSH snapshot
 // instead of the embedded one. Call it before the Service is shared.
 func (s *Service) UseScoring(h *scoring.Holder) { s.live = h }
+
+// UseLogger makes the Service log what it changes on its own, such as a Profile a new Primary Language disables.
+func (s *Service) UseLogger(l *slog.Logger) { s.log = l }
 
 // New returns a Service over st. settings holds the language document.
 func New(st *store.Store, s *settings.Settings) *Service {
@@ -152,9 +157,9 @@ func New(st *store.Store, s *settings.Settings) *Service {
 }
 
 func fromRow(r db.Profile) (Profile, error) {
-	rule := scoring.PrimaryLanguage
-	if r.LanguageRule == "original" {
-		rule = scoring.OriginalLanguage
+	rule, named, ok := ParseRule(r.LanguageRule)
+	if !ok {
+		return Profile{}, fmt.Errorf("profiles: %s has the language rule %q", r.Key, r.LanguageRule)
 	}
 	series, err := prefsOf(r.SeriesQualities)
 	if err != nil {
@@ -165,7 +170,7 @@ func fromRow(r db.Profile) (Profile, error) {
 		return Profile{}, fmt.Errorf("profiles: %s movie_qualities: %w", r.Key, err)
 	}
 	return Profile{
-		Key: r.Key, Name: r.Name, Any: r.Any == 1, Rule: rule,
+		Key: r.Key, Name: r.Name, Any: r.Any == 1, Family: scoring.ReleaseFamily(r.ReleaseFamily), Rule: rule, Named: named,
 		MinHeight: int(r.MinHeight), MaxHeight: int(r.MaxHeight),
 		Enabled: r.Enabled == 1, OriginalChoice: scoring.OriginalChoice(r.OriginalLanguage),
 		TrashMovies: r.TrashProfileMovies, TrashSeries: r.TrashProfileSeries,
@@ -336,6 +341,16 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 				return err
 			}
 		}
+		if !cur.Enabled && next.Enabled {
+			// A Profile is enabled only where its recipe has a backing profile.
+			region, _, err := s.Region(ctx)
+			if err != nil {
+				return err
+			}
+			if _, _, err := next.Backing(region.Primary); err != nil {
+				return invalid("enabled", err.Error()+" under the Primary Language "+region.Primary.Release().Name)
+			}
+		}
 		if err := q.SetProfileEnabled(ctx, db.SetProfileEnabledParams{Enabled: b2i(next.Enabled), Key: key}); err != nil {
 			return err
 		}
@@ -386,7 +401,7 @@ func (s *Service) Region(ctx context.Context) (Region, bool, error) {
 // never saved (saved is false), no stored language settings at all, so the
 // setup wizard's Primary Language section is to do again.
 func (s *Service) RestoreRegion(ctx context.Context, before Region, saved bool) error {
-	if _, err := s.SetRegion(ctx, RegionPatch{Primary: &before.Primary, Country: &before.Country}); err != nil {
+	if _, err := s.setRegion(ctx, RegionPatch{Primary: &before.Primary, Country: &before.Country}, false); err != nil {
 		return err
 	}
 	if saved {
@@ -428,6 +443,11 @@ func checkCountry(c string) *ValidationError {
 // backing TRaSH profiles (Settled 5). Re-scoring the stored files is the
 // caller's job (trash.Service.ChangeLanguage); nothing is renamed or searched.
 func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) {
+	return s.setRegion(ctx, p, true)
+}
+
+// setRegion is SetRegion; without check it skips the backing rule, as RestoreRegion puts back what was.
+func (s *Service) setRegion(ctx context.Context, p RegionPatch, check bool) (Region, error) {
 	cur, _, err := s.Region(ctx)
 	if err != nil {
 		return Region{}, err
@@ -448,13 +468,9 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		}
 		next.Country = *p.Country
 	}
-	var snap *scoring.Snapshot
-	if s.live != nil {
-		snap = s.live.Current()
-	} else if snap, err = scoring.Embedded(); err != nil {
-		return Region{}, err
-	}
+	var disabled []Profile
 	err = s.write(ctx, func(q *db.Queries) error {
+		disabled = nil
 		rows, err := q.ListProfiles(ctx)
 		if err != nil {
 			return err
@@ -463,15 +479,23 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 		if err != nil {
 			return err
 		}
+		if check {
+			if err := checkBacked(ctx, q, all, next.Primary); err != nil {
+				return err
+			}
+		}
 		for _, p := range all {
-			sp, err := snap.Profile(p.Spec(next.Primary.Release()))
-			if err != nil {
-				return fmt.Errorf("profiles: back %s under %s: %w", p.Key, next.Primary, err)
+			// A Profile applies to the kinds that have a backing profile under the new language. One nothing uses
+			// may have none: it is disabled and backed by nothing until it can be enabled again.
+			movies, series, err := p.Backing(next.Primary)
+			if err != nil && p.Enabled {
+				if err := q.SetProfileEnabled(ctx, db.SetProfileEnabledParams{Enabled: 0, Key: p.Key}); err != nil {
+					return err
+				}
+				disabled = append(disabled, p)
 			}
 			if err := q.SetProfileTrash(ctx, db.SetProfileTrashParams{
-				TrashProfileMovies: sp.BackingProfile(release.KindMovie),
-				TrashProfileSeries: sp.BackingProfile(release.KindSeries),
-				Key:                p.Key,
+				TrashProfileMovies: movies, TrashProfileSeries: series, Key: p.Key,
 			}); err != nil {
 				return err
 			}
@@ -485,7 +509,82 @@ func (s *Service) SetRegion(ctx context.Context, p RegionPatch) (Region, error) 
 	if err := s.settings.Put(ctx, regionKey, raw); err != nil {
 		return Region{}, err
 	}
+	if s.log != nil {
+		for _, p := range disabled {
+			s.log.Info("the Profile is disabled: nothing uses it and the new Primary Language has no backing profile for its recipe", "profile", p.Key, "name", p.Name, "primary_language", string(next.Primary))
+		}
+	}
 	return next, nil
+}
+
+// checkBacked is nil when every Profile that is used for a kind has a backing profile for it under the Primary
+// Language, enabled or not: a Profile is used for a kind by a Slot that names it as its default for the kind, or
+// by a Version of a Title of the kind. Else it is a *ValidationError on primary_language naming each Profile
+// that would lose the backing profile of a kind it is used for (ADR 0026). A Profile nothing uses may lose it.
+func checkBacked(ctx context.Context, q *db.Queries, all []Profile, primary Language) error {
+	used := map[string]map[release.Kind]string{} // key -> kind -> what uses it
+	use := func(key string, kind release.Kind, by string) {
+		if key == "" {
+			return
+		}
+		if used[key] == nil {
+			used[key] = map[release.Kind]string{}
+		}
+		if used[key][kind] == "" {
+			used[key][kind] = by
+		}
+	}
+	slots, err := q.SlotDefaultProfiles(ctx)
+	if err != nil {
+		return err
+	}
+	for _, r := range slots {
+		use(r.DefaultMovies.String, release.KindMovie, "the default of the Slot "+r.Label)
+		use(r.DefaultSeries.String, release.KindSeries, "the default of the Slot "+r.Label)
+	}
+	versions, err := q.VersionProfileKinds(ctx)
+	if err != nil {
+		return err
+	}
+	for _, v := range versions {
+		kind := release.KindMovie
+		if v.Kind == "series" {
+			kind = release.KindSeries
+		}
+		use(v.ProfileKey, kind, "used by a Version")
+	}
+	var lost []string
+	for _, p := range all {
+		for _, kind := range []release.Kind{release.KindMovie, release.KindSeries} {
+			by, ok := used[p.Key][kind]
+			if !ok {
+				continue
+			}
+			if err := p.LacksBacking(primary, kind); err != nil {
+				name := "Movies"
+				if kind == release.KindSeries {
+					name = "Series"
+				}
+				lost = append(lost, fmt.Sprintf("%s (%s) has no TRaSH profile for %s and is %s", p.Name, p.recipeName(primary), name, by))
+			}
+		}
+	}
+	if len(lost) == 0 {
+		return nil
+	}
+	return invalid("primary_language", "Kestrel has no TRaSH profile for "+primary.Release().Name+" to back: "+strings.Join(lost, "; ")+
+		". Change what uses them first")
+}
+
+// CheckPrimary applies SetRegion's backing rule to a Primary Language without saving anything: a *ValidationError
+// naming each Profile that would lose its backing profile for a kind it is used for (ADR 0026). The API asks it
+// before it queues a change.
+func (s *Service) CheckPrimary(ctx context.Context, primary Language) error {
+	all, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+	return checkBacked(ctx, db.New(s.st.Read()), all, primary)
 }
 
 const maxNameLength = 40

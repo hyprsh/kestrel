@@ -47,6 +47,7 @@ const seededSlots: components['schemas']['Slot'][] = [
 
 export const handlers = [
   http.get('/slots', ({ response }) => response(200).json({ items: seededSlots })),
+  http.get('/slots/presets', ({ response }) => response(200).json({ available: false, items: [] })),
   http.get('/system', ({ response }) => response(200).json({ version: '0.0.0-test', api_major: 1, base_url: '' })),
   http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd], next_cursor: null })),
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),
@@ -72,7 +73,7 @@ export const handlers = [
     response(200).json({
       account_exists: true,
       completed: true,
-      sections: { account: 'done', language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' },
+      sections: { account: 'done', language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' },
     }),
   ),
   http.get('/settings', ({ response }) =>
@@ -88,6 +89,7 @@ export const handlers = [
     }),
   ),
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
+  http.get('/profiles/suggestions', ({ response }) => response(200).json({ groups: [] })),
   http.get('/profiles/details', ({ response }) => response(200).json({ items: [] })),
   http.get('/settings/downloads', ({ response }) => response(200).json({ download_client: null, indexers: [] })),
   http.get('/titles', ({ response }) => response(200).json({ items: [], next_cursor: null })),
