@@ -4,6 +4,8 @@ Note: ADR-0012 maps Silo's `1080p` tier to the Standard Slot and `2160p` to 4K, 
 
 Note: ADR-0024 makes that mapping a setting of the Silo plugin, one Slot per tier, with the same defaults.
 
+Note: since #317 an unmapped `2160p` tier goes to the first Slot whose default Profile has the `4k` resolution, else to the `1080p` tier's Slot, rather than to a fixed 4K Slot. See the Config File guide's [Silo requests and Slots](../guide/configuration.md#silo-requests-and-slots).
+
 Silo hands each approved Request to a `request_router.v1` plugin. Kestrel ships its own plugin, a second binary from this repo with the same version, and that plugin calls a native, source-neutral Kestrel Request API. Kestrel does not pretend to be Radarr or Sonarr. We chose this because a Request must carry who asked, and Radarr's API has no field for that. We also want Kestrel to own both sides of the contract, in its own terms (Title, Slot, Profile, Version), rather than track a copy of someone else's API.
 
 ## Considered Options

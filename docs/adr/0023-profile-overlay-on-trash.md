@@ -1,5 +1,7 @@
 # A Profile's own settings sit on top of the TRaSH snapshot
 
+Note: the context below describes Profiles before this decision. The "no cutoff" it mentions is the state this ADR changes, since this ADR adds the Cutoff.
+
 A Profile used to be only its Slot, its audio rule and TRaSH's data: the qualities, their order, the Custom Formats, the Scores and the minimum Score all came from the backing TRaSH profile and could not be changed. Upgrades had no end ("there is no cutoff") and nothing limited a Release's size. Households asked for the things Radarr and Sonarr let them set: stop upgrading at a good-enough quality, ignore absurdly big or small files, drop a quality they never want. They did not ask to rewrite TRaSH's Custom Formats, which Kestrel re-reads daily.
 
 So a Profile gets an **overlay**: a few nullable columns on the `profiles` row, applied when the TRaSH data is resolved into a `scoring.Profile` (`ProfileSpec.Overlay`). Null means "as TRaSH has it", or for the Cutoff and the sizes, no limit, so a Profile nobody edits behaves exactly as before and every migrated database keeps its behaviour.
