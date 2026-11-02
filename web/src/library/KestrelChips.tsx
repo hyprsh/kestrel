@@ -28,13 +28,16 @@ export function SentenceChip({ text, sentence, name }: { text: string; sentence:
   )
 }
 
-/** "Upgrading to Cutoff", "At Cutoff" or "Not monitored"; a monitored Title with no file yet is plain "Monitored". */
+/**
+ * "Upgrading to Cutoff", "At Cutoff" or "Not monitored". "At Cutoff" only when every Version is filled and none wants an Upgrade; a
+ * monitored Title with something still Wanted or downloading (or no file yet) is plain "Monitored", and its sentence says what Kestrel does.
+ */
 export function monitoringChip(title: TitleDetail, row: TitleRow | undefined): string {
   if (!isMonitored(title)) return 'Not monitored'
   const states = row?.slot_states ?? []
   if (states.some((s) => s.state === 'filled' && s.upgrade_wanted)) return 'Upgrading to Cutoff'
-  if (states.some((s) => s.state === 'filled') || title.versions.some((v) => v.file || (v.coverage?.filled ?? 0) > 0)) return 'At Cutoff'
-  return 'Monitored'
+  const filled = states.length > 0 ? states.every((s) => s.state === 'filled') : title.versions.length > 0 && title.versions.every((v) => v.state === 'filled')
+  return filled ? 'At Cutoff' : 'Monitored'
 }
 
 export function MonitoringChip({ title, row }: { title: TitleDetail; row?: TitleRow }) {
