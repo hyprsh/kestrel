@@ -491,12 +491,38 @@ export interface paths {
         put?: never;
         /**
          * Make a custom Profile
-         * @description Copies the Profile `copy_from` under a new `name`: the same audio rule, resolutions, TRaSH backing and
-         *     settings on top of TRaSH. It starts enabled. `422 validation` for an empty,
-         *     too long or taken `name`; `404 not_found` for an unknown `copy_from`; `409 conflict` while the Config File
-         *     declares `profiles`.
+         * @description Either copies the Profile `copy_from` under a new `name` (the same audio rule, resolutions, TRaSH backing and
+         *     settings on top of TRaSH), or imports a recipe from `GET /profiles/suggestions`: send its `release_family`,
+         *     `resolution` and `language_rule`, and `name` if the generated one is not wanted. Send one of the two, not
+         *     both. Either way the Profile starts enabled and can be renamed later. `422 validation` for an empty, too long
+         *     or taken `name`, for a body that is neither, and for a recipe that has no TRaSH profile to back it (Any only
+         *     exists as Bluray + WEB, HD); `404 not_found` for an unknown `copy_from`; `409 conflict` for a recipe the
+         *     household already has a Profile for, and while the Config File declares `profiles`.
          */
         post: operations["createProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profiles/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Profile recipes the household can import
+         * @description Every recipe that has a TRaSH profile to back it for at least one kind and that the household has no Profile
+         *     for yet, grouped by Release Family in display order (families with nothing to offer are left out). A recipe
+         *     with a named language that is the Primary Language is not listed: it is the same as the Primary-Language
+         *     one. Import one with `POST /profiles`.
+         */
+        get: operations["listProfileSuggestions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2827,9 +2853,10 @@ export interface components {
         SettingsWarning: {
             /**
              * @description `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+             *     `duplicate_profile`: a Profile with a named language and a Primary-Language Profile are the same recipe now that the Primary Language is that language (ADR 0026). Both stay; nothing is merged.
              * @enum {string}
              */
-            code: "shared_slot_default";
+            code: "shared_slot_default" | "duplicate_profile";
             message: string;
             /** @description `movies` or `series`: the kind whose default is shared. */
             kind?: string;
@@ -2837,6 +2864,8 @@ export interface components {
             profile?: string;
             /** @description The ids of the Slots that share it, in order. */
             slots?: components["schemas"]["SlotId"][];
+            /** @description `duplicate_profile`: the keys of the two Profiles that are the same recipe. */
+            profiles?: string[];
         };
         Profile: {
             /** @description `true` while the Config File declares `profiles`, which declares every Profile at once. */
@@ -2852,19 +2881,14 @@ export interface components {
              *     for a Profile no Slot names as its default.
              */
             slot?: components["schemas"]["SlotId"];
-            /**
-             * @description Which kind of Releases the Profile goes after, as TRaSH groups them: `bluray-web` (Bluray + WEB),
-             *     `remux-web` (Remux + WEB), `web` or `sqp`. Any is always `bluray-web`.
-             * @enum {string}
-             */
-            release_family: "bluray-web" | "remux-web" | "web" | "sqp";
+            /** @description Which kind of Releases the Profile goes after, as TRaSH groups them. Any is always `bluray-web`. */
+            release_family: components["schemas"]["ProfileReleaseFamily"];
             /**
              * @description Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
              *     Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
              *     `original_language` choice as a `primary` one, judged against its own language.
-             * @enum {string}
              */
-            language_rule: "primary" | "original" | "en" | "de" | "fr";
+            language_rule: components["schemas"]["ProfileLanguageRule"];
             original_language: components["schemas"]["OriginalLanguageChoice"];
             /**
              * @deprecated
@@ -2897,10 +2921,54 @@ export interface components {
             /** @description `true` for a Profile made with `POST /profiles`, which can be renamed and deleted. */
             custom?: boolean;
         };
+        /**
+         * @description A copy (`name` and `copy_from`) or an import (`release_family`, `resolution` and `language_rule`, with an
+         *     optional `name`).
+         */
         ProfileCreate: {
-            name: string;
+            /** @description Required for a copy. For an import it replaces the generated name. */
+            name?: string;
             /** @description The `key` of the Profile to copy. */
-            copy_from: string;
+            copy_from?: string;
+            release_family?: components["schemas"]["ProfileReleaseFamily"];
+            resolution?: components["schemas"]["ProfileResolution"];
+            language_rule?: components["schemas"]["ProfileLanguageRule"];
+        };
+        /**
+         * @description `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+         * @enum {string}
+         */
+        ProfileReleaseFamily: "bluray-web" | "remux-web" | "web" | "sqp";
+        /**
+         * @description `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+         * @enum {string}
+         */
+        ProfileResolution: "hd" | "uhd" | "any";
+        /**
+         * @description The audio the Profile requires; see `Profile.language_rule`.
+         * @enum {string}
+         */
+        ProfileLanguageRule: "primary" | "original" | "en" | "de" | "fr";
+        ProfileSuggestion: {
+            /**
+             * @description The generated name, such as "4K Remux", "HD Original" or "HD French".
+             * @example 4K Remux
+             */
+            name: string;
+            release_family: components["schemas"]["ProfileReleaseFamily"];
+            resolution: components["schemas"]["ProfileResolution"];
+            language_rule: components["schemas"]["ProfileLanguageRule"];
+            /** @description The kinds the recipe applies to under the current Primary Language, which are those with a TRaSH profile to back it. SQP is Movies only. */
+            kinds: components["schemas"]["TitleKind"][];
+        };
+        ProfileSuggestionGroup: {
+            release_family: components["schemas"]["ProfileReleaseFamily"];
+            /** @example Remux + WEB */
+            name: string;
+            items: components["schemas"]["ProfileSuggestion"][];
+        };
+        ProfileSuggestionList: {
+            groups: components["schemas"]["ProfileSuggestionGroup"][];
         };
         /** @description A size bound in bytes per Movie, or per episode of a Series; `null` is no bound. */
         ProfileSize: {
@@ -6427,6 +6495,27 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProfileSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSuggestionList"];
+                };
+            };
             default: components["responses"]["Problem"];
         };
     };

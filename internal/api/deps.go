@@ -97,6 +97,9 @@ type Profiles interface {
 	List(ctx context.Context) ([]profiles.Profile, error)
 	// CheckPrimary refuses a Primary Language that would leave an enabled Profile without a backing profile.
 	CheckPrimary(ctx context.Context, primary profiles.Language) error
+	// Suggestions lists the recipes the household can import; Import makes a Profile of one.
+	Suggestions(ctx context.Context) ([]profiles.Suggestion, error)
+	Import(ctx context.Context, r profiles.Recipe, name string) (profiles.Profile, error)
 	Patch(ctx context.Context, key string, p profiles.Patch) (profiles.Profile, error)
 	Create(ctx context.Context, name, copyKey string) (profiles.Profile, error)
 	Delete(ctx context.Context, key string) error
