@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useProfileDetails, type ProfileDetail, type ProfileScoring } from '../api/downloads'
 import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
 import { declaresSlots, useSlots, type Slot } from '../api/slots'
-import { SlotWarnings } from '../slots/SlotWarnings'
 import { ProfileWarnings } from './ProfileWarnings'
 import { plural } from '../format'
 import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
@@ -75,7 +74,6 @@ export function ProfilesSection() {
         ))}
       </DefaultsLine>
       {slotsDeclared && declaredSlotsNote}
-      {!defaults && <SlotWarnings />}
       {defaults && (
         <SettingsBlock>
           <DefaultsPerSlot />
