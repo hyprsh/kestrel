@@ -3984,6 +3984,8 @@ export interface components {
             year: number | null;
             kind: components["schemas"]["TitleKind"] | null;
             slot: components["schemas"]["SlotId"] | null;
+            /** @description Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone. */
+            slots?: components["schemas"]["SlotId"][];
             /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
             episodes: string[];
             /** @description The ids of those episodes, for Search now narrowed to them (`episode_ids` of the search body); empty for a Movie. */
@@ -5382,6 +5384,8 @@ export interface components {
             /** @description The Title's kind, null when the Title was deleted. */
             kind: components["schemas"]["TitleKind"] | null;
             slot: components["schemas"]["SlotId"] | null;
+            /** @description Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone. */
+            slots?: components["schemas"]["SlotId"][];
             /** @description The episodes a Series Grab covers (`S01E02`); empty for a Movie. */
             episodes: string[];
             /** @description The ids of those episodes; empty for a Movie. */

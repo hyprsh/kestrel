@@ -234,11 +234,16 @@ func (q *Queries) GetFileEpisodeRelease(ctx context.Context, arg GetFileEpisodeR
 }
 
 const getFileOfGrab = `-- name: GetFileOfGrab :one
-SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? LIMIT 1
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? AND version_id = ? LIMIT 1
 `
 
-func (q *Queries) GetFileOfGrab(ctx context.Context, grabID sql.NullInt64) (File, error) {
-	row := q.db.QueryRowContext(ctx, getFileOfGrab, grabID)
+type GetFileOfGrabParams struct {
+	GrabID    sql.NullInt64
+	VersionID int64
+}
+
+func (q *Queries) GetFileOfGrab(ctx context.Context, arg GetFileOfGrabParams) (File, error) {
+	row := q.db.QueryRowContext(ctx, getFileOfGrab, arg.GrabID, arg.VersionID)
 	var i File
 	err := row.Scan(
 		&i.ID,

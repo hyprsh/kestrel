@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
@@ -40,8 +41,9 @@ type ImportOutcome struct {
 	// Reason is the rejection code (invalid, resolution, language, not_upgrade)
 	// or the stalled reason.
 	Reason string
-	// Path is the imported file, for the Log.
-	Path string
+	// Path is the imported file, for the Log; Paths are every Version's file of a Grab that filled several.
+	Path  string
+	Paths []string
 	// Inconclusive says the probe could not tell the audio languages, so the
 	// parsed ones stood; the Log notes it.
 	Inconclusive bool
@@ -111,7 +113,11 @@ func (s *Service) DueImports(ctx context.Context) ([]ImportJob, error) {
 				}
 				r.State = "importing"
 			}
-			out = append(out, ImportJob{Grab: grabOf(r), Parsed: r.Parsed, OutputPath: l.Item.OutputPath, CanRemove: l.Item.CanRemove})
+			g := grabOf(r)
+			if err := s.bind(ctx, &g); err != nil {
+				return nil, err
+			}
+			out = append(out, ImportJob{Grab: g, Parsed: r.Parsed, OutputPath: l.Item.OutputPath, CanRemove: l.Item.CanRemove})
 			break
 		}
 	}
@@ -176,6 +182,10 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		}
 		if o.Status == ImportDone {
 			data := map[string]any{"path": o.Path}
+			if len(o.Paths) > 1 {
+				data["paths"] = o.Paths
+				ev.Message = "Imported " + row.ReleaseName + " as " + strings.Join(o.Paths, " and ")
+			}
 			if o.Inconclusive {
 				ev.Message += " (probe inconclusive: the parsed languages stand)"
 				data["probe_inconclusive"] = true

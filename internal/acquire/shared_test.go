@@ -98,3 +98,40 @@ func TestCancelingASharedGrabFreesEveryVersionItWasFor(t *testing.T) {
 		t.Errorf("active = %+v, want none", active)
 	}
 }
+
+func TestAFinishedSharedGrabIsDueForImportWithEveryVersion(t *testing.T) {
+	ctx := context.Background()
+	r := overlapping(t)
+	r.publish(t, hd1080, time.Hour)
+	out, _ := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard, slot.FourK))
+	if len(out.Grabbed) != 1 {
+		t.Fatalf("outcome = %+v", out)
+	}
+	_ = r.sab.Complete(out.Grabbed[0].ClientID, "/data/usenet/movies/Paddington")
+	_, _ = r.svc.Poll(ctx)
+
+	due, err := r.svc.DueImports(ctx)
+	if err != nil || len(due) != 1 || !slices.Equal(due[0].VersionIDs, r.wanted(t, slot.Standard, slot.FourK)) {
+		t.Fatalf("due = %+v, %v, want one Import for both Versions", due, err)
+	}
+}
+
+func TestACanceledAndBlocklistedSharedGrabLooksForTheNextReleaseForEveryVersion(t *testing.T) {
+	ctx := context.Background()
+	r := overlapping(t)
+	r.publish(t, hd1080, time.Hour)
+	r.publish(t, hd1080web, 2*time.Hour)
+	out, _ := r.svc.SearchWanted(ctx, r.titleID, r.wanted(t, slot.Standard, slot.FourK))
+	if len(out.Grabbed) != 1 {
+		t.Fatalf("outcome = %+v", out)
+	}
+
+	if _, err := r.svc.Cancel(ctx, out.Grabbed[0].ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	active, _ := r.svc.Active(ctx)
+	if len(active) != 1 || active[0].ReleaseName == out.Grabbed[0].ReleaseName || len(active[0].VersionIDs) != 2 {
+		t.Errorf("active = %+v, want the next best Release, for both Versions", active)
+	}
+}

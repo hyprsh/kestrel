@@ -5664,6 +5664,11 @@ components:
           allOf:
             - $ref: "#/components/schemas/SlotId"
           nullable: true
+        slots:
+          type: array
+          description: Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone.
+          items:
+            $ref: "#/components/schemas/SlotId"
         episodes:
           type: array
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.
@@ -7654,6 +7659,11 @@ components:
           allOf:
             - $ref: "#/components/schemas/SlotId"
           nullable: true
+        slots:
+          type: array
+          description: Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone.
+          items:
+            $ref: "#/components/schemas/SlotId"
         episodes:
           type: array
           description: The episodes a Series Grab covers (`S01E02`); empty for a Movie.

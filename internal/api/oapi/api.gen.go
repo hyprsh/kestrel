@@ -2956,6 +2956,9 @@ type GrabEntry struct {
 	Size        int64      `json:"size"`
 	Slot        *SlotId    `json:"slot"`
 
+	// Slots Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone.
+	Slots *[]SlotId `json:"slots,omitempty"`
+
 	// Stalled Set while the Import waits for the environment to be fixed.
 	Stalled *GrabStall     `json:"stalled"`
 	State   GrabEntryState `json:"state"`
@@ -4034,6 +4037,9 @@ type QueueItem struct {
 	// Size The Release's size as the indexer gave it; `bytes_total` is the client's.
 	Size int64   `json:"size"`
 	Slot *SlotId `json:"slot"`
+
+	// Slots Every Slot this one download fills, `slot` first. More than one when the same Release was the pick for several Versions of the Title (it is downloaded once and linked under each). Omitted when the Version is gone.
+	Slots *[]SlotId `json:"slots,omitempty"`
 
 	// Stuck Set while the download is a Stuck download, null otherwise. It is the same judgement Silo's
 	// requester view reports as "Taking longer than usual". Not to be confused with a Stalled Import.

@@ -53,9 +53,12 @@ const (
 // Grab is what an Import needs to know of a completed Grab. imports never
 // reads or writes Grabs; acquire hands this over and records the Result.
 type Grab struct {
-	ID          int64
-	TitleID     int64
-	VersionID   int64
+	ID        int64
+	TitleID   int64
+	VersionID int64
+	// VersionIDs are every Version the download fills, VersionID first; empty means VersionID alone. One Release that
+	// is the pick for several Versions is imported once per Version, each file a hardlink under that Version's own name.
+	VersionIDs  []int64
 	ReleaseName string
 	// Parsed is the JSON snapshot of the Release's parsed name.
 	Parsed []byte
@@ -76,8 +79,9 @@ type Result struct {
 	Status Status
 	// Reason is the rejection code or the stalled reason.
 	Reason string
-	// Path is the imported file.
-	Path string
+	// Path is the imported file; Paths are the imported files of every Version of a shared Grab, Path first.
+	Path  string
+	Paths []string
 	// Score is the probed re-score of the imported file.
 	Score int
 	// Inconclusive says the probe could not tell the audio languages, so the
@@ -96,7 +100,7 @@ type Result struct {
 type Library interface {
 	Get(ctx context.Context, id int64, view library.View) (library.Detail, error)
 	ReplaceFile(ctx context.Context, titleID int64, folder string, f library.NewFile) ([]library.File, error)
-	FileOfGrab(ctx context.Context, grabID int64) (library.File, bool, error)
+	FileOfGrab(ctx context.Context, grabID, versionID int64) (library.File, bool, error)
 	// The Series side: episodes with their cells, a file for several episodes
 	// at once, the files an earlier run of this Grab recorded and the paths a
 	// Version holds.
@@ -263,7 +267,37 @@ func stalledBy(err error) Result {
 // the Title's folder under the fixed naming scheme. It never returns an
 // error: what goes wrong is either the Release's fault (Rejected) or the
 // environment's (Stalled), and importing again is always safe.
+//
+// A Grab that fills several Versions is imported once for each, in order, from the same download: each Version keeps
+// its own file name and file record, and the download's file is removed only after the last. The first Version that is
+// not imported ends the run with its Result (the Versions before it keep their files); a rerun finishes the rest.
 func (s *Service) Import(ctx context.Context, g Grab) Result {
+	if len(g.VersionIDs) < 2 {
+		return s.importOne(ctx, g)
+	}
+	var first Result
+	for i, id := range g.VersionIDs {
+		one := g
+		one.VersionID, one.VersionIDs = id, nil
+		one.CanRemove = g.CanRemove && i == len(g.VersionIDs)-1
+		res := s.importOne(ctx, one)
+		if res.Status != Imported {
+			return res
+		}
+		if i == 0 {
+			first = res
+			first.Paths = []string{res.Path}
+			continue
+		}
+		first.Paths = append(first.Paths, res.Path)
+		first.Replaced += res.Replaced
+		first.Inconclusive = first.Inconclusive || res.Inconclusive
+		first.CrossDevice = first.CrossDevice || res.CrossDevice
+	}
+	return first
+}
+
+func (s *Service) importOne(ctx context.Context, g Grab) Result {
 	unlock, _ := s.guard.lock(g.TitleID, forImport)
 	defer unlock()
 	defer s.snap.Hold()()
@@ -348,7 +382,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	case errors.Is(err, os.ErrNotExist):
 		// The job is gone. If an earlier run already recorded the file, only
 		// the rename may be left; otherwise the download folder is missing.
-		if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID); ferr == nil && ok {
+		if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID, g.VersionID); ferr == nil && ok {
 			return s.finish(g, f, partial, selection{}, primary, original)
 		}
 		return stalled("download folder not found")
@@ -360,7 +394,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 		g.Checking(max(len(src.videos), 1))
 	}
 	// An earlier run may have died after the row was written: finish it.
-	if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID); ferr != nil {
+	if f, ok, ferr := s.lib.FileOfGrab(ctx, g.ID, g.VersionID); ferr != nil {
 		return stalledBy(ferr)
 	} else if ok && (exists(partial) || exists(f.Path)) {
 		return s.finish(g, f, partial, src, primary, original)
