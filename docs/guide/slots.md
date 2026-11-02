@@ -51,7 +51,7 @@ If the Config File declares `slots`, every control here is read-only.
 - **Requests.** A Request that names no Slot, such as one from a Plex Watchlist or a signed-in Requester, gets every Slot that is on for new Titles, each with its default Profile. Existing Versions are never changed.
 - **Adoption.** Adoption reads a label only at its fixed place in the name, right after `<folder name> - `, and matches it to a Slot's label or one of its old labels. A file with no known label goes to the first Slot, in order, whose default Profile accepts the file's resolution, else to the first Slot. The review lists every guessed Slot.
 - **One Release for two Versions.** When automatic search picks the same Release for two Versions of a Title, Kestrel downloads it once and hardlinks it under each Slot's label, so it takes no extra space on one mount. Scoring and upgrades still run per Version, and an Upgrade replaces only that Version's file. Activity shows one row, naming every Slot it fills. A manual Grab from the search screen stays one Version at a time.
-- **Chips.** A Slot's chip shows its label in capitals when it is six letters or fewer, else its first three or more letters, lengthened until they differ. Standard, for example, now reads **STA**.
+- **Chips.** The labels Standard and 4K keep their chips, **STD** and **4K**. Any other label of four characters or fewer shows in full, in capitals, and a longer one is shortened to its first three or more letters, lengthened until they differ.
 
 ## Upgrading
 
@@ -61,5 +61,12 @@ Existing libraries keep what they had, and nothing on disk changes: no file is r
 - Defaults moved from Profiles to Slots. The `default_movies` and `default_series` fields of a Profile are read-only and derived from the Slots in the API, and are ignored in the Config File's `profiles` section. To change a default, change the Slot.
 - A Version can no longer share its Profile with another Version of the same Title. Adding a Version or switching a Profile that would clash answers `422 profile_taken`, and a bulk action skips the Title.
 - A new Slot reaches an old Title only if you ask for it when you add the Slot.
-- **API clients:** every Slot field changes from the enum `standard | 4k` to a string (the id). This is additive under [ADR 0009](../adr/0009-spec-first-openapi.md), but a generated client that matches the enum exhaustively needs regenerating. `GET /slots`, `POST /slots`, `PATCH /slots/{id}` and `DELETE /slots/{id}` are new. `Profile.slot` is deprecated, and `Request.slots` is optional.
+- **API clients:** four changes break the additive-only rule of [ADR 0009](../adr/0009-spec-first-openapi.md) on purpose, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo. Check your own scripts against them:
+  1. Every Slot field changes from the enum `standard | 4k` to a string (the id). The schema that was called `Slot` is now `SlotId`, and `Slot` names the Slot record, so a generated client needs regenerating.
+  2. A Profile's `slot` is optional and deprecated: it is the first Slot that names the Profile as a default, and missing for a Profile no Slot names.
+  3. `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`. Set the default with `PATCH /slots/{id}`.
+  4. The Config File's `profiles.<key>.default_movies` and `default_series` keys are ignored. Kestrel logs a warning at startup naming each Profile that still sets one; move the default into the `slots` section.
+
+  `GET /slots`, `POST /slots`, `PATCH /slots/{id}` and `DELETE /slots/{id}` are new, and `Request.slots` is optional.
+
 - **Silo plugin:** `standard_profile` and `4k_profile` still work. See [Silo requests](configuration.md#silo-requests-and-slots).
