@@ -7,7 +7,7 @@ import { useSearchNow } from '../api/grabs'
 import type { SearchStatus } from '../api/search'
 import { NowCard, NowEmpty, NowList, NowRow, NowSub } from '../layout/NowCard'
 import { SlotTag } from '../library/SlotChip'
-import { slotName } from '../library/slots'
+import { useSlotNames } from '../library/slots'
 import { TitlePoster } from '../poster'
 import { placePath, useOpenPlace } from '../place'
 import { useReport } from '../toasts'
@@ -119,7 +119,9 @@ function FinishedRow({ pass, onDismiss, nav, index }: { pass: LastPass; onDismis
 function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; now: number; nav: OverviewNav; index: number; onOpenTitle: (id: number) => void }) {
   const search = useSearchNow()
   const report = useReport()
-  const label = item.slot === 'standard' ? item.title : `${item.title} ${slotName(item.slot)}`
+  const slots = useSlotNames()
+  // The first Slot is the Library's main copy and goes unnamed; any other says which Version is searched.
+  const label = item.slot === slots.list[0]?.id || !slots.several ? item.title : `${item.title} ${slots.name(item.slot)}`
   return (
     <NowRow
       navIndex={index}

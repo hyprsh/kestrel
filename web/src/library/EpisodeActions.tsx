@@ -10,11 +10,10 @@ import { FloatingBar } from '../layout/FloatingBar'
 import { placePath, useOpenPlace } from '../place'
 import { useSelection, type Selection } from '../selection'
 import { useReport } from '../toasts'
-import type { SlotKey } from './bits'
 import { DeleteMenuItems, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } from './episodes'
 import { IconAction } from './IconAction'
-import { cellOf, slotName } from './slots'
+import { cellOf, useSlotNames, type SlotNames } from './slots'
 import { TickBox } from './TickBox'
 import { scopeCode } from './scopeCode'
 import type { ManualSearchTarget } from './TitleDetail'
@@ -49,11 +48,11 @@ export type EpisodeActions = {
 }
 
 /** The Series' Versions in the table's Slot order, each with its Profile's name. */
-export function versionsOf(title: TitleDetail, slots: readonly string[], profiles: readonly { key: string; name: string }[] | undefined): EpisodeVersion[] {
+export function versionsOf(title: TitleDetail, slots: readonly string[], profiles: readonly { key: string; name: string }[] | undefined, slotNames: SlotNames): EpisodeVersion[] {
   const names = new Map((profiles ?? []).map((p) => [p.key, p.name]))
   return slots.flatMap((slot) => {
     const v = title.versions.find((x) => x.slot === slot)
-    return v ? [{ id: v.id, slot: slot as SlotKey, profileName: names.get(v.profile) ?? v.profile }] : []
+    return v ? [{ id: v.id, slot, slotName: slotNames.name(slot), profileName: names.get(v.profile) ?? v.profile }] : []
   })
 }
 
@@ -69,7 +68,7 @@ export function useEpisodeSearch() {
         return wanted.length > 0 ? [{ v, scope: scope(wanted) }] : []
       })
     if (runs.length === 0) return
-    const where = runs.map((r) => slotName(r.v.slot)).join(' and ')
+    const where = runs.map((r) => r.v.slotName).join(' and ')
     void report(Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))), { started: `Search started for ${label} in ${where}`, failed: `Could not search ${label}` })
   }
 }
@@ -79,12 +78,13 @@ export function useEpisodeActions(title: TitleDetail, episodes: Episode[], shown
   const ids = useMemo(() => shown.map((e) => e.id), [shown])
   const selection = useSelection(ids)
   const profiles = useProfiles()
+  const slotNames = useSlotNames()
   const deletes = useEpisodeDeletes(episodes)
   const monitorEpisodes = useMonitorEpisodes(title.id)
   const patchSeason = usePatchSeason(title.id)
   const openPlace = useOpenPlace()
 
-  const versions = versionsOf(title, slots, profiles.data)
+  const versions = versionsOf(title, slots, profiles.data, slotNames)
   const searchEpisodes = useEpisodeSearch()
   const search: EpisodeActions['search'] = (eps, label, scope, only) => searchEpisodes(versions, eps, label, scope, only)
 
@@ -190,7 +190,7 @@ export function ManualButton({
       <Menu>
         {versions.map((v) => (
           <MenuItem key={v.slot} onSelect={() => onPick(v)}>
-            {slotName(v.slot)}
+            {v.slotName}
           </MenuItem>
         ))}
       </Menu>
@@ -242,7 +242,7 @@ export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions,
 function ManualItems({ versions, text = 'Manual Search', onPick }: { versions: EpisodeVersion[]; text?: string; onPick: (v: EpisodeVersion) => void }) {
   return versions.map((v) => (
     <MenuItem key={v.slot} prefix={<ListFilter aria-hidden className="size-4" />} onSelect={() => onPick(v)}>
-      {versions.length > 1 ? `${text} ${slotName(v.slot)}…` : `${text}…`}
+      {versions.length > 1 ? `${text} ${v.slotName}…` : `${text}…`}
     </MenuItem>
   ))
 }

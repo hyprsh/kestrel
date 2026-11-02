@@ -1,11 +1,6 @@
 import { Film, Tv } from 'lucide-react'
 import { cx } from '../ui'
 
-export type SlotKey = 'standard' | '4k'
-export const slotKeys: SlotKey[] = ['standard', '4k']
-/** Labels of the two seeded Slots; the API's Slot ids are strings now (ADR 0024), so any id may be looked up. */
-export const slotLabel: Record<string, string> = { standard: 'Standard', '4k': '4K' }
-
 /** The plain words for each Manual search column's two directions, as the Sort menu and Settings > Display name them. */
 export const manualSearchSortLabels: Record<'score' | 'release' | 'quality' | 'languages' | 'formats' | 'size' | 'age' | 'indexer', { asc: string; desc: string }> = {
   score: { asc: 'Worst first', desc: 'Best first' },

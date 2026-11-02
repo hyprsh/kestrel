@@ -9,17 +9,17 @@ import { ManualButton, RowButtons, wantedIn, type EpisodeActions } from './Episo
 import type { EpisodeHit } from './useEpisodeResults'
 import { episodeCode, seasonName, seasonStanding } from './episodes'
 import { toneText, type Tone } from './rowState'
-import { slotKeys, slotLabel } from './bits'
+import type { EpisodeVersion } from './episodes'
 
 type State = 'wanted' | 'downloading' | 'unreleased' | 'unmonitored' | 'filled'
 
 export const hitDomId = (h: EpisodeHit) => `hit-${h.key}`
 
 /** What the episode's state says, toned: Wanted (in which Slot, when only one is), downloading, or what it holds. */
-function episodeState(e: Episode, slots: readonly string[]): { text: string; tone: Tone; state: State } {
-  const states = slotKeys.filter((k) => slots.includes(k)).map((k) => ({ k, s: e.cells[k]?.state }))
+function episodeState(e: Episode, versions: readonly EpisodeVersion[]): { text: string; tone: Tone; state: State } {
+  const states = versions.map((v) => ({ name: v.slotName, s: e.cells[v.slot]?.state }))
   const some = (state: string) => states.filter((x) => x.s === state)
-  const which = (xs: typeof states) => (slots.length > 1 && xs.length < states.length ? ` in ${slotLabel[xs[0].k]}` : '')
+  const which = (xs: typeof states) => (versions.length > 1 && xs.length < states.length ? ` in ${xs[0].name}` : '')
   if (some('wanted').length > 0) return { text: `Wanted${which(some('wanted'))}`, tone: 'warning', state: 'wanted' }
   if (some('downloading').length > 0) return { text: `Downloading${which(some('downloading'))}`, tone: 'info', state: 'downloading' }
   if (some('unreleased').length > 0) return { text: 'Not out yet', tone: 'quiet', state: 'unreleased' }
@@ -54,7 +54,7 @@ export function EpisodeHitRows({ hits, current, actionsOf, onPick, phone }: Prop
     const code = h.episode ? episodeCode(h.episode) : null
     let line: { text: string; tone: Tone }
     if (h.episode) {
-      const state = episodeState(h.episode, slots)
+      const state = episodeState(h.episode, h.versions)
       line = { text: [h.episode.primary_name || h.episode.name || 'TBA', state.text].join(' · '), tone: state.tone }
     } else {
       const st = seasonStanding(h.episodes, slots)

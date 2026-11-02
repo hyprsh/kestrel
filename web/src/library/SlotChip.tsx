@@ -6,7 +6,7 @@
 import { Button, Popover } from '@hyprsh/design'
 import type { ReactElement } from 'react'
 import { StateDot, stateName, dotState } from '../ui/slotState'
-import { slotName, slotShort } from './slots'
+import { useSlotNames } from './slots'
 
 export { StateDot }
 
@@ -146,9 +146,11 @@ export const stateWord: Record<string, string> = { filled: 'Have', wanted: 'Want
 /**
  * One Slot's chip outside a list of them (a Grab, a Request, an entry of the Overview): the Slot's short label, `text` after it
  * ("40%"), and a dot in `state`. Its tooltip reads "Standard: Have". `longMissing` draws a Wanted Slot as Long Missing.
+ * A library with one Slot leaves the label out: the dot and `text` say it all.
  */
 export function SlotTag({ slot, state, longMissing = false, text, tip }: { slot: string; state: string | null; longMissing?: boolean; text?: string; tip?: string }) {
   const dot = dotState(state, longMissing)
-  const name = slotName(slot)
-  return <SlotChip chip={{ key: slot, short: slotShort(slot), state: dot, text, tip: tip ?? `${name}: ${dot ? stateName[dot] : 'no Version'}${text ? ` ${text}` : ''}` }} />
+  const names = useSlotNames()
+  const name = names.name(slot)
+  return <SlotChip chip={{ key: slot, short: names.several ? names.short(slot) : '', state: dot, text, tip: tip ?? `${name}: ${dot ? stateName[dot] : 'no Version'}${text ? ` ${text}` : ''}` }} />
 }

@@ -3,12 +3,12 @@ import { profileName, slotProfile } from './slotProfile'
 
 describe('slotProfile', () => {
   it('names the Slot and then the Profile', () => {
-    expect(slotProfile('standard', 'HD')).toBe('Standard · HD')
+    expect(slotProfile('Standard', 'HD')).toBe('Standard · HD')
   })
   it('leaves the Profile out when its name is the Slot label, ignoring case', () => {
-    expect(slotProfile('4k', '4K')).toBe('4K')
-    expect(slotProfile('4k', '4k')).toBe('4K')
-    expect(slotProfile('standard', '4K')).toBe('Standard · 4K')
+    expect(slotProfile('4K', '4K')).toBe('4K')
+    expect(slotProfile('4K', '4k')).toBe('4K')
+    expect(slotProfile('Standard', '4K')).toBe('Standard · 4K')
   })
 })
 

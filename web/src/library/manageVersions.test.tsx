@@ -6,6 +6,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { slotRecord } from '../test/slots'
 import { chooseTitleItem, openVersionMenu } from '../test/titleHeader'
 import { findToast } from '../test/toasts'
 
@@ -97,6 +98,9 @@ describe('manage Versions', () => {
     fakeLibrary([series])
     server.use(
       http.get('/profiles', ({ response }) => response(200).json({ items: fourK })),
+      http.get('/slots', ({ response }) =>
+        response(200).json({ items: [slotRecord('standard', 'Standard', 0), slotRecord('4k', '4K', 1, { default_movies: '4k-movies', default_series: '4k-series' })] }),
+      ),
       http.get('/titles/{id}', ({ response }) => response(200).json(detail(series, { kind: 'series', series_monitor: 'all' }))),
       http.get('/titles/{id}/episodes', ({ response }) => response(200).json({ items: [] })),
     )
@@ -105,6 +109,40 @@ describe('manage Versions', () => {
     await chooseTitleItem(await screen.findByRole('region', { name: 'Dark' }), 'Add Version…')
     await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Slot' }), '4k')
     expect(screen.getByRole('combobox', { name: 'Profile' })).toHaveValue('4k-series')
+  })
+
+  it('offers every enabled Profile for any Slot, the Slot default first', async () => {
+    fakeManage()
+    const pane = await openPane()
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    await chooseTitleItem(pane, 'Add Version…')
+    const dialog = await screen.findByRole('dialog', { name: 'Add Version' })
+    const names = within(within(dialog).getByRole('combobox', { name: 'Profile' }))
+      .getAllByRole('option')
+      .map((o) => o.textContent)
+    expect(names).toEqual(expect.arrayContaining(['HD', 'Any', '4K']))
+  })
+
+  it('shows a Profile another Version already uses as the Profile field error', async () => {
+    fakeManage()
+    server.use(
+      http.post('/titles/{id}/versions', ({ response }) =>
+        response(422).json({
+          type: 'about:blank',
+          title: 'validation',
+          status: 422,
+          detail: 'invalid',
+          code: 'validation',
+          errors: [{ field: 'profile', code: 'profile_taken', message: 'Another Version of the Title already uses that Profile' }],
+        } as never),
+      ),
+    )
+    const pane = await openPane()
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    await chooseTitleItem(pane, 'Add Version…')
+    const dialog = await screen.findByRole('dialog', { name: 'Add Version' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
+    expect(await within(dialog).findByText(/already uses that Profile/)).toBeInTheDocument()
   })
 
   it('switches a Version to another Profile of its Slot', async () => {

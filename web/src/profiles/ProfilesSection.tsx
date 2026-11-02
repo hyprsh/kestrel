@@ -5,7 +5,7 @@ import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
 import { plural } from '../format'
 import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
 import { SettingsBlock } from '../layout/SettingsPage'
-import { slotLabel } from '../library/bits'
+import { useSlotNames } from '../library/slots'
 import { SkeletonRows } from '../loading'
 import { useReport } from '../toasts'
 import { DefaultsPerSlot, declaredNote, declaresProfiles } from './Profiles'
@@ -28,6 +28,7 @@ function audioText(p: Profile) {
  */
 export function ProfilesSection() {
   const profiles = useProfiles()
+  const slots = useSlotNames()
   const details = useProfileDetails()
   const [open, setOpen] = useState<string | null>(null)
   const [defaults, setDefaults] = useState(false)
@@ -67,12 +68,11 @@ export function ProfilesSection() {
           </Button>
         }
       >
-        <span>
-          Standard <b>{defaultsText('standard')}</b>
-        </span>
-        <span>
-          4K <b>{defaultsText('4k')}</b>
-        </span>
+        {slots.list.map((s) => (
+          <span key={s.id}>
+            {s.label} <b>{defaultsText(s.id)}</b>
+          </span>
+        ))}
       </DefaultsLine>
       {defaults && (
         <SettingsBlock>
@@ -82,7 +82,7 @@ export function ProfilesSection() {
       {list.map((p) => {
         const d = detailOf(p.key)
         const scoring = mainScoring(d)
-        const place = (p.slot && slotLabel[p.slot]) || 'Any Slot' // a Profile has no Slot of its own now: #293 reworks this row
+        const place = (p.slot && slots.name(p.slot)) || 'Any Slot' // a Profile has no Slot of its own now: #292 reworks this row
         const uses = !p.enabled ? 'Off' : d && d.titles > 0 ? `${place} of ${plural(d.titles, 'Title')}` : `${place} · unused`
         const defaultFor = [p.default_movies ? 'Movies' : null, p.default_series ? 'Series' : null].filter(Boolean).join(' and ')
         const cutoff = scoring?.cutoff ?? null

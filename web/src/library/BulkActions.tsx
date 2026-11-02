@@ -5,7 +5,8 @@ import { useProfiles, type Profile, type TitleRow } from '../api/queries'
 import { plural } from '../format'
 import { Button, Menu, MenuDivider, MenuItem, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Select, Tooltip } from '@hyprsh/design'
 import { FloatingBar } from '../layout/FloatingBar'
-import { size, slotKeys, slotLabel, type SlotKey } from './bits'
+import { size } from './bits'
+import { slotDefault, useSlotNames } from './slots'
 import { useReport } from '../toasts'
 import { RemoveConfirm } from './ManageVersion'
 
@@ -23,6 +24,8 @@ function phrase(outcome: TitleBulkOutcome['outcome'], reason: TitleBulkReason | 
       return `${n} ${has(n)} no ${slot} Version`
     case 'slot_taken':
       return `${n} already ${has(n)} a ${slot} Version`
+    case 'profile_taken':
+      return `${n} already ${has(n)} a Version under that Profile`
     case 'nothing_wanted':
       return `${n} ${has(n)} nothing Wanted`
     case 'frozen':
@@ -70,6 +73,7 @@ export function BulkActions({
   compact?: boolean
 }) {
   const bulk = useBulkTitles()
+  const slots = useSlotNames()
   const profiles = (useProfiles().data ?? []).filter((p) => p.enabled)
   const report = useReport()
   const [form, setForm] = useState<Form | null>(null)
@@ -78,11 +82,11 @@ export function BulkActions({
   const onlySeries = rows.every((r) => r.kind === 'series')
 
   // The form closes on apply, and a Toast says what came of it: the dialog's result must outlive it.
-  const run = (label: string, body: TitlesBulk, slot: SlotKey | null = null) => {
+  const run = (label: string, body: TitlesBulk, slot: string | null = null) => {
     setForm(null)
     void report(bulk.mutateAsync(body), {
       ...(body.action === 'search' ? { started: (items: TitleBulkOutcome[]) => summaryText('Search started', items, null, 'for') } : {}),
-      done: (items) => summaryText(label, items, slot && slotLabel[slot]),
+      done: (items) => summaryText(label, items, slot && slots.name(slot)),
       warn: (items) => summarize(items, null).others.length > 0,
       failed: `${label} failed`,
     })
@@ -150,7 +154,12 @@ export function BulkActions({
         <SlotForm
           label="Add Version"
           profiles={profiles}
-          initial={(slot) => profiles.find((p) => p.slot === slot && (onlySeries ? p.default_series : p.default_movies))?.key}
+          initial={(slot) =>
+            slotDefault(
+              slots.list.find((r) => r.id === slot),
+              onlySeries ? 'series' : 'movie',
+            )
+          }
           busy={busy}
           onCancel={close}
           onApply={(slot, profile) => run('Add Version', { action: 'add_version', slot, profile, title_ids: ids }, slot)}
@@ -203,12 +212,22 @@ function MonitorForm({ busy, onApply, onCancel }: { busy: boolean; onApply: (mod
   )
 }
 
-function SlotSelect({ slot, onChange }: { slot: SlotKey; onChange: (slot: SlotKey) => void }) {
+/** The Slot to act on: the first Slot until another is picked. */
+function useSlotChoice() {
+  const slots = useSlotNames()
+  const [picked, setPicked] = useState<string | null>(null)
+  return { slot: picked ?? slots.list[0]?.id ?? '', setSlot: setPicked }
+}
+
+/** The pick of a Slot; a library with one Slot has none to pick. */
+function SlotSelect({ slot, onChange }: { slot: string; onChange: (slot: string) => void }) {
+  const slots = useSlotNames()
+  if (!slots.several) return null
   return (
-    <Select size="small" label="Slot" value={slot} onChange={(e) => onChange(e.target.value as SlotKey)}>
-      {slotKeys.map((k) => (
-        <option key={k} value={k}>
-          {slotLabel[k]}
+    <Select size="small" label="Slot" value={slot} onChange={(e) => onChange(e.target.value)}>
+      {slots.list.map((r) => (
+        <option key={r.id} value={r.id}>
+          {r.label}
         </option>
       ))}
     </Select>
@@ -226,14 +245,14 @@ function SlotForm({
 }: {
   label: string
   profiles: Profile[]
-  initial?: (slot: SlotKey) => string | undefined
+  initial?: (slot: string) => string | undefined
   busy: boolean
-  onApply: (slot: SlotKey, profile: string) => void
+  onApply: (slot: string, profile: string) => void
   onCancel: () => void
 }) {
-  const [slot, setSlot] = useState<SlotKey>('standard')
-  const [picked, setPicked] = useState<Partial<Record<SlotKey, string>>>({})
-  const options = profiles.filter((p) => p.slot === slot)
+  const { slot, setSlot } = useSlotChoice()
+  const [picked, setPicked] = useState<Partial<Record<string, string>>>({})
+  const options = profiles // any Profile can fill any Slot
   const want = picked[slot] ?? initial?.(slot)
   const profile = options.find((p) => p.key === want)?.key ?? options[0]?.key ?? ''
   return (
@@ -250,8 +269,8 @@ function SlotForm({
   )
 }
 
-function RemoveVersionForm({ onApply, onCancel }: { onApply: (slot: SlotKey, deleteFiles: boolean) => void; onCancel: () => void }) {
-  const [slot, setSlot] = useState<SlotKey>('standard')
+function RemoveVersionForm({ onApply, onCancel }: { onApply: (slot: string, deleteFiles: boolean) => void; onCancel: () => void }) {
+  const { slot, setSlot } = useSlotChoice()
   return (
     <RemoveConfirm what="Version" onCancel={onCancel} onConfirm={(d) => onApply(slot, d)}>
       <SlotSelect slot={slot} onChange={setSlot} />

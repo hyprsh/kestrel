@@ -14,7 +14,7 @@ import { externalIdItems } from './ExternalIds'
 import { AddVersion, RemoveTitle } from './ManageVersion'
 import { MonitorButton, isMonitored } from './MonitorButton'
 import { MoveTitle } from './MoveTitle'
-import { slotName } from './slots'
+import { useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useSearchWanted } from './VersionSearch'
 
@@ -40,18 +40,19 @@ export function TitleActions({
   const openCleanup = useOpenCleanup()
   const openPlace = useOpenPlace()
   const report = useReport()
+  const slots = useSlotNames()
   const search = useSearchWanted(title)
   const refresh = useRefreshTitle(title.id)
   const freeze = useSetFrozen(title.id)
   const frozen = title.metadata_frozen
   const unmonitored = !isMonitored(title)
   const wanted = title.versions.filter((v) => v.state === 'wanted')
-  const label = title.kind === 'movie' && wanted.length === 1 ? `Search ${slotName(wanted[0].slot)}` : 'Search Wanted'
+  const label = title.kind === 'movie' && wanted.length === 1 ? `Search ${slots.name(wanted[0].slot)}` : 'Search Wanted'
   const why = unmonitored ? NOT_MONITORED_SEARCH : wanted.length === 0 ? 'Nothing in this Title is Wanted' : undefined
   const manual = (v: TitleDetail['versions'][number]) => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   const searchItems = [
     ...title.versions.map((v) => ({
-      title: title.versions.length === 1 ? 'Manual search…' : `Manual search: ${slotName(v.slot)}…`,
+      title: title.versions.length === 1 ? 'Manual search…' : `Manual search: ${slots.name(v.slot)}…`,
       description: 'Pick a Release yourself',
       menuItemProps: { onClick: () => manual(v) },
     })),
@@ -62,7 +63,7 @@ export function TitleActions({
       menuItemProps: { onClick: () => search.run(title.versions.map((v) => v.id)) },
     },
   ]
-  const free = title.versions.length < 2
+  const free = title.versions.length < slots.list.length
   const size = phone ? 'large' : 'medium'
   return (
     <>

@@ -6,7 +6,7 @@ import { AccordionList, AccordionRow, Chevron } from './accordion'
 import { MonitorToggle } from './MonitorToggle'
 import { SlotChips, type ChipData } from './SlotChip'
 import { seasonName, slotTally, tallyCount, type SlotTally } from './episodes'
-import { combinedState, slotName, slotShort, type Combined, type SlotInfo } from './slots'
+import { combinedState, type Combined, type SlotInfo } from './slots'
 import { usePhone } from '../responsive'
 import { plural } from '../format'
 
@@ -21,9 +21,9 @@ const barColor: Record<Combined, string> = {
 }
 
 /** A Slot's row of a season in words, for the row's name and the chip's tooltip: "Standard 8 of 10, 2 downloading, 6 not aired". */
-function say(t: SlotTally): string {
-  if (t.counted === 0 && t.filled === 0) return `${slotName(t.slot)} ${tallyCount(t)}`
-  const parts = [`${slotName(t.slot)} ${t.filled} of ${t.counted}`]
+function say(t: SlotTally, name: string): string {
+  if (t.counted === 0 && t.filled === 0) return `${name} ${tallyCount(t)}`
+  const parts = [`${name} ${t.filled} of ${t.counted}`]
   if (t.wanted > 0) parts.push(`${t.wanted} Wanted`)
   if (t.downloading > 0) parts.push(`${t.downloading} downloading`)
   if (t.unaired > 0) parts.push(`${t.unaired} not aired`)
@@ -31,10 +31,10 @@ function say(t: SlotTally): string {
 }
 
 /** The chip of one Slot in one season: "STD 8/10" with the dot of the worst state in it. */
-function tallyChip(t: SlotTally, monitored: boolean): ChipData {
+function tallyChip(t: SlotTally, monitored: boolean, slot: SlotInfo, several: boolean): ChipData {
   const empty = t.counted === 0 && t.filled === 0
   const state = !monitored ? 'unmonitored' : t.wanted > 0 ? 'wanted' : t.downloading > 0 ? 'downloading' : empty ? (t.unaired > 0 && t.unmonitored === 0 ? 'unreleased' : 'unmonitored') : 'filled'
-  return { key: t.slot, short: slotShort(t.slot), state, text: empty ? undefined : `${t.filled}/${t.counted}`, tip: say(t) }
+  return { key: t.slot, short: several ? slot.short : '', state, text: empty ? undefined : `${t.filled}/${t.counted}`, tip: say(t, slot.name) }
 }
 
 /**
@@ -96,7 +96,7 @@ export function SeasonAccordion({
         return (
           <div key={n} data-monitored={monitored ? 'on' : 'off'} data-season={n}>
             <AccordionRow
-              label={`${name}: ${line.text}${monitored ? `, ${tallies.map(say).join('; ')}` : ''}`}
+              label={`${name}: ${line.text}${monitored ? `, ${tallies.map((t, i) => say(t, slots[i].name)).join('; ')}` : ''}`}
               open={isOpen}
               onToggle={() => onToggle(n)}
               gridClass={phone ? 'grid-cols-[16px_minmax(0,1fr)_auto] min-h-14 py-2.5' : 'grid-cols-[16px_28px_88px_minmax(0,1fr)_auto_64px] h-[52px]'}
@@ -121,7 +121,7 @@ export function SeasonAccordion({
                       <Bar bar={bar} total={eps.length} />
                       <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
                     </span>
-                    <span className="relative flex gap-1.5">{monitored && <SlotChips chips={tallies.map((t) => tallyChip(t, monitored))} max={4} />}</span>
+                    <span className="relative flex gap-1.5">{monitored && <SlotChips chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i], slots.length > 1))} max={4} />}</span>
                     <span className="label-12 pointer-events-none text-right text-gray-900">{plural(eps.length, 'ep')}</span>
                   </>
                 )

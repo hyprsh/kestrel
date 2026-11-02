@@ -21,7 +21,8 @@ import { EpisodeViewContext } from './episodeView'
 import { episodeCode, seasonName } from './episodes'
 import { useEpisodeSearch, type EpisodeActions } from './EpisodeActions'
 import { EpisodeHitRows, hitDomId } from './EpisodeHitRows'
-import { filterLibrary, libraryQualifiers, slotsPresent, tabCounts, tabOf, withTab } from './filter'
+import { useSlotNames } from './slots'
+import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
 import { singleSlot } from './rowChips'
 import { AddTitle, LibraryMenu, StatusSection } from './LibraryBar'
 import { scopeCode } from './scopeCode'
@@ -88,12 +89,12 @@ export function Library({
   const paneRef = useRef<HTMLElement>(null)
 
   const all = useMemo(() => titles.data ?? [], [titles.data])
-  const slots = useMemo(() => slotsPresent(all), [all])
+  const slots = useSlotNames()
   const qualifiers = useMemo(
     () =>
       libraryQualifiers(
         (profiles ?? []).map((p) => ({ name: p.name, description: `${p.min_height}–${p.max_height}p` })),
-        slots.length > 0 ? slots : undefined,
+        slots,
       ),
     [profiles, slots],
   )
@@ -275,7 +276,7 @@ export function Library({
       navOffset={hits.length}
       activeId={hit ? hitDomId(hit) : undefined}
       onOpenSlot={openSlot}
-      single={singleSlot(all)}
+      single={singleSlot(all, slots)}
       profileName={(key) => profiles?.find((p) => p.key === key)?.name ?? key}
     />
   )

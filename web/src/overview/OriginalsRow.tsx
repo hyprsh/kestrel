@@ -6,14 +6,16 @@ import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type O
 import { TitlePoster } from '../poster'
 import { useReport } from '../toasts'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
+import { useSlotNames } from '../library/slots'
 
 /** One row per Version whose Profile offers the Original Language, for the card that holds them. */
 export function Offers({ group, onOpenTitle }: { group: OriginalsAvailable; onOpenTitle: (id: number) => void }) {
   const names = useProfileNames()
+  const slots = useSlotNames()
   return (
     <>
       {group.items.map((o) => (
-        <Offer key={o.version_id} offer={o} slotProfile={slotProfile(o.slot, profileName(names, o.profile))} onOpenTitle={onOpenTitle} />
+        <Offer key={o.version_id} offer={o} slotProfile={slotProfile(slots.name(o.slot), profileName(names, o.profile))} onOpenTitle={onOpenTitle} />
       ))}
     </>
   )

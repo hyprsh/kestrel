@@ -256,3 +256,15 @@ func TestARequesterSearchesAndSeesPostersButNotTheLibrary(t *testing.T) {
 		t.Errorf("title detail = %d, want 403", r.Status)
 	}
 }
+
+func TestARequesterReadsTheSlotsToNameTheirRequestsButCannotChangeThem(t *testing.T) {
+	t.Parallel()
+	h, _ := requesterLibrary(t)
+	b := h.requester("anna-token")
+	if r := b.get("/slots"); r.Status != 200 || !strings.Contains(r.Body, `"label":"Standard"`) {
+		t.Errorf("GET /slots = %d %s, want the Slots", r.Status, r.Body)
+	}
+	if r := b.valid("POST", "/slots", `{"label":"Archive"}`); r.Status != 403 {
+		t.Errorf("POST /slots = %d, want 403", r.Status)
+	}
+}
