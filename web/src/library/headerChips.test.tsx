@@ -20,4 +20,13 @@ describe('the Kestrel chips of a Title header', () => {
     expect(monitoringChip(movie(true), row(false))).toBe('At Cutoff')
     expect(monitoringChip({ kind: 'movie', monitored: true, versions: [{ file: null }] } as unknown as TitleDetail, undefined)).toBe('Monitored')
   })
+
+  it('says At Cutoff only when every Slot is filled, not while something is still Wanted or downloading', () => {
+    const series = { kind: 'series', monitored: true, series_monitor: 'all', versions: [{ state: 'wanted', coverage: { filled: 50 } }] } as unknown as TitleDetail
+    const row = (...states: string[]) => ({ slot_states: states.map((state) => ({ state, upgrade_wanted: false })) }) as unknown as TitleRow
+    expect(monitoringChip(series, row('downloading', 'wanted'))).toBe('Monitored')
+    expect(monitoringChip(series, row('filled', 'wanted'))).toBe('Monitored')
+    expect(monitoringChip(series, row('filled', 'filled'))).toBe('At Cutoff')
+    expect(monitoringChip(series, undefined)).toBe('Monitored')
+  })
 })
