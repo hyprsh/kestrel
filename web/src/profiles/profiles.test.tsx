@@ -9,7 +9,7 @@ import { http } from '../test/handlers'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
 import { fakeSetup } from '../test/fakeSetup'
-import { seededSlots, type Slot } from '../test/slots'
+import { seededSlots } from '../test/slots'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -20,6 +20,7 @@ type Profile = components['schemas']['Profile']
 type Settings = components['schemas']['Settings']
 type Sent = { path: string; body: unknown }
 type Details = components['schemas']['ProfileDetail']
+type Slot = components['schemas']['Slot']
 
 const profile = (key: string, name: string, rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
   key,
