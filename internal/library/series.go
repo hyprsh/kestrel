@@ -86,8 +86,8 @@ type Episode struct {
 	// Placeholder is set for a Placeholder Episode: one Kestrel added because a
 	// Release named it before TheTVDB listed it.
 	Placeholder bool
-	// Cells is indexed by slot.Slot; nil where the Title has no Version.
-	Cells [slot.Count]*EpisodeCell
+	// Cells is keyed by slot.Slot and holds a cell only where the Title has a Version; reads of the others give nil.
+	Cells map[slot.Slot]*EpisodeCell
 }
 
 func parseDate(s sql.NullString) *time.Time {
@@ -402,6 +402,9 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 				st = Downloading // a Grab in flight is filling it
 			}
 			f := fileOf[[2]int64{v.ID, e.ID}]
+			if ep.Cells == nil {
+				ep.Cells = map[slot.Slot]*EpisodeCell{}
+			}
 			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: f != nil, File: f}
 		}
 		out = append(out, ep)

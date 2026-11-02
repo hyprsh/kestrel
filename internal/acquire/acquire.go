@@ -633,7 +633,7 @@ func slotOf(d library.Detail, versionID int64) (Slot, bool) {
 			return v.Slot, true
 		}
 	}
-	return 0, false
+	return "", false
 }
 
 // Grab is a Release sent to the download client.

@@ -98,14 +98,14 @@ func (s *Service) checkScope(ctx context.Context, versionID int64, scope library
 func (s *Service) slotOf(ctx context.Context, titleID, versionID int64) (Slot, error) {
 	d, err := s.lib.Get(ctx, titleID, library.View{Now: s.clock()})
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	for _, v := range d.Versions {
 		if v.ID == versionID {
 			return v.Slot, nil
 		}
 	}
-	return 0, library.ErrNotFound
+	return "", library.ErrNotFound
 }
 
 // searchedEvent is the routine Searched event of one Version's search: by says who searched ("Searched by hand",

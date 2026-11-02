@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -129,8 +130,8 @@ type Row struct {
 	Year         int // 0 when unknown
 	// HasPoster is whether TMDB gave the Title a poster, so its poster can be served.
 	HasPoster bool
-	// Slots is indexed by slot.Slot; nil where the Title has no Version.
-	Slots [slot.Count]*SlotState
+	// Slots is keyed by slot.Slot and holds a Slot only where the Title has a Version; reads of the others give nil.
+	Slots map[slot.Slot]*SlotState
 	// WantedSince is the earliest Wanted-since of its Wanted Versions.
 	WantedSince *time.Time
 	AddedAt     time.Time
@@ -343,7 +344,7 @@ func parseTime(s string) time.Time {
 	return t
 }
 
-// slotOf reads a stored Slot; the table's CHECK keeps the value valid.
+// slotOf reads a stored Slot; the table's foreign key keeps the value one of the Slots.
 func slotOf(name string) slot.Slot {
 	s, _ := slot.Parse(name)
 	return s
@@ -518,10 +519,10 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 			!strings.Contains(strings.ToLower(row.originalTitle), text) {
 			continue
 		}
-		if f.Wanted && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.State == Wanted }) {
+		if f.Wanted && !slices.ContainsFunc(slices.Collect(maps.Values(row.Slots)), func(sl *SlotState) bool { return sl != nil && sl.State == Wanted }) {
 			continue
 		}
-		if f.LongMissing && !slices.ContainsFunc(row.Slots[:], func(sl *SlotState) bool { return sl != nil && sl.LongMissing }) {
+		if f.LongMissing && !slices.ContainsFunc(slices.Collect(maps.Values(row.Slots)), func(sl *SlotState) bool { return sl != nil && sl.LongMissing }) {
 			continue
 		}
 		out = append(out, row)
@@ -664,6 +665,9 @@ func (s *Service) buildList(ctx context.Context, view View) ([]Row, error) {
 				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
 			state := &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since, EpisodesHave: have, EpisodesAired: aired}
+			if row.Slots == nil {
+				row.Slots = map[slot.Slot]*SlotState{}
+			}
 			row.Slots[slotOf(v.Slot)] = state
 			if since != nil && (row.WantedSince == nil || since.Before(*row.WantedSince)) {
 				row.WantedSince = since
@@ -838,7 +842,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt), Coverage: cov,
 		})
 	}
-	sort.SliceStable(d.Versions, func(i, j int) bool { return d.Versions[i].Slot < d.Versions[j].Slot })
+	sort.SliceStable(d.Versions, func(i, j int) bool { return slot.Compare(d.Versions[i].Slot, d.Versions[j].Slot) < 0 })
 	return d, nil
 }
 

@@ -41,7 +41,7 @@ type epInfo struct {
 	air            string // yyyy-mm-dd, "" when TheTVDB has none
 	name           string
 	// cells are the Series' Versions' cells of a tracked Series; nil elsewhere.
-	cells [slot.Count]*library.EpisodeCell
+	cells map[slot.Slot]*library.EpisodeCell
 }
 
 // seriesFacts is what planning needs to know of a Series, from the Library

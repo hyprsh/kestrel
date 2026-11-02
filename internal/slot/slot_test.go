@@ -1,6 +1,7 @@
 package slot_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/resolution"
@@ -30,8 +31,13 @@ func TestSlotNames(t *testing.T) {
 	}
 }
 
-func TestParseRejectsTheOldSlots(t *testing.T) {
-	for _, k := range []string{"sd", "hd", "uhd", "", "Standard", "4K"} {
+func TestParseChecksTheShapeOfAnId(t *testing.T) {
+	for _, k := range []string{"remux", "german-dub", "kidsplus", "über", "4k"} {
+		if got, ok := slot.Parse(k); !ok || got != slot.Slot(k) {
+			t.Errorf("Parse(%q) = %q, %v", k, got, ok)
+		}
+	}
+	for _, k := range []string{"", "Standard", "4K", "a b", "-a", "a-", "a--b", "a[b"} {
 		if _, ok := slot.Parse(k); ok {
 			t.Errorf("Parse(%q) accepted", k)
 		}
@@ -53,8 +59,17 @@ func TestOfClass(t *testing.T) {
 	}
 }
 
+func TestCompareKeepsTheSeededSlotsFirst(t *testing.T) {
+	got := []slot.Slot{"remux", slot.FourK, "dub", slot.Standard}
+	slices.SortFunc(got, slot.Compare)
+	want := []slot.Slot{slot.Standard, slot.FourK, "dub", "remux"}
+	if !slices.Equal(got, want) {
+		t.Errorf("order = %v, want %v", got, want)
+	}
+}
+
 func TestOrder(t *testing.T) {
-	if len(slot.All) != slot.Count || slot.All[0] != slot.Standard || slot.All[1] != slot.FourK {
+	if len(slot.All) != 2 || slot.All[0] != slot.Standard || slot.All[1] != slot.FourK {
 		t.Error("order")
 	}
 }

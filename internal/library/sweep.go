@@ -499,10 +499,10 @@ func (s *Service) LongMissing(ctx context.Context, view View) ([]LongMissingItem
 	}
 	var out []LongMissingItem
 	for _, r := range rows {
-		for class, sl := range r.Slots {
+		for id, sl := range r.Slots {
 			if sl != nil && sl.LongMissing && sl.WantedSince != nil {
 				out = append(out, LongMissingItem{
-					TitleID: r.ID, VersionID: sl.VersionID, Title: r.Title, Slot: slot.Slot(class), Profile: sl.Profile, WantedSince: *sl.WantedSince,
+					TitleID: r.ID, VersionID: sl.VersionID, Title: r.Title, Slot: id, Profile: sl.Profile, WantedSince: *sl.WantedSince,
 				})
 			}
 		}
