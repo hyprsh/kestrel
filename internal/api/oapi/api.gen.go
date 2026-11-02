@@ -1036,6 +1036,27 @@ func (e ProfileReleaseFamily) Valid() bool {
 	}
 }
 
+// Defines values for ProfileResolution.
+const (
+	Any ProfileResolution = "any"
+	Hd  ProfileResolution = "hd"
+	Uhd ProfileResolution = "uhd"
+)
+
+// Valid indicates whether the value is a known member of the ProfileResolution enum.
+func (e ProfileResolution) Valid() bool {
+	switch e {
+	case Any:
+		return true
+	case Hd:
+		return true
+	case Uhd:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for QueueItemPhase.
 const (
 	QueueItemPhaseDownloading    QueueItemPhase = "downloading"
@@ -1380,12 +1401,15 @@ func (e ServiceStatusState) Valid() bool {
 
 // Defines values for SettingsWarningCode.
 const (
+	DuplicateProfile  SettingsWarningCode = "duplicate_profile"
 	SharedSlotDefault SettingsWarningCode = "shared_slot_default"
 )
 
 // Valid indicates whether the value is a known member of the SettingsWarningCode enum.
 func (e SettingsWarningCode) Valid() bool {
 	switch e {
+	case DuplicateProfile:
+		return true
 	case SharedSlotDefault:
 		return true
 	default:
@@ -3860,8 +3884,7 @@ type Profile struct {
 	// Original-Language Profiles.
 	OriginalLanguage OriginalLanguageChoice `json:"original_language"`
 
-	// ReleaseFamily Which kind of Releases the Profile goes after, as TRaSH groups them: `bluray-web` (Bluray + WEB),
-	// `remux-web` (Remux + WEB), `web` or `sqp`. Any is always `bluray-web`.
+	// ReleaseFamily Which kind of Releases the Profile goes after, as TRaSH groups them. Any is always `bluray-web`.
 	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
 
 	// Slot Deprecated: a Profile belongs to no Slot (any Profile can fill any Slot). For v1 clients this is derived
@@ -3877,20 +3900,23 @@ type Profile struct {
 	TrashProfileSeries string `json:"trash_profile_series"`
 }
 
-// ProfileLanguageRule Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
-// Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
-// `original_language` choice as a `primary` one, judged against its own language.
-type ProfileLanguageRule string
-
-// ProfileReleaseFamily Which kind of Releases the Profile goes after, as TRaSH groups them: `bluray-web` (Bluray + WEB),
-// `remux-web` (Remux + WEB), `web` or `sqp`. Any is always `bluray-web`.
-type ProfileReleaseFamily string
-
-// ProfileCreate defines model for ProfileCreate.
+// ProfileCreate A copy (`name` and `copy_from`) or an import (`release_family`, `resolution` and `language_rule`, with an
+// optional `name`).
 type ProfileCreate struct {
 	// CopyFrom The `key` of the Profile to copy.
-	CopyFrom string `json:"copy_from"`
-	Name     string `json:"name"`
+	CopyFrom *string `json:"copy_from,omitempty"`
+
+	// LanguageRule The audio the Profile requires; see `Profile.language_rule`.
+	LanguageRule *ProfileLanguageRule `json:"language_rule,omitempty"`
+
+	// Name Required for a copy. For an import it replaces the generated name.
+	Name *string `json:"name,omitempty"`
+
+	// ReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+	ReleaseFamily *ProfileReleaseFamily `json:"release_family,omitempty"`
+
+	// Resolution `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+	Resolution *ProfileResolution `json:"resolution,omitempty"`
 }
 
 // ProfileCustomFormat defines model for ProfileCustomFormat.
@@ -3943,6 +3969,9 @@ type ProfileKindOverlay struct {
 	// Qualities the list leaves out follow at the end as TRaSH has them. `null` (or TRaSH's own list) is as TRaSH has it.
 	Qualities *[]ProfileQuality `json:"qualities"`
 }
+
+// ProfileLanguageRule The audio the Profile requires; see `Profile.language_rule`.
+type ProfileLanguageRule string
 
 // ProfileList defines model for ProfileList.
 type ProfileList struct {
@@ -4008,6 +4037,12 @@ type ProfileQuality struct {
 	Name string `json:"name"`
 }
 
+// ProfileReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+type ProfileReleaseFamily string
+
+// ProfileResolution `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+type ProfileResolution string
+
 // ProfileScoring What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
 type ProfileScoring struct {
 	// CustomFormats The Custom Formats it scores, highest Score first, then by name.
@@ -4036,6 +4071,42 @@ type ProfileScoring struct {
 type ProfileSize struct {
 	Max *int64 `json:"max"`
 	Min *int64 `json:"min"`
+}
+
+// ProfileSuggestion defines model for ProfileSuggestion.
+type ProfileSuggestion struct {
+	// Kinds The kinds the recipe applies to under the current Primary Language, which are those with a TRaSH profile to back it. SQP is Movies only.
+	Kinds []TitleKind `json:"kinds"`
+
+	// LanguageRule The audio the Profile requires; see `Profile.language_rule`.
+	LanguageRule ProfileLanguageRule `json:"language_rule"`
+
+	// Name The generated name, such as "4K Remux", "HD Original" or "HD French".
+	//
+	// Example: 4K Remux
+	Name string `json:"name"`
+
+	// ReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
+
+	// Resolution `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+	Resolution ProfileResolution `json:"resolution"`
+}
+
+// ProfileSuggestionGroup defines model for ProfileSuggestionGroup.
+type ProfileSuggestionGroup struct {
+	Items []ProfileSuggestion `json:"items"`
+
+	// Name Example: Remux + WEB
+	Name string `json:"name"`
+
+	// ReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
+	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
+}
+
+// ProfileSuggestionList defines model for ProfileSuggestionList.
+type ProfileSuggestionList struct {
+	Groups []ProfileSuggestionGroup `json:"groups"`
 }
 
 // QueueItem defines model for QueueItem.
@@ -4839,6 +4910,7 @@ type SettingsPatch struct {
 // SettingsWarning defines model for SettingsWarning.
 type SettingsWarning struct {
 	// Code `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+	// `duplicate_profile`: a Profile with a named language and a Primary-Language Profile are the same recipe now that the Primary Language is that language (ADR 0026). Both stay; nothing is merged.
 	Code SettingsWarningCode `json:"code"`
 
 	// Kind `movies` or `series`: the kind whose default is shared.
@@ -4848,11 +4920,15 @@ type SettingsWarning struct {
 	// Profile The Profile key the Slots share.
 	Profile *string `json:"profile,omitempty"`
 
+	// Profiles `duplicate_profile`: the keys of the two Profiles that are the same recipe.
+	Profiles *[]string `json:"profiles,omitempty"`
+
 	// Slots The ids of the Slots that share it, in order.
 	Slots *[]SlotId `json:"slots,omitempty"`
 }
 
 // SettingsWarningCode `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+// `duplicate_profile`: a Profile with a named language and a Primary-Language Profile are the same recipe now that the Primary Language is that language (ADR 0026). Both stay; nothing is merged.
 type SettingsWarningCode string
 
 // Setup defines model for Setup.
@@ -6772,6 +6848,9 @@ type ServerInterface interface {
 	// ListProfileDetails What each Profile accepts and what uses it
 	// (GET /profiles/details)
 	ListProfileDetails(w http.ResponseWriter, r *http.Request)
+	// ListProfileSuggestions The Profile recipes the household can import
+	// (GET /profiles/suggestions)
+	ListProfileSuggestions(w http.ResponseWriter, r *http.Request)
 	// DeleteProfile Delete a custom Profile
 	// (DELETE /profiles/{key})
 	DeleteProfile(w http.ResponseWriter, r *http.Request, key ProfileKey)
@@ -8515,6 +8594,20 @@ func (siw *ServerInterfaceWrapper) ListProfileDetails(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ListProfileSuggestions operation middleware
+func (siw *ServerInterfaceWrapper) ListProfileSuggestions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProfileSuggestions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteProfile operation middleware
 func (siw *ServerInterfaceWrapper) DeleteProfile(w http.ResponseWriter, r *http.Request) {
 
@@ -10039,6 +10132,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/slots/{id}", wrapper.PatchSlot)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/profiles", wrapper.CreateProfile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles/suggestions", wrapper.ListProfileSuggestions)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/profiles/{key}", wrapper.DeleteProfile)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/profiles/{key}", wrapper.PatchProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles/details", wrapper.ListProfileDetails)
@@ -13636,6 +13730,44 @@ func (response ListProfileDetailsdefaultApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type ListProfileSuggestionsRequestObject struct {
+}
+
+type ListProfileSuggestionsResponseObject interface {
+	VisitListProfileSuggestionsResponse(w http.ResponseWriter) error
+}
+
+type ListProfileSuggestions200JSONResponse ProfileSuggestionList
+
+func (response ListProfileSuggestions200JSONResponse) VisitListProfileSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListProfileSuggestionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListProfileSuggestionsdefaultApplicationProblemPlusJSONResponse) VisitListProfileSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteProfileRequestObject struct {
 	Key ProfileKey `json:"key"`
 }
@@ -16906,6 +17038,9 @@ type StrictServerInterface interface {
 	// ListProfileDetails What each Profile accepts and what uses it
 	// (GET /profiles/details)
 	ListProfileDetails(ctx context.Context, request ListProfileDetailsRequestObject) (ListProfileDetailsResponseObject, error)
+	// ListProfileSuggestions The Profile recipes the household can import
+	// (GET /profiles/suggestions)
+	ListProfileSuggestions(ctx context.Context, request ListProfileSuggestionsRequestObject) (ListProfileSuggestionsResponseObject, error)
 	// DeleteProfile Delete a custom Profile
 	// (DELETE /profiles/{key})
 	DeleteProfile(ctx context.Context, request DeleteProfileRequestObject) (DeleteProfileResponseObject, error)
@@ -18760,6 +18895,30 @@ func (sh *strictHandler) ListProfileDetails(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListProfileDetailsResponseObject); ok {
 		if err := validResponse.VisitListProfileDetailsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListProfileSuggestions operation middleware
+func (sh *strictHandler) ListProfileSuggestions(w http.ResponseWriter, r *http.Request) {
+	var request ListProfileSuggestionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListProfileSuggestions(ctx, request.(ListProfileSuggestionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListProfileSuggestions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListProfileSuggestionsResponseObject); ok {
+		if err := validResponse.VisitListProfileSuggestionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

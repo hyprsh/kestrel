@@ -22,6 +22,8 @@ func profilesProblem(err error) error {
 	switch {
 	case errors.Is(err, profiles.ErrNotFound):
 		return problem(http.StatusNotFound, "not_found", "no such Profile")
+	case errors.Is(err, profiles.ErrRecipeExists):
+		return problem(http.StatusConflict, "conflict", "The household already has a Profile for that recipe")
 	case errors.Is(err, profiles.ErrInUse):
 		return problem(http.StatusConflict, "conflict", "A Version still uses that Profile: switch it to another Profile first")
 	case errors.As(err, &de):
@@ -146,7 +148,28 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 	if err := s.refuseDeclared(configfile.SectionProfiles); err != nil {
 		return nil, err
 	}
-	p, err := s.profiles.Create(ctx, r.Body.Name, r.Body.CopyFrom)
+	b := r.Body
+	var p profiles.Profile
+	var err error
+	switch recipe := b.ReleaseFamily != nil || b.Resolution != nil || b.LanguageRule != nil; {
+	case recipe && b.CopyFrom != nil:
+		return nil, invalid("copy_from", "invalid", "Send copy_from to copy a Profile, or a recipe to import one, not both")
+	case recipe:
+		if b.ReleaseFamily == nil || b.Resolution == nil || b.LanguageRule == nil {
+			return nil, invalid("release_family", "required", "A recipe needs release_family, resolution and language_rule")
+		}
+		name := ""
+		if b.Name != nil {
+			name = *b.Name
+		}
+		p, err = s.profiles.Import(ctx, profiles.Recipe{
+			Family: scoring.ReleaseFamily(*b.ReleaseFamily), Resolution: profiles.Resolution(*b.Resolution), Rule: string(*b.LanguageRule),
+		}, name)
+	case b.CopyFrom != nil && b.Name != nil:
+		p, err = s.profiles.Create(ctx, *b.Name, *b.CopyFrom)
+	default:
+		return nil, invalid("copy_from", "required", "Send name and copy_from to copy a Profile, or a recipe to import one")
+	}
 	if err != nil {
 		return nil, profilesProblem(err)
 	}
@@ -155,6 +178,35 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 		return nil, err
 	}
 	return oapi.CreateProfile201JSONResponse(s.profileToAPI(p, slots)), nil
+}
+
+func (s *server) ListProfileSuggestions(ctx context.Context, _ oapi.ListProfileSuggestionsRequestObject) (oapi.ListProfileSuggestionsResponseObject, error) {
+	all, err := s.profiles.Suggestions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := oapi.ProfileSuggestionList{Groups: []oapi.ProfileSuggestionGroup{}}
+	for _, sg := range all {
+		if n := len(out.Groups); n == 0 || out.Groups[n-1].ReleaseFamily != oapi.ProfileReleaseFamily(sg.Recipe.Family) {
+			out.Groups = append(out.Groups, oapi.ProfileSuggestionGroup{
+				ReleaseFamily: oapi.ProfileReleaseFamily(sg.Recipe.Family), Name: sg.Recipe.Family.Name(), Items: []oapi.ProfileSuggestion{},
+			})
+		}
+		g := &out.Groups[len(out.Groups)-1]
+		kinds := []oapi.TitleKind{}
+		for _, k := range sg.Kinds {
+			if k == release.KindMovie {
+				kinds = append(kinds, oapi.Movie)
+			} else {
+				kinds = append(kinds, oapi.Series)
+			}
+		}
+		g.Items = append(g.Items, oapi.ProfileSuggestion{
+			Name: sg.Name, ReleaseFamily: oapi.ProfileReleaseFamily(sg.Recipe.Family), Resolution: oapi.ProfileResolution(sg.Recipe.Resolution),
+			LanguageRule: oapi.ProfileLanguageRule(sg.Recipe.Rule), Kinds: kinds,
+		})
+	}
+	return oapi.ListProfileSuggestions200JSONResponse(out), nil
 }
 
 func (s *server) DeleteProfile(ctx context.Context, r oapi.DeleteProfileRequestObject) (oapi.DeleteProfileResponseObject, error) {
@@ -294,7 +346,11 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if err != nil {
 		return oapi.Settings{}, err
 	}
-	if w := settingsWarnings(recs); len(w) > 0 {
+	all, err := s.profiles.List(ctx)
+	if err != nil {
+		return oapi.Settings{}, err
+	}
+	if w := append(settingsWarnings(recs), duplicateWarnings(all, region.Primary)...); len(w) > 0 {
 		out.Warnings = &w
 	}
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
@@ -316,6 +372,16 @@ func settingsWarnings(recs []slot.Record) []oapi.SettingsWarning {
 			ids[i] = id.Key()
 		}
 		out = append(out, oapi.SettingsWarning{Code: oapi.SharedSlotDefault, Kind: &kind, Profile: &profile, Slots: &ids, Message: w.Message()})
+	}
+	return out
+}
+
+// duplicateWarnings names each pair of Profiles that became the same recipe by a change of Primary Language.
+func duplicateWarnings(all []profiles.Profile, primary profiles.Language) []oapi.SettingsWarning {
+	var out []oapi.SettingsWarning
+	for _, d := range profiles.Duplicates(all, primary) {
+		keys := []string{d.A.Key, d.B.Key}
+		out = append(out, oapi.SettingsWarning{Code: oapi.DuplicateProfile, Profiles: &keys, Message: d.Message(primary)})
 	}
 	return out
 }

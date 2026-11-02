@@ -1,0 +1,255 @@
+package profiles
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/hyprsh/kestrel/internal/release"
+	"github.com/hyprsh/kestrel/internal/scoring"
+	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
+)
+
+// Resolution is the resolution range of a recipe.
+type Resolution string
+
+const (
+	ResHD  Resolution = "hd"
+	ResUHD Resolution = "uhd"
+	ResAny Resolution = "any"
+)
+
+// Resolutions lists them in display order.
+var Resolutions = []Resolution{ResHD, ResUHD, ResAny}
+
+// Recipe is what a Profile is made of (ADR 0026): a resolution range, a Release Family and a language rule. Rule
+// is the key the API and the Config File name: primary, original, or a named language's code.
+type Recipe struct {
+	Family     scoring.ReleaseFamily
+	Resolution Resolution
+	Rule       string
+}
+
+// Suggestion is a recipe the household can import, with the name it would get and the kinds it applies to.
+type Suggestion struct {
+	Recipe Recipe
+	Name   string
+	Kinds  []release.Kind
+}
+
+// ErrRecipeExists means the household already has a Profile for the recipe.
+var ErrRecipeExists = errors.New("a Profile for that recipe exists")
+
+// RecipeOf is the recipe a Profile is made of, as stored.
+func RecipeOf(p Profile) Recipe {
+	res := ResHD
+	switch {
+	case p.UHD():
+		res = ResUHD
+	case p.Any:
+		res = ResAny
+	}
+	return Recipe{Family: p.Family.OrDefault(), Resolution: res, Rule: p.RuleKey()}
+}
+
+// normalized is the recipe with a named language that is the Primary Language written as the Primary-Language rule,
+// which is what the Profile does under that Primary Language.
+func (r Recipe) normalized(primary Language) Recipe {
+	if r.Rule == string(primary) {
+		r.Rule = "primary"
+	}
+	return r
+}
+
+// profile is the Profile the recipe makes, named name.
+func (r Recipe) profile(name string) (Profile, bool) {
+	rule, named, ok := ParseRule(r.Rule)
+	if !ok || !r.Family.Valid() {
+		return Profile{}, false
+	}
+	p := Profile{Name: name, Family: r.Family, Rule: rule, Named: named, OriginalChoice: scoring.OriginalReject}
+	switch r.Resolution {
+	case ResHD:
+	case ResUHD:
+	case ResAny:
+		p.Any = true
+	default:
+		return Profile{}, false
+	}
+	p.MinHeight, p.MaxHeight = scoring.HeightBounds(r.Resolution == ResUHD, p.Any)
+	return p, true
+}
+
+// recipeName generates the name: "4K Remux", "HD Original", "HD French", "WEB 1080p", "SQP 2160p".
+func recipeName(r Recipe) string {
+	res := map[Resolution]string{ResHD: "HD", ResUHD: "4K", ResAny: "Any"}[r.Resolution]
+	var parts []string
+	switch r.Family {
+	case scoring.FamilyRemuxWeb:
+		parts = []string{res, "Remux"}
+	case scoring.FamilyWeb, scoring.FamilySQP:
+		label, px := "WEB", "1080p"
+		if r.Family == scoring.FamilySQP {
+			label = "SQP"
+		}
+		if r.Resolution == ResUHD {
+			px = "2160p"
+		}
+		parts = []string{label, px}
+	default:
+		parts = []string{res}
+	}
+	switch r.Rule {
+	case "primary":
+	case "original":
+		parts = append(parts, "Original")
+	default:
+		_, named, _ := ParseRule(r.Rule)
+		parts = append(parts, named.Release().Name)
+	}
+	return strings.Join(parts, " ")
+}
+
+// kindsOf is the kinds a recipe applies to under the Primary Language: those with a TRaSH profile to back it.
+func kindsOf(r Recipe, primary Language) []release.Kind {
+	p, ok := r.profile("")
+	if !ok {
+		return nil
+	}
+	spec := p.Spec(primary.Release())
+	var out []release.Kind
+	for _, k := range []release.Kind{release.KindMovie, release.KindSeries} {
+		if _, ok := scoring.BackingProfile(spec, k); ok {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// Suggestions lists every valid recipe the household has no Profile for, in display order: by Release Family, then
+// resolution, then language rule. A named language that is the Primary Language is the Primary-Language recipe, so
+// it is not listed twice.
+func (s *Service) Suggestions(ctx context.Context) ([]Suggestion, error) {
+	all, err := s.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	region, _, err := s.Region(ctx)
+	if err != nil {
+		return nil, err
+	}
+	have := map[Recipe]bool{}
+	for _, p := range all {
+		have[RecipeOf(p).normalized(region.Primary)] = true
+	}
+	var out []Suggestion
+	for _, family := range scoring.ReleaseFamilies {
+		for _, res := range Resolutions {
+			for _, rule := range []string{"primary", "original", string(English), string(German), string(French)} {
+				r := Recipe{Family: family, Resolution: res, Rule: rule}
+				if r.normalized(region.Primary) != r || have[r] {
+					continue
+				}
+				if kinds := kindsOf(r, region.Primary); len(kinds) > 0 {
+					out = append(out, Suggestion{Recipe: r, Name: recipeName(r), Kinds: kinds})
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+// Import makes a custom Profile of a recipe, enabled, under its generated name or name when that is not empty. A
+// recipe with no backing profile for any kind is a *ValidationError, a taken name too, and a recipe the household
+// already has a Profile for is ErrRecipeExists.
+func (s *Service) Import(ctx context.Context, r Recipe, name string) (Profile, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = recipeName(r)
+	}
+	p, ok := r.profile(name)
+	if !ok {
+		return Profile{}, invalid("release_family", "Not a recipe: choose a Release Family, a resolution and a language rule")
+	}
+	region, _, err := s.Region(ctx)
+	if err != nil {
+		return Profile{}, err
+	}
+	movies, series, err := p.Backing(region.Primary)
+	if err != nil {
+		return Profile{}, invalid("release_family", err.Error()+" under the Primary Language "+region.Primary.Release().Name)
+	}
+	var out Profile
+	err = s.write(ctx, func(q *db.Queries) error {
+		rows, err := q.ListProfiles(ctx)
+		if err != nil {
+			return err
+		}
+		existing, err := convert(rows)
+		if err != nil {
+			return err
+		}
+		for _, e := range existing {
+			if RecipeOf(e).normalized(region.Primary) == r.normalized(region.Primary) {
+				return ErrRecipeExists
+			}
+		}
+		if err := checkName(name, "", rows); err != nil {
+			return err
+		}
+		top, err := q.MaxProfileSort(ctx)
+		if err != nil {
+			return err
+		}
+		var b [4]byte
+		_, _ = rand.Read(b[:])
+		key := "custom-" + hex.EncodeToString(b[:])
+		if err := q.InsertCustomProfile(ctx, db.InsertCustomProfileParams{
+			Key: key, Name: name, Sort: toInt64(top) + 1, Any: b2i(p.Any), ReleaseFamily: string(p.Family), LanguageRule: p.RuleKey(),
+			MinHeight: int64(p.MinHeight), MaxHeight: int64(p.MaxHeight),
+			TrashProfileMovies: movies, TrashProfileSeries: series, OriginalLanguage: string(scoring.OriginalReject),
+		}); err != nil {
+			return err
+		}
+		rows, err = q.ListProfiles(ctx)
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			if row.Key == key {
+				out, err = fromRow(row)
+				return err
+			}
+		}
+		return ErrNotFound
+	})
+	return out, err
+}
+
+// Duplicate is two Profiles that are the same recipe under the Primary Language though they are not stored as the
+// same: one names the Primary Language and the other says Primary.
+type Duplicate struct{ A, B Profile }
+
+// Message says so.
+func (d Duplicate) Message(primary Language) string {
+	return fmt.Sprintf("%s and %s are the same recipe now that the Primary Language is %s. Both stay, and nothing is merged: remove or change one when you are ready",
+		d.A.Name, d.B.Name, primary.Release().Name)
+}
+
+// Duplicates finds the pairs of Profiles that became the same recipe by a change of Primary Language. A copy of a
+// Profile is the same recipe on purpose and is not one.
+func Duplicates(all []Profile, primary Language) []Duplicate {
+	var out []Duplicate
+	for i, a := range all {
+		for _, b := range all[i+1:] {
+			ra, rb := RecipeOf(a), RecipeOf(b)
+			if ra != rb && ra.normalized(primary) == rb.normalized(primary) {
+				out = append(out, Duplicate{A: a, B: b})
+			}
+		}
+	}
+	return out
+}
