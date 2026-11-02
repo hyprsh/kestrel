@@ -109,6 +109,7 @@ describe('the one action of an event', () => {
     const h = (kind: string) => ev('health_raised', 'x', { kind }, { title_id: null })
     expect(actionOf(h('download_client_unreachable'))).toEqual({ label: 'Open Download Settings', path: '/settings/download-client' })
     expect(actionOf(h('indexer_failing'))).toEqual({ label: 'Open Indexers', path: '/settings/indexers' })
+    expect(actionOf(h('slot_rename_failed'))).toEqual({ label: 'Open Slots', path: '/settings/slots' })
     expect(actionOf(h('something_new'))).toEqual({ label: 'Open Health', path: '/health' })
   })
 
