@@ -47,6 +47,7 @@ const seededSlots: components['schemas']['Slot'][] = [
 
 export const handlers = [
   http.get('/slots', ({ response }) => response(200).json({ items: seededSlots })),
+  http.get('/slots/presets', ({ response }) => response(200).json({ available: false, items: [] })),
   http.get('/system', ({ response }) => response(200).json({ version: '0.0.0-test', api_major: 1, base_url: '' })),
   http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd], next_cursor: null })),
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),

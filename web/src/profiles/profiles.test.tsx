@@ -152,37 +152,40 @@ describe('the wizard Primary Language section', () => {
   })
 })
 
-describe('the wizard Profiles section', () => {
-  it('sets a default per Slot for Movies and for Series ', async () => {
-    const sent = fakeProfiles({ fresh: true })
+describe('the default Profile per Slot in Settings', () => {
+  const openDefaults = async () => {
     renderApp()
-    await createAccount()
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
+    await userEvent.click(await screen.findByRole('link', { name: 'Profiles' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Change…' }))
+  }
 
-    const section = await screen.findByRole('region', { name: 'Profiles' })
+  it('sets a default per Slot for Movies and for Series ', async () => {
+    const sent = fakeProfiles()
+    await openDefaults()
+
     // Each Slot shows its own default for both kinds, whatever the Profile is (no Profile belongs to a Slot).
-    const hdMovies = await within(section).findByLabelText('Standard default for Movies')
+    const hdMovies = await screen.findByLabelText('Standard default for Movies')
     expect(hdMovies).toHaveValue('hd-primary')
-    expect(within(section).getByLabelText('4K default for Movies')).toHaveValue('4k-primary')
-    expect(within(within(section).getByLabelText('4K default for Series')).getByRole('option', { name: 'HD Original' })).toBeInTheDocument()
+    expect(screen.getByLabelText('4K default for Movies')).toHaveValue('4k-primary')
+    expect(within(screen.getByLabelText('4K default for Series')).getByRole('option', { name: 'HD Original' })).toBeInTheDocument()
 
-    await userEvent.selectOptions(within(section).getByLabelText('Standard default for Series'), 'hd-original')
+    await userEvent.selectOptions(screen.getByLabelText('Standard default for Series'), 'hd-original')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'slot standard', body: { default_series: 'hd-original' } }))
-    expect(await within(section).findByLabelText('Standard default for Series')).toHaveValue('hd-original')
+    expect(await screen.findByLabelText('Standard default for Series')).toHaveValue('hd-original')
 
     // A Slot can have none: "None" clears it.
-    await userEvent.selectOptions(within(section).getByLabelText('4K default for Movies'), '')
+    await userEvent.selectOptions(screen.getByLabelText('4K default for Movies'), '')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'slot 4k', body: { default_movies: '' } }))
   })
 
   it('shows why a default cannot be saved', async () => {
-    fakeProfiles({ fresh: true })
-    renderApp()
-    await createAccount()
-    const section = await screen.findByRole('region', { name: 'Profiles' })
+    fakeProfiles()
+    await openDefaults()
     // The server refuses a default that is a disabled Profile; the message reaches the admin.
     server.use(http.patch('/slots/{id}', ({ response }) => response('default').json(problem(422, 'validation', 'HD is turned off'), { status: 422 })))
-    await userEvent.selectOptions(await within(section).findByLabelText('Standard default for Movies'), 'hd-original')
-    expect(await within(section).findByRole('alert')).toHaveTextContent('HD is turned off')
+    await userEvent.selectOptions(await screen.findByLabelText('Standard default for Movies'), 'hd-original')
+    expect(await screen.findByRole('alert')).toHaveTextContent('HD is turned off')
   })
 })
 

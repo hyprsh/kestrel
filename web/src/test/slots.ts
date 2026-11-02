@@ -74,7 +74,16 @@ type Sent = { path: string; body?: unknown }
  * The Slot API with the rules the screen leans on (a taken label is a 422 on `label`, the last Slot a 409), the Profiles,
  * and a Library of `titles` rows. Everything the screen sends is in `sent`.
  */
-export function fakeSlots(opts: { slots?: Slot[]; warnings?: Schemas['SettingsWarning'][]; titles?: Schemas['TitleRow'][]; files?: number } = {}) {
+export function fakeSlots(
+  opts: {
+    slots?: Slot[]
+    warnings?: Schemas['SettingsWarning'][]
+    titles?: Schemas['TitleRow'][]
+    files?: number
+    /** The presets on offer, and the Slots each one leaves behind when applied; `failing` ids answer a 422. */
+    presets?: { list: Schemas['SlotPresetList']; result: Record<string, Slot[]>; failing?: string[] }
+  } = {},
+) {
   const sent: Sent[] = []
   let slots = opts.slots ?? seededSlots()
   const titles = opts.titles ?? []
@@ -103,6 +112,13 @@ export function fakeSlots(opts: { slots?: Slot[]; warnings?: Schemas['SettingsWa
         ...(opts.warnings ? { warnings: opts.warnings } : {}),
       }),
     ),
+    http.get('/slots/presets', ({ response }) => response(200).json(opts.presets?.list ?? { available: false, items: [] })),
+    http.post('/slots/presets/{id}', ({ params, response }) => {
+      sent.push({ path: `POST /slots/presets/${params.id}` })
+      if (opts.presets?.failing?.includes(params.id)) return response('default').json(problem(422, 'validation', 'HD French has no backing TRaSH profile'), { status: 422 })
+      slots = opts.presets!.result[params.id]
+      return response(200).json({ items: slots })
+    }),
     http.post('/slots', async ({ request, response }) => {
       const body = (await request.json()) as { label: string; default_movies?: string; default_series?: string; on_for_new_titles?: boolean }
       sent.push({ path: 'POST /slots', body })

@@ -8,6 +8,7 @@ import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
 import { fakeSetup } from '../test/fakeSetup'
+import { fakeSlots, slotRecord } from '../test/slots'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -135,7 +136,7 @@ describe('the wizard', () => {
     renderApp()
     await screen.findByRole('region', { name: 'Root folders' })
     const titles = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent?.replace(/^\d+/, ''))
-    await waitFor(() => expect(titles()).toEqual(['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Profiles', 'Adopt existing library (optional)']))
+    await waitFor(() => expect(titles()).toEqual(['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Slots', 'Profiles', 'Adopt existing library (optional)']))
   })
 
   it('folds a section once it is saved', async () => {
@@ -316,5 +317,97 @@ describe('Root folders', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Add Movies folder' }))
     await userEvent.click(within(section).getByRole('button', { name: 'Remove Movies folder 2' }))
     expect(within(section).queryByLabelText('Movies folder 2')).not.toBeInTheDocument()
+  })
+})
+
+describe('the Slots step', () => {
+  const presetList = (available: boolean): components['schemas']['SlotPresetList'] => ({
+    available,
+    items: available
+      ? [
+          { id: 'one-copy', name: 'One copy', slots: [{ label: 'Standard', default_movies: 'HD', default_series: 'HD', on_for_new_titles: true }] },
+          {
+            id: 'language-plus-original',
+            name: 'German + Original',
+            slots: [
+              { label: 'German', default_movies: 'HD', default_series: 'HD', on_for_new_titles: true },
+              { label: 'Original', default_movies: 'HD Original', default_series: 'HD Original', on_for_new_titles: true },
+            ],
+          },
+          {
+            id: 'streaming-remux-archive',
+            name: 'Streaming + Remux archive',
+            slots: [
+              { label: 'Standard', default_movies: 'HD', default_series: 'HD', on_for_new_titles: true },
+              { label: 'Remux', default_movies: '4K Remux', default_series: null, on_for_new_titles: false },
+            ],
+          },
+        ]
+      : [],
+  })
+  const german = [
+    slotRecord('german', 'German', 0, { default_movies: 'hd', default_series: 'hd' }),
+    slotRecord('original', 'Original', 1, { default_movies: 'hd-original', default_series: 'hd-original', on_for_new_titles: true }),
+  ]
+  const slotsStep = () => screen.findByRole('region', { name: 'Slots' })
+
+  it('offers the presets with their Slots and defaults, above the Slots editor', async () => {
+    fakeSlots({ slots: [slotRecord('standard', 'Standard', 0)], presets: { list: presetList(true), result: {} } })
+    fakeSetup({ language: 'done' })
+    fakeAdoption()
+    renderApp()
+
+    const step = within(await slotsStep())
+    expect(await step.findByText('German + Original')).toBeInTheDocument()
+    expect(step.getByText('Standard: Movies HD, Series HD · Remux: Movies 4K Remux, Series none (off for new Titles)')).toBeInTheDocument()
+    expect(step.getByRole('button', { name: 'Add Slot…' })).toBeInTheDocument() // the editor
+  })
+
+  it('replaces the Slots with the chosen preset and shows them in the editor', async () => {
+    const sent = fakeSlots({ slots: [slotRecord('standard', 'Standard', 0)], presets: { list: presetList(true), result: { 'language-plus-original': german } } })
+    fakeSetup({ language: 'done' })
+    fakeAdoption()
+    renderApp()
+
+    const step = within(await slotsStep())
+    await userEvent.click(await step.findByRole('button', { name: 'Use German + Original' }))
+
+    expect(await step.findByRole('group', { name: 'German' })).toBeInTheDocument()
+    expect(step.getByRole('group', { name: 'Original' })).toBeInTheDocument()
+    expect(sent.map((s) => s.path)).toContain('POST /slots/presets/language-plus-original')
+  })
+
+  it('says why a preset was refused and leaves the Slots alone', async () => {
+    fakeSlots({ slots: [slotRecord('standard', 'Standard', 0)], presets: { list: presetList(true), result: {}, failing: ['one-copy'] } })
+    fakeSetup({ language: 'done' })
+    fakeAdoption()
+    renderApp()
+
+    const step = within(await slotsStep())
+    await userEvent.click(await step.findByRole('button', { name: 'Use One copy' }))
+    expect(await step.findByRole('alert')).toHaveTextContent('HD French has no backing TRaSH profile')
+    expect(step.getByRole('group', { name: 'Standard' })).toBeInTheDocument()
+  })
+
+  it('shows only the editor once the library holds a Version', async () => {
+    fakeSlots({ slots: [slotRecord('standard', 'Standard', 0)], presets: { list: presetList(false), result: {} } })
+    fakeSetup({ language: 'done' })
+    fakeAdoption()
+    renderApp()
+
+    const step = within(await slotsStep())
+    expect(await step.findByRole('group', { name: 'Standard' })).toBeInTheDocument()
+    expect(step.queryByRole('button', { name: /^Use / })).not.toBeInTheDocument()
+  })
+
+  it('is done when the Slots on for new Titles have both defaults, and folds to a summary', async () => {
+    fakeSlots({ slots: german, presets: { list: presetList(true), result: {} } })
+    fakeSetup({ language: 'done', profiles: 'done' })
+    fakeAdoption()
+    renderApp()
+
+    const step = within(await slotsStep())
+    expect(await step.findByRole('button', { name: 'Edit' })).toBeInTheDocument()
+    expect(step.queryByRole('button', { name: /^Use / })).not.toBeInTheDocument()
   })
 })

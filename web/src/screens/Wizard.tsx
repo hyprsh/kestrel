@@ -2,13 +2,15 @@ import { Badge, Button, Fieldset, Input, Note, Separator } from '@hyprsh/design'
 import { Check } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ApiError, useCompleteSetup, useCreateAccount, usePluginInstances, usePlugins, useProfiles, useSetup, useSettings } from '../api/queries'
+import { useSlots } from '../api/slots'
 import { Adoption } from '../adoption/Adoption'
 import { WidePage } from '../layout/WidePage'
 import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
 import { LanguageForm } from '../profiles/Language'
-import { DefaultsPerSlot } from '../profiles/Profiles'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
+import { SlotPresets } from '../slots/SlotPresets'
+import { SlotsSection } from '../slots/SlotsSection'
 import { KestrelLogo } from '../ui'
 
 const MIN_PASSWORD = 8
@@ -111,15 +113,27 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
           </Section>
           <Section
             n={6}
+            id="slots"
+            title="Slots"
+            state={sections.profiles}
+            summary={<SlotsSummary />}
+            description="A Slot is a copy of each Title, with its own default Profile for a new Movie and a new Series. Start from a preset, then adjust the Slots."
+          >
+            <div className="flex flex-col gap-4">
+              <SlotPresets />
+              <SlotsSection embedded />
+            </div>
+          </Section>
+          <Section
+            n={7}
             id="profiles"
             title="Profiles"
-            state={sections.profiles}
-            summary={<ProfilesSummary />}
-            description="Pick the Profile each Slot uses for a new Movie and a new Series. Settings, Library, Slots adds, renames and orders the Slots."
+            checked={sections.profiles === 'done'}
+            description="The Profiles your Slots use are enabled. Settings, Profiles lists the rest and suggests more."
           >
-            <DefaultsPerSlot />
+            <ProfilesSummary />
           </Section>
-          <Section n={7} id="adopt" title="Adopt existing library (optional)">
+          <Section n={8} id="adopt" title="Adopt existing library (optional)">
             <Adoption embedded />
           </Section>
           <Finish completed={setup.data.completed} onLeave={onLeave} />
@@ -135,7 +149,7 @@ const sectionTitles: Record<string, string> = {
   download_client: 'Download client',
   indexer: 'Indexer',
   root_folders: 'Root folders',
-  profiles: 'Profiles',
+  profiles: 'Slots',
 }
 
 /** "Finish setup" names whatever is still missing instead of letting the admin through. */
@@ -205,19 +219,19 @@ function RootFoldersSummary() {
   )
 }
 
+function SlotsSummary() {
+  const { data: slots } = useSlots()
+  const { data: profiles } = useProfiles()
+  if (!slots || !profiles) return null
+  const name = (key: string | null) => (key ? (profiles.find((p) => p.key === key)?.name ?? key) : 'none')
+  return <>{slots.map((s) => `${s.label}: Movies ${name(s.default_movies)}, Series ${name(s.default_series)}${s.on_for_new_titles ? '' : ' (off for new Titles)'}`).join(' · ')}</>
+}
+
 function ProfilesSummary() {
   const { data: profiles } = useProfiles()
   if (!profiles) return null
-  const names = (kind: 'default_movies' | 'default_series') =>
-    profiles
-      .filter((p) => p[kind])
-      .map((p) => p.name)
-      .join(', ')
-  return (
-    <>
-      Movies: {names('default_movies')}; Series: {names('default_series')}
-    </>
-  )
+  const on = profiles.filter((p) => p.enabled).map((p) => p.name)
+  return <span className="copy-14 text-gray-900">Enabled: {on.length > 0 ? on.join(', ') : 'none yet'}.</span>
 }
 
 /**

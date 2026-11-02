@@ -1,4 +1,4 @@
-// The Slots (ADR 0024): GET/POST /slots, PATCH/DELETE /slots/{id}, and the dry run that counts a rename's files.
+// The Slots (ADR 0024): GET/POST /slots, PATCH/DELETE /slots/{id}, the dry run that counts a rename's files, and the setup presets (ADR 0026).
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { failure } from './queries'
@@ -7,6 +7,7 @@ import type { components } from './schema.gen'
 export type Slot = components['schemas']['Slot']
 export type SlotCreate = components['schemas']['SlotCreate']
 export type SlotPatch = components['schemas']['SlotPatch']
+export type SlotPreset = components['schemas']['SlotPreset']
 
 /** Slots are declared together: the Config File sets all of them or none. */
 export const declaresSlots = (slots: readonly Slot[]) => slots.some((s) => s.from_config_file)
@@ -58,6 +59,31 @@ export function useDeleteSlot() {
       if (!response.ok) throw failure(error, response)
     },
     onSuccess: () => invalidateSlots(qc),
+  })
+}
+
+/** The setup wizard's Slot presets: none once the library holds a Version, or while the Config File declares the Slots. */
+export function useSlotPresets() {
+  return useQuery({
+    queryKey: ['slot-presets'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/slots/presets')
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}
+
+/** Replaces the Slots with a preset's, and imports and enables its default Profiles: the Slots, Profiles and setup state all change. */
+export function useApplySlotPreset() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: SlotPreset['id']) => {
+      const { data, error, response } = await api.POST('/slots/presets/{id}', { params: { path: { id } } })
+      if (!data) throw failure(error, response)
+      return data.items
+    },
+    onSuccess: () => Promise.all([invalidateSlots(qc), qc.invalidateQueries({ queryKey: ['profiles'] }), qc.invalidateQueries({ queryKey: ['slot-presets'] })]),
   })
 }
 
