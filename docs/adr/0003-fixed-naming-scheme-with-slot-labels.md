@@ -1,5 +1,7 @@
 # A fixed naming scheme with Slot labels
 
+Note: the Slot labels `[SD]`, `[HD]` and `[UHD]` are superseded by ADR-0024, which makes the labels admin-defined. ADR-0012 had already replaced them with `[Standard]` and `[4K]`.
+
 Note: ADR-0012 replaces the Slot labels with `[Standard]` and `[4K]`; the rest of this scheme stands.
 
 Note: ADR-0024 lets the admin define the Slots and their labels; renaming a label renames the files and keeps the old label as an alias, and Adoption reads the label only right after `<folder name> - `.

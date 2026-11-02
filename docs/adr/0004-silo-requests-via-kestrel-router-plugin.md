@@ -1,5 +1,7 @@
 # Silo Requests come through a Kestrel router plugin, not Radarr/Sonarr emulation
 
+Note: the tier-to-Slot mapping in this text (`1080p` to the HD Slot, `2160p` to UHD) is superseded by ADR-0024. Each Silo tier now maps to a Slot set per connection. The `2160p` default follows the first Slot whose default Profile has the `4k` resolution (#317), not a fixed UHD Slot. No ADR records that default change, so the Config File guide's [Silo requests and Slots](../guide/configuration.md#silo-requests-and-slots) section is the reference.
+
 Note: ADR-0012 maps Silo's `1080p` tier to the Standard Slot and `2160p` to 4K, and lets Silo routes set the root folder and Profiles.
 
 Note: ADR-0024 makes that mapping a setting of the Silo plugin, one Slot per tier, with the same defaults.
