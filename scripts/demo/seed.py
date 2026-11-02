@@ -149,6 +149,13 @@ call("POST", "/titles", {"kind": "series", "tmdb_id": 60059, "series_monitor": "
                          "versions": [{"slot": "standard", "profile": std_s}]})
 time.sleep(2)
 
+# DEMO_SLOTS=3 adds a third Slot, "Original" (HD Original by default), with a Version in it on Paddington and Breaking Bad.
+if os.environ.get("DEMO_SLOTS") == "3":
+    call("POST", "/slots", {"label": "Original", "default_movies": "hd-original", "default_series": "hd-original"})
+    for name in ("Paddington", "Breaking Bad"):
+        row = next(r for r in call("GET", "/titles")["items"] if r["title"] == name)
+        call("POST", f"/titles/{row['id']}/versions", {"slot": "original", "profile": "hd-original"})
+
 db = sqlite3.connect(args.db)
 db.row_factory = sqlite3.Row  # columns by name
 db.execute("PRAGMA foreign_keys=ON")
