@@ -1,17 +1,10 @@
 // Manage Versions: POST /titles/{id}/versions, PATCH and DELETE /versions/{id}, DELETE /titles/{id}.
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import { ApiError, type EpisodeScope } from './queries'
+import { failure, type EpisodeScope } from './queries'
 import type { components } from './schema.gen'
 
 export type VersionRef = components['schemas']['VersionRef']
-
-type Problem = { code?: string; detail?: string; title?: string } | undefined
-
-function failure(error: unknown, response: Response): ApiError {
-  const p = error as Problem
-  return new ApiError(p?.code ?? 'internal', response.status, p?.detail ?? p?.title ?? 'Request failed')
-}
 
 function useChanged<T, V>(fn: (v: V) => Promise<T>) {
   const qc = useQueryClient()

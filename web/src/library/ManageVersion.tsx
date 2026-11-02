@@ -3,7 +3,8 @@ import { useState, type ReactNode } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
 import { useAddVersion, useRemoveTitle } from '../api/versions'
 import { useReport } from '../toasts'
-import { useSlotNames } from './slots'
+import { slotDefault, useSlotNames } from './slots'
+import { ApiError } from '../api/queries'
 
 /**
  * Asks before removing, in a modal that closes on confirm: the caller reports the outcome as a Toast.
@@ -34,7 +35,6 @@ export function RemoveConfirm({ what, onConfirm, onCancel, children }: { what: s
 /** A Profile picker in a Modal, shown only while it is open. */
 export function ProfilePicker({
   profiles,
-  slot,
   initial,
   label,
   busy,
@@ -43,7 +43,6 @@ export function ProfilePicker({
   onCancel,
 }: {
   profiles: Profile[]
-  slot: string
   initial: string
   label: string
   busy: boolean
@@ -51,7 +50,7 @@ export function ProfilePicker({
   onPick: (profile: string) => void
   onCancel: () => void
 }) {
-  const options = profiles.filter((p) => p.slot === slot && p.enabled)
+  const options = profiles.filter((p) => p.enabled) // any Profile can fill any Slot
   const [choice, setChoice] = useState(options.some((p) => p.key === initial) ? initial : (options[0]?.key ?? ''))
   return (
     <Modal
@@ -71,18 +70,13 @@ export function ProfilePicker({
       }
     >
       <div role="group" aria-label={label} className="flex flex-col gap-3">
-        <Select size="small" aria-label="Profile" value={choice} onChange={(e) => setChoice(e.target.value)}>
+        <Select size="small" aria-label="Profile" value={choice} error={error} onChange={(e) => setChoice(e.target.value)}>
           {options.map((p) => (
             <option key={p.key} value={p.key}>
               {p.name}
             </option>
           ))}
         </Select>
-        {error && (
-          <Note variant="error" size="small">
-            {error}
-          </Note>
-        )}
       </div>
     </Modal>
   )
@@ -105,11 +99,20 @@ export function RemoveTitle({ titleId, onCancel }: { titleId: number; onCancel: 
  */
 export function AddVersion({ title, profiles, onClose }: { title: TitleDetail; profiles: Profile[]; onClose: () => void }) {
   const add = useAddVersion(title.id)
+  // A Profile another Version of the Title uses (422 profile_taken) is the Profile field's error.
+  const fieldError = add.error instanceof ApiError ? add.error.fields.find((f) => f.field === 'profile') : undefined
   const slots = useSlotNames()
   const free = slots.list.map((r) => r.id).filter((k) => !title.versions.some((v) => v.slot === k))
   const [slot, setSlot] = useState<string>(free[0])
-  const options = (k: string) => profiles.filter((p) => p.slot === k && p.enabled)
-  const initial = (k: string) => (options(k).find((p) => (title.kind === 'series' ? p.default_series : p.default_movies)) ?? options(k)[0])?.key ?? ''
+  const options = profiles.filter((p) => p.enabled) // any Profile can fill any Slot
+  // The Slot's own default, else the first Profile the Title does not already use (a Title's Versions use different Profiles).
+  const initial = (k: string) => {
+    const want = slotDefault(
+      slots.list.find((r) => r.id === k),
+      title.kind,
+    )
+    return (options.find((p) => p.key === want) ?? options.find((p) => !title.versions.some((v) => v.profile === p.key)) ?? options[0])?.key ?? ''
+  }
   const [profile, setProfile] = useState(initial(free[0]))
   const pick = (k: string) => {
     setSlot(k)
@@ -140,14 +143,14 @@ export function AddVersion({ title, profiles, onClose }: { title: TitleDetail; p
             </option>
           ))}
         </Select>
-        <Select size="small" aria-label="Profile" value={profile} onChange={(e) => setProfile(e.target.value)}>
-          {options(slot).map((p) => (
+        <Select size="small" aria-label="Profile" value={profile} error={fieldError ? fieldError.message : undefined} onChange={(e) => setProfile(e.target.value)}>
+          {options.map((p) => (
             <option key={p.key} value={p.key}>
               {p.name}
             </option>
           ))}
         </Select>
-        {add.error && (
+        {add.error && !fieldError && (
           <Note variant="error" size="small">
             {add.error.message}
           </Note>

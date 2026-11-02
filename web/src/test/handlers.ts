@@ -42,7 +42,7 @@ export const newznab: components['schemas']['PluginManifest'] = {
 /** The two Slots a library starts with. */
 const seededSlots: components['schemas']['Slot'][] = [
   { id: 'standard', label: 'Standard', default_movies: 'hd-primary', default_series: 'hd-primary', on_for_new_titles: true, position: 0, from_config_file: false },
-  { id: '4k', label: '4K', default_movies: null, default_series: null, on_for_new_titles: false, position: 1, from_config_file: false },
+  { id: '4k', label: '4K', default_movies: '4k-primary', default_series: '4k-primary', on_for_new_titles: false, position: 1, from_config_file: false },
 ]
 
 export const handlers = [

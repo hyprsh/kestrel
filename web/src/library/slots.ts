@@ -67,6 +67,9 @@ export function slotsOf(title: Pick<TitleDetail, 'versions'>, names: SlotNames):
   return names.order(title.versions.map((v) => v.slot as string)).map((key) => ({ key, name: names.name(key), short: names.short(key) }))
 }
 
+/** The key of the Profile a Slot gives a new Title of `kind`, if it names one: its default, from the stored Slot record. */
+export const slotDefault = (rec: SlotRecord | undefined, kind: 'movie' | 'series'): string | undefined => (kind === 'series' ? rec?.default_series : rec?.default_movies) ?? undefined
+
 type Cell = NonNullable<Episode['cells'][string]>
 
 /** An episode's cell in a Slot (null: the Title has no Version there). */

@@ -6,7 +6,7 @@ import { plural } from '../format'
 import { Button, Menu, MenuDivider, MenuItem, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Select, Tooltip } from '@hyprsh/design'
 import { FloatingBar } from '../layout/FloatingBar'
 import { size } from './bits'
-import { useSlotNames } from './slots'
+import { slotDefault, useSlotNames } from './slots'
 import { useReport } from '../toasts'
 import { RemoveConfirm } from './ManageVersion'
 
@@ -24,6 +24,8 @@ function phrase(outcome: TitleBulkOutcome['outcome'], reason: TitleBulkReason | 
       return `${n} ${has(n)} no ${slot} Version`
     case 'slot_taken':
       return `${n} already ${has(n)} a ${slot} Version`
+    case 'profile_taken':
+      return `${n} already ${has(n)} a Version under that Profile`
     case 'nothing_wanted':
       return `${n} ${has(n)} nothing Wanted`
     case 'frozen':
@@ -152,7 +154,12 @@ export function BulkActions({
         <SlotForm
           label="Add Version"
           profiles={profiles}
-          initial={(slot) => profiles.find((p) => p.slot === slot && (onlySeries ? p.default_series : p.default_movies))?.key}
+          initial={(slot) =>
+            slotDefault(
+              slots.list.find((r) => r.id === slot),
+              onlySeries ? 'series' : 'movie',
+            )
+          }
           busy={busy}
           onCancel={close}
           onApply={(slot, profile) => run('Add Version', { action: 'add_version', slot, profile, title_ids: ids }, slot)}
@@ -245,7 +252,7 @@ function SlotForm({
 }) {
   const { slot, setSlot } = useSlotChoice()
   const [picked, setPicked] = useState<Partial<Record<string, string>>>({})
-  const options = profiles.filter((p) => p.slot === slot)
+  const options = profiles // any Profile can fill any Slot
   const want = picked[slot] ?? initial?.(slot)
   const profile = options.find((p) => p.key === want)?.key ?? options[0]?.key ?? ''
   return (

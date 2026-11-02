@@ -308,7 +308,6 @@ export function VersionMenu({
       {mode === 'switch' && (
         <ProfilePicker
           profiles={profiles}
-          slot={v.slot}
           initial={v.profile}
           label="Change Profile"
           busy={sw.isPending}
