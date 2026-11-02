@@ -45,7 +45,7 @@ Your **Primary Language** is the one language your library is for: English, Germ
 
 Example: a German household sets German. For a Japanese anime, the HD Profile wants German audio, and HD Original wants Japanese. If only a Japanese Release exists, the HD Profile can reject it, offer it to you in Needs attention, or accept it, as you choose in Settings > Profiles. A release with both languages in one file (marked "DL" in German release names and "MULTi" in French ones) counts as having your Primary Language.
 
-Not every recipe exists, because Kestrel never falls back to another language or another Release Family. A recipe is only offered where TRaSH has a profile for it. English has all four Release Families. German has Bluray + WEB and Remux + WEB, and no WEB or SQP. French has Bluray + WEB, and Remux + WEB for Movies only. SQP has Movies only. A Profile that covers only Movies can't be a Slot's default for Series, and Kestrel refuses a Version of a Series under it.
+Not every recipe exists, because Kestrel never falls back to another language or another Release Family. A recipe is only offered where TRaSH has a profile for it. English has all four Release Families. German has Bluray + WEB and Remux + WEB, and no WEB or SQP: a German household has no WEB recipe for its Primary Language, but it can add "WEB English", which asks for English audio and is backed by TRaSH's English WEB profile. French has Bluray + WEB, and Remux + WEB for Movies only. SQP has Movies only. A Profile that covers only Movies can't be a Slot's default for Series, and Kestrel refuses a Version of a Series under it.
 
 You can switch a Version to another Profile at any time. A Title can't use the same Profile in two Versions.
 

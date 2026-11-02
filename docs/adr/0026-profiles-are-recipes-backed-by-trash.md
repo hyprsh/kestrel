@@ -19,3 +19,4 @@ A recipe applies to the kinds that have a backing profile in the language its ru
 - Any stays Bluray + WEB at up to 1080p: it widens HD down to SD, which no other Release Family or 4K needs.
 - Recipes with no backing profile in some language aren't offered for the kinds that lack one. Today that covers SQP, which TRaSH has only for English Movies; Remux for French Series; and WEB for German. TRaSH's Anime profiles have no Release Family yet. The list changes as TRaSH adds profiles.
 - The Profile overlays of ADR 0023 apply to every recipe the same way.
+- `ProfileKey` widens from the enum of the six builtin keys to a string, because a Profile made from a recipe has a key of its own. That is a deliberate exception to ADR 0009's additive-only rule, accepted because Kestrel has no API consumers outside its own SPA, the Silo plugin and the demo, as ADR 0024 accepted its breaks; a generated client that matches the enum needs regenerating.
