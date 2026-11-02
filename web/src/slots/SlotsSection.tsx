@@ -1,7 +1,7 @@
 import { Button, DotsMenu, MenuItem, Note, Toggle } from '@hyprsh/design'
 import { GripVertical } from 'lucide-react'
 import { useState, type KeyboardEvent } from 'react'
-import { ApiError, useProfiles, useSettings, useTitles, type Profile } from '../api/queries'
+import { ApiError, useProfiles, useTitles, type Profile } from '../api/queries'
 import { useDeleteSlot, usePatchSlot, useSlots, type Slot } from '../api/slots'
 import { plural } from '../format'
 import { SlotHead, SlotLine } from '../layout/SettingsLists'
@@ -9,6 +9,7 @@ import { SettingsCard, SettingsSection } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { DeleteSlot } from './DeleteSlot'
 import { SlotForm } from './SlotForm'
+import { SlotWarnings } from './SlotWarnings'
 
 const MAX_SLOTS = 4
 
@@ -32,7 +33,6 @@ export function SlotsSection() {
   const slots = useSlots()
   const profiles = useProfiles()
   const titles = useTitles()
-  const settings = useSettings()
   const patch = usePatchSlot()
   const remove = useDeleteSlot()
   const [editing, setEditing] = useState<string | 'new' | null>(null)
@@ -60,7 +60,6 @@ export function SlotsSection() {
   const declared = saved.some((s) => s.from_config_file)
   const onCount = saved.filter((s) => s.on_for_new_titles).length
   const held = (id: string) => titles.data?.filter((t) => t.slot_states.some((s) => s.slot === id)).length
-  const warnings = settings.data?.warnings ?? []
   const editingSlot = editing && editing !== 'new' ? saved.find((s) => s.id === editing) : undefined
   const deletingSlot = deleting ? saved.find((s) => s.id === deleting) : undefined
 
@@ -96,11 +95,7 @@ export function SlotsSection() {
         )
       }
     >
-      {warnings.map((w) => (
-        <Note key={`${w.kind}-${w.profile}`} variant="warning" size="small">
-          {w.message}
-        </Note>
-      ))}
+      <SlotWarnings />
       <SettingsCard>
         <SlotHead />
         {rows.map((s, index) => {
@@ -174,7 +169,9 @@ export function SlotsSection() {
         </Note>
       )}
       <span className="label-12 text-gray-900">
-        {declared ? 'The Config File sets the Slots, so they cannot be changed here. Change the file and restart Kestrel instead.' : 'A Slot is a copy of a Title: its label names the files. Drag to change the order.'}
+        {declared
+          ? 'The Config File sets the Slots, so they cannot be changed here. Change the file and restart Kestrel instead.'
+          : 'A Slot is a copy of a Title: its label names the files. Drag to change the order.'}
       </span>
       {editing === 'new' && <SlotForm profiles={profiles.data} titles={titles.data ?? []} onClose={() => setEditing(null)} />}
       {editingSlot && <SlotForm key={editingSlot.id} slot={editingSlot} profiles={profiles.data} titles={titles.data ?? []} onClose={() => setEditing(null)} />}

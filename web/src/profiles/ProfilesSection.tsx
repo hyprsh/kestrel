@@ -2,10 +2,11 @@ import { Button, Input, Modal, ModalAction, ModalActions, ModalBody, ModalHeader
 import { useState } from 'react'
 import { useProfileDetails, type ProfileDetail, type ProfileScoring } from '../api/downloads'
 import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
+import { useSlots, type Slot } from '../api/slots'
+import { SlotWarnings } from '../slots/SlotWarnings'
 import { plural } from '../format'
 import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
 import { SettingsBlock } from '../layout/SettingsPage'
-import { slotLabel } from '../library/bits'
 import { SkeletonRows } from '../loading'
 import { useReport } from '../toasts'
 import { DefaultsPerSlot, declaredNote, declaresProfiles } from './Profiles'
@@ -28,25 +29,26 @@ function audioText(p: Profile) {
  */
 export function ProfilesSection() {
   const profiles = useProfiles()
+  const slots = useSlots()
   const details = useProfileDetails()
   const [open, setOpen] = useState<string | null>(null)
   const [defaults, setDefaults] = useState(false)
   const [making, setMaking] = useState(false)
-  if (profiles.isError)
+  if (profiles.isError || slots.isError)
     return (
       <Note variant="error" size="small">
         Could not load the Profiles.
       </Note>
     )
-  if (!profiles.data) return <SkeletonRows count={3} />
+  if (!profiles.data || !slots.data) return <SkeletonRows count={3} />
   const list = profiles.data
   const declared = declaresProfiles(list)
   const detailOf = (key: string) => details.data?.find((d) => d.key === key)
-  const nameOf = (flag: 'default_movies' | 'default_series', slot: Profile['slot']) => list.find((p) => p.slot === slot && p[flag])?.name
+  const nameOf = (key: string | null) => (key ? (list.find((p) => p.key === key)?.name ?? key) : undefined)
 
-  const defaultsText = (slot: Profile['slot']) => {
-    const movies = nameOf('default_movies', slot)
-    const series = nameOf('default_series', slot)
+  const defaultsText = (slot: Slot) => {
+    const movies = nameOf(slot.default_movies)
+    const series = nameOf(slot.default_series)
     if (movies === series) return movies ?? 'None'
     return `Movies ${movies ?? 'none'}, Series ${series ?? 'none'}`
   }
@@ -67,13 +69,13 @@ export function ProfilesSection() {
           </Button>
         }
       >
-        <span>
-          Standard <b>{defaultsText('standard')}</b>
-        </span>
-        <span>
-          4K <b>{defaultsText('4k')}</b>
-        </span>
+        {slots.data.map((slot) => (
+          <span key={slot.id}>
+            {slot.label} <b>{defaultsText(slot)}</b>
+          </span>
+        ))}
       </DefaultsLine>
+      {!defaults && <SlotWarnings />}
       {defaults && (
         <SettingsBlock>
           <DefaultsPerSlot />
@@ -82,8 +84,7 @@ export function ProfilesSection() {
       {list.map((p) => {
         const d = detailOf(p.key)
         const scoring = mainScoring(d)
-        const place = (p.slot && slotLabel[p.slot]) || 'Any Slot' // a Profile has no Slot of its own now: #293 reworks this row
-        const uses = !p.enabled ? 'Off' : d && d.titles > 0 ? `${place} of ${plural(d.titles, 'Title')}` : `${place} · unused`
+        const uses = !p.enabled ? 'Off' : d && d.titles > 0 ? plural(d.titles, 'Title') : 'Unused'
         const defaultFor = [p.default_movies ? 'Movies' : null, p.default_series ? 'Series' : null].filter(Boolean).join(' and ')
         const cutoff = scoring?.cutoff ?? null
         return (
@@ -158,7 +159,7 @@ function NewProfile({ profiles, onCancel, onMade }: { profiles: Profile[]; onCan
               </option>
             ))}
           </Select>
-          <p className="label-12 text-gray-900">A copy of that Profile’s Slot, audio, qualities, cutoff and sizes. You change the copy in its sheet.</p>
+          <p className="label-12 text-gray-900">A copy of that Profile’s audio, qualities, cutoff and sizes. You change the copy in its sheet.</p>
         </div>
       </ModalBody>
       <ModalActions>

@@ -71,18 +71,15 @@ export function SlotForm({ slot, profiles, titles, onClose }: { slot?: Slot; pro
             ].filter((a) => a.profile && ids(a.kind).length > 0)
           : []
         if (asks.length > 0)
-          await report(
-            Promise.all(asks.map((a) => bulk.mutateAsync({ action: 'add_version', title_ids: ids(a.kind), slot: made.id, profile: a.profile }))),
-            {
-              done: (results) => {
-                const all = results.flat()
-                const added = all.filter((o) => o.outcome === 'changed').length
-                return `Added ${made.label} to ${plural(added, 'Title')}${added < all.length ? `, ${all.length - added} skipped` : ''}`
-              },
-              warn: (results) => results.flat().some((o) => o.outcome !== 'changed'),
-              failed: `Could not add ${made.label} to the existing Titles`,
+          await report(Promise.all(asks.map((a) => bulk.mutateAsync({ action: 'add_version', title_ids: ids(a.kind), slot: made.id, profile: a.profile }))), {
+            done: (results) => {
+              const all = results.flat()
+              const added = all.filter((o) => o.outcome === 'changed').length
+              return `Added ${made.label} to ${plural(added, 'Title')}${added < all.length ? `, ${all.length - added} skipped` : ''}`
             },
-          )
+            warn: (results) => results.flat().some((o) => o.outcome !== 'changed'),
+            failed: `Could not add ${made.label} to the existing Titles`,
+          })
       }
       onClose()
     } catch (e) {

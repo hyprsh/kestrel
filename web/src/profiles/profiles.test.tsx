@@ -9,6 +9,7 @@ import { http } from '../test/handlers'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
 import { fakeSetup } from '../test/fakeSetup'
+import { seededSlots, type Slot } from '../test/slots'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -20,10 +21,9 @@ type Settings = components['schemas']['Settings']
 type Sent = { path: string; body: unknown }
 type Details = components['schemas']['ProfileDetail']
 
-const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
+const profile = (key: string, name: string, rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
   key,
   name,
-  slot,
   language_rule: rule,
   original_language: 'reject',
   original_fallback: false,
@@ -39,12 +39,12 @@ const profile = (key: string, name: string, slot: Profile['slot'], rule: Profile
 })
 
 const seeded = (): Profile[] => [
-  profile('hd-primary', 'HD', 'standard', 'primary', { default_movies: true, default_series: true }),
-  profile('hd-original', 'HD Original', 'standard', 'original'),
-  profile('any-primary', 'Any', 'standard', 'primary'),
-  profile('any-original', 'Any Original', 'standard', 'original'),
-  profile('4k-primary', '4K', '4k', 'primary'),
-  profile('4k-original', '4K Original', '4k', 'original'),
+  profile('hd-primary', 'HD', 'primary', { default_movies: true, default_series: true }),
+  profile('hd-original', 'HD Original', 'original'),
+  profile('any-primary', 'Any', 'primary'),
+  profile('any-original', 'Any Original', 'original'),
+  profile('4k-primary', '4K', 'primary'),
+  profile('4k-original', '4K Original', 'original'),
 ]
 
 /** The Profile and settings API with real behaviour for the rules the UI leans on. */
@@ -52,6 +52,7 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
   let profiles = seeded()
+  let slots = seededSlots()
   let settings: Settings = {
     language_region: { primary_language: 'en', release_date_country: 'US' },
     check_github_updates: true,
@@ -87,18 +88,27 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
       return response(200).json(settings)
     }),
     http.get('/profiles', ({ response }) => response(200).json({ items: profiles })),
+    http.get('/slots', ({ response }) => response(200).json({ items: slots })),
+    http.patch('/slots/{id}', async ({ request, params, response }) => {
+      const body = (await request.json()) as Partial<Slot>
+      sent.push({ path: `slot ${params.id}`, body })
+      slots = slots.map((s) =>
+        s.id === params.id
+          ? {
+              ...s,
+              ...body,
+              default_movies: body.default_movies === undefined ? s.default_movies : body.default_movies || null,
+              default_series: body.default_series === undefined ? s.default_series : body.default_series || null,
+            }
+          : s,
+      )
+      return response(200).json(slots.find((s) => s.id === params.id)!)
+    }),
     http.patch('/profiles/{key}', async ({ request, params, response }) => {
       const body = (await request.json()) as Partial<Profile>
       sent.push({ path: `profile ${params.key}`, body })
       const cur = profiles.find((p) => p.key === params.key)!
-      if (cur.slot === 'standard' && cur.enabled && (body.enabled === false || body.default_movies === false)) {
-        return response('default').json(problem(422, 'validation', 'The Standard Slot always has a default: make another Standard Profile the default first'), { status: 422 })
-      }
-      profiles = profiles.map((p) => {
-        if (p.slot === cur.slot && body.default_movies) p = { ...p, default_movies: false }
-        if (p.slot === cur.slot && body.default_series) p = { ...p, default_series: false }
-        return p.key === cur.key ? { ...p, ...body } : p
-      })
+      profiles = profiles.map((p) => (p.key === cur.key ? { ...p, ...body } : p))
       return response(200).json(profiles.find((p) => p.key === cur.key)!)
     }),
   )
@@ -146,34 +156,30 @@ describe('the wizard Profiles section', () => {
     await createAccount()
 
     const section = await screen.findByRole('region', { name: 'Profiles' })
-    // Standard is preselected for both kinds and has no empty choice; 4K starts empty.
+    // Each Slot shows its own default for both kinds, whatever the Profile is (no Profile belongs to a Slot).
     const hdMovies = await within(section).findByLabelText('Standard default for Movies')
     expect(hdMovies).toHaveValue('hd-primary')
-    expect(within(hdMovies).queryByRole('option', { name: 'None' })).not.toBeInTheDocument()
-    expect(within(section).getByLabelText('4K default for Movies')).toHaveValue('')
-
-    await userEvent.selectOptions(within(section).getByLabelText('4K default for Movies'), '4k-primary')
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { default_movies: true } }))
-    expect(await within(section).findByLabelText('4K default for Movies')).toHaveValue('4k-primary')
-    expect(within(section).getByLabelText('4K default for Series')).toHaveValue('')
+    expect(within(section).getByLabelText('4K default for Movies')).toHaveValue('4k-primary')
+    expect(within(within(section).getByLabelText('4K default for Series')).getByRole('option', { name: 'HD Original' })).toBeInTheDocument()
 
     await userEvent.selectOptions(within(section).getByLabelText('Standard default for Series'), 'hd-original')
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile hd-original', body: { default_series: true } }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'slot standard', body: { default_series: 'hd-original' } }))
+    expect(await within(section).findByLabelText('Standard default for Series')).toHaveValue('hd-original')
 
-    // Unsetting a default is "None" for 4K.
+    // A Slot can have none: "None" clears it.
     await userEvent.selectOptions(within(section).getByLabelText('4K default for Movies'), '')
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'profile 4k-primary', body: { default_movies: false } }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'slot 4k', body: { default_movies: '' } }))
   })
 
-  it('shows why a default cannot be unset', async () => {
+  it('shows why a default cannot be saved', async () => {
     fakeProfiles({ fresh: true })
     renderApp()
     await createAccount()
     const section = await screen.findByRole('region', { name: 'Profiles' })
-    // The server refuses to leave HD without a default; the message reaches the admin.
-    server.use(http.patch('/profiles/{key}', ({ response }) => response('default').json(problem(422, 'validation', 'HD always has a default for movies'), { status: 422 })))
+    // The server refuses a default that is a disabled Profile; the message reaches the admin.
+    server.use(http.patch('/slots/{id}', ({ response }) => response('default').json(problem(422, 'validation', 'HD is turned off'), { status: 422 })))
     await userEvent.selectOptions(await within(section).findByLabelText('Standard default for Movies'), 'hd-original')
-    expect(await within(section).findByRole('alert')).toHaveTextContent('HD always has a default for movies')
+    expect(await within(section).findByRole('alert')).toHaveTextContent('HD is turned off')
   })
 })
 
@@ -346,7 +352,7 @@ describe('Settings', () => {
     serveDetails({ 'hd-primary': configuredHd() })
     await open('Profiles')
     const hd = await screen.findByRole('region', { name: 'HD' })
-    expect(await within(hd).findByText('Standard of 6 Titles')).toBeInTheDocument()
+    expect(await within(hd).findByText('6 Titles')).toBeInTheDocument()
     // Remux first, the cutoff dark, the quality turned off struck through.
     expect(within(hd).getByText('Remux 1080p').compareDocumentPosition(within(hd).getByText('WEBRip 1080p')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(hd).getByText('WEB-DL 1080p')).toHaveAttribute('title', 'Good enough here')
@@ -368,6 +374,37 @@ describe('Settings', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Change…' }))
     expect(await screen.findByLabelText('4K default for Movies')).toBeInTheDocument()
+  })
+
+  it('names every Slot in the defaults line, offers every Profile for each, and warns about a shared default', async () => {
+    fakeProfiles()
+    const warning = { code: 'shared_slot_default', kind: 'movies', profile: 'hd-primary', slots: ['standard', '4k'], message: 'Standard and 4K both default to HD for Movies' } as const
+    server.use(
+      http.get('/slots', ({ response }) =>
+        response(200).json({ items: [...seededSlots(), { ...seededSlots()[0], id: 'remux', label: 'Remux', position: 2, default_movies: 'any-primary', default_series: null }] }),
+      ),
+      http.get('/settings', ({ response }) =>
+        response(200).json({
+          language_region: { primary_language: 'en', release_date_country: 'US' },
+          check_github_updates: true,
+          pause_grabs: false,
+          display: displayDefaults,
+          from_config_file: { language_region: false, root_folders: false, check_github_updates: false, display: noDisplayDeclared },
+          trash: { auto_update: true },
+          metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
+          root_folders: { movies: ['/m'], series: ['/s'] },
+          warnings: [warning],
+        }),
+      ),
+    )
+    serveDetails()
+    await open('Profiles')
+    const line = await screen.findByRole('region', { name: 'New Titles get' })
+    expect(await within(line).findByText('Movies Any, Series none')).toBeInTheDocument()
+    expect(within(line).getByText('Remux')).toBeInTheDocument()
+    expect(await screen.findByText('Standard and 4K both default to HD for Movies')).toBeInTheDocument()
+    // A Profile's card names no Slot.
+    expect(screen.queryByText(/Any Slot|Standard of/)).not.toBeInTheDocument()
   })
 
   it('says No Upgrades past the cutoff for a cutoff with no Upgrade-until Score', async () => {

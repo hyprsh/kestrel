@@ -1,7 +1,8 @@
 import { Note, Select } from '@hyprsh/design'
 import { SkeletonRows } from '../loading'
-import { ApiError, usePatchProfile, useProfiles, type Profile } from '../api/queries'
-import { slotKeys, slotLabel } from '../library/bits'
+import { ApiError, useProfiles, type Profile } from '../api/queries'
+import { useSlots, usePatchSlot } from '../api/slots'
+import { SlotWarnings } from '../slots/SlotWarnings'
 import { useReport } from '../toasts'
 
 const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ? e.message : 'Could not save. Try again.')
@@ -11,78 +12,67 @@ export const declaresProfiles = (profiles: Profile[]) => profiles.some((p) => p.
 export const declaredNote = <Note size="small">The Config File sets the Profiles, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>
 
 /**
- * One default Profile per Slot for Movies and for Series. Standard always has one;
- * 4K can have none. A change saves at once.
+ * The default Profile each Slot gives a new Movie and a new Series (ADR 0024). Any enabled Profile can fill any Slot, and a
+ * Slot can have none. A change saves at once. Slots are added, renamed and removed in Settings, Library.
  */
 export function DefaultsPerSlot() {
   const profiles = useProfiles()
-  const patch = usePatchProfile()
+  const slots = useSlots()
+  const patch = usePatchSlot()
   const report = useReport()
-  if (profiles.isError)
+  if (profiles.isError || slots.isError)
     return (
       <Note variant="error" size="small">
-        Could not load the Profiles.
+        Could not load the Slots and Profiles.
       </Note>
     )
-  if (!profiles.data) return <SkeletonRows count={3} />
-  const declared = declaresProfiles(profiles.data)
+  if (!profiles.data || !slots.data) return <SkeletonRows count={3} />
+  const declared = slots.data.some((s) => s.from_config_file)
+  const enabled = profiles.data.filter((p) => p.enabled)
 
   const kinds = [
-    { kind: 'Movies', flag: 'default_movies' },
-    { kind: 'Series', flag: 'default_series' },
+    { kind: 'Movies', field: 'default_movies' },
+    { kind: 'Series', field: 'default_series' },
   ] as const
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid max-w-md grid-cols-[3rem_1fr_1fr] items-center gap-x-3 gap-y-2">
+      <div className="grid max-w-md grid-cols-[4rem_1fr_1fr] items-center gap-x-3 gap-y-2">
         <span />
         {kinds.map((k) => (
           <span key={k.kind} className="label-13 text-gray-900">
             {k.kind}
           </span>
         ))}
-        {slotKeys.map((slot) => {
-          const label = slotLabel[slot]
-          const inSlot = profiles.data.filter((p) => p.slot === slot)
-          return (
-            <Row key={slot} label={label}>
-              {kinds.map(({ kind, flag }) => {
-                const current = inSlot.find((p) => p[flag])
-                return (
-                  <Select
-                    size="small"
-                    key={kind}
-                    aria-label={`${label} default for ${kind}`}
-                    value={current?.key ?? ''}
-                    disabled={declared}
-                    onChange={(e) => {
-                      const key = e.target.value
-                      const saved = { done: `Saved the ${label} default for ${kind}` }
-                      if (key) void report(patch.mutateAsync({ key, patch: { [flag]: true } }), saved)
-                      else if (current) void report(patch.mutateAsync({ key: current.key, patch: { [flag]: false } }), saved)
-                    }}
-                  >
-                    {slot !== 'standard' && <option value="">None</option>}
-                    {inSlot
-                      .filter((p) => p.enabled)
-                      .map((p) => (
-                        <option key={p.key} value={p.key}>
-                          {p.name}
-                        </option>
-                      ))}
-                  </Select>
-                )
-              })}
-            </Row>
-          )
-        })}
+        {slots.data.map((slot) => (
+          <Row key={slot.id} label={slot.label}>
+            {kinds.map(({ kind, field }) => (
+              <Select
+                size="small"
+                key={kind}
+                aria-label={`${slot.label} default for ${kind}`}
+                value={slot[field] ?? ''}
+                disabled={declared}
+                onChange={(e) => void report(patch.mutateAsync({ id: slot.id, patch: { [field]: e.target.value } }), { done: `Saved the ${slot.label} default for ${kind}` })}
+              >
+                <option value="">None</option>
+                {enabled.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            ))}
+          </Row>
+        ))}
       </div>
       {patch.isError && (
         <Note variant="error" size="small">
           {problemText(patch.error)}
         </Note>
       )}
-      {declared && declaredNote}
+      <SlotWarnings />
+      {declared && <Note size="small">The Config File sets the Slots, so their defaults cannot be changed here. Change the file and restart Kestrel instead.</Note>}
     </div>
   )
 }
