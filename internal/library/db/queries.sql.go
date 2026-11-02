@@ -1978,7 +1978,7 @@ func (q *Queries) ListVersions(ctx context.Context) ([]Version, error) {
 }
 
 const listVersionsOfTitle = `-- name: ListVersionsOfTitle :many
-SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE title_id = ? ORDER BY id
+SELECT v.id, v.title_id, v.slot, v.profile_key, v.added_at FROM versions v JOIN slots s ON s.id = v.slot WHERE v.title_id = ? ORDER BY s.position, v.id
 `
 
 func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Version, error) {

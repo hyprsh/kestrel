@@ -842,7 +842,6 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt), Coverage: cov,
 		})
 	}
-	sort.SliceStable(d.Versions, func(i, j int) bool { return slot.Compare(d.Versions[i].Slot, d.Versions[j].Slot) < 0 })
 	return d, nil
 }
 
