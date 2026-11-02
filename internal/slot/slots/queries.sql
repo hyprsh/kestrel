@@ -16,6 +16,9 @@ DELETE FROM slots WHERE id = ?;
 -- name: SlotVersionCount :one
 SELECT COUNT(*) FROM versions WHERE slot = ?;
 
+-- name: VersionCount :one
+SELECT COUNT(*) FROM versions;
+
 -- name: ProfileKeys :many
 SELECT key FROM profiles;
 

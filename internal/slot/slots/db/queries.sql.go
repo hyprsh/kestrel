@@ -327,3 +327,14 @@ func (q *Queries) UpdateSlot(ctx context.Context, arg UpdateSlotParams) error {
 	)
 	return err
 }
+
+const versionCount = `-- name: VersionCount :one
+SELECT COUNT(*) FROM versions
+`
+
+func (q *Queries) VersionCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, versionCount)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}

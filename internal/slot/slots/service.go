@@ -22,12 +22,23 @@ var ErrNotFound = errors.New("slot not found")
 // Service reads and writes the Slots.
 type Service struct {
 	st        *store.Store
+	tx        *sql.Tx // set by InTx: writes join the caller's transaction, which notifies nobody
 	onRelabel func(context.Context, slot.Slot)
 	onChange  func()
 }
 
 // New returns a Service over st.
 func New(st *store.Store) *Service { return &Service{st: st} }
+
+// InTx returns a Service whose writes run inside tx; the caller commits or rolls back, and calls Notify after a commit.
+func (s *Service) InTx(tx *sql.Tx) *Service {
+	c := *s
+	c.tx = tx
+	return &c
+}
+
+// Notify runs what OnChange set, for a change made through InTx once it is committed.
+func (s *Service) Notify() { s.changed() }
 
 // OnRelabel sets what runs for each Slot whose label was changed, after the
 // change is saved: it renames the Slot's files (ADR 0003). The API and a Config
@@ -122,6 +133,9 @@ func (s *Service) Known(ctx context.Context, id slot.Slot) (bool, error) {
 // write runs f in a transaction on the one write connection, so a check and
 // the write it allows cannot race.
 func (s *Service) write(ctx context.Context, f func(*db.Queries) error) error {
+	if s.tx != nil {
+		return f(db.New(s.tx))
+	}
 	tx, err := s.st.Write().BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -428,7 +442,7 @@ func plan(cur []slot.Record, want []Declared) (set, dropped []slot.Record, err e
 // A file that declares the Profiles brings them with it: declaredProfiles are their keys, which a default may name before
 // they are stored (a fresh install has none, ADR 0026). Nil when the file declares none.
 func (s *Service) CheckDeclared(ctx context.Context, want []Declared, declaredProfiles []string) error {
-	return s.declare(ctx, want, false, declaredProfiles)
+	return s.declare(ctx, want, false, false, declaredProfiles)
 }
 
 // CheckDefaultKinds is nil when each default a Config File names applies to its kind under the saved Profiles. A file that
@@ -450,10 +464,22 @@ func (s *Service) CheckDefaultKinds(ctx context.Context, want []Declared) error 
 // removed if it is empty, and startup fails if it holds Versions. It writes
 // only what differs, so the same file twice writes nothing.
 func (s *Service) Declare(ctx context.Context, want []Declared) error {
-	return s.declare(ctx, want, true, nil)
+	return s.declare(ctx, want, true, false, nil)
 }
 
-func (s *Service) declare(ctx context.Context, want []Declared, apply bool, declaredProfiles []string) error {
+// Replace makes the Slots those of want, as Declare does, but with the rules of the API: each default must be an
+// enabled Profile. It is how a setup preset replaces the Slots (ADR 0026), inside the caller's transaction (InTx).
+func (s *Service) Replace(ctx context.Context, want []Declared) error {
+	return s.declare(ctx, want, true, true, nil)
+}
+
+// HasVersions reports whether any Version exists: a preset replaces the Slots, which only a library without Versions allows.
+func (s *Service) HasVersions(ctx context.Context) (bool, error) {
+	n, err := db.New(s.st.Read()).VersionCount(ctx)
+	return n > 0, err
+}
+
+func (s *Service) declare(ctx context.Context, want []Declared, apply, enabled bool, declaredProfiles []string) error {
 	var relabeled []slot.Slot
 	err := s.write(ctx, func(q *db.Queries) error {
 		cur, err := list(ctx, q)
@@ -474,7 +500,7 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool, decl
 					missing = append(missing, k)
 				}
 			}
-			return profileKeys(ctx, q, field, false, missing...)
+			return profileKeys(ctx, q, field, enabled, missing...)
 		}
 		for _, r := range set {
 			if err := stored("default_movies", r.DefaultMovies); err != nil {
@@ -500,7 +526,7 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool, decl
 		relabeled, err = writeSet(ctx, q, cur, set)
 		return err
 	})
-	if err == nil && apply {
+	if err == nil && apply && s.tx == nil {
 		s.changed()
 		s.relabeled(ctx, relabeled)
 	}

@@ -443,6 +443,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/slots/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Slot presets the setup wizard offers
+         * @description The four presets of ADR 0026, each a set of Slots with the recipe of every default Profile. `available` is
+         *     `false`, and `items` empty, once the library holds any Version: a preset replaces the Slots, so a library that
+         *     has Versions edits them one by one (`PATCH /slots/{id}`). The Primary Language names the preset that is
+         *     labelled with it ("German + Original") and the Profiles that follow it. `items` is empty too while the
+         *     Config File declares `slots`.
+         */
+        get: operations["listSlotPresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/slots/presets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the Slots with a preset
+         * @description In one transaction: replaces the Slots with the preset's, imports each default Profile that the household
+         *     has no Profile for yet (one it has is reused) and enables it, and sets the defaults and the on-for-new
+         *     switches. A failure leaves the Slots and Profiles as they were. `404 not_found` for an unknown preset;
+         *     `409 conflict` once the library holds a Version, and while the Config File declares `slots` or `profiles`;
+         *     `422 validation` when a default has no backing TRaSH profile under the Primary Language.
+         */
+        post: operations["applySlotPreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/slots/{id}": {
         parameters: {
             query?: never;
@@ -2826,6 +2874,35 @@ export interface components {
         SlotList: {
             /** @description In order, at least one and at most four. */
             items: components["schemas"]["Slot"][];
+        };
+        /** @enum {string} */
+        SlotPresetId: "one-copy" | "standard-plus-4k" | "streaming-remux-archive" | "language-plus-original";
+        SlotPresetSlot: {
+            /** @example Remux */
+            label: string;
+            /**
+             * @description The name of the Profile the preset makes the Movies default, or `null` for none.
+             * @example 4K Remux
+             */
+            default_movies: string | null;
+            /** @description The name of the Profile the preset makes the Series default, or `null` for none. */
+            default_series: string | null;
+            on_for_new_titles: boolean;
+        };
+        SlotPreset: {
+            id: components["schemas"]["SlotPresetId"];
+            /**
+             * @description Labelled with the Primary Language where it is part of the preset.
+             * @example German + Original
+             */
+            name: string;
+            /** @description In order. */
+            slots: components["schemas"]["SlotPresetSlot"][];
+        };
+        SlotPresetList: {
+            /** @description `false` once the library holds a Version, or while the Config File declares `slots`. */
+            available: boolean;
+            items: components["schemas"]["SlotPreset"][];
         };
         SlotCreate: {
             /**
@@ -6382,6 +6459,53 @@ export interface operations {
                     "application/json": components["schemas"]["Slot"];
                 };
             };
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listSlotPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The presets, in the order the wizard shows them. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotPresetList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    applySlotPreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["SlotPresetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Slots as they now stand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotList"];
+                };
+            };
+            404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
             default: components["responses"]["Problem"];

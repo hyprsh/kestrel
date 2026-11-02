@@ -36,6 +36,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/presets"
 	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/updates"
@@ -298,7 +299,7 @@ func New(opts Options) *App {
 	})
 
 	deps := api.Deps{
-		Plugins: pluginInstances, Profiles: profs, Slots: slotSvc, RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
+		Plugins: pluginInstances, Profiles: profs, Slots: slotSvc, Presets: presets.New(st, profs, slotSvc), RootFolders: roots, Settings: settingsTx{roots, profs, trash, pause, disp}, Display: disp, Pause: pause, Updates: upd,
 		Library: lib, Acquire: acq, Requests: reqs, Adoption: adoption, Cleanup: cleanup, Remover: remover, Imports: imp, Files: imp, FolderChanges: folderFeed,
 		Jobs: runner, Refresher: refresher, Indexers: indexerHost, Health: healthSvc, History: hist, Scoring: live, Trash: trashAPI{trash, trashUpdates}, Keys: keys,
 		Meta: meta, TVDB: tvdb, Bridge: &metadata.Bridge{Meta: meta, TVDB: tvdb, Log: opts.Logger}, Posters: posters, PlexTV: plexTV,

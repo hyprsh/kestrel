@@ -1435,6 +1435,30 @@ func (e SetupSectionState) Valid() bool {
 	}
 }
 
+// Defines values for SlotPresetId.
+const (
+	LanguagePlusOriginal  SlotPresetId = "language-plus-original"
+	OneCopy               SlotPresetId = "one-copy"
+	StandardPlus4k        SlotPresetId = "standard-plus-4k"
+	StreamingRemuxArchive SlotPresetId = "streaming-remux-archive"
+)
+
+// Valid indicates whether the value is a known member of the SlotPresetId enum.
+func (e SlotPresetId) Valid() bool {
+	switch e {
+	case LanguagePlusOriginal:
+		return true
+	case OneCopy:
+		return true
+	case StandardPlus4k:
+		return true
+	case StreamingRemuxArchive:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SlotState.
 const (
 	SlotStateDownloading SlotState = "downloading"
@@ -5050,6 +5074,44 @@ type SlotPatch struct {
 	Position *int `json:"position,omitempty"`
 }
 
+// SlotPreset defines model for SlotPreset.
+type SlotPreset struct {
+	Id SlotPresetId `json:"id"`
+
+	// Name Labelled with the Primary Language where it is part of the preset.
+	//
+	// Example: German + Original
+	Name string `json:"name"`
+
+	// Slots In order.
+	Slots []SlotPresetSlot `json:"slots"`
+}
+
+// SlotPresetId defines model for SlotPresetId.
+type SlotPresetId string
+
+// SlotPresetList defines model for SlotPresetList.
+type SlotPresetList struct {
+	// Available `false` once the library holds a Version, or while the Config File declares `slots`.
+	Available bool         `json:"available"`
+	Items     []SlotPreset `json:"items"`
+}
+
+// SlotPresetSlot defines model for SlotPresetSlot.
+type SlotPresetSlot struct {
+	// DefaultMovies The name of the Profile the preset makes the Movies default, or `null` for none.
+	//
+	// Example: 4K Remux
+	DefaultMovies *string `json:"default_movies"`
+
+	// DefaultSeries The name of the Profile the preset makes the Series default, or `null` for none.
+	DefaultSeries *string `json:"default_series"`
+
+	// Label Example: Remux
+	Label          string `json:"label"`
+	OnForNewTitles bool   `json:"on_for_new_titles"`
+}
+
 // SlotState `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.
 // Clients tolerate new values.
 type SlotState string
@@ -6920,6 +6982,12 @@ type ServerInterface interface {
 	// CreateSlot Define a Slot
 	// (POST /slots)
 	CreateSlot(w http.ResponseWriter, r *http.Request)
+	// ListSlotPresets The Slot presets the setup wizard offers
+	// (GET /slots/presets)
+	ListSlotPresets(w http.ResponseWriter, r *http.Request)
+	// ApplySlotPreset Replace the Slots with a preset
+	// (POST /slots/presets/{id})
+	ApplySlotPreset(w http.ResponseWriter, r *http.Request, id SlotPresetId)
 	// DeleteSlot Remove a Slot
 	// (DELETE /slots/{id})
 	DeleteSlot(w http.ResponseWriter, r *http.Request, id SlotIdParam)
@@ -9088,6 +9156,46 @@ func (siw *ServerInterfaceWrapper) CreateSlot(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListSlotPresets operation middleware
+func (siw *ServerInterfaceWrapper) ListSlotPresets(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSlotPresets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplySlotPreset operation middleware
+func (siw *ServerInterfaceWrapper) ApplySlotPreset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id SlotPresetId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplySlotPreset(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteSlot operation middleware
 func (siw *ServerInterfaceWrapper) DeleteSlot(w http.ResponseWriter, r *http.Request) {
 
@@ -10128,6 +10236,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/settings", wrapper.PatchSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/slots", wrapper.ListSlots)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/slots", wrapper.CreateSlot)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/slots/presets", wrapper.ListSlotPresets)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/slots/presets/{id}", wrapper.ApplySlotPreset)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/slots/{id}", wrapper.DeleteSlot)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/slots/{id}", wrapper.PatchSlot)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/profiles", wrapper.ListProfiles)
@@ -15037,6 +15147,127 @@ func (response CreateSlotdefaultApplicationProblemPlusJSONResponse) VisitCreateS
 	return err
 }
 
+type ListSlotPresetsRequestObject struct {
+}
+
+type ListSlotPresetsResponseObject interface {
+	VisitListSlotPresetsResponse(w http.ResponseWriter) error
+}
+
+type ListSlotPresets200JSONResponse SlotPresetList
+
+func (response ListSlotPresets200JSONResponse) VisitListSlotPresetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListSlotPresetsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListSlotPresetsdefaultApplicationProblemPlusJSONResponse) VisitListSlotPresetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPresetRequestObject struct {
+	Id SlotPresetId `json:"id"`
+}
+
+type ApplySlotPresetResponseObject interface {
+	VisitApplySlotPresetResponse(w http.ResponseWriter) error
+}
+
+type ApplySlotPreset200JSONResponse SlotList
+
+func (response ApplySlotPreset200JSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPreset404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplySlotPreset404ApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPreset409ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplySlotPreset409ApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPreset422ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplySlotPreset422ApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplySlotPresetdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ApplySlotPresetdefaultApplicationProblemPlusJSONResponse) VisitApplySlotPresetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteSlotRequestObject struct {
 	Id SlotIdParam `json:"id"`
 }
@@ -17110,6 +17341,12 @@ type StrictServerInterface interface {
 	// CreateSlot Define a Slot
 	// (POST /slots)
 	CreateSlot(ctx context.Context, request CreateSlotRequestObject) (CreateSlotResponseObject, error)
+	// ListSlotPresets The Slot presets the setup wizard offers
+	// (GET /slots/presets)
+	ListSlotPresets(ctx context.Context, request ListSlotPresetsRequestObject) (ListSlotPresetsResponseObject, error)
+	// ApplySlotPreset Replace the Slots with a preset
+	// (POST /slots/presets/{id})
+	ApplySlotPreset(ctx context.Context, request ApplySlotPresetRequestObject) (ApplySlotPresetResponseObject, error)
 	// DeleteSlot Remove a Slot
 	// (DELETE /slots/{id})
 	DeleteSlot(ctx context.Context, request DeleteSlotRequestObject) (DeleteSlotResponseObject, error)
@@ -19537,6 +19774,56 @@ func (sh *strictHandler) CreateSlot(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateSlotResponseObject); ok {
 		if err := validResponse.VisitCreateSlotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListSlotPresets operation middleware
+func (sh *strictHandler) ListSlotPresets(w http.ResponseWriter, r *http.Request) {
+	var request ListSlotPresetsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSlotPresets(ctx, request.(ListSlotPresetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSlotPresets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListSlotPresetsResponseObject); ok {
+		if err := validResponse.VisitListSlotPresetsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplySlotPreset operation middleware
+func (sh *strictHandler) ApplySlotPreset(w http.ResponseWriter, r *http.Request, id SlotPresetId) {
+	var request ApplySlotPresetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplySlotPreset(ctx, request.(ApplySlotPresetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplySlotPreset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplySlotPresetResponseObject); ok {
+		if err := validResponse.VisitApplySlotPresetResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -22,6 +22,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/presets"
 	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/updates"
 )
@@ -33,6 +34,7 @@ type Deps struct {
 	Plugins     PluginInstances
 	Profiles    Profiles
 	Slots       Slots
+	Presets     Presets
 	RootFolders RootFolders
 	Settings    SettingsTx
 	Display     Display
@@ -89,6 +91,14 @@ type Slots interface {
 	Delete(ctx context.Context, id slot.Slot) error
 	// OnChange sets what runs after any change to the Slots is saved, whoever made it.
 	OnChange(f func())
+}
+
+// Presets are the setup wizard's Slot presets.
+type Presets interface {
+	// List is the presets on offer: none once the library holds a Version.
+	List(ctx context.Context) ([]presets.Preset, error)
+	// Apply replaces the Slots with a preset's and imports and enables its default Profiles, all or nothing.
+	Apply(ctx context.Context, id presets.ID) ([]slot.Record, error)
 }
 
 // Profiles is the household's language settings and the Profiles.

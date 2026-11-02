@@ -229,6 +229,41 @@ func (s *Service) Import(ctx context.Context, r Recipe, name string) (Profile, e
 	return out, err
 }
 
+// Name is the name an import of the recipe gets: "4K Remux", "HD Original", "HD French".
+func (r Recipe) Name() string { return recipeName(r) }
+
+// Ensure is the household's Profile of the recipe, enabled: the one it has, or else an import of the recipe. A setup
+// preset names its default Profiles this way (ADR 0026), so a household that already has "HD" keeps it.
+func (s *Service) Ensure(ctx context.Context, r Recipe) (Profile, error) {
+	var all []Profile
+	err := s.write(ctx, func(q *db.Queries) error { // through the write side, to see what an open transaction has made
+		rows, err := q.ListProfiles(ctx)
+		if err != nil {
+			return err
+		}
+		all, err = convert(rows)
+		return err
+	})
+	if err != nil {
+		return Profile{}, err
+	}
+	region, _, err := s.Region(ctx)
+	if err != nil {
+		return Profile{}, err
+	}
+	for _, p := range all {
+		if RecipeOf(p).normalized(region.Primary) != r.normalized(region.Primary) {
+			continue
+		}
+		if p.Enabled {
+			return p, nil
+		}
+		on := true
+		return s.Patch(ctx, p.Key, Patch{Enabled: &on})
+	}
+	return s.Import(ctx, r, "")
+}
+
 // Duplicate is two Profiles that are the same recipe under the Primary Language though they are not stored as the
 // same: one names the Primary Language and the other says Primary.
 type Duplicate struct{ A, B Profile }
