@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.12.0](https://github.com/hyprsh/kestrel/compare/v0.11.0...v0.12.0) (2026-11-02)
+
+> You define your own Slots now: up to four copies of each Title, named as you like, such as Standard, 4K, Remux or German. And you add Profiles from recipes that fit your household's language, instead of choosing from six fixed ones. The whole web app is redesigned around a side panel, loads in a third of the time on a phone, and stays fast with thousands of Titles. See [Slots](https://github.com/hyprsh/kestrel/blob/main/docs/guide/slots.md).
+
+### Upgrade Steps
+
+* The migrations that make Profiles recipes are one-way. Kestrel copies the database to `/config/backups/` before migrating it: to go back to 0.11, stop Kestrel and copy that file over `/config/kestrel.db`.
+* **[ACTION REQUIRED]** If your Config File sets `default_movies` or `default_series` on a Profile, move each into the new `slots` section. Kestrel ignores those keys now and logs a warning at startup naming each Profile that still sets one.
+* **[ACTION REQUIRED]** If your Config File declares `profiles`, it now names the whole set: a stored Profile it leaves out is disabled (kept, never deleted). Startup fails, naming the Profile, if a Version uses it or a Slot names it as its default. Add the Profile to the file or move what uses it first.
+* Every Indexer's priority is reset to 0 once. Priority now decides which Indexers a search asks first, and the old values, set by dragging the list, would have made every search ask the Indexers one at a time. Set priorities again only if you want groups.
+* Nothing on disk is renamed or moved. Your two Slots keep their ids (`standard`, `4k`), labels and defaults, and your six Profiles stay as they were. The 4K Slot now has `4k-primary` as its default where it had none.
+
+### Breaking Changes
+
+* **api:** Slot fields are now strings (a Slot id) instead of the enum `standard | 4k`. The schema that was called `Slot` is now `SlotId`, and `Slot` names the new Slot record. Regenerate any client generated from the OpenAPI document.
+* **api:** a Profile's `slot` is optional and deprecated. `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`; set defaults with `PATCH /slots/{id}`.
+* **api:** `ProfileKey` is now a string instead of the six-key enum, since a household can add Profiles.
+* **api:** `GET /titles` no longer returns `TitleRow.slots` (use `slot_states`) or `SlotStateEntry.file` (read a Movie's file from the Title detail), and the `SlotSummary` schema is gone ([#285](https://github.com/hyprsh/kestrel/pull/285))
+
+### New Features
+
+* **slots:** up to four Slots of your own in Settings › Library › Slots: add, rename, reorder and delete them, and set each one's default Profile per kind and whether new Titles get it. Renaming renames the files and keeps the old label for Adoption. When several Slots pick the same Release, Kestrel downloads it once and hardlinks it under each label. The Silo plugin maps each Silo tier to a Slot ([#303](https://github.com/hyprsh/kestrel/pull/303)), closes [#282](https://github.com/hyprsh/kestrel/issues/282)
+* **profiles:** a Profile is a recipe of a resolution (HD, 4K or Any), a Release Family (Bluray + WEB, Remux + WEB, WEB, SQP) and a language (your Primary Language, the original language, English, German or French), and Kestrel picks the matching TRaSH profile. Settings › Profiles suggests the recipes you don't have yet, with your languages first. SQP and French Remux are for Movies only ([#313](https://github.com/hyprsh/kestrel/pull/313)), closes [#304](https://github.com/hyprsh/kestrel/issues/304)
+* **wizard:** setup asks which Slots you want, from presets ("One copy", "Standard + 4K", "Streaming + Remux archive") or the editor, then which Profiles to enable. A fresh install enables only what you pick, rather than every Profile ([#313](https://github.com/hyprsh/kestrel/pull/313))
+* **indexers:** Indexer Priority now matters. An automatic search asks the Indexers in priority groups, lowest number first, and asks the next group only for what the earlier ones didn't find. Use it to keep a paid or rate-limited Indexer as a fallback. When an NZB can't be fetched, Kestrel fetches the same Release from the next Indexer that offered it. With every Indexer at one priority, searching works as before ([#302](https://github.com/hyprsh/kestrel/pull/302)), closes [#297](https://github.com/hyprsh/kestrel/issues/297), [#298](https://github.com/hyprsh/kestrel/issues/298), [#299](https://github.com/hyprsh/kestrel/issues/299), [#300](https://github.com/hyprsh/kestrel/issues/300)
+* **web:** every screen is redesigned around a side panel beside the rail, with Views and a Filter menu. The Overview is a dashboard with figures, Downloading and Searching cards, Needs attention and charts. Settings is grouped into seven pages. A Slot looks the same everywhere: one chip with one legend. Title pages show Versions, Seasons and a Movie's Slots as accordions, so what's missing shows without a click. Profiles gain a Cutoff, an Upgrade-until Score, size limits and custom Profiles, and Kestrel makes a daily Backup ([#277](https://github.com/hyprsh/kestrel/pull/277)), closes [#275](https://github.com/hyprsh/kestrel/issues/275), [#279](https://github.com/hyprsh/kestrel/issues/279)
+
+### Bug Fixes
+
+* **library:** a Series' episode totals no longer count Specials, so a Series with every regular episode filled no longer reads as incomplete. A monitored Special you want still counts as Wanted ([#296](https://github.com/hyprsh/kestrel/pull/296)), closes [#295](https://github.com/hyprsh/kestrel/issues/295)
+
+### Performance Improvements
+
+* **web:** the web app is compressed, cached and split per screen, so a cold load on a phone takes about 2.6 s instead of 7.5 s ([#284](https://github.com/hyprsh/kestrel/pull/284))
+* **library:** Kestrel stays fast with thousands of Titles: the Library list answers in 4 ms instead of 159 ms at 4,000 Titles, and typing in the filter, select all and opening a Title no longer stall a phone ([#285](https://github.com/hyprsh/kestrel/pull/285))
+
 ## [0.11.0](https://github.com/hyprsh/kestrel/compare/v0.10.0...v0.11.0) (2026-10-31)
 
 > The Library gets state tabs, rich rows and a poster grid, and you can type `harbour s2e5` to find an episode and search it right there. Activity becomes tabs that take over Health, the Overview gets leaner with poster shelves, and Needs attention now flags stuck downloads and Silo Requests that Silo stopped asking about.
