@@ -475,7 +475,11 @@ func (s *Service) Replace(ctx context.Context, want []Declared) error {
 
 // HasVersions reports whether any Version exists: a preset replaces the Slots, which only a library without Versions allows.
 func (s *Service) HasVersions(ctx context.Context) (bool, error) {
-	n, err := db.New(s.st.Read()).VersionCount(ctx)
+	var d db.DBTX = s.st.Read()
+	if s.tx != nil {
+		d = s.tx // a check made inside a transaction sees what the transaction sees
+	}
+	n, err := db.New(d).VersionCount(ctx)
 	return n > 0, err
 }
 

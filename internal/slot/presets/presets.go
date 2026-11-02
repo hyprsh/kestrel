@@ -102,13 +102,6 @@ func (s *Service) List(ctx context.Context) ([]Preset, error) {
 // and the Profiles as they were. It returns ErrNotFound for an unknown id and ErrHasVersions once a Version exists;
 // a recipe that cannot be backed is the Profiles' *ValidationError.
 func (s *Service) Apply(ctx context.Context, id ID) ([]slot.Record, error) {
-	has, err := s.slots.HasVersions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if has {
-		return nil, ErrHasVersions
-	}
 	region, _, err := s.profiles.Region(ctx)
 	if err != nil {
 		return nil, err
@@ -128,6 +121,12 @@ func (s *Service) Apply(ctx context.Context, id ID) ([]slot.Record, error) {
 	}
 	defer tx.Rollback()
 	ps, sl := s.profiles.InTx(tx), s.slots.InTx(tx)
+	// The check is made inside the transaction, so a Version committed since the preset was chosen still stops it.
+	if has, err := sl.HasVersions(ctx); err != nil {
+		return nil, err
+	} else if has {
+		return nil, ErrHasVersions
+	}
 	keys := map[profiles.Recipe]string{}
 	key := func(r *profiles.Recipe) (string, error) {
 		if r == nil {
