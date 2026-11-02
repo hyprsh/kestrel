@@ -47,7 +47,7 @@ const suggestion = (name: string, resolution: Suggestion['resolution'], language
 function fakeStep(extra: Profile[] = []) {
   const sent: { method: string; body: unknown }[] = []
   let profiles = [profile('hd-primary', 'HD', { default_movies: true, default_series: true }), ...extra]
-  const offered = [suggestion('HD Original', 'hd', 'original'), suggestion('Any', 'any', 'primary'), suggestion('4K Remux', 'uhd', 'primary', { release_family: 'remux-web' })]
+  const offered = [suggestion('HD Original', 'hd', 'original'), suggestion('Any', 'any', 'primary'), suggestion('4K Remux', '4k', 'primary', { release_family: 'remux-web' })]
   fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' })
   server.use(
     http.get('/slots', ({ response }) => response(200).json({ items: [slot('standard', 'Standard', 0)] })),
@@ -137,6 +137,6 @@ describe('the wizard Profiles step', () => {
     const suggested = await within(region).findByRole('region', { name: 'Suggested' })
     expect(within(suggested).getByText('4K Remux')).toBeInTheDocument() // the one that does not fit the Slots
     await userEvent.click(within(suggested).getByRole('button', { name: 'Add 4K Remux' }))
-    await waitFor(() => expect(sent).toEqual([{ method: 'POST', body: { release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary' } }]))
+    await waitFor(() => expect(sent).toEqual([{ method: 'POST', body: { release_family: 'remux-web', resolution: '4k', language_rule: 'primary' } }]))
   })
 })

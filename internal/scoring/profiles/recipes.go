@@ -17,7 +17,7 @@ type Resolution string
 
 const (
 	ResHD  Resolution = "hd"
-	ResUHD Resolution = "uhd"
+	ResUHD Resolution = "4k"
 	ResAny Resolution = "any"
 )
 

@@ -3011,7 +3011,7 @@ export interface components {
             /** @description The `key` of the Profile to copy. */
             copy_from?: string;
             release_family?: components["schemas"]["ProfileReleaseFamily"];
-            resolution?: components["schemas"]["ProfileResolution"];
+            resolution?: components["schemas"]["ProfileResolutionInput"];
             language_rule?: components["schemas"]["ProfileLanguageRule"];
         };
         /**
@@ -3020,10 +3020,16 @@ export interface components {
          */
         ProfileReleaseFamily: "bluray-web" | "remux-web" | "web" | "sqp";
         /**
-         * @description `hd` (720p to 1080p), `uhd` (4K) or `any` (SD to 1080p; Bluray + WEB only).
+         * @description `hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p; Bluray + WEB only).
          * @enum {string}
          */
-        ProfileResolution: "hd" | "uhd" | "any";
+        ProfileResolution: "hd" | "4k" | "any";
+        /**
+         * @description A `ProfileResolution` in a request. `uhd` is a deprecated alias of `4k` and is treated as `4k`; responses always
+         *     say `4k`.
+         * @enum {string}
+         */
+        ProfileResolutionInput: "hd" | "4k" | "uhd" | "any";
         /**
          * @description The audio the Profile requires; see `Profile.language_rule`.
          * @enum {string}
