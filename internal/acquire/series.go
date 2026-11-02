@@ -345,7 +345,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		ids, _ := coveredBy(e.cand.Parsed, episodes, plan.Slot)
 		ids = onlyPlanned(ids, plan.Covers, episodes)
 		g, err := s.send(ctx, outgoing{
-			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, slot: plan.Slot, media: downloads.Series,
+			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
 			episodes: ids, upgrade: plan.Upgrade, by: GrabbedBySearch,
 		})
 		if err != nil {
