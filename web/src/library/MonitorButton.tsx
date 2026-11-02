@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import type { SeriesMonitor, TitleDetail } from '../api/queries'
 import { useEpisodes } from '../api/queries'
 import { plural } from '../format'
-import { slotName } from './slots'
+import { useSlotNames } from './slots'
 import { useTitleDownloads } from './TitleDownloads'
 import { useSetMovieMonitored, useSetSeriesMonitor, useSetSeriesMonitorOptions } from '../api/titleActions'
 import { useReport } from '../toasts'
@@ -126,15 +126,16 @@ export function MonitorButton({ title, size = 'medium', short = false }: { title
 export function MonitoringLine({ title }: { title: TitleDetail }) {
   const episodes = useEpisodes(title.id, title.kind === 'series').data
   const downloads = useTitleDownloads(title.id)
+  const slots = useSlotNames()
   let text: string
   if (title.kind === 'movie') {
     if (!title.monitored) {
       const files = title.versions.filter((v) => v.file)
       const running = title.versions.flatMap((v) => (downloads.slot(v.slot) ? [{ slot: v.slot, pct: downloads.slot(v.slot)?.pct ?? null }] : []))
-      const idle = title.versions.filter((v) => !v.file && !downloads.slot(v.slot)).map((v) => slotName(v.slot))
+      const idle = title.versions.filter((v) => !v.file && !downloads.slot(v.slot)).map((v) => slots.name(v.slot))
       const parts: string[] = []
       if (running.length > 0) {
-        const what = running.map((d) => `${slotName(d.slot)} download${d.pct !== null ? ` (${d.pct}%)` : ''}`).join(' and ')
+        const what = running.map((d) => `${slots.name(d.slot)} download${d.pct !== null ? ` (${d.pct}%)` : ''}`).join(' and ')
         parts.push(`The ${what} still ${running.length > 1 ? 'finish' : 'finishes'}; Kestrel searches nothing else.`)
       } else {
         parts.push(files.length > 0 ? 'Kestrel keeps its file and searches nothing.' : 'Kestrel searches nothing.')
@@ -143,7 +144,7 @@ export function MonitoringLine({ title }: { title: TitleDetail }) {
       if (idle.length > 0) parts.push(`Its ${idle.join(' and ')} ${plural(idle.length, 'Version').replace(/^\d+ /, '')} would be Wanted once monitored.`)
       text = parts.join(' ')
     } else {
-      const wanted = title.versions.filter((v) => v.state === 'wanted').map((v) => slotName(v.slot))
+      const wanted = title.versions.filter((v) => v.state === 'wanted').map((v) => slots.name(v.slot))
       text =
         wanted.length > 0
           ? `Kestrel searches the Wanted ${wanted.join(' and ')} ${plural(wanted.length, 'Version').replace(/^\d+ /, '')} and grabs Upgrades until the cutoff.`

@@ -3,7 +3,7 @@
 import { Progress } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
 import { plural } from '../format'
-import { slotLabel, type SlotKey } from '../library/bits'
+import { useSlotNames } from '../library/slots'
 import { StatCard } from '../layout/StatCard'
 import { ChartTable, Legend, mark, SegmentedBar } from './charts'
 import { bytesText } from './statsText'
@@ -15,7 +15,9 @@ const names = ['Remux or BluRay', 'WEB-DL', 'WEBRip or lower']
 const pct = (n: number, total: number) => `${Math.round((n / total) * 100)}%`
 
 export function QualityCard({ stats }: { stats: Stats }) {
-  const slots = stats.quality
+  const names_ = useSlotNames()
+  // Grouped by Slot, in Slot order.
+  const slots = names_.order(stats.quality.map((q) => q.slot)).map((s) => stats.quality.find((q) => q.slot === s)!)
   return (
     <StatCard title="Library quality">
       {slots.length === 0 ? (
@@ -24,7 +26,7 @@ export function QualityCard({ stats }: { stats: Stats }) {
         <>
           {slots.map((q) => {
             const counts = [q.remux_bluray, q.web_dl, q.webrip_or_lower]
-            const label = slotLabel[q.slot as SlotKey]
+            const label = names_.name(q.slot)
             return (
               <div key={q.slot} className="flex flex-col gap-1.5">
                 <div className="label-13 flex justify-between">
@@ -40,7 +42,7 @@ export function QualityCard({ stats }: { stats: Stats }) {
           })}
           <Legend items={classes.map((label, i) => ({ label, className: mark.quality[i] }))} />
           {stats.below_cutoff > 0 && <p className="label-12 m-0 text-gray-900">{`${plural(stats.below_cutoff, 'file')} below their Profile's cutoff: Upgrades wanted.`}</p>}
-          <ChartTable caption="Library quality" head={['Slot', 'Files', ...names]} rows={slots.map((q) => [slotLabel[q.slot as SlotKey], q.files, q.remux_bluray, q.web_dl, q.webrip_or_lower])} />
+          <ChartTable caption="Library quality" head={['Slot', 'Files', ...names]} rows={slots.map((q) => [names_.name(q.slot), q.files, q.remux_bluray, q.web_dl, q.webrip_or_lower])} />
         </>
       )}
     </StatCard>

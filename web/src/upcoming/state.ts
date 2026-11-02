@@ -6,7 +6,7 @@ import { percent } from '../format'
 import { phases } from '../grabs/phase'
 import { stateName, type SlotDotState } from '../ui/slotState'
 import type { ChipData } from '../library/SlotChip'
-import { slotName, slotShort } from '../library/slots'
+import type { SlotNames } from '../library/slots'
 
 /** "S02E04". */
 export const episodeCode = (season: number, episode: number) => `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`
@@ -142,10 +142,10 @@ function standingDot(st: Standing, entryMonitored: boolean | undefined): { state
 }
 
 /** An entry's Slots as chips, one per Version, each in the state it stands in: "STD", "4K 40%". */
-export function entryChips(item: Pick<UpcomingItem, 'kind' | 'title_id' | 'season' | 'episode' | 'slots' | 'monitored'>, queue: readonly QueueItem[]): ChipData[] {
+export function entryChips(item: Pick<UpcomingItem, 'kind' | 'title_id' | 'season' | 'episode' | 'slots' | 'monitored'>, queue: readonly QueueItem[], names: SlotNames): ChipData[] {
   return item.slots.map((slot) => {
     const d = standingDot(standing(item, slot, queue), item.monitored)
-    return { key: slot.slot, short: slotShort(slot.slot), state: d.state, text: d.text, tip: `${slotName(slot.slot)}: ${stateName[d.state]}${d.text ? ` ${d.text}` : ''}` }
+    return { key: slot.slot, short: names.several ? names.short(slot.slot) : '', state: d.state, text: d.text, tip: `${names.name(slot.slot)}: ${stateName[d.state]}${d.text ? ` ${d.text}` : ''}` }
   })
 }
 

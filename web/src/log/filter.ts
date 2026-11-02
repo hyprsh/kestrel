@@ -3,8 +3,8 @@
 import type { LogFilter } from '../api/log'
 import type { TitleRow } from '../api/queries'
 import { parseQuery, termText, valuesOf, type Query } from '@hyprsh/design'
-import type { Facet } from '../filter/qualifiers'
-import { slotKeys, type SlotKey } from '../library/bits'
+import { slotQualifier, type Facet } from '../filter/qualifiers'
+import type { SlotNames } from '../library/slots'
 
 /** Named sets of kinds, one per View: `kind:errors` is every kind that means something went wrong. They are typed or reached by a View, never listed in the Filter menu. */
 const groups: Record<string, readonly string[]> = {
@@ -35,7 +35,7 @@ const groupText: Record<string, { label: string }> = {
  * refines what the Views do not cover: the single kinds, the Slot and routine events. Groups are typed (`kind:errors`) but not
  * offered, and Titles are suggested while typing `title:` but have no menu section.
  */
-export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: readonly string[]): Facet[] {
+export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: readonly string[], slots: SlotNames): Facet[] {
   return [
     {
       name: 'kind',
@@ -46,7 +46,7 @@ export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: r
       excludable: true,
       options: { ...Object.fromEntries(Object.entries(kinds).map(([k, label]) => [k, { label }])), ...groupText },
     },
-    { name: 'slot', label: 'Slot', help: 'Events about a Version in that Slot', values: slotKeys, excludable: true },
+    slotQualifier(slots, { label: 'Slot', help: 'Events about a Version in that Slot', excludable: true }),
     { name: 'title', help: 'Events about a Title, by name; quote names with spaces', suggestions: titles, excludable: true },
     {
       name: 'sort',
@@ -89,8 +89,8 @@ export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
   return {
     kinds: valuesOf(q, 'kind', expand),
     excludeKinds: expand(negated('kind')),
-    slots: valuesOf(q, 'slot') as SlotKey[] | null,
-    excludeSlots: [...new Set(negated('slot'))] as SlotKey[],
+    slots: valuesOf(q, 'slot'),
+    excludeSlots: [...new Set(negated('slot'))],
     titleIds: valuesOf(q, 'title', named),
     excludeTitleIds: named(negated('title')),
     // Routine events are in the Log unless routine:no leaves them out; they show folded.

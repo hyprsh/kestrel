@@ -39,7 +39,14 @@ export const newznab: components['schemas']['PluginManifest'] = {
 }
 
 /** Default handlers: a healthy instance with the admin logged in. Tests override with `server.use(...)`. */
+/** The two Slots a library starts with. */
+const seededSlots: components['schemas']['Slot'][] = [
+  { id: 'standard', label: 'Standard', default_movies: 'hd-primary', default_series: 'hd-primary', on_for_new_titles: true, position: 0, from_config_file: false },
+  { id: '4k', label: '4K', default_movies: '4k-primary', default_series: '4k-primary', on_for_new_titles: false, position: 1, from_config_file: false },
+]
+
 export const handlers = [
+  http.get('/slots', ({ response }) => response(200).json({ items: seededSlots })),
   http.get('/system', ({ response }) => response(200).json({ version: '0.0.0-test', api_major: 1, base_url: '' })),
   http.get('/plugins', ({ response }) => response(200).json({ items: [sabnzbd], next_cursor: null })),
   http.get('/plugin-instances', ({ response }) => response(200).json({ items: [], next_cursor: null })),
@@ -81,14 +88,6 @@ export const handlers = [
     }),
   ),
   http.get('/profiles', ({ response }) => response(200).json({ items: [] })),
-  http.get('/slots', ({ response }) =>
-    response(200).json({
-      items: [
-        { id: 'standard', label: 'Standard', default_movies: 'hd-primary', default_series: 'hd-primary', on_for_new_titles: true, position: 0, from_config_file: false },
-        { id: '4k', label: '4K', default_movies: '4k-primary', default_series: '4k-primary', on_for_new_titles: false, position: 1, from_config_file: false },
-      ],
-    }),
-  ),
   http.get('/profiles/details', ({ response }) => response(200).json({ items: [] })),
   http.get('/settings/downloads', ({ response }) => response(200).json({ download_client: null, indexers: [] })),
   http.get('/titles', ({ response }) => response(200).json({ items: [], next_cursor: null })),

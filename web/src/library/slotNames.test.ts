@@ -1,0 +1,42 @@
+import { describe, expect, it } from 'vitest'
+import { libraryQualifiers } from './filter'
+import { slotNamesOf } from './slots'
+import { slotRecord } from '../test/slots'
+
+const four = [slotRecord('kids', 'Kids', 3), slotRecord('standard', 'Standard', 0), slotRecord('4k', '4K', 1), slotRecord('remux', 'Remux archive', 2)]
+
+describe('slotNamesOf', () => {
+  it('orders by position and names each Slot by its stored label', () => {
+    const slots = slotNamesOf(four)
+    expect(slots.list.map((r) => r.id)).toEqual(['standard', '4k', 'remux', 'kids'])
+    expect(slots.order(['kids', 'nope', 'standard'])).toEqual(['standard', 'kids', 'nope'])
+    expect(slots.name('remux')).toBe('Remux archive')
+    expect(slots.name('german')).toBe('German')
+  })
+
+  it('gives every Slot a short label of its own', () => {
+    const shorts = slotNamesOf([slotRecord('a', 'Remux 1080', 0), slotRecord('b', 'Remux 4K', 1)])
+    expect(shorts.short('a')).not.toBe(shorts.short('b'))
+    expect(slotNamesOf(four).short('4k')).toBe('4K')
+  })
+
+  it('has Slot chrome unless the library is known to have exactly one Slot', () => {
+    expect(slotNamesOf([slotRecord('standard', 'Standard', 0)]).several).toBe(false)
+    expect(slotNamesOf(four).several).toBe(true)
+    expect(slotNamesOf().several).toBe(true)
+  })
+})
+
+describe('the Library filter', () => {
+  it('offers every Slot, in Slot order, whether or not any Title holds a Version there', () => {
+    const slot = libraryQualifiers([], slotNamesOf(four)).find((f) => f.name === 'slot')!
+    expect(slot.label).toBe('Slot')
+    expect(slot.values).toEqual(['standard', '4k', 'remux', 'kids'])
+    expect(slot.options?.remux).toEqual({ label: 'Remux archive' })
+  })
+
+  it('has no Slot menu in a library of one Slot', () => {
+    const slot = libraryQualifiers([], slotNamesOf([slotRecord('standard', 'Standard', 0)])).find((f) => f.name === 'slot')!
+    expect(slot.label).toBeUndefined()
+  })
+})

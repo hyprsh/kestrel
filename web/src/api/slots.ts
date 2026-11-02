@@ -5,6 +5,7 @@ import { failure } from './queries'
 import type { components } from './schema.gen'
 
 export type Slot = components['schemas']['Slot']
+export type SlotRecord = Slot
 export type SlotCreate = components['schemas']['SlotCreate']
 export type SlotPatch = components['schemas']['SlotPatch']
 

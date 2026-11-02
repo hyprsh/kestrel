@@ -3,6 +3,7 @@ import { Badge, Button } from '@hyprsh/design'
 import type { QueueItem } from '../api/queue'
 import type { UpcomingItem, UpcomingSlot } from '../api/upcoming'
 import { SlotChips } from '../library/SlotChip'
+import { useSlotNames } from '../library/slots'
 import { entryChips, standing } from './state'
 
 const markerLabel = { series_premiere: 'Series premiere', season_premiere: 'Season premiere', season_finale: 'Season finale', special: 'Special' } as const
@@ -19,10 +20,11 @@ export function Standings({
   queue: readonly QueueItem[]
   onSearch?: (slots: UpcomingSlot[]) => void
 }) {
+  const names = useSlotNames()
   const wanted = slots.filter((slot) => standing(title, slot, queue).kind === 'wanted')
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      <SlotChips chips={entryChips({ ...title, slots, monitored: true }, queue)} max={4} wrap />
+      <SlotChips chips={entryChips({ ...title, slots, monitored: true }, queue, names)} max={4} wrap />
       {onSearch && wanted.length > 0 && (
         <Button
           variant="tertiary"

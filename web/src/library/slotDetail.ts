@@ -5,7 +5,7 @@ import type { QueueItem } from '../api/queue'
 import { size } from './bits'
 import { cellText, monthDay } from './cellDetail'
 import { stateWord } from './SlotChip'
-import { cellOf, slotName } from './slots'
+import { cellOf } from './slots'
 import { lastSearchLine } from './WantedLine'
 
 export type SlotDetail = {
@@ -26,8 +26,7 @@ export type SlotDetail = {
 }
 
 /** One Slot of an episode, said in words. `grab` is the Grab covering it, if any. */
-export function slotDetail(e: Episode, key: string, grab: QueueItem | undefined, now = Date.now()): SlotDetail {
-  const name = slotName(key)
+export function slotDetail(e: Episode, key: string, name: string, grab: QueueItem | undefined, now = Date.now()): SlotDetail {
   const cell = cellOf(e, key)
   const base = { key, name, state: cell ? cell.state : null, path: null, note: null, size: null, action: null }
   if (!cell) return { ...base, text: 'No Version', tip: `${name}: no Version` }

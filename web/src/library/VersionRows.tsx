@@ -21,7 +21,7 @@ import { importedOn } from './EpisodeFilePopover'
 import { AddVersion, ProfilePicker, RemoveConfirm } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
 import { SlotChips } from './SlotChip'
-import { slotName, slotShort, slotsOf } from './slots'
+import { slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
 import { useSearchVersion } from './VersionSearch'
@@ -76,7 +76,8 @@ function CoverageBar({ v }: { v: Version }) {
 export function VersionRows({ title, profiles, profileName, onManualSearch }: Props) {
   const downloads = useTitleDownloads(title.id)
   const now = useNow()
-  const versions = title.kind === 'series' ? slotsOf(title).flatMap((s) => title.versions.filter((v) => v.slot === s.key)) : []
+  const slots = useSlotNames()
+  const versions = title.kind === 'series' ? slotsOf(title, slots).flatMap((s) => title.versions.filter((v) => v.slot === s.key)) : []
   const at = useEpisodeView(title.id).slot
   const [open, setOpen] = useState<Set<string>>(() => {
     if (at) return new Set([at])
@@ -95,7 +96,7 @@ export function VersionRows({ title, profiles, profileName, onManualSearch }: Pr
     <section aria-label="Versions" className="my-6 flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <h3 className="heading-16 flex-1">Versions</h3>
-        {title.versions.length < 2 && (
+        {title.versions.length < slots.list.length && (
           <Button variant="tertiary" size="small" onClick={() => setAdding(true)}>
             Add a Slot
           </Button>
@@ -130,13 +131,19 @@ function SlotRow({
   ...rest
 }: Props & { version: Version; downloads: SlotDownloads | null; now: number; open: boolean; onToggle: () => void; marked: boolean }) {
   const phone = usePhone()
-  const name = slotName(v.slot)
+  const slots = useSlotNames()
+  const name = slots.name(v.slot)
   const line = coverageLine(v, downloads)
   const c = v.coverage
   const released = c ? c.episodes + c.unmonitored : 0
   const state = downloads ? 'downloading' : dotState(v.state, (c?.long_missing ?? 0) > 0 || v.long_missing)
   const sizeText = c && c.size > 0 ? size(c.size) : '\u2014'
-  const chip = <SlotChips chips={[{ key: v.slot, short: slotShort(v.slot), state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: `${name}: ${line.text}` }]} max={1} />
+  const chip = (
+    <SlotChips
+      chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: `${name}: ${line.text}` }]}
+      max={1}
+    />
+  )
   return (
     <AccordionRow
       id={`version-${v.slot}`}
@@ -251,7 +258,7 @@ export function VersionMenu({
   const cancel = useCancelDownloads()
   const [mode, setMode] = useState<'switch' | 'remove' | 'delete' | null>(null)
   const movie = title.kind === 'movie'
-  const name = slotName(v.slot)
+  const name = useSlotNames().name(v.slot)
   const items = (
     <>
       <MenuItem disabled={unmonitored(title) || search.pending} description={unmonitored(title) ? 'Not monitored: turn monitoring on to search' : undefined} onSelect={search.run}>
@@ -301,7 +308,6 @@ export function VersionMenu({
       {mode === 'switch' && (
         <ProfilePicker
           profiles={profiles}
-          slot={v.slot}
           initial={v.profile}
           label="Change Profile"
           busy={sw.isPending}

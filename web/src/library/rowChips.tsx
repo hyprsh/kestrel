@@ -10,12 +10,12 @@ import { dotState, stateName, type SlotDotState } from '../ui/slotState'
 import type { ChipData } from './SlotChip'
 import { RowSlotPopover, type RowSlotInfo } from './RowSlotPopover'
 import { shownSlots } from './rowState'
-import { slotShort } from './slots'
+import type { SlotNames } from './slots'
 
 type Entry = TitleRow['slot_states'][number]
 
-/** Whether every Title of the Library has at most one Slot, so a chip's Slot name says nothing. */
-export const singleSlot = (rows: readonly Pick<TitleRow, 'slot_states'>[]) => rows.every((r) => r.slot_states.length <= 1)
+/** Whether a chip's Slot name says nothing: the library has one Slot, or no Title of it has more than one Version. */
+export const singleSlot = (rows: readonly Pick<TitleRow, 'slot_states'>[], slots?: SlotNames) => slots?.several === false || rows.every((r) => r.slot_states.length <= 1)
 
 /** The state a Version is drawn in: Wanted and Long Missing as they are, a filled one with an Upgrade wanted as Upgrade wanted. */
 function entryState(v: Pick<Entry, 'state' | 'long_missing' | 'upgrade_wanted'>): SlotDotState | null {
@@ -48,7 +48,11 @@ function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, no
   return { heading: profileName === v.label ? v.label : `${v.label} · ${profileName}`, state, text, lines }
 }
 
-export function rowChips(r: TitleRow, grabs: readonly QueueItem[], opts: { single?: boolean; profileName?: (key: string) => string; now?: number; onOpen?: (slot: string) => void } = {}): ChipData[] {
+export function rowChips(
+  r: TitleRow,
+  grabs: readonly QueueItem[],
+  opts: { single?: boolean; profileName?: (key: string) => string; slots?: SlotNames; now?: number; onOpen?: (slot: string) => void } = {},
+): ChipData[] {
   const now = opts.now ?? Date.now()
   return shownSlots(r, grabs).map((v) => {
     const state = entryState(v)
@@ -62,7 +66,7 @@ export function rowChips(r: TitleRow, grabs: readonly QueueItem[], opts: { singl
     const text = opts.single ? (counted ?? progress ?? (state === 'downloading' ? stateName.downloading : word)) : (counted ?? progress ?? undefined)
     const chip: ChipData = {
       key: v.slot,
-      short: opts.single ? '' : slotShort(v.slot),
+      short: opts.single ? '' : (opts.slots?.short(v.slot) ?? v.label),
       state,
       text,
       tip: `${v.label}: ${detail}`,

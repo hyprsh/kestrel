@@ -9,6 +9,7 @@ import type { TitleRow } from '../api/queries'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { serveSlots } from '../test/slots'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -44,7 +45,7 @@ describe('Library rows: Slot chips', () => {
     const chips = Array.from(bb.querySelectorAll('[data-slot]'))
     expect(chips.map((c) => c.getAttribute('data-slot'))).toEqual(['standard', '4k', 'german', 'remux'])
     expect(chips.map((c) => c.getAttribute('data-state'))).toEqual(['wanted', 'downloading', 'filled', 'long_missing'])
-    expect(within(bb).getByRole('button', { name: /^Standard: Wanted/ })).toHaveTextContent('STD56/62')
+    expect(within(bb).getByRole('button', { name: /^Standard: Wanted/ })).toHaveTextContent('STA56/62')
     expect(within(bb).getByRole('button', { name: /^Remux: Long Missing/ })).toBeInTheDocument()
     const more = within(bb).getByRole('button', { name: '2 more Slots' })
     expect(more).toHaveTextContent('+2')
@@ -58,7 +59,7 @@ describe('Library rows: Slot chips', () => {
     fakeLibrary([row(1, 'Heat', 'Heat'), row(2, 'Zodiac', 'Zodiac', { slot_states: [entry('standard', 'Standard', 'filled'), entry('4k', '4K', 'filled')] })])
     const list = await openLibrary()
     const heat = await within(list).findByRole('option', { name: /heat/i })
-    expect(within(heat).getByRole('button', { name: 'Standard: Wanted' })).toHaveTextContent('STD')
+    expect(within(heat).getByRole('button', { name: 'Standard: Wanted' })).toHaveTextContent('STA')
   })
 
   it('drops the Slot name when every Title has one Slot, and says the state alone', async () => {
@@ -75,6 +76,7 @@ describe('Library rows: Slot chips', () => {
   })
 
   it('narrows by a Slot that only some Titles have through slot:', async () => {
+    serveSlots(['standard', 'Standard'], ['german', 'German'])
     fakeLibrary([row(1, 'Heat', 'Heat'), row(2, 'Zodiac', 'Zodiac', { slot_states: [entry('standard', 'Standard', 'filled'), entry('german', 'German', 'wanted')] })])
     const list = await openLibrary()
     await within(list).findAllByRole('option')

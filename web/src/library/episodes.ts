@@ -37,7 +37,7 @@ export const episodeRow = (id: number) => `episode-${id}`
 export const seasonRow = (season: number) => `season-${season}`
 
 /** One of the Series' Versions as the episode grid's actions see it. */
-export type EpisodeVersion = { id: number; slot: 'standard' | '4k'; profileName: string }
+export type EpisodeVersion = { id: number; slot: string; /** The Slot's label. */ slotName: string; profileName: string }
 
 /** How a season stands, for its tab and summary line. An episode counts once: filled when every Slot has its file, else downloading or Wanted when a Slot is. */
 export type SeasonStanding = { total: number; filled: number; downloading: number; wanted: number }
