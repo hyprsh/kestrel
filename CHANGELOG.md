@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.13.0](https://github.com/hyprsh/kestrel/compare/v0.12.0...v0.13.0) (2026-11-02)
+
+> A calmer Title page that says each thing once, an Upgrade button that actually searches for a better Release, and media-server refreshes that survive a burst of changes instead of being rate-limited away. Relabeling a Slot now renames its files in the background, and Slots and Profiles share one Settings page.
+
+### Upgrade Steps
+
+* **API:** a Profile's 4K resolution is now `4k` in responses. Requests still accept the old `uhd` as a deprecated alias, so existing scripts keep working. Switch them to `4k` before the alias is removed.
+* **Silo:** a connection that leaves the 2160p tier unmapped now sends it to the first Slot whose default Profile is 4K, else to the 1080p tier's Slot. If you relied on the old `4k` Slot default, check where the connection's settings say the tier goes.
+
+### New Features
+
+* **library:** Upgrade on a filled episode runs an automatic search that grabs only a Release the Profile ranks above the file you have, and says "nothing to upgrade" when the episode is already at its Cutoff. Manual search moved to the row's ⋯ menu ([#338](https://github.com/hyprsh/kestrel/pull/338)), closes [#274](https://github.com/hyprsh/kestrel/issues/274)
+* **library:** the episode table has one Slots column whose chips are always labelled, and each episode's monitoring toggle can be reached and flipped from the keyboard ([#338](https://github.com/hyprsh/kestrel/pull/338)), closes [#331](https://github.com/hyprsh/kestrel/issues/331), [#273](https://github.com/hyprsh/kestrel/issues/273)
+* **library:** a Title page shows the overview right under the title, then one row of chips for the Slots, the release, monitoring and Cutoff, and who requested it. The request chip opens the Request, and an older release date shows its year ([#335](https://github.com/hyprsh/kestrel/pull/335)), closes [#333](https://github.com/hyprsh/kestrel/issues/333)
+* **library:** Version rows and the episode file popover say each fact once. On a Series page, the Versions card and the Seasons rows line up on one grid, and a complete Version or Season is drawn quietly so colour marks only what needs a look ([#335](https://github.com/hyprsh/kestrel/pull/335), [#337](https://github.com/hyprsh/kestrel/pull/337), [#344](https://github.com/hyprsh/kestrel/pull/344)), closes [#332](https://github.com/hyprsh/kestrel/issues/332), [#330](https://github.com/hyprsh/kestrel/issues/330)
+* **overview:** click a day in Grabs per day, or one of its imported or failed segments, to see those Grabs in Activity History. Click an indexer in the Indexers card to see its Grabs over the Overview's range ([#340](https://github.com/hyprsh/kestrel/pull/340)), part of [#319](https://github.com/hyprsh/kestrel/issues/319)
+* **slots:** relabeling a Slot saves at once and renames its files in a background job that shows its progress in Activity and resumes after a restart. A Title that can't be renamed raises a Health warning. A Config File label change no longer holds up startup ([#336](https://github.com/hyprsh/kestrel/pull/336)), closes [#323](https://github.com/hyprsh/kestrel/issues/323)
+* **settings:** Slots and their default Profiles are set on one page, Settings › Slots & Profiles, and old links redirect there. Settings moves to the bottom of the rail ([#341](https://github.com/hyprsh/kestrel/pull/341)), closes [#328](https://github.com/hyprsh/kestrel/issues/328), [#327](https://github.com/hyprsh/kestrel/issues/327)
+* **setup:** the wizard marks each step required or optional, explains the Cutoff and size limits, and ends on a summary that links to the Overview and Health. The guide gains a tour of the screens, Views and the Filter menu, and how to read a failed Grab ([#341](https://github.com/hyprsh/kestrel/pull/341)), closes [#281](https://github.com/hyprsh/kestrel/issues/281)
+* **silo:** the 2160p tier defaults to a Slot that exists on your install, and the connection's settings name it ([#334](https://github.com/hyprsh/kestrel/pull/334)), closes [#317](https://github.com/hyprsh/kestrel/issues/317)
+
+### Bug Fixes
+
+* **imports:** when many Title folders change at once, media servers are told in paced batches, and a rate-limited server is retried until it has heard every folder, instead of losing most refreshes ([#336](https://github.com/hyprsh/kestrel/pull/336)), closes [#324](https://github.com/hyprsh/kestrel/issues/324)
+* **library:** with Open the newest season on, a Series page opens the newest season and every season with something Wanted, as the setting says ([#337](https://github.com/hyprsh/kestrel/pull/337)), closes [#315](https://github.com/hyprsh/kestrel/issues/315)
+* **library:** a Series Slot's running downloads show one line per Grab, with progress, time left and a link to Activity ([#337](https://github.com/hyprsh/kestrel/pull/337)), closes [#283](https://github.com/hyprsh/kestrel/issues/283)
+
+### Performance Improvements
+
+* **library:** opening the Library from another screen no longer draws every Title first, so rows show in tens of milliseconds on a large Library ([#342](https://github.com/hyprsh/kestrel/pull/342)), closes [#325](https://github.com/hyprsh/kestrel/issues/325)
+
+### Other Changes
+
+* **web:** Kestrel uses hyprsh/design v0.18. The Settings section list, the Overview's download speed chart (now with View as Table) and Top release groups use the design system's components, and those charts draw in its chart colour ([#343](https://github.com/hyprsh/kestrel/pull/343)), closes [#321](https://github.com/hyprsh/kestrel/issues/321)
+
 ## [0.12.0](https://github.com/hyprsh/kestrel/compare/v0.11.0...v0.12.0) (2026-11-02)
 
 > You define your own Slots now: up to four copies of each Title, named as you like, such as Standard, 4K, Remux or German. And you add Profiles from recipes that fit your household's language, instead of choosing from six fixed ones. The whole web app is redesigned around a side panel, loads in a third of the time on a phone, and stays fast with thousands of Titles. See [Slots](https://github.com/hyprsh/kestrel/blob/main/docs/guide/slots.md).
