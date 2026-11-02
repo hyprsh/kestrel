@@ -15,6 +15,7 @@ A recipe is offered only where every kind it applies to has a backing profile in
 ## Consequences
 
 - The mapping from recipe to TRaSH profile is Kestrel's code, not data the admin edits. A TRaSH profile Kestrel has no recipe for stays unused until a Release Family or language is added for it.
-- When the Primary Language matches a named language, the named-language recipe is the same as the Primary-Language one, so it isn't offered as a second Profile.
+- When the Primary Language matches a named language, the named-language recipe is the same as the Primary-Language one, so it isn't offered as a second Profile. A household that switches its Primary Language to a language it already has a named Profile for keeps both Profiles; Settings points out the pair, and nothing is merged, because merging would move Versions.
+- Any stays Bluray + WEB at up to 1080p: it widens HD down to SD, which no other Release Family or 4K needs.
 - Recipes with no backing profile in some language aren't offered there. Today that covers SQP, which TRaSH has only for English Movies; Remux for French Series; and WEB for German. TRaSH's Anime profiles have no Release Family yet. The list changes as TRaSH adds profiles.
 - The Profile overlays of ADR 0023 apply to every recipe the same way.
