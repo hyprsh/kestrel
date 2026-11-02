@@ -80,6 +80,11 @@ export function IndexerSection() {
   const rows = order ? [...sorted].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)) : sorted
   // The Config File owns a declared instance's priority, so no order can be set while there is one.
   const fixed = rows.some((r) => r.from_config_file)
+  // Enabled indexers that share one priority form one group, asked at once (ADR 0025).
+  const together = new Set(rows.filter((r) => r.enabled).map((r) => r.priority)).size <= 1
+  const orderNote = together
+    ? `Kestrel asks every indexer at once. ${fixed ? 'The Config File sets the priorities.' : 'Drag to ask them in order instead.'}`
+    : `Kestrel asks indexers from top to bottom, those with the same priority together. ${fixed ? 'The Config File sets the order.' : 'Drag to reorder.'}`
   const health = new Map((status.data?.indexers ?? []).map((i) => [i.instance_id, i]))
   const grabs = new Map((live.data?.indexers ?? []).map((i) => [i.instance_id, i.grabs_30d]))
   const editingRow = typeof editing === 'number' ? rows.find((r) => r.id === editing) : undefined
@@ -212,9 +217,7 @@ export function IndexerSection() {
               )
             })}
           </SettingsCard>
-          <span className="label-12 text-gray-900">
-            {fixed ? 'Kestrel asks indexers from top to bottom. The Config File sets the order.' : 'Kestrel asks indexers from top to bottom. Drag to reorder.'}
-          </span>
+          <span className="label-12 text-gray-900">{orderNote}</span>
         </>
       )}
 
