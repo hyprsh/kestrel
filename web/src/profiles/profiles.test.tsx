@@ -451,9 +451,9 @@ describe('Settings', () => {
     expect(screen.queryByText(/The Config File sets the Slots/)).not.toBeInTheDocument()
   })
 
-  const remux4k: Suggestion = { name: '4K Remux', release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary', kinds: ['movie', 'series'] }
+  const remux4k: Suggestion = { name: '4K Remux', release_family: 'remux-web', resolution: '4k', language_rule: 'primary', kinds: ['movie', 'series'] }
   const suggested: SuggestionGroup[] = [
-    { release_family: 'remux-web', name: 'Remux + WEB', items: [remux4k, { name: '4K Remux German', release_family: 'remux-web', resolution: 'uhd', language_rule: 'de', kinds: ['movie'] }] },
+    { release_family: 'remux-web', name: 'Remux + WEB', items: [remux4k, { name: '4K Remux German', release_family: 'remux-web', resolution: '4k', language_rule: 'de', kinds: ['movie'] }] },
     { release_family: 'sqp', name: 'SQP', items: [{ name: 'SQP 1080p', release_family: 'sqp', resolution: 'hd', language_rule: 'primary', kinds: ['movie'] }] },
   ]
 
@@ -496,7 +496,7 @@ describe('Settings', () => {
     serveDetails()
     await open('Profiles')
     await userEvent.click(await screen.findByRole('button', { name: 'Add 4K Remux' }))
-    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'import', body: { release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary' } }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'import', body: { release_family: 'remux-web', resolution: '4k', language_rule: 'primary' } }))
     expect(await screen.findByRole('button', { name: 'Edit 4K Remux' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add 4K Remux' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add 4K Remux German' })).toBeInTheDocument() // still listed, under Other languages

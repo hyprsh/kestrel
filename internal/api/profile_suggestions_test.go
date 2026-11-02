@@ -125,7 +125,7 @@ func TestAGermanHouseholdIsNotOfferedPrimaryWebAndAFrenchOneRemuxForMoviesOnly(t
 func TestImportingARecipeCreatesAnEnabledProfileOnce(t *testing.T) {
 	t.Parallel()
 	b := newLibraryInstance(t, metadatatest.Key)
-	r := b.valid("POST", "/profiles", `{"release_family":"remux-web","resolution":"uhd","language_rule":"primary"}`)
+	r := b.valid("POST", "/profiles", `{"release_family":"remux-web","resolution":"4k","language_rule":"primary"}`)
 	if r.Status != 201 {
 		t.Fatalf("import = %d %s", r.Status, r.Body)
 	}

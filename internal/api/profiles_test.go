@@ -10,6 +10,7 @@ type profileJSON struct {
 	Name               string   `json:"name"`
 	Slot               string   `json:"slot"`
 	ReleaseFamily      string   `json:"release_family"`
+	Resolution         string   `json:"resolution"`
 	Kinds              []string `json:"kinds"`
 	LanguageRule       string   `json:"language_rule"`
 	OriginalLanguage   string   `json:"original_language"`

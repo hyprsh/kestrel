@@ -21,6 +21,8 @@ import (
 type slotStub struct {
 	*httptest.Server
 	body map[string]any
+	// remux4K gives the remux Slot's default Profile the 4k resolution.
+	remux4K bool
 }
 
 func newSlotStub(t *testing.T, slotIDs ...string) *slotStub {
@@ -42,12 +44,19 @@ func newSlotStub(t *testing.T, slotIDs ...string) *slotStub {
 		case r.URL.Path == "/api/v1/slots":
 			var items []string
 			for _, id := range slotIDs {
-				key := map[bool]string{true: "remux-1", false: "hd"}[id == "remux"]
+				key := "hd"
+				switch id {
+				case "remux":
+					key = "remux-1"
+				case "4k":
+					key = "4k-primary"
+				}
 				items = append(items, fmt.Sprintf(`{"id":%q,"label":%q,"default_movies":%q,"default_series":%q}`, id, strings.ToUpper(id), key, key))
 			}
 			fmt.Fprintf(w, `{"items":[%s]}`, strings.Join(items, ","))
 		case r.URL.Path == "/api/v1/profiles":
-			fmt.Fprint(w, `{"items":[{"key":"hd","name":"HD","slot":"standard","enabled":true},{"key":"remux-1","name":"Remux","slot":"remux","enabled":true}]}`)
+			remux := map[bool]string{true: "4k", false: "hd"}[s.remux4K]
+			fmt.Fprintf(w, `{"items":[{"key":"hd","name":"HD","slot":"standard","enabled":true,"resolution":"hd"},{"key":"remux-1","name":"Remux","slot":"remux","enabled":true,"resolution":%q},{"key":"4k-primary","name":"4K","slot":"4k","enabled":true,"resolution":"4k"}]}`, remux)
 		case r.URL.Path == "/api/v1/settings":
 			fmt.Fprint(w, `{"root_folders":{"movies":["/m"],"series":[]}}`)
 		case r.URL.Path == "/api/v1/system":
@@ -206,7 +215,7 @@ func TestTheSlotAndTierProfileFieldsAreListedFromKestrel(t *testing.T) {
 	for _, o := range opts.OptionsByField["2160p_profile"].GetOptions() {
 		profiles = append(profiles, o.Value)
 	}
-	if strings.Join(profiles, ",") != "default,hd,remux-1" {
+	if strings.Join(profiles, ",") != "default,hd,remux-1,4k-primary" {
 		t.Errorf("2160p_profile options = %v, want every enabled Profile", profiles)
 	}
 	// The preselected "default" names the mapped Slot's default Profile; the 1080p tier maps to Standard.
