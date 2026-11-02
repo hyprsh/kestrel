@@ -1,9 +1,9 @@
 import { Button, Input, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Note, Select } from '@hyprsh/design'
 import { useState } from 'react'
 import { useProfileDetails, type ProfileDetail, type ProfileScoring } from '../api/downloads'
-import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
+import { useCreateProfile, useImportProfile, useProfileSuggestions, useProfiles, type Profile, type ProfileSuggestion } from '../api/queries'
 import { declaresSlots, useSlots, type Slot } from '../api/slots'
-import { SlotWarnings } from '../slots/SlotWarnings'
+import { ProfileWarnings, SlotWarnings } from '../slots/SlotWarnings'
 import { plural } from '../format'
 import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
 import { SettingsBlock } from '../layout/SettingsPage'
@@ -12,14 +12,10 @@ import { useReport } from '../toasts'
 import { DefaultsPerSlot, declaredNote, declaredSlotsNote, declaresProfiles } from './Profiles'
 import { cardLadder, qualityLabel, sizeFacts, upgradeFact } from './ladder'
 import { ProfileSheet } from './ProfileSheet'
+import { audioText, familyName, kindsText, languageText } from './recipe'
 
 /** The kind whose scoring a card shows: Series, or Movies when the Profile has no Series qualities. */
 const mainScoring = (d?: ProfileDetail): ProfileScoring | undefined => (d && d.series.qualities.length > 0 ? d.series : d?.movies)
-
-function audioText(p: Profile) {
-  if (p.language_rule === 'original') return 'Title’s Original Language audio'
-  return p.original_language === 'reject' ? 'Primary Language audio' : 'Primary Language audio, or the original'
-}
 
 /**
  * Settings, Profiles: "New Profile…", the defaults for new Titles, then one card per Profile: its qualities as a ladder (the
@@ -83,6 +79,7 @@ export function ProfilesSection() {
           <DefaultsPerSlot />
         </SettingsBlock>
       )}
+      <ProfileWarnings />
       {list.map((p) => {
         const d = detailOf(p.key)
         const scoring = mainScoring(d)
@@ -111,6 +108,8 @@ export function ProfilesSection() {
               </QualityChips>
             )}
             <ProfileFacts>
+              <span>{familyName(p.release_family)}</span>
+              <span>{kindsText(p.kinds)}</span>
               {d && sizeFacts(d.overlay).map((text) => <span key={text}>{text}</span>)}
               <span>{audioText(p)}</span>
               {d && <span>{upgradeFact(d.overlay, cutoff)}</span>}
@@ -120,6 +119,7 @@ export function ProfilesSection() {
           </ProfileCard>
         )
       })}
+      <Suggested declared={declared} />
       {declared && declaredNote}
       {sheeted && <ProfileSheet key={sheeted.key} profile={sheeted} detail={detailOf(sheeted.key)} declared={declared} onClose={() => setOpen(null)} />}
       {making && (
@@ -133,6 +133,37 @@ export function ProfilesSection() {
         />
       )}
     </div>
+  )
+}
+
+/** "Suggested": the Profiles the household could add, by Release Family, each one click away. Hidden while there are none, and read-only when the Config File declares the Profiles. */
+function Suggested({ declared }: { declared: boolean }) {
+  const suggestions = useProfileSuggestions()
+  const add = useImportProfile()
+  const report = useReport()
+  const groups = suggestions.data ?? []
+  if (groups.length === 0) return null
+  const run = (s: ProfileSuggestion) => report(add.mutateAsync(s), { done: `Added ${s.name}`, failed: `Could not add ${s.name}` })
+  return (
+    <section aria-label="Suggested" className="flex flex-col gap-2.5 pt-2">
+      <h3 className="label-14 font-medium">Suggested</h3>
+      {groups.map((g) => (
+        <div key={g.release_family} role="group" aria-label={g.name} className="flex flex-col rounded-md shadow-border">
+          <h4 className="label-12 px-4 pt-3 pb-1 font-medium text-gray-900">{g.name}</h4>
+          <ul className="flex flex-col [&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-gray-alpha-200">
+            {g.items.map((s) => (
+              <li key={`${s.resolution}-${s.language_rule}`} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5">
+                <span className="label-14 font-semibold">{s.name}</span>
+                <span className="label-13 min-w-0 flex-1 text-gray-900">{`${kindsText(s.kinds)} · ${languageText(s.language_rule)}`}</span>
+                <Button size="small" variant="secondary" aria-label={`Add ${s.name}`} disabled={declared || add.isPending} onClick={() => void run(s)}>
+                  Add
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
   )
 }
 
