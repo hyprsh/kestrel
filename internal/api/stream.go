@@ -345,7 +345,14 @@ func (s *server) GetActivity(ctx context.Context, _ oapi.GetActivityRequestObjec
 }
 
 func (s *server) activity(ctx context.Context) oapi.ActivitySnapshot {
-	out := oapi.ActivitySnapshot{Running: []string{}, Passes: []oapi.RunningPass{}, Adoption: s.adoptionActivity(ctx)}
+	out := oapi.ActivitySnapshot{Running: []string{}, Passes: []oapi.RunningPass{}, Adoption: s.adoptionActivity(ctx), SlotRenames: []oapi.SlotRenameActivity{}}
+	if s.slotRenames != nil {
+		if jobs, err := s.slotRenames.Active(ctx); err == nil {
+			for _, j := range jobs {
+				out.SlotRenames = append(out.SlotRenames, oapi.SlotRenameActivity{Slot: string(j.Slot), Label: j.Label, Done: j.Done, Total: j.Total})
+			}
+		}
+	}
 	for _, r := range s.jobs.Running() {
 		out.Running = append(out.Running, r.Name)
 		out.Passes = append(out.Passes, oapi.RunningPass{Name: r.Name, StartedAt: r.Since})

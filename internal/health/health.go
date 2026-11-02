@@ -79,6 +79,8 @@ const (
 	KindRefreshFailed Kind = "refresh_failed"
 	// KindPlexNoSection: a Title folder lies in no Plex library section.
 	KindPlexNoSection Kind = "plex_no_section"
+	// KindSlotRenameFailed: some Titles of a Slot did not follow its new label.
+	KindSlotRenameFailed Kind = "slot_rename_failed"
 )
 
 // Subject is what a row is about, for the actions it offers. Zero fields are unset.
@@ -136,6 +138,8 @@ type Service struct {
 	log   *slog.Logger
 	deps  ChecksDeps
 
+	raiseMu sync.Mutex // serialises Raise so concurrent raises of a key upsert
+
 	mu      sync.Mutex // guards the watches, the checks, heldUp and the clock sample
 	watches watches
 	checks  []namedCheck
@@ -172,6 +176,10 @@ func (s *Service) Raise(ctx context.Context, is Issue) error {
 	if is.Dismissible {
 		diss = 1
 	}
+	// Raises of one key race between the lookup and the insert; one at a time
+	// keeps it an upsert.
+	s.raiseMu.Lock()
+	defer s.raiseMu.Unlock()
 	w := db.New(s.st.Write())
 	_, err = db.New(s.st.Read()).GetIssueByKey(ctx, is.Key)
 	switch {

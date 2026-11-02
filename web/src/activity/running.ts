@@ -47,6 +47,11 @@ export function useRunningNow(): Running[] {
     const name = adoption.state === 'scanning' ? 'Scanning for files to adopt' : 'Adopting files into the Library'
     all.unshift({ key: `adoption-${adoption.state}`, name, short: `${name}…`, progress: { done: adoption.done, total: adoption.total } })
   }
+  // A Slot relabel renames its files in the background, Titles done of the Slot's total.
+  for (const job of activity?.slot_renames ?? []) {
+    const name = `Renaming the files of the ${job.label} Slot`
+    all.push({ key: `slot-rename-${job.slot}`, name, short: `${name}…`, progress: { done: job.done, total: job.total } })
+  }
   return useSettled(all)
 }
 

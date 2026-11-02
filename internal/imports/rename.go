@@ -143,6 +143,18 @@ func (s *Service) Rename(ctx context.Context, titleID int64) (Renamed, error) {
 // how many files it renamed. A Title that fails to rename is skipped and
 // reported in the error, so the rest still follow the new label.
 func (s *Service) RenameSlot(ctx context.Context, id Slot) (int, error) {
+	return s.RenameSlotProgress(ctx, id, nil)
+}
+
+// SlotLabel is the label that names the Slot's files now.
+func (s *Service) SlotLabel(ctx context.Context, id Slot) (string, error) {
+	return labelOf(ctx, s.slots, id)
+}
+
+// RenameSlotProgress is RenameSlot telling progress how many Titles of the Slot
+// are done, of how many, before the first and after each one. It stops before
+// the next Title once ctx ends.
+func (s *Service) RenameSlotProgress(ctx context.Context, id Slot, progress func(done, total int)) (int, error) {
 	if s.slots == nil {
 		return 0, errors.New("imports: Slot labels are not configured")
 	}
@@ -156,7 +168,16 @@ func (s *Service) RenameSlot(ctx context.Context, id Slot) (int, error) {
 	}
 	var total int
 	var errs []error
-	for _, tid := range titles {
+	if progress != nil {
+		progress(0, len(titles))
+	}
+	for i, tid := range titles {
+		if ctx.Err() != nil {
+			return total, ctx.Err()
+		}
+		if progress != nil && i > 0 {
+			progress(i, len(titles))
+		}
 		res, err := s.Rename(ctx, tid)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("title %d: %w", tid, err))
@@ -173,6 +194,9 @@ func (s *Service) RenameSlot(ctx context.Context, id Slot) (int, error) {
 			Kind: history.Renamed, TitleID: tid, Data: jsonOf(map[string]any{"from": res.Folder, "to": res.Folder, "files": res.Files, "slot": string(id), "label": label}),
 			Message: fmt.Sprintf("Renamed %d %s for the Slot label %q", res.Files, noun, label),
 		})
+	}
+	if progress != nil {
+		progress(len(titles), len(titles))
 	}
 	return total, errors.Join(errs...)
 }

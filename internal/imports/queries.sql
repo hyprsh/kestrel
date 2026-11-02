@@ -65,3 +65,16 @@ SELECT id, at, path, kind FROM folder_changes WHERE id > ? ORDER BY id LIMIT ?;
 DELETE FROM folder_changes
 WHERE id <= (SELECT MAX(c.id) FROM folder_changes c WHERE c.at < ?)
   AND id < (SELECT MAX(c.id) FROM folder_changes c);
+
+-- name: QueueSlotRename :exec
+INSERT INTO slot_renames (slot_id, label, done, total, queued_at) VALUES (?, ?, 0, 0, ?)
+ON CONFLICT (slot_id) DO UPDATE SET label = excluded.label, done = 0, total = 0, queued_at = excluded.queued_at;
+
+-- name: ListSlotRenames :many
+SELECT * FROM slot_renames ORDER BY queued_at, slot_id;
+
+-- name: SetSlotRenameProgress :exec
+UPDATE slot_renames SET done = ?, total = ? WHERE slot_id = ?;
+
+-- name: DeleteSlotRename :exec
+DELETE FROM slot_renames WHERE slot_id = ?;

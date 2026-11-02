@@ -4626,6 +4626,21 @@ export interface components {
             passes: components["schemas"]["RunningPass"][];
             /** @description The Adoption scan or commit running now; null when neither runs. */
             adoption: components["schemas"]["AdoptionActivity"] | null;
+            /**
+             * @description The background jobs renaming a Slot's files after its label changed, oldest first. A job stays until
+             *     every Title has followed the label, and resumes after a restart.
+             */
+            slot_renames: components["schemas"]["SlotRenameActivity"][];
+        };
+        SlotRenameActivity: {
+            /** @description The Slot's id. */
+            slot: string;
+            /** @description The Slot's label the files are renamed after. */
+            label: string;
+            /** @description Titles renamed so far. */
+            done: number;
+            /** @description Titles of the Slot; 0 until the job has counted them. */
+            total: number;
         };
         RunningPass: {
             /** @description The loop, as in `GET /jobs`. */
@@ -4675,7 +4690,7 @@ export interface components {
              *     `media_server_unreachable`,
              *     `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
              *     `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
-             *     `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+             *     `refresh_failed`, `plex_no_section`, `slot_rename_failed`). The set grows; clients tolerate unknown kinds.
              */
             kind: string;
             subject: components["schemas"]["AttentionSubject"];

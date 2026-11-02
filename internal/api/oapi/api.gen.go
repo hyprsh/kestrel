@@ -2098,6 +2098,10 @@ type ActivitySnapshot struct {
 
 	// Running Names of the background loops mid-pass right now.
 	Running []string `json:"running"`
+
+	// SlotRenames The background jobs renaming a Slot's files after its label changed, oldest first. A job stays until
+	// every Title has followed the label, and resumes after a restart.
+	SlotRenames []SlotRenameActivity `json:"slot_renames"`
 }
 
 // Adoption defines model for Adoption.
@@ -2490,7 +2494,7 @@ type AttentionRow struct {
 	// `media_server_unreachable`,
 	// `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
 	// `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
-	// `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+	// `refresh_failed`, `plex_no_section`, `slot_rename_failed`). The set grows; clients tolerate unknown kinds.
 	Kind     string               `json:"kind"`
 	Message  string               `json:"message"`
 	Severity AttentionRowSeverity `json:"severity"`
@@ -5115,6 +5119,21 @@ type SlotPresetSlot struct {
 	// Label Example: Remux
 	Label          string `json:"label"`
 	OnForNewTitles bool   `json:"on_for_new_titles"`
+}
+
+// SlotRenameActivity defines model for SlotRenameActivity.
+type SlotRenameActivity struct {
+	// Done Titles renamed so far.
+	Done int `json:"done"`
+
+	// Label The Slot's label the files are renamed after.
+	Label string `json:"label"`
+
+	// Slot The Slot's id.
+	Slot string `json:"slot"`
+
+	// Total Titles of the Slot; 0 until the job has counted them.
+	Total int `json:"total"`
 }
 
 // SlotState `wanted` (monitored, released, no file), `filled`, `downloading`, `unmonitored` or `unreleased`.

@@ -6,6 +6,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/plugin"
 	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
@@ -21,6 +22,13 @@ type Server struct {
 	mu        sync.Mutex
 	refreshed []string
 	fail      error
+
+	limited    int
+	retryAfter time.Duration
+	calls      []int
+	inFlight   int
+	maxFlight  int
+	hold       time.Duration
 }
 
 var _ mediaserver.Server = (*Server)(nil)
@@ -79,12 +87,55 @@ func (*Server) ListOptions(context.Context, plugin.Connection, string) ([]plugin
 // Unplaceable is the folder prefix the fake treats as lying in no library.
 const Unplaceable = "/nowhere"
 
+// RateLimit makes the next n Refresh calls answer rate_limited with retryAfter
+// as the hint (0 for none).
+func (s *Server) RateLimit(n int, retryAfter time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.limited, s.retryAfter = n, retryAfter
+}
+
+// HoldCalls makes each Refresh take d, so tests can see calls overlap.
+func (s *Server) HoldCalls(d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hold = d
+}
+
+// Calls lists the size of each accepted or refused Refresh call, in order.
+func (s *Server) Calls() []int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]int{}, s.calls...)
+}
+
+// MaxInFlight is the most Refresh calls that were open at the same time.
+func (s *Server) MaxInFlight() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.maxFlight
+}
+
 func (s *Server) Refresh(_ context.Context, conn plugin.Connection, changes []mediaserver.Change) error {
 	if err := s.check(conn); err != nil {
 		return err
 	}
 	s.mu.Lock()
+	s.inFlight++
+	s.maxFlight = max(s.maxFlight, s.inFlight)
+	hold := s.hold
+	s.mu.Unlock()
+	if hold > 0 {
+		time.Sleep(hold)
+	}
+	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.inFlight--
+	s.calls = append(s.calls, len(changes))
+	if s.limited > 0 {
+		s.limited--
+		return &plugin.Error{Code: plugin.CodeRateLimited, Message: "slow down", RetryAfter: s.retryAfter}
+	}
 	if s.fail != nil {
 		return s.fail
 	}

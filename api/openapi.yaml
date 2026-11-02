@@ -6577,7 +6577,7 @@ components:
           description: Why the pass failed; `null` when it succeeded.
     ActivitySnapshot:
       type: object
-      required: [running, passes, adoption]
+      required: [running, passes, adoption, slot_renames]
       properties:
         running:
           type: array
@@ -6594,6 +6594,29 @@ components:
             - $ref: "#/components/schemas/AdoptionActivity"
           nullable: true
           description: The Adoption scan or commit running now; null when neither runs.
+        slot_renames:
+          type: array
+          description: |
+            The background jobs renaming a Slot's files after its label changed, oldest first. A job stays until
+            every Title has followed the label, and resumes after a restart.
+          items:
+            $ref: "#/components/schemas/SlotRenameActivity"
+    SlotRenameActivity:
+      type: object
+      required: [slot, label, done, total]
+      properties:
+        slot:
+          type: string
+          description: The Slot's id.
+        label:
+          type: string
+          description: The Slot's label the files are renamed after.
+        done:
+          type: integer
+          description: Titles renamed so far.
+        total:
+          type: integer
+          description: Titles of the Slot; 0 until the job has counted them.
     RunningPass:
       type: object
       required: [name, started_at]
@@ -6670,7 +6693,7 @@ components:
             `media_server_unreachable`,
             `stalled_imports` (one row per stall reason), `stuck_download` (one row per Stuck download),
             `low_disk_space`, `untrusted_proxy_header` or a one-off health warning (`exdev`,
-            `refresh_failed`, `plex_no_section`). The set grows; clients tolerate unknown kinds.
+            `refresh_failed`, `plex_no_section`, `slot_rename_failed`). The set grows; clients tolerate unknown kinds.
         subject:
           $ref: "#/components/schemas/AttentionSubject"
         message:

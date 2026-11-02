@@ -369,6 +369,14 @@ type SlotAlias struct {
 	Alias string
 }
 
+type SlotRename struct {
+	SlotID   string
+	Label    string
+	Done     int64
+	Total    int64
+	QueuedAt string
+}
+
 type Title struct {
 	ID                int64
 	Kind              string
