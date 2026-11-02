@@ -817,8 +817,8 @@ paths:
       operationId: lookupTitle
       summary: One search result with the add panel's suggested Slots and Profiles
       description: |
-        The Slots to preselect when adding it: every Slot with a default Profile for the kind, resolved
-        by Profile resolution. Each Slot says why (`reason`) and carries a display `label`, the
+        The Slots to preselect when adding it: every Slot that is on for new Titles and has an enabled
+        default Profile for the kind. Each Slot says why (`reason`) and carries a display `label`, the
         Profile's name. Requests use the same logic.
         It reads TMDB only. A Series' overview (status, network, air dates and seasons) comes from
         TheTVDB through `GET /lookup/series/{tmdb_id}/overview`, so the panel can open before TheTVDB
@@ -1002,7 +1002,7 @@ paths:
         - `remove` removes the Titles from the Library, as `DELETE /titles/{id}` does; files stay on
           disk unless `delete_files` is true. Again: `not_found`.
 
-        A wrong or disabled Profile for the Slot, or a `series_monitor` that contradicts
+        An unknown or disabled Profile, or a `series_monitor` that contradicts
         `monitored`, refuses the whole call with 422.
       tags: [titles]
       requestBody:
@@ -2861,7 +2861,7 @@ paths:
       description: |
         Only for a Requester's session; any other caller gets `403 forbidden`. Makes a Request as
         `POST /requests` does, with the source `plex`, this Plex account as the requester, the
-        Standard Slot under Profile resolution, the whole Series for a Series, and the Requester's
+        Slots that are on for new Titles, each with its default Profile, the whole Series for a Series, and the Requester's
         Root folder from `user_root_folders` (else the kind's first) for a Title the Request creates.
         Asking for the same Title again returns the Requester's stored Request with `200`.
       tags: [requests]
@@ -4500,7 +4500,7 @@ components:
           description: The country that rating is from; the release-date country unless TMDB had none there.
         slots:
           type: array
-          description: Every Slot with a default Profile for the kind, in Slot order.
+          description: Every Slot that is on for new Titles and has an enabled default Profile for the kind, in Slot order.
           items:
             $ref: "#/components/schemas/SuggestedSlot"
         ratings:
@@ -4587,14 +4587,14 @@ components:
           $ref: "#/components/schemas/SlotId"
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of that Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     VersionPatch:
       type: object
       required: [profile]
       properties:
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of the Version's Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     TitleCreate:
       type: object
       required: [kind, tmdb_id, versions]
@@ -4858,7 +4858,7 @@ components:
           $ref: "#/components/schemas/SlotId"
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of that Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     TitlesBulkAddVersion:
       type: object
       required: [action, title_ids, slot, profile]
@@ -4872,7 +4872,7 @@ components:
           $ref: "#/components/schemas/SlotId"
         profile:
           type: string
-          description: The Profile key. It must be an enabled Profile of that Slot.
+          description: The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
     TitlesBulkRemoveVersion:
       type: object
       required: [action, title_ids, slot]
@@ -6214,7 +6214,7 @@ components:
       required: [resource, id]
       description: |
         Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
-        Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
+        Library list), `grab`, `queue`, `slot` (a Slot added, changed, reordered or removed) or `log`; more are added. `id` is null when the hint is about the
         whole resource. Clients ignore resources they do not know.
       properties:
         resource:
@@ -7901,7 +7901,7 @@ components:
         profile:
           type: string
           nullable: true
-          description: A Profile key of that Slot; left out, Profile resolution picks one.
+          description: A Profile key, enabled and not used by another Version of the Title; left out, the Slot's default Profile for the Title's kind is used.
     Requester:
       type: object
       required: [id, name]

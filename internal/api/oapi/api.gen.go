@@ -2472,7 +2472,7 @@ type BlocklistList struct {
 }
 
 // ChangedHint Something changed; refetch it. `resource` is `title` (a Title, its Versions and the
-// Library list), `grab`, `queue` or `log`; more are added. `id` is null when the hint is about the
+// Library list), `grab`, `queue`, `slot` (a Slot added, changed, reordered or removed) or `log`; more are added. `id` is null when the hint is about the
 // whole resource. Clients ignore resources they do not know.
 type ChangedHint struct {
 	Id       *int64 `json:"id"`
@@ -3301,7 +3301,7 @@ type LookupDetail struct {
 	// Runtime Minutes; a typical episode's for a Series.
 	Runtime *int `json:"runtime"`
 
-	// Slots Every Slot with a default Profile for the kind, in Slot order.
+	// Slots Every Slot that is on for new Titles and has an enabled default Profile for the kind, in Slot order.
 	Slots  []SuggestedSlot `json:"slots"`
 	Title  string          `json:"title"`
 	TmdbId int             `json:"tmdb_id"`
@@ -4409,7 +4409,7 @@ type RequestSlotStatus string
 
 // RequestSlotCreate defines model for RequestSlotCreate.
 type RequestSlotCreate struct {
-	// Profile A Profile key of that Slot; left out, Profile resolution picks one.
+	// Profile A Profile key, enabled and not used by another Version of the Title; left out, the Slot's default Profile for the Title's kind is used.
 	Profile *string `json:"profile,omitempty"`
 
 	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
@@ -5454,7 +5454,7 @@ type TitlesBulk struct {
 type TitlesBulkAddVersion struct {
 	Action TitlesBulkAddVersionAction `json:"action"`
 
-	// Profile The Profile key. It must be an enabled Profile of that Slot.
+	// Profile The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
 	Profile string `json:"profile"`
 
 	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
@@ -5554,7 +5554,7 @@ type TitlesBulkSearchAction string
 type TitlesBulkSwitchProfile struct {
 	Action TitlesBulkSwitchProfileAction `json:"action"`
 
-	// Profile The Profile key. It must be an enabled Profile of that Slot.
+	// Profile The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
 	Profile string `json:"profile"`
 
 	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
@@ -5806,13 +5806,13 @@ type VersionDetail struct {
 
 // VersionPatch defines model for VersionPatch.
 type VersionPatch struct {
-	// Profile The Profile key. It must be an enabled Profile of the Version's Slot.
+	// Profile The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
 	Profile string `json:"profile"`
 }
 
 // VersionRef defines model for VersionRef.
 type VersionRef struct {
-	// Profile The Profile key. It must be an enabled Profile of that Slot.
+	// Profile The Profile key. It must be an enabled Profile; any Profile can fill any Slot, but not one another Version of the Title already uses.
 	Profile string `json:"profile"`
 
 	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
