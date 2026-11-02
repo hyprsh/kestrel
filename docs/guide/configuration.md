@@ -147,7 +147,7 @@ plugin_instances: # known by name
       tv_category: tv
   - name: Indexer
     plugin_id: newznab
-    priority: 0 # lower wins a tie between otherwise equal Releases
+    priority: 0 # lower is asked first and wins between Releases of equal Score
     config:
       url: https://indexer.example
       api_key_env: INDEXER_API_KEY
@@ -289,8 +289,10 @@ A plugin instance is one connection to a service: your download client, an index
 | `name`      | The instance's name. The file knows instances by name.                                                  |
 | `plugin_id` | `sabnzbd`, `newznab`, `jellyfin`, `plex` or `silo`.                                                     |
 | `enabled`   | Optional. A new instance starts enabled when the file leaves it out. [Details](#plugin-instance-rules). |
-| `priority`  | Optional, default `0`. Lower wins a tie between otherwise equal Releases.                               |
+| `priority`  | Optional, default `0`. For an indexer, lower is asked first and wins between Releases of equal Score.   |
 | `config`    | The plugin's fields. The plugin's defaults fill the ones you leave out.                                 |
+
+Indexers with the same `priority` form a group and are asked together. An automatic search (the sweeps and Search now) asks the groups in turn, lowest first, and asks the next group only for what the earlier ones left: Wanted episodes or Upgrades with nothing to grab, and Versions that found only an Original Offer. An indexer that fails, is paused or is out of budget finds nothing for its group: what it would have found is left for the next group. A manual search and RSS ask every enabled indexer at once. With every indexer at the same priority, every search asks them all. ([ADR 0025](../adr/0025-ask-indexers-by-priority-group.md))
 
 The fields of `config` (give a secret as `<field>_env`):
 
