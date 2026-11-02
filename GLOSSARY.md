@@ -23,7 +23,7 @@ An episode Kestrel added itself because a Release named it before TheTVDB listed
 _Avoid_: TBA episode, ghost episode
 
 **Profile**:
-A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile belongs to one Slot, covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. A Primary-Language Profile rejects, offers (an Original Offer) or accepts a Release that has the Title's Original Language but no Primary-Language audio. Profiles can be enabled or disabled and chosen as the default for a Slot in new Movies or new Series. A Version's Profile can be switched at any time to another Profile of the same Slot. On top of TRaSH's data a household sets, per Profile, the order and acceptance of the qualities, a Cutoff, an Upgrade-until Score, a minimum Score and Size limits, and can make a custom Profile as a copy of another. TRaSH's Custom Formats and their Scores stay TRaSH's.
+A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. A Primary-Language Profile rejects, offers (an Original Offer) or accepts a Release that has the Title's Original Language but no Primary-Language audio. Profiles can be enabled or disabled and named as a Slot's default for new Movies or new Series. Any Profile can fill any Slot, and a Version's Profile can be switched at any time without moving or renaming the Version. On top of TRaSH's data a household sets, per Profile, the order and acceptance of the qualities, a Cutoff, an Upgrade-until Score, a minimum Score and Size limits, and can make a custom Profile as a copy of another. TRaSH's Custom Formats and their Scores stay TRaSH's.
 _Avoid_: Quality profile, preset, UHD (say 4K), Kids Profile
 
 **Cutoff**:
@@ -34,8 +34,8 @@ _Avoid_: Upgrade until (for the quality), cutoff unmet (for Wanted)
 The smallest and largest size a Profile accepts, per Movie or per episode of a Series (a pack or multi-episode Release is judged per episode). A Release outside it is rejected as `size`, "over" or "under" the limit; "Grab anyway" overrides it, and the file imports as usual.
 
 **Slot**:
-One of two fixed places in a Title that one Version fills: Standard, up to 1080p, and the opt-in 4K. A Title has at most one Version per Slot and at least one Version overall; Standard is the default for new Titles. Which Version a viewer plays, and who may watch 4K, is the media server's choice, not Kestrel's.
-_Avoid_: Tier (TRaSH uses it for release groups)
+A named place in every Title that holds at most one Version, such as Standard or 4K. The admin adds, renames, orders and removes Slots; a Slot's label names its files, and each Slot has a default Profile per kind and says whether new Titles get it. No Slot is special: a Title needs at least one Version in some Slot. Which Version a viewer plays is the media server's choice, not Kestrel's.
+_Avoid_: Tier (TRaSH uses it for release groups), Profile (for the place a Version fills)
 
 **Primary Language**:
 The household's own language, chosen once for the whole library: English, German or French. Profiles require it unless they require the Original Language instead.
@@ -46,7 +46,7 @@ The language a Title was made in, as its metadata states. A Profile can require 
 _Avoid_: O-Ton, VO, English (when the Original Language is meant)
 
 **Version**:
-A Title's wanted copy in one Slot, under that Slot's chosen Profile, kept as its own file. Each Version is filled and upgraded on its own: a Release only ever replaces the file of the Version whose Profile it matches, never another Version's. All Versions of a Title live side by side in its folder. A Series Version holds one file per episode and is filled episode by episode.
+A Title's wanted copy in one Slot, under its own Profile, kept as its own file. Each Version is filled and upgraded on its own: a Release only ever replaces the file of the Version whose Profile it matches, never another Version's. All Versions of a Title live side by side in its folder. A Series Version holds one file per episode and is filled episode by episode.
 _Avoid_: Edition, copy, quality (as a noun for the Slot)
 
 **Dual-Language Release**:

@@ -1,0 +1,27 @@
+# Admins define the Slots
+
+Supersedes ADR 0012. Amends ADRs 0003 and 0004.
+
+The admin adds, renames, orders and removes a library's Slots, up to four. Kestrel seeds the two it had, `standard` ("Standard", on for new Titles) and `4k` ("4K", opt-in), and gives neither a special role: a Title needs at least one Version in some Slot, at least one Slot must exist and at least one must be on for new Titles. A Slot has a fixed slug id, an editable label that names its files, a default Profile per kind, an "on for new Titles" switch and a position in the order. We reopened ADR 0012 because two households' needs can't be met by Silo's quality ceilings and device caps: a lossless Remux archive next to a streaming copy at the same resolution, and a dub Version next to the Original Language Version at the same resolution. Both need a second Version at a resolution another Slot already covers. One-Slot libraries come for free. Kids and Mobile copies may live in a Slot, but Silo's request routes and per-device caps stay the recommended way to serve those audiences.
+
+Slots stay separate from Profiles. A Profile says which Release to grab; a Slot says which copy a Version is, and what its file is called. A Title can switch a Version's Profile (HD to Any for a film with no HD release) without the Version moving or its file being renamed, and Silo tiers, Requests and "on for new Titles" point at the copy, not at a rule.
+
+## Considered Options
+
+- **Keep two fixed Slots (ADR 0012).** Rejected: neither Remux nor dub Versions fit, because both sit at a resolution Standard or 4K already covers.
+- **Make each Profile its own place, with no Slots.** Rejected: switching a Title's Profile would rename and re-place its file, labels would name selection rules (`[Any]`) instead of copies, and every Silo tier and Request route would need a list of Profiles that mean "the everyday copy", which is a Slot under another name.
+- **A root folder per Slot.** Rejected: Plex, Jellyfin and Silo group Versions only when they sit in the same Title folder, so a Kids Slot in its own root would show as a separate film. The root folder stays per Title.
+- **Merging one Slot into another on removal.** Rejected: a Title with Versions in both Slots needs a rule nobody would guess for which file stays. A Slot is removed only once it is empty.
+- **One file filling two Versions.** Rejected: it breaks one file per Version and the naming scheme. When one Release is the pick for two Versions, Kestrel downloads it once and hardlinks it under each Slot's label.
+
+## Consequences
+
+- Profiles no longer belong to a Slot, and any Profile can fill any Slot; its own resolution range carries the resolution. Each Slot names its default Profile per kind. Within one Title every Version has a different Profile, and Settings warns when two Slots share a default for one kind.
+- A label is 1 to 24 letters, digits, spaces, `-` or `+`, unique ignoring case. Renaming a label renames the Slot's files on disk, as metadata renames already do (ADR 0003), and keeps the old label as an alias that Adoption still recognises.
+- Adoption reads the label only at its fixed position, right after `<folder name> - `. A file without a known label or alias goes to the first Slot, in Slot order, whose default Profile for that kind covers the probed resolution, else to the first Slot; the review lists every guessed Slot.
+- A new Slot reaches existing Titles only when the admin asks for it in the add dialog, which shows counts per kind; the new Versions are searched like the wanted list.
+- The Silo plugin maps each of Silo's tiers (`1080p`, `2160p`, and `is_4k`) to one Slot, defaulting to `standard` and `4k`; `standard_profile` and `4k_profile` remain as aliases. A Slot no tier maps to can't be requested from Silo. A Request that names no Slot gets the Slots that are on for new Titles, each with its default Profile.
+- A Slot carries no quality hint: media servers still pick a Version by its probed resolution (ADR 0012).
+- `/api/v1` gains Slot endpoints, and Slot fields widen from the enum `standard | 4k` to a Slot id string. This is additive under ADR 0009; generated clients that match the enum exhaustively need regenerating, which the changelog notes.
+- The Config File gains an optional `slots` section under ADR 0014. A Slot dropped from the file is removed at startup only if it is empty; otherwise startup fails, so Kestrel never deletes files because a line went missing.
+- Existing libraries migrate with no change on disk: the two seeded Slots keep their ids, labels and default Profiles.
