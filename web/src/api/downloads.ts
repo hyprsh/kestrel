@@ -1,4 +1,4 @@
-// Settings' Downloads and Profiles pages: the download client's live status, the Grabs per indexer, a saved instance's Test
+// Settings' Downloads and Slots & Profiles pages: the download client's live status, the Grabs per indexer, a saved instance's Test
 // and the Profiles' details.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'

@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useProfileDetails, type ProfileDetail, type ProfileScoring } from '../api/downloads'
 import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
 import { declaresSlots, useSlots, type Slot } from '../api/slots'
-import { SlotWarnings } from '../slots/SlotWarnings'
 import { ProfileWarnings } from './ProfileWarnings'
 import { plural } from '../format'
 import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
@@ -20,7 +19,7 @@ import { Suggested } from './Suggested'
 const mainScoring = (d?: ProfileDetail): ProfileScoring | undefined => (d && d.series.qualities.length > 0 ? d.series : d?.movies)
 
 /**
- * Settings, Profiles: "New Profile…", the defaults for new Titles, then one card per Profile: its qualities as a ladder (the
+ * Settings, Slots & Profiles, Profiles: "New Profile…", the defaults for new Titles, then one card per Profile: its qualities as a ladder (the
  * cutoff dark, those turned off struck through) and its facts. A Profile opens in a side sheet. The Custom Formats and Scores
  * come from TRaSH and are shown; the household sets the order and acceptance of the qualities, where Upgrades stop, the sizes
  * and what happens to a Release with only the Original Language.
@@ -75,7 +74,6 @@ export function ProfilesSection() {
         ))}
       </DefaultsLine>
       {slotsDeclared && declaredSlotsNote}
-      {!defaults && <SlotWarnings />}
       {defaults && (
         <SettingsBlock>
           <DefaultsPerSlot />

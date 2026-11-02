@@ -11,7 +11,7 @@ type Slot = Request['slots'][number]
 export const reasons: Record<NonNullable<Request['reject_reason']>, { text: string; fix?: { label: string; path: string } }> = {
   not_on_tvdb: { text: 'TheTVDB does not list this Series' },
   unknown_title: { text: 'TMDB does not know this Title' },
-  no_enabled_profile: { text: 'No Profile is enabled for the Slot', fix: { label: 'Enable a Profile', path: '/settings/profiles' } },
+  no_enabled_profile: { text: 'No Profile is enabled for the Slot', fix: { label: 'Enable a Profile', path: '/settings/slots-profiles' } },
 }
 
 /**

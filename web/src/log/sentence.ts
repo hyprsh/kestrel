@@ -336,7 +336,7 @@ const healthPlaces: Record<string, { label: string; path: string }> = {
   media_server_unreachable: { label: 'Open Media Servers', path: '/settings/media-servers' },
   plex_no_section: { label: 'Open Media Servers', path: '/settings/media-servers' },
   refresh_failed: { label: 'Open Media Servers', path: '/settings/media-servers' },
-  slot_rename_failed: { label: 'Open Slots', path: '/settings/slots' },
+  slot_rename_failed: { label: 'Open Slots & Profiles', path: '/settings/slots-profiles' },
 }
 
 /** The one action an event offers, or none: its Health place, else its Title. */

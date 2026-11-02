@@ -30,7 +30,7 @@ A named quality-and-language target that a Version follows, such as HD, Any or 4
 - **Release Family:** which kind of Releases it goes after, as TRaSH groups them. **Bluray + WEB** takes encodes from either source, **Remux + WEB** takes untouched Blu-ray remuxes and WEB downloads, **WEB** takes WEB downloads only, and **SQP** is TRaSH's streaming-quality set. Any is always Bluray + WEB.
 - **Language:** your Primary Language, the Title's Original Language, or one named language (English, German or French).
 
-A fresh install starts with no Profiles: you add the ones you want from a Slot preset in the setup, or from **Suggested** in Settings > Profiles ([Slots](slots.md#start-from-a-preset)). An install that already had Profiles keeps its six, listed below. A Profile that names a language, such as "HD German", always wants that language, whatever your Primary Language is.
+A fresh install starts with no Profiles: you add the ones you want from a Slot preset in the setup, or from **Suggested** in Settings > Slots & Profiles ([Slots](slots.md#start-from-a-preset)). An install that already had Profiles keeps its six, listed below. A Profile that names a language, such as "HD German", always wants that language, whatever your Primary Language is.
 
 | Profile      | Resolution | Release Family | Language                            |
 | ------------ | ---------- | -------------- | ----------------------------------- |
@@ -43,13 +43,13 @@ A fresh install starts with no Profiles: you add the ones you want from a Slot p
 
 Your **Primary Language** is the one language your library is for: English, German or French, set once in Settings. The **Original Language** is the language a Title was made in.
 
-Example: a German household sets German. For a Japanese anime, the HD Profile wants German audio, and HD Original wants Japanese. If only a Japanese Release exists, the HD Profile can reject it, offer it to you in Needs attention, or accept it, as you choose in Settings > Profiles. A release with both languages in one file (marked "DL" in German release names and "MULTi" in French ones) counts as having your Primary Language.
+Example: a German household sets German. For a Japanese anime, the HD Profile wants German audio, and HD Original wants Japanese. If only a Japanese Release exists, the HD Profile can reject it, offer it to you in Needs attention, or accept it, as you choose in Settings > Slots & Profiles. A release with both languages in one file (marked "DL" in German release names and "MULTi" in French ones) counts as having your Primary Language.
 
 Not every recipe exists, because Kestrel never falls back to another language or another Release Family. A recipe is only offered where TRaSH has a profile for it. English has all four Release Families. German has Bluray + WEB and Remux + WEB, and no WEB or SQP: a German household has no WEB recipe for its Primary Language, but it can add "WEB English", which asks for English audio and is backed by TRaSH's English WEB profile. French has Bluray + WEB, and Remux + WEB for Movies only. SQP has Movies only. A Profile that covers only Movies can't be a Slot's default for Series, and Kestrel refuses a Version of a Series under it.
 
 You can switch a Version to another Profile at any time. A Title can't use the same Profile in two Versions.
 
-In Settings > Profiles you can also change what each Profile accepts, on top of what TRaSH gives it: reorder or switch off qualities, choose where Upgrades stop (see [Upgrade](#upgrade)), set a minimum Score, set a smallest and largest size per Movie and per episode, and choose what happens to a Release that has only the Original Language. **New Profile…** copies a Profile to start from.
+In Settings > Slots & Profiles you can also change what each Profile accepts, on top of what TRaSH gives it: reorder or switch off qualities, choose where Upgrades stop (see [Upgrade](#upgrade)), set a minimum Score, set a smallest and largest size per Movie and per episode, and choose what happens to a Release that has only the Original Language. **New Profile…** copies a Profile to start from.
 
 ## Custom Format and Score
 
@@ -57,7 +57,7 @@ A **Custom Format** is a named trait a Release can have, such as being from a tr
 
 A Release's **Score** is the sum of the points of every Custom Format it matches under that Profile. The higher Score wins a Grab or an Upgrade.
 
-Example: for the HD Profile, a 1080p Release from a top release group matches a Custom Format worth many points. An otherwise identical one from an unknown group matches none, scores lower, and loses. You don't edit Custom Formats or their Scores in Kestrel. They come from TRaSH, and Kestrel refreshes them daily (Settings > Profiles > TRaSH). What you can set per Profile is a minimum Score.
+Example: for the HD Profile, a 1080p Release from a top release group matches a Custom Format worth many points. An otherwise identical one from an unknown group matches none, scores lower, and loses. You don't edit Custom Formats or their Scores in Kestrel. They come from TRaSH, and Kestrel refreshes them daily (Settings > Slots & Profiles > TRaSH). What you can set per Profile is a minimum Score.
 
 ## Wanted
 
@@ -89,9 +89,18 @@ Adopting files that are already in your library is a different thing, called **A
 
 ## Upgrade
 
-Replacing a Version's file with a better-scoring Release. A monitored Version keeps upgrading until its file reaches its Profile's **Cutoff**, and a Profile with no Cutoff never stops. You set a Cutoff in Settings > Profiles, on a Profile's Edit sheet: **Good enough at** names a quality, and **Upgrade until Score** a Score. A file has reached the Cutoff when its quality is that one or a better one and its Score is at least the Upgrade-until Score. Whichever of the two you leave empty isn't checked. A file that has reached it is left alone. A file below the Cutoff isn't Wanted, it only waits for an Upgrade. An unmonitored Title, or an unmonitored episode of a Series, is not upgraded.
+Replacing a Version's file with a better-scoring Release. A monitored Version keeps upgrading until its file reaches its Profile's **Cutoff**, and a Profile with no Cutoff never stops. You set a Cutoff in Settings > Slots & Profiles, on a Profile's Edit sheet: **Good enough at** names a quality, and **Upgrade until Score** a Score. A file has reached the Cutoff when its quality is that one or a better one and its Score is at least the Upgrade-until Score. Whichever of the two you leave empty isn't checked. A file that has reached it is left alone. A file below the Cutoff isn't Wanted, it only waits for an Upgrade. An unmonitored Title, or an unmonitored episode of a Series, is not upgraded.
 
 Example: you import a 1080p WEB-DL of a new film. Weeks later a BluRay Release with a higher Score appears, and Kestrel grabs it and replaces the file.
+
+## Views and the Filter menu
+
+Two ways to narrow a list that look alike and do different things. Both write into the same filter field, so what you pick shows there as text (`kind:errors`, `slot:4k`) and a bookmarked address (`?q=`) keeps it.
+
+- **Views** are ready-made pages of a screen, in the side panel (on a phone, the first section of the Filter menu): the Log's Errors, Warnings and Grabs, Activity's In progress and Failed, Upcoming's Wanted when out and Recently out. You are on one View at a time, and each shows how many rows it holds. Choosing one replaces the filter with its own terms, and keeps only the sort.
+- **The Filter menu** refines the View you are on. Each section (Kind, Slot and so on) lists values to tick. Ticking several values of one section shows rows that match any of them, and ticking in several sections shows rows that match all. Shift+click on a value excludes it (`-slot:4k`). The button counts the sections in use, and **Clear all** at the top empties the filter.
+
+Example: in the Log, choose the **Errors** View for failures only, then tick **Slot > 4K** in the Filter menu to see the failures of 4K Versions. Choosing **Grabs** next starts over from that View.
 
 ## Requests
 

@@ -539,7 +539,7 @@ function Rail({
       </RailButton>
       <Separator className="my-1 w-6" />
       {screens
-        .filter((s) => s.key !== 'overview')
+        .filter((s) => s.key !== 'overview' && s.key !== 'settings')
         .map((s) => (
           <RailButton key={s.key} label={s.label} active={screen === s.key} onClick={() => onSelect(s.key)}>
             {s.icon}
@@ -550,6 +550,10 @@ function Rail({
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
       <HealthButton tooltipPosition="right" active={screen === 'health'} />
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
+      {/* Last of the bottom group, below Health and the theme switcher. */}
+      <RailButton label="Settings" active={screen === 'settings'} onClick={() => onSelect('settings')}>
+        <Settings />
+      </RailButton>
     </RailFrame>
   )
 }

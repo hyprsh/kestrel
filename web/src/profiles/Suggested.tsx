@@ -12,7 +12,7 @@ const only = (groups: readonly Group[], keep: (s: ProfileSuggestion) => boolean)
 /**
  * "Suggested": the Profiles the household could add, by Release Family, each one click away. The Primary and Original
  * recipes come first; the named-language ones wait under "Other languages", closed. Nothing while there are none, and
- * read-only when the Config File declares the Profiles. Settings, Profiles and the wizard's Profiles step share it.
+ * read-only when the Config File declares the Profiles. Settings, Slots & Profiles and the wizard's Profiles step share it.
  */
 export function Suggested({ declared = false }: { declared?: boolean }) {
   const suggestions = useProfileSuggestions()

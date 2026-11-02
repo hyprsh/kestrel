@@ -67,6 +67,8 @@ export function placeOf(path: string): Place {
   // "/activity/jobs" and "/activity/running" at its Background jobs.
   // About is a page of Settings; "/about" opens it.
   if (screen === 'about') return { screen: 'settings', section: 'about', q: '', search: null, season: null, episode: null }
+  // Slots and Profiles are one Settings page; the old Profiles address and the Slots anchor open it.
+  if (screen === 'settings' && (section === 'profiles' || section === 'slots')) return { screen, section: 'slots-profiles', q: '', search: null, season: null, episode: null }
   if (screen === 'activity' && section === 'health') return { screen: 'health', section: '', q: '', search: null, season: null, episode: null }
   if (screen === 'activity' && (section === 'jobs' || section === 'running')) return { screen: 'health', section: 'jobs', q: '', search: null, season: null, episode: null }
   return { screen, section, q: url.searchParams.get('q') ?? '', search, season, episode: season === null ? null : count(url.searchParams.get('episode')), slot, open }
@@ -79,7 +81,10 @@ const root = () => new URL(document.querySelector('base')?.href ?? '/', location
 export function currentPlace(): Place {
   const r = root()
   const path = location.pathname.startsWith(r) ? location.pathname.slice(r.length) : ''
-  return placeOf(`/${path}${location.search}`)
+  const place = placeOf(`/${path}${location.search}`)
+  // Slots used to be a part of Settings, Library: "/settings/library#settings-slots" opens their new page.
+  if (place.screen === 'settings' && place.section === 'library' && location.hash === '#settings-slots') return { ...place, section: 'slots-profiles' }
+  return place
 }
 
 /** The address-bar parameters a screen's list view keeps beside the filter: the page and the sort. */

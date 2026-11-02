@@ -15,7 +15,7 @@ Each Slot names a default Profile for Movies and one for Series. A new Version i
 
 A fresh install starts with one Slot, **Standard**. A library that already existed keeps **Standard** and **4K**. You can have up to four Slots. Two examples that a fixed Standard and 4K pair could not do, since both want a second copy at a resolution another Slot already covers:
 
-- **A Remux next to a streaming copy.** Keep Standard on HD and add a Slot named `Remux`, with `HD Remux` as its default (add that Profile from Suggested in Settings > Profiles first). A Title then holds a lossless 1080p file for the home cinema and a compact one for the tablet, at the same resolution.
+- **A Remux next to a streaming copy.** Keep Standard on HD and add a Slot named `Remux`, with `HD Remux` as its default (add that Profile from Suggested in Settings > Slots & Profiles first). A Title then holds a lossless 1080p file for the home cinema and a compact one for the tablet, at the same resolution.
 - **A dub next to the Original Language.** In a household whose Primary Language is German, keep Standard on `HD Original` and add a Slot named `German`, with `HD` as its default. Each Title then holds both audio versions at 1080p, side by side.
 
 Give two Slots different default Profiles, as here: a Title can't use one Profile in two Versions.
@@ -33,7 +33,7 @@ The rules, which Kestrel checks everywhere:
 
 ## Managing Slots
 
-Open Settings > Library > Slots. Each row shows the Slot's label, its default Profiles ("Movies HD, Series HD"), how many Versions it holds and its "on for new Titles" switch.
+Open Settings > Slots & Profiles > Slots. Each row shows the Slot's label, its default Profiles ("Movies HD, Series HD"), how many Versions it holds and its "on for new Titles" switch.
 
 **Add a Slot.** Choose **Add Slot...** (hidden at four). Give it a label, which shows a preview of a file name, pick a default Profile for Movies and for Series (or None), and say whether new Titles get it. A new Slot reaches your existing Titles only if you tick **Also add to existing Movies / Series**, which shows how many of each. The new Versions start Wanted, and Kestrel searches them like the rest of the wanted list. A kind with no default Profile gets none. A Title that already uses that Profile in another Slot is skipped and counted in the message.
 

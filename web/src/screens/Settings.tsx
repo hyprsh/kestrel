@@ -46,11 +46,12 @@ const pages: Page[] = [
     ],
   },
   {
-    id: 'profiles',
-    title: 'Profiles',
+    id: 'slots-profiles',
+    title: 'Slots & Profiles',
     group: 'General',
     icon: <BadgeCheck />,
     parts: [
+      { id: 'slots', title: 'Slots', rows: ['Slots', 'Add Slot', 'Slot label'] },
       { id: 'profiles', title: 'Profiles', rows: ['Defaults per Slot', 'Profiles'] },
       { id: 'trash', title: 'TRaSH', rows: ['Custom Formats and profiles'] },
     ],
@@ -62,7 +63,6 @@ const pages: Page[] = [
     icon: <Folder />,
     parts: [
       { id: 'root-folders', title: 'Root folders', rows: ['Folders'] },
-      { id: 'slots', title: 'Slots', rows: ['Slots', 'Add Slot', 'Slot label'] },
       { id: 'adoption', title: 'Existing files', rows: ['Adopt existing library'] },
       { id: 'metadata', title: 'Provider keys', rows: ['TMDB and TheTVDB'] },
     ],
