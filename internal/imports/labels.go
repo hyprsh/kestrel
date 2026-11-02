@@ -14,21 +14,15 @@ type SlotLabels interface {
 	TitleIDs(ctx context.Context, id slot.Slot) ([]int64, error)
 }
 
-// labelOf is the label that names a Slot's files: the stored one. Without a
-// store, which only tests leave out, it is the seeded name of the two Slots
-// Kestrel starts with, else the id.
+// labelOf is the label that names a Slot's files: the stored one, else the id.
+// Without a store, which only tests leave out, it is the id.
 func labelOf(ctx context.Context, src SlotLabels, id Slot) (string, error) {
 	if src == nil {
-		return id.Name(), nil
+		return slot.Label(nil, id), nil
 	}
 	all, err := src.List(ctx)
 	if err != nil {
 		return "", err
 	}
-	for _, r := range all {
-		if r.ID == id {
-			return r.Label, nil
-		}
-	}
-	return id.Name(), nil
+	return slot.Label(all, id), nil
 }

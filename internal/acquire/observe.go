@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // Target is what a search is looking for now, for the search status.
@@ -56,12 +57,12 @@ func (nopObserver) Searching(Target) {}
 func (nopObserver) Releases(int)     {}
 
 // targetOf names what a search of in is for.
-func targetOf(d library.Detail, in Input) Target {
+func targetOf(d library.Detail, in Input, stored []slot.Record) Target {
 	t := Target{TitleID: d.ID, Title: d.Title, HasPoster: d.PosterPath != ""}
 	var slots []string
 	seasons := map[int]bool{}
 	for _, v := range in.Versions {
-		slots = append(slots, v.Slot.Name())
+		slots = append(slots, slot.Label(stored, v.Slot))
 		for _, u := range v.Units {
 			if u.Ref == (EpisodeRef{}) {
 				continue
@@ -80,4 +81,17 @@ func targetOf(d library.Detail, in Input) Target {
 		}
 	}
 	return t
+}
+
+// storedSlots are the Slots the Log and the Activity name by label; none when
+// they cannot be read, which leaves the ids to name them.
+func (s *Service) storedSlots(ctx context.Context) []slot.Record {
+	if s.slots == nil {
+		return nil
+	}
+	all, err := s.slots.List(ctx)
+	if err != nil {
+		return nil
+	}
+	return all
 }

@@ -124,8 +124,8 @@ func bulkUnchanged(id int64) oapi.TitleBulkOutcome {
 	return bulkSkipped(id, oapi.Unchanged, "Already as asked")
 }
 
-func bulkNoVersion(id int64, sl slot.Slot) oapi.TitleBulkOutcome {
-	return bulkSkipped(id, oapi.NoVersion, "Has no "+sl.Name()+" Version")
+func bulkNoVersion(id int64, label string) oapi.TitleBulkOutcome {
+	return bulkSkipped(id, oapi.NoVersion, "Has no "+label+" Version")
 }
 
 // bulkFailed answers for a Title whose change failed; the others go on. A
@@ -213,6 +213,7 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 	if err != nil {
 		return nil, err
 	}
+	label := s.slotLabel(ctx, sl)
 	rows, err := s.bulkRows(ctx)
 	if err != nil {
 		return nil, err
@@ -226,7 +227,7 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 		case !ok:
 			out = append(out, bulkNotFound(id))
 		case v == nil:
-			out = append(out, bulkNoVersion(id, sl))
+			out = append(out, bulkNoVersion(id, label))
 		case v.Profile == b.Profile:
 			out = append(out, bulkUnchanged(id))
 		default:
@@ -254,14 +255,7 @@ func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesB
 	if err != nil {
 		return nil, err
 	}
-	label := sl.Name()
-	if recs, err := s.slots.List(ctx); err == nil {
-		for _, r := range recs {
-			if r.ID == sl {
-				label = r.Label
-			}
-		}
-	}
+	label := s.slotLabel(ctx, sl)
 	out := make([]oapi.TitleBulkOutcome, 0, len(ids))
 	kick := false
 	for _, id := range ids {
@@ -382,6 +376,7 @@ func (s *server) bulkRemoveVersion(ctx context.Context, ids []int64, b oapi.Titl
 	if err != nil {
 		return nil, err
 	}
+	label := s.slotLabel(ctx, sl)
 	rows, err := s.bulkRows(ctx)
 	if err != nil {
 		return nil, err
@@ -395,7 +390,7 @@ func (s *server) bulkRemoveVersion(ctx context.Context, ids []int64, b oapi.Titl
 		case !ok:
 			out = append(out, bulkNotFound(id))
 		case v == nil:
-			out = append(out, bulkNoVersion(id, sl))
+			out = append(out, bulkNoVersion(id, label))
 		default:
 			if err := s.remover.DeleteVersion(ctx, v.VersionID, deleteFiles); err != nil {
 				out = append(out, s.bulkFailed(id, err))

@@ -14,6 +14,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports/db"
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // RowPatch edits a row. Nil and empty fields stay.
@@ -592,9 +593,10 @@ func (a *Adoption) adoptRow(ctx context.Context, e *env, row Row) (err error) {
 			removeWithSidecars(old.Path)
 		}
 	}
+	stored, _ := a.slots.List(ctx) // a failed read leaves the ids to name the Slots
 	var slots []string
 	for _, f := range moved {
-		slots = append(slots, f.Slot.String())
+		slots = append(slots, slot.Label(stored, f.Slot))
 	}
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionDone, TitleID: id,

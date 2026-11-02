@@ -349,7 +349,7 @@ func statusOf(req kestrelRequest, tier string, sl slot.Slot) *pluginv1.TargetSta
 	}
 	s, ok := req.slot(sl.Key())
 	if !ok {
-		out.Status, out.Message = "failed", "Kestrel has no "+sl.Name()+" Version for this Request"
+		out.Status, out.Message = "failed", "Kestrel has no "+tier+" Version for this Request"
 		return out
 	}
 	out.Status, out.ExternalStatus = s.Status, s.StatusLabel

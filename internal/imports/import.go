@@ -159,7 +159,7 @@ type Deps struct {
 	// Renames enables Rename; *library.Service satisfies it.
 	Renames RenameStore
 	// Slots holds the labels that name the files; *slots.Service satisfies it.
-	// Without it the two seeded Slots keep their seeded labels, which tests rely on.
+	// Without it a Slot is named by its id.
 	Slots SlotLabels
 	// FolderChanged, when set, is told the path of every Title folder that
 	// Rename changed, so the media servers can be asked to refresh it. The

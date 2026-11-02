@@ -25,6 +25,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -122,6 +123,13 @@ type Deps struct {
 	Scoring *scoring.Holder
 	// Pause is the Pause Grabs switch; nil never pauses.
 	Pause GrabPause
+	// Slots reads the stored Slots, whose labels the Log and the Activity name them by; nil names a Slot by its id.
+	Slots SlotLabels
+}
+
+// SlotLabels reads the stored Slots (ADR 0024). *slots.Service satisfies it.
+type SlotLabels interface {
+	List(ctx context.Context) ([]slot.Record, error)
 }
 
 // GrabPause says whether automatic Grabs are paused (see Pause).
@@ -144,6 +152,7 @@ type Service struct {
 	// misses counts, per Grab, the polls in a row that did not find its job.
 	misses *missCount
 	pause  GrabPause
+	slots  SlotLabels
 	// searches runs the searches started by hand, two at a time.
 	searches *background
 }
@@ -166,7 +175,7 @@ func New(d Deps) (*Service, error) {
 	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
 		snap: d.Scoring, cache: &cache{m: map[string]*entry{}, asked: map[int64]map[group]time.Time{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
-		pause: d.Pause, searches: newBackground(2),
+		pause: d.Pause, slots: d.Slots, searches: newBackground(2),
 	}
 	d.Scoring.OnSwap(func() {
 		svc.cache.mu.Lock()

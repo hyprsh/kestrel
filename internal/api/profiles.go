@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/configfile"
 	"github.com/hyprsh/kestrel/internal/jobs"
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/display"
@@ -291,7 +291,7 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	if err != nil {
 		return oapi.Settings{}, err
 	}
-	if w := sharedDefaultWarnings(recs); len(w) > 0 {
+	if w := settingsWarnings(recs); len(w) > 0 {
 		out.Warnings = &w
 	}
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
@@ -300,36 +300,19 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	return out, nil
 }
 
-// sharedDefaultWarnings warns about every (kind, Profile) that two or more Slots name as their default (ADR 0024): a
-// Title's Versions use different Profiles, so Versions in those Slots could not both take it. It is a warning, not an error.
-func sharedDefaultWarnings(recs []slot.Record) []oapi.SettingsWarning {
+// settingsWarnings is slot.SharedDefaults as the API shows them.
+func settingsWarnings(recs []slot.Record) []oapi.SettingsWarning {
 	var out []oapi.SettingsWarning
-	for _, kind := range []string{"movies", "series"} {
-		by := map[string][]string{}
-		var order []string
-		for _, r := range recs {
-			key := r.DefaultMovies
-			if kind == "series" {
-				key = r.DefaultSeries
-			}
-			if key == "" {
-				continue
-			}
-			if _, seen := by[key]; !seen {
-				order = append(order, key)
-			}
-			by[key] = append(by[key], r.ID.Key())
+	for _, w := range slot.SharedDefaults(recs) {
+		kind, profile := "movies", w.Profile
+		if w.Kind == release.KindSeries {
+			kind = "series"
 		}
-		for _, key := range order {
-			if len(by[key]) < 2 {
-				continue
-			}
-			k, ids := kind, by[key]
-			out = append(out, oapi.SettingsWarning{
-				Code: oapi.SharedSlotDefault, Kind: &k, Profile: &key, Slots: &ids,
-				Message: "The Slots " + strings.Join(ids, " and ") + " share the Profile " + key + " as their default for " + kind + ": a Title's Versions use different Profiles, so only one of them can take it",
-			})
+		ids := make([]string, len(w.Slots))
+		for i, id := range w.Slots {
+			ids[i] = id.Key()
 		}
+		out = append(out, oapi.SettingsWarning{Code: oapi.SharedSlotDefault, Kind: &kind, Profile: &profile, Slots: &ids, Message: w.Message()})
 	}
 	return out
 }

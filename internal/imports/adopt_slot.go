@@ -6,6 +6,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/probe"
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
 
@@ -73,23 +74,13 @@ func titleFolderOf(en entry) string {
 	return ""
 }
 
-// labelIn is the stored label of a Slot, else its id.
-func labelIn(set []slot.Record, id Slot) string {
-	for _, r := range set {
-		if r.ID == id {
-			return r.Label
-		}
-	}
-	return id.Name()
-}
-
 // slotFor is the Slot of a file of the entry. folder is the Title folder whose
 // name its own name starts with.
 func (a *Adoption) slotFor(e *env, kind library.Kind, folder, base string, info probe.Info) (Slot, bool) {
 	covers := func(r slot.Record) bool {
-		key := r.DefaultMovies
+		key := r.Default(release.KindMovie)
 		if kind == library.Series {
-			key = r.DefaultSeries
+			key = r.Default(release.KindSeries)
 		}
 		for _, p := range e.profiles {
 			if p.Key == key {

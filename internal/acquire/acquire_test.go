@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"slices"
 	"sync/atomic"
 	"testing"
@@ -131,7 +132,7 @@ func newRigOf(t *testing.T, details metadata.MovieDetails, specs ...library.Vers
 
 	deps := acquire.Deps{
 		Store: st, Clock: clk.Now, Library: lib, Profiles: profiles.New(st, settings.New(st)),
-		Indexers: indexers.New(inst, st, clk.Now), Downloads: downloads.New(inst),
+		Indexers: indexers.New(inst, st, clk.Now), Downloads: downloads.New(inst), Slots: slots.New(st),
 	}
 	svc, err := acquire.New(deps)
 	if err != nil {

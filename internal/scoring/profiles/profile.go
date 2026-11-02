@@ -44,14 +44,6 @@ type Profile struct {
 // UHD reports whether the Profile takes only 4K, which is what picks the UHD TRaSH profile behind it.
 func (p Profile) UHD() bool { return p.MinHeight >= 2160 }
 
-// DefaultOf is the Profile key a Slot names as its default for a kind; empty for none.
-func DefaultOf(sl slot.Record, kind release.Kind) string {
-	if kind == release.KindSeries {
-		return sl.DefaultSeries
-	}
-	return sl.DefaultMovies
-}
-
 // Spec is the scoring.ProfileSpec of the Profile under a Primary Language.
 func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
 	return scoring.ProfileSpec{
@@ -94,7 +86,7 @@ var ErrNoEnabledProfile = errors.New("no enabled Profile")
 // the Slot, then the kind, then the Slot's default Profile. It returns ErrNoEnabledProfile when
 // the Slot has no default for the kind or its default is disabled.
 func Resolve(all []Profile, kind release.Kind, sl slot.Record) (Profile, error) {
-	key := DefaultOf(sl, kind)
+	key := sl.Default(kind)
 	for _, p := range all {
 		if p.Enabled && p.Key == key {
 			return p, nil

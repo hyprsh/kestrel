@@ -280,7 +280,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	}
 
 	obs := ObserverOf(ctx)
-	obs.Searching(targetOf(d, in))
+	obs.Searching(targetOf(d, in, s.storedSlots(ctx)))
 	out.asked = true
 	entries := map[string]*entry{}
 	var all []*entry

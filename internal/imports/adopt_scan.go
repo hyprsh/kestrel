@@ -82,6 +82,9 @@ func (e *env) slotRecord(id slot.Slot) slot.Record {
 	return slot.Record{ID: id}
 }
 
+// labelOf is the stored label of a Slot, else its id.
+func (e *env) labelOf(id slot.Slot) string { return slot.Label(e.slots, id) }
+
 func (a *Adoption) env(ctx context.Context) (*env, error) {
 	e := &env{folders: map[string]library.Tracked{}, byTMDB: map[int]library.Tracked{}, seriesByTMDB: map[int]library.Tracked{}}
 	var err error
@@ -782,7 +785,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	)
 
 	ext := strings.ToLower(filepath.Ext(f.path))
-	name, err := MovieFileName(title, labelIn(e.slots, slot), FileFacts{Release: parsed, Probe: f.info, Languages: languages, Primary: primary}, ext)
+	name, err := MovieFileName(title, e.labelOf(slot), FileFacts{Release: parsed, Probe: f.info, Languages: languages, Primary: primary}, ext)
 	if err != nil {
 		return PlanFile{}, SkipInvalid, nil
 	}

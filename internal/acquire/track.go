@@ -377,7 +377,7 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 		return out, nil
 	}
 	obs := ObserverOf(ctx)
-	obs.Searching(targetOf(sub.detail, in))
+	obs.Searching(targetOf(sub.detail, in, s.storedSlots(ctx)))
 	out.asked = true
 	// The indexers are asked by Indexer Priority: each group only while the earlier ones left a Version with
 	// nothing grabbed, and its Releases count only for what was left (ADR 0025). Each round grabs what it plans,

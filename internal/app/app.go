@@ -208,7 +208,7 @@ func New(opts Options) *App {
 	pause := acquire.NewPause(appSettings, opts.Clock)
 	acq, err := acquire.New(acquire.Deps{
 		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs,
-		Indexers: indexerHost, Downloads: downloadHost, History: hist, Scoring: live, Pause: pause,
+		Indexers: indexerHost, Downloads: downloadHost, History: hist, Scoring: live, Pause: pause, Slots: slotSvc,
 	})
 	if err != nil {
 		panic("app: acquire cannot start: " + err.Error())

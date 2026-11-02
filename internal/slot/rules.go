@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/hyprsh/kestrel/internal/release"
 )
 
 // MaxSlots is the most Slots a library has (ADR 0024).
@@ -123,4 +125,72 @@ func IDFor(label string, taken []Slot) Slot {
 		id = Slot(fmt.Sprintf("%s-%d", base, n))
 	}
 	return id
+}
+
+// Default is the Profile key the Slot names as its default for the kind of
+// Title; empty for none.
+func (r Record) Default(kind release.Kind) string {
+	if kind == release.KindSeries {
+		return r.DefaultSeries
+	}
+	return r.DefaultMovies
+}
+
+// Label is the stored label of the Slot with the id in set, else the id: a Slot
+// no record names has no label to show.
+func Label(set []Record, id Slot) string {
+	for _, r := range set {
+		if r.ID == id {
+			return r.Label
+		}
+	}
+	return string(id)
+}
+
+// SharedDefault is a Profile that two or more Slots name as their default for
+// one kind of Title (ADR 0024). A Title's Versions use different Profiles, so
+// Versions in those Slots could not both take it. It is a warning, not an error.
+type SharedDefault struct {
+	Kind    release.Kind
+	Profile string
+	Slots   []Slot
+}
+
+// Message words the warning for an admin.
+func (w SharedDefault) Message() string {
+	ids := make([]string, len(w.Slots))
+	for i, id := range w.Slots {
+		ids[i] = string(id)
+	}
+	kind := "movies"
+	if w.Kind == release.KindSeries {
+		kind = "series"
+	}
+	return "The Slots " + strings.Join(ids, " and ") + " share the Profile " + w.Profile + " as their default for " + kind + ": a Title's Versions use different Profiles, so only one of them can take it"
+}
+
+// SharedDefaults lists every (kind, Profile) that two or more of the Slots name
+// as their default, Movies first, in the order the Slots first name them.
+func SharedDefaults(set []Record) []SharedDefault {
+	var out []SharedDefault
+	for _, kind := range []release.Kind{release.KindMovie, release.KindSeries} {
+		by := map[string][]Slot{}
+		var order []string
+		for _, r := range set {
+			key := r.Default(kind)
+			if key == "" {
+				continue
+			}
+			if _, seen := by[key]; !seen {
+				order = append(order, key)
+			}
+			by[key] = append(by[key], r.ID)
+		}
+		for _, key := range order {
+			if len(by[key]) >= 2 {
+				out = append(out, SharedDefault{Kind: kind, Profile: key, Slots: by[key]})
+			}
+		}
+	}
+	return out
 }

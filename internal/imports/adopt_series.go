@@ -440,7 +440,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 
 	ext := strings.ToLower(filepath.Ext(f.path))
 	season, first, last := refs[0].Season, refs[0].Number, refs[len(refs)-1].Number
-	name, err := EpisodeFileName(title, labelIn(e.slots, slot), Episode{Season: season, First: first, Last: last},
+	name, err := EpisodeFileName(title, e.labelOf(slot), Episode{Season: season, First: first, Last: last},
 		FileFacts{Release: parsed, Probe: f.info, Languages: languages, Primary: primary}, ext)
 	if err != nil {
 		return PlanFile{}, SkipInvalid, nil

@@ -140,3 +140,9 @@ func (s *server) slotFromAPI(ctx context.Context, id oapi.SlotId, field string) 
 	}
 	return sl, nil
 }
+
+// slotLabel is the stored label of a Slot for text an admin reads, else its id.
+func (s *server) slotLabel(ctx context.Context, id slot.Slot) string {
+	recs, _ := s.slots.List(ctx)
+	return slot.Label(recs, id)
+}
