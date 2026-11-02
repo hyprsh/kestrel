@@ -65,6 +65,38 @@ describe('the ⋯ menu of an episode', () => {
   })
 })
 
+describe('the Monitored toggle of an episode', () => {
+  it('is a bookmark button on every row, named by the episode and its state, that flips one episode with a click', async () => {
+    const { grid, state } = await openSeries()
+    const on = within(grid).getByRole('button', { name: 'Stop monitoring S01E01' })
+    expect(on).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(on)
+
+    await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } }]))
+    const off = await within(grid).findByRole('button', { name: 'Monitor S01E01' })
+    expect(off).toHaveAttribute('aria-pressed', 'false')
+    expect(within(grid).getByRole('row', { name: /Pilot/ })).toHaveAttribute('data-monitored', 'off')
+    expect(within(grid).getByRole('button', { name: 'Stop monitoring S01E02' })).toHaveAttribute('aria-pressed', 'true') // the others stay
+  })
+
+  it('flips the episode from the keyboard with Enter and with Space', async () => {
+    const { grid, state } = await openSeries()
+    const row = within(grid).getByRole('row', { name: /Pilot/ })
+    row.focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(within(row).getByRole('button', { name: 'Stop monitoring S01E01' })).toHaveFocus()
+
+    await userEvent.keyboard('{Enter}')
+    await within(grid).findByRole('button', { name: 'Monitor S01E01' })
+    await userEvent.keyboard(' ')
+    await within(grid).findByRole('button', { name: 'Stop monitoring S01E01' })
+
+    expect(state.get().sent.map((m) => (m.body as { monitored: boolean }).monitored)).toEqual([false, true])
+    expect(within(grid).queryAllByRole('checkbox', { checked: true })).toHaveLength(0) // Space on the bookmark does not tick the row
+  })
+})
+
 describe('searching from the episode list', () => {
   afterEach(() => localStorage.clear())
 
