@@ -1,6 +1,6 @@
 # A Title holds up to two Versions: Standard and 4K
 
-Supersedes ADR 0001.
+Superseded by ADR 0024. Supersedes ADR 0001.
 
 A Title has two fixed Slots, Standard (up to 1080p, the default) and 4K (2160p, opt-in), and each holds at most one Version. Files carry the Slot as ` - [Standard]` or ` - [4K]`, and the API and database use `standard` and `4k`. Kestrel keeps a file each audience can play without transcoding and stops there: who may watch 4K, which device gets which file, and what children see are the media server's and Silo's choices, through Silo's access-group quality ceilings, per-device quality caps and request routes. The Standard/4K split is worth keeping because a viewer capped below 4K then plays the Standard file directly instead of a tone-mapped transcode of the 4K one. Standard is named for its role, not a resolution, because its Any Profile also takes SD-only releases.
 
