@@ -4669,6 +4669,16 @@ type SearchIndexer struct {
 // sweeps have used their 80 % of today's budget).
 type SearchIndexerHeld string
 
+// SearchNow The body of Search now: what `ReleaseSearch` narrows, and whether the search is for Upgrades.
+type SearchNow struct {
+	EpisodeIds *[]int64 `json:"episode_ids,omitempty"`
+	Season     *int     `json:"season,omitempty"`
+
+	// Upgrade Search the filled episodes in scope (or a filled Movie) for a better Release instead of
+	// the Wanted ones.
+	Upgrade *bool `json:"upgrade,omitempty"`
+}
+
 // SearchPass defines model for SearchPass.
 type SearchPass struct {
 	// Current What is being searched now; null between items.
@@ -6440,7 +6450,7 @@ type PatchVersionJSONRequestBody = VersionPatch
 type SearchVersionReleasesJSONRequestBody = ReleaseSearch
 
 // SearchVersionJSONRequestBody defines body for SearchVersion for application/json ContentType.
-type SearchVersionJSONRequestBody = ReleaseSearch
+type SearchVersionJSONRequestBody = SearchNow
 
 // AsTitlesBulkMonitor returns the union data inside the TitlesBulk as a TitlesBulkMonitor
 func (t TitlesBulk) AsTitlesBulkMonitor() (TitlesBulkMonitor, error) {
@@ -17127,6 +17137,14 @@ type SearchVersionRequestObject struct {
 
 type SearchVersionResponseObject interface {
 	VisitSearchVersionResponse(w http.ResponseWriter) error
+}
+
+type SearchVersion200Response struct {
+}
+
+func (response SearchVersion200Response) VisitSearchVersionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
 }
 
 type SearchVersion202Response struct {

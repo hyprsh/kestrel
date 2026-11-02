@@ -33,12 +33,12 @@ const MAX_CHIPS = 4
 
 /**
  * The open season's episodes: one row each with a tick box, the monitoring bookmark, its code, name and air date, then a chip
- * per Slot (STD, 4K, ...; the full state in its tooltip). The Slots come from `slots`, any number of them; no Slot has a column.
+ * per Slot (STD, 4K, ...; the full state in its tooltip) under one "Slots" column. The Slots come from `slots`, any number of them.
  * Each chip is a button: its popover is that one Slot (its file, its search, its download or its monitoring). On hover a row
  * shows Search and a small ⋯ menu (Show in Log, Delete Files).
  *
  * It is one grid with a roving focus on the rows: j/k or the arrows up and down move between rows, left and right move
- * between a row's chips and Enter or Space on a chip opens its popover, Space on a row ticks it, Enter on a row opens its first
+ * between a row's monitoring bookmark and chips (Enter or Space on the bookmark flips the episode's monitoring, on a chip opens its popover), Space on a row ticks it, Enter on a row opens its first
  * chip, x ticks (X a range), s searches, m opens Manual search, Home and End jump to the first and last row.
  * `found` is the episode the Find field matched: its row is highlighted and scrolled into view.
  */
@@ -105,8 +105,9 @@ export function EpisodeList({
       e.stopPropagation() // the Library's own j/k/Enter must not also fire
       move(r)
     }
-    const chips = rowEl ? Array.from(rowEl.querySelectorAll<HTMLElement>('button[data-slot]')) : []
-    const onChip = target?.matches('button[data-slot]') ?? false
+    // The row's buttons in reading order: the monitoring toggle, then a chip per Slot.
+    const chips = rowEl ? Array.from(rowEl.querySelectorAll<HTMLElement>('button[data-monitor], button[data-slot]')) : []
+    const onChip = target?.matches('button[data-monitor], button[data-slot]') ?? false
     const along = (step: number) => {
       const from = onChip ? chips.indexOf(target as HTMLElement) : -1
       const next = from + step
@@ -140,7 +141,7 @@ export function EpisodeList({
         if (!target?.matches('tr[data-row]') || !current) return // a chip, a button or a tick box does its own
         e.preventDefault()
         e.stopPropagation()
-        if (e.key === 'Enter') chips[0]?.click()
+        if (e.key === 'Enter') rowEl?.querySelector<HTMLElement>('button[data-slot]')?.click()
         else selection.toggle(current.id, { range: e.shiftKey })
       }
     }
@@ -173,7 +174,7 @@ export function EpisodeList({
               </TableHead>
               <TableHead className="px-2 max-sm:hidden">Aired</TableHead>
               <TableHead align="right" className="px-2 max-sm:hidden">
-                {slots.map((s) => s.short).join(' · ')}
+                Slots
               </TableHead>
               <TableHead align="right" className="w-17 px-2 max-sm:w-13 max-sm:px-1">
                 <span className="sr-only">Actions</span>
@@ -267,7 +268,7 @@ function EpisodeRow({
       iconSize={phone ? 20 : 16}
       size={phone ? 'small' : 'tiny'}
       onToggle={() => actions.monitor([episode], !episode.monitored)}
-      onFocus={(e) => e.currentTarget.closest<HTMLElement>('tr[data-row]')?.focus()}
+      onFocus={onFocus}
     />
   )
   const shared = {

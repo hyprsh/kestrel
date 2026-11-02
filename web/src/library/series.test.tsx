@@ -181,6 +181,8 @@ describe('the episode list', () => {
     expect(pilot).toHaveFocus()
 
     await userEvent.keyboard('{ArrowRight}')
+    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop monitoring) S01E01$/ })).toHaveFocus() // the bookmark comes first
+    await userEvent.keyboard('{ArrowRight}')
     expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowRight}')
     expect(within(pilot).getByRole('button', { name: /^4K:/ })).toHaveFocus()
@@ -192,6 +194,8 @@ describe('the episode list', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await userEvent.keyboard('{ArrowLeft}')
     expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop monitoring) S01E01$/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowLeft}')
     expect(pilot).toHaveFocus()
 

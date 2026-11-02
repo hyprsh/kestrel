@@ -105,3 +105,26 @@ func TestSearchNowRefusesAScopeTheSeriesLacksAndAnUnknownVersion(t *testing.T) {
 		t.Errorf("unknown Version = %d %s", r.Status, r.Body)
 	}
 }
+
+func TestSearchNowWithUpgradeSaysThereIsNothingToUpgradeForAnEpisodeThatIsNotFilled(t *testing.T) {
+	t.Parallel()
+	s := newSeriesSearch(t)
+	pilot := s.heat(t)[1]
+
+	r := s.searchNow(s.hdVersion, fmt.Sprintf(`{"season":1,"episode_ids":[%d],"upgrade":true}`, pilot.ID))
+
+	if r.Status != 200 {
+		t.Fatalf("POST search with upgrade = %d %s, want 200: nothing to upgrade", r.Status, r.Body)
+	}
+	var msgs []string
+	eventually(t, "the search in the Log", func() bool {
+		msgs = nil
+		for _, e := range s.events(t, fmt.Sprintf("?kind=search&routine=true&title_id=%d", s.title)).Items {
+			msgs = append(msgs, e.Message)
+		}
+		return len(msgs) == 1
+	})
+	if want := "Searched for Upgrades for S01E01 in Standard: nothing to upgrade"; msgs[0] != want {
+		t.Errorf("Log = %q, want %q", msgs[0], want)
+	}
+}
