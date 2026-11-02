@@ -108,4 +108,3 @@ func wantFieldPrefix(t *testing.T, err error, prefix string) {
 		t.Errorf("err = %v, want a ValidationError on %q...", err, prefix)
 	}
 }
-
