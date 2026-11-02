@@ -1571,6 +1571,10 @@ paths:
         before. `q` keeps the Grabs whose Title, Release name or indexer contain every one of its
         words (any case); `kind`, `slot` and `grab` (ids) keep the Grabs of those kinds, Slots and ids.
         A Grab whose Title was deleted has no kind or Slot, so `kind` and `slot` leave it out.
+        `day` (UTC dates, may repeat) keeps the Grabs whose state last changed on one of those days;
+        `from` and `to` keep those that changed on or after the first and on or before the last UTC day;
+        `indexer` (ids, as `GET /stats` lists them) keeps the Grabs from those indexers. The Overview's
+        Grabs per day and Indexers open Activity with these.
       tags: [grabs]
       parameters:
         - name: state
@@ -1587,6 +1591,10 @@ paths:
         - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
         - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
+        - { name: day, in: query, schema: { type: array, maxItems: 100, items: { type: string, format: date } } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: indexer, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
       responses:
@@ -1646,7 +1654,8 @@ paths:
       description: |
         How many `imported` and `failed` Grabs match the filter, over all the history Kestrel holds, and
         when the oldest of them last changed state (`oldest`, null when none match). It takes the filters
-        of `GET /grabs` that are not about paging or state (`q`, `kind`, `slot`, `grab`), so Activity's
+        of `GET /grabs` that are not about paging or state (`q`, `kind`, `slot`, `grab`, `day`, `from`, `to`,
+        `indexer`), so Activity's
         Done and Failed counts stay true however many pages are loaded.
       tags: [grabs]
       parameters:
@@ -1654,6 +1663,10 @@ paths:
         - { name: kind, in: query, schema: { type: array, maxItems: 2, items: { $ref: "#/components/schemas/TitleKind" } } }
         - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: grab, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
+        - { name: day, in: query, schema: { type: array, maxItems: 100, items: { type: string, format: date } } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: indexer, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
       responses:
         "200":
           description: The summary.

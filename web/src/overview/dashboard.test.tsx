@@ -2,16 +2,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { PlaceOpener, placeOf } from '../place'
 import { Overview } from './Overview'
 import { fakeStats } from '../test/stats'
 import { emptyStats, grabDays, stats } from '../test/statsData'
 
-const renderOverview = () =>
+const renderOverview = (open: (path: string) => void = () => {}) =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <Overview />
+      <PlaceOpener.Provider value={open}>
+        <Overview />
+      </PlaceOpener.Provider>
     </QueryClientProvider>,
   )
+
+/** The Activity filter text a path opens. */
+const filterOf = (open: ReturnType<typeof vi.fn>) => {
+  const place = placeOf(open.mock.lastCall![0])
+  return `${place.screen}?${place.q}`
+}
 
 const phone = () => vi.stubGlobal('matchMedia', (query: string) => ({ matches: true, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }))
 
@@ -111,9 +120,9 @@ describe('Grabs per day', () => {
     expect(card).toHaveTextContent('Failed1')
 
     const chart = within(card).getByRole('group', { name: /^Grabs per day over the last 30 days/ })
-    const columns = within(chart).getAllByRole('button')
+    const columns = within(chart).getAllByRole('button', { name: /^[A-Z][a-z]{2} \d+: / })
     expect(columns).toHaveLength(30)
-    const busiest = within(chart).getByRole('button', { name: /: 7 imported, 1 failed$/ })
+    const busiest = within(chart).getByRole('button', { name: /: 7 imported, 1 failed\. Open in Activity$/ })
 
     const table = within(card).getByRole('table', { name: 'Grabs per day' })
     expect(within(table).getAllByRole('row')).toHaveLength(31)
@@ -128,12 +137,40 @@ describe('Grabs per day', () => {
     fakeStats()
     renderOverview()
     const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    const columns = within(card).getAllByRole('button')
+    const columns = within(card).getAllByRole('button', { name: /^[A-Z][a-z]{2} \d+: / })
 
     act(() => columns[columns.length - 1].focus())
     expect(within(card).getByRole('tooltip')).toBeInTheDocument()
     await userEvent.keyboard('{ArrowLeft}')
     expect(columns[columns.length - 2]).toHaveFocus()
+  })
+
+  it('opens Activity on the day, and on the day and status from a segment', async () => {
+    const open = vi.fn()
+    fakeStats()
+    renderOverview(open)
+    const card = await screen.findByRole('region', { name: 'Grabs per day' })
+    const busiest = within(card).getByRole('button', { name: /: 7 imported, 1 failed\. Open in Activity$/ })
+
+    await userEvent.click(busiest)
+    expect(filterOf(open)).toBe('activity?day:2026-10-16')
+
+    await userEvent.click(within(card).getByRole('button', { name: /^1 failed on Oct 16\. Open in Activity$/ }))
+    expect(filterOf(open)).toBe('activity?stage:failed day:2026-10-16')
+    await userEvent.click(within(card).getByRole('button', { name: /^7 imported on Oct 16\. Open in Activity$/ }))
+    expect(filterOf(open)).toBe('activity?stage:done day:2026-10-16')
+  })
+
+  it('opens a day from the keyboard', async () => {
+    const open = vi.fn()
+    fakeStats()
+    renderOverview(open)
+    const card = await screen.findByRole('region', { name: 'Grabs per day' })
+    const columns = within(card).getAllByRole('button', { name: /^[A-Z][a-z]{2} \d+: / })
+    act(() => columns[columns.length - 1].focus())
+
+    await userEvent.keyboard('{Enter}')
+    expect(filterOf(open)).toBe('activity?day:2026-10-31')
   })
 
   it('says what stands out, and leaves the sentence out when the data is thin', async () => {
@@ -165,12 +202,22 @@ describe('Indexers', () => {
 
     const card = await screen.findByRole('region', { name: 'Indexers' })
     expect(card).toHaveTextContent('Best: NZBgeek')
-    const geek = within(card).getByRole('group', { name: /^NZBgeek: 34 imported, 1 failed/ })
+    const geek = within(card).getByRole('button', { name: /^NZBgeek: 34 imported, 1 failed/ })
     expect(geek).toHaveTextContent('81%')
     expect(geek).toHaveTextContent('0.6 s')
-    const hub = within(card).getByRole('group', { name: /^altHUB: 9 imported, 4 failed. Hit 52% of 30 searches, median answer 2.4 s/ })
+    const hub = within(card).getByRole('button', { name: /^altHUB: 9 imported, 4 failed. Hit 52% of 30 searches, median answer 2.4 s/ })
     expect(hub).toHaveTextContent('2.4 s')
     expect(within(card).getByRole('table', { name: 'Indexers' })).toHaveTextContent('NZBgeek')
+  })
+
+  it('opens Activity on an indexer over the range of the Overview', async () => {
+    const open = vi.fn()
+    fakeStats()
+    renderOverview(open)
+    const card = await screen.findByRole('region', { name: 'Indexers' })
+
+    await userEvent.click(within(card).getByRole('button', { name: /^altHUB: 9 imported, 4 failed/ }))
+    expect(filterOf(open)).toBe('activity?from:2026-10-02 to:2026-10-31 indexer:3')
   })
 
   it('has no Best badge when none qualifies, and a dash where nothing was answered', async () => {
@@ -178,7 +225,7 @@ describe('Indexers', () => {
     renderOverview()
     const card = await screen.findByRole('region', { name: 'Indexers' })
     expect(card).not.toHaveTextContent('Best:')
-    expect(within(card).getByRole('group', { name: /^Fresh: 2 imported/ })).toHaveTextContent('—')
+    expect(within(card).getByRole('button', { name: /^Fresh: 2 imported/ })).toHaveTextContent('—')
     expect(card).toHaveTextContent('Hit and Answer fill in as searches run.')
   })
 
@@ -304,8 +351,8 @@ describe('on a phone', () => {
     expect(screen.queryByRole('group', { name: 'Library' })).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Grabs per day' })).toBeInTheDocument()
     const ix = screen.getByRole('region', { name: 'Indexers' })
-    expect(within(ix).getByRole('group', { name: /^NZBgeek/ })).toHaveTextContent('81%')
-    expect(within(ix).getByRole('group', { name: /^NZBgeek/ })).not.toHaveTextContent('0.6 s')
+    expect(within(ix).getByRole('button', { name: /^NZBgeek/ })).toHaveTextContent('81%')
+    expect(within(ix).getByRole('button', { name: /^NZBgeek/ })).not.toHaveTextContent('0.6 s')
     expect(screen.getByRole('region', { name: 'Download client' })).toHaveTextContent('24 MB/s average · 9 min median · 64 completed · 4 failed')
     expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
   })

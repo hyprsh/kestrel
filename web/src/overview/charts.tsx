@@ -101,6 +101,7 @@ export function Columns({
   axis,
   ticks = true,
   scaleMax,
+  onOpen,
 }: {
   columns: Column[]
   height: number
@@ -111,6 +112,11 @@ export function Columns({
   ticks?: boolean
   /** The value the full height stands for; the largest column when omitted. */
   scaleMax?: number
+  /**
+   * Makes the chart a set of links: a column opens with `part` null, and each of its marks opens with that part. The column is
+   * the tab stop and Enter opens it; Tab goes on from it to its marks.
+   */
+  onOpen?: (column: Column, part: Part | null) => void
 }) {
   const [hover, setHover] = useState<number | null>(null)
   const [focus, setFocus] = useState(Math.max(columns.length - 1, 0))
@@ -123,7 +129,7 @@ export function Columns({
     if (next === null || next < 0 || next >= columns.length) return
     e.preventDefault()
     setFocus(next)
-    ;(e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus()
+    e.currentTarget.closest('[data-column]')?.parentElement?.children[next]?.querySelector('button')?.focus()
   }
   const shown = hover === null ? null : columns[hover]
   return (
@@ -144,28 +150,46 @@ export function Columns({
           ))}
           <div role="group" aria-label={alternative} className="relative flex items-end gap-0.5 border-b border-gray-alpha-400" style={{ height }} onPointerLeave={() => setHover(null)}>
             {columns.map((c, i) => (
-              <button
-                key={c.key}
-                type="button"
-                tabIndex={i === focus ? 0 : -1}
-                aria-label={`${c.title}: ${c.parts.map((p) => `${format(p.n, p)} ${p.name.toLowerCase()}`).join(', ')}`}
-                className={`flex h-full min-w-0 flex-1 cursor-default items-end justify-center rounded-t-sm border-0 px-px py-0 outline-offset-2 ${hover === i ? 'bg-gray-alpha-200' : 'bg-transparent'}`}
-                onPointerEnter={() => setHover(i)}
-                onFocus={() => {
-                  setHover(i)
-                  setFocus(i)
-                }}
-                onBlur={() => setHover(null)}
-                onKeyDown={(e) => move(e, i)}
-              >
-                <span className="flex w-full max-w-6 flex-col-reverse gap-0.5">
-                  {c.parts
-                    .filter((p) => p.n > 0)
-                    .map((p, k, drawn) => (
-                      <span key={p.name} aria-hidden className={`block ${p.className}`} style={{ height: px(p.n), borderRadius: k === drawn.length - 1 ? '4px 4px 0 0' : 0 }} />
-                    ))}
+              <div key={c.key} data-column className="relative h-full min-w-0 flex-1" onPointerEnter={() => setHover(i)}>
+                <button
+                  type="button"
+                  tabIndex={i === focus ? 0 : -1}
+                  aria-label={`${c.title}: ${c.parts.map((p) => `${format(p.n, p)} ${p.name.toLowerCase()}`).join(', ')}${onOpen ? '. Open in Activity' : ''}`}
+                  className={`absolute inset-0 ${onOpen ? 'cursor-pointer' : 'cursor-default'} rounded-t-sm border-0 p-0 outline-offset-2 ${hover === i ? 'bg-gray-alpha-200' : 'bg-transparent'}`}
+                  onFocus={() => {
+                    setHover(i)
+                    setFocus(i)
+                  }}
+                  onBlur={() => setHover(null)}
+                  onKeyDown={(e) => move(e, i)}
+                  onClick={onOpen && (() => onOpen(c, null))}
+                />
+                <span className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-px">
+                  <span className="flex w-full max-w-6 flex-col-reverse gap-0.5">
+                    {c.parts
+                      .filter((p) => p.n > 0)
+                      .map((p, k, drawn) => {
+                        const style = { height: px(p.n), borderRadius: k === drawn.length - 1 ? '4px 4px 0 0' : 0 }
+                        return onOpen ? (
+                          <button
+                            key={p.name}
+                            type="button"
+                            tabIndex={i === focus ? 0 : -1}
+                            aria-label={`${format(p.n, p)} ${p.name.toLowerCase()} on ${c.title}. Open in Activity`}
+                            className={`pointer-events-auto block w-full cursor-pointer border-0 p-0 outline-offset-2 ${p.className}`}
+                            style={style}
+                            onFocus={() => setHover(i)}
+                            onBlur={() => setHover(null)}
+                            onKeyDown={(e) => move(e, i)}
+                            onClick={() => onOpen(c, p)}
+                          />
+                        ) : (
+                          <span key={p.name} aria-hidden className={`block ${p.className}`} style={style} />
+                        )
+                      })}
+                  </span>
                 </span>
-              </button>
+              </div>
             ))}
           </div>
           {shown && hover !== null && (
@@ -200,22 +224,33 @@ export function Columns({
 /**
  * One row of a bar list. The row is the hit target: hovering or focusing it shows `label` in a tooltip, and a screen reader
  * reads the same sentence as the row's name (its cells are hidden from it; the chart's table twin lists them). The row lays
- * its `children` out in `columns`, a CSS grid template, with the bar among them (see Bar).
+ * its `children` out in `columns`, a CSS grid template, with the bar among them (see Bar). With `onOpen` the row is a button.
  */
-export function BarRow({ columns, label, children }: { columns: string; label: string; children: ReactNode }) {
+export function BarRow({ columns, label, onOpen, children }: { columns: string; label: string; onOpen?: () => void; children: ReactNode }) {
+  const className = 'grid w-full items-center gap-x-3 border-b border-gray-alpha-200 py-1.5 outline-offset-2 last:border-b-0'
+  const cells = (
+    <span aria-hidden className="contents">
+      {children}
+    </span>
+  )
   return (
     <Tooltip text={label} position="top" boxAlign="left" className="flex w-full min-w-0">
-      <div
-        tabIndex={0}
-        role="group"
-        aria-label={label}
-        className="grid w-full items-center gap-x-3 border-b border-gray-alpha-200 py-1.5 outline-offset-2 last:border-b-0"
-        style={{ gridTemplateColumns: columns }}
-      >
-        <span aria-hidden className="contents">
-          {children}
-        </span>
-      </div>
+      {onOpen ? (
+        // A link: the row opens `onOpen`, and its name says where.
+        <button
+          type="button"
+          aria-label={`${label} Open in Activity.`}
+          className={`${className} cursor-pointer border-x-0 border-t-0 bg-transparent p-0 text-left`}
+          style={{ gridTemplateColumns: columns }}
+          onClick={onOpen}
+        >
+          {cells}
+        </button>
+      ) : (
+        <div tabIndex={0} role="group" aria-label={label} className={className} style={{ gridTemplateColumns: columns }}>
+          {cells}
+        </div>
+      )}
     </Tooltip>
   )
 }

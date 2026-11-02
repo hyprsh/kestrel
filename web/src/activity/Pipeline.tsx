@@ -18,15 +18,20 @@ import { byDay, DayHeader, HistoryHead, HistoryRow, type Ended } from './History
 import { ActiveRow, SearchPassRow, StalledRow } from './InProgress'
 import { entriesOf, stages, type Entry, type Stage } from './stages'
 
-/** The part of a filter the server applies to the Done and Failed history: its words, kinds, Slots and Grab ids. */
+/** The part of a filter the server applies to the Done and Failed history: its words, kinds, Slots, Grab ids, days and indexers. */
 function historyFilter(q: ReturnType<typeof parseQuery>): GrabsFilter {
   const grabs = valuesOf(q, 'grab')
+  const indexers = valuesOf(q, 'indexer')
   return {
     q: q.text,
     kind: valuesOf(q, 'kind'),
     slot: valuesOf(q, 'slot'),
     // A value that is not an id matches no Grab.
     grab: grabs && grabs.map((g) => (/^\d+$/.test(g) ? Number(g) : 0)),
+    day: valuesOf(q, 'day'),
+    from: valuesOf(q, 'from')?.[0] ?? null,
+    to: valuesOf(q, 'to')?.[0] ?? null,
+    indexer: indexers && indexers.map((i) => (/^\d+$/.test(i) ? Number(i) : 0)),
   }
 }
 

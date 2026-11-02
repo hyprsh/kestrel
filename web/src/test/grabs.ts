@@ -46,13 +46,18 @@ export const blockedEntry = (over: Partial<Blocked> = {}): Blocked => ({
   ...over,
 })
 
-/** Whether a Grab passes the server's `q`, `kind`, `slot` and `grab` filters. */
+/** Whether a Grab passes the server's `q`, `kind`, `slot`, `grab`, `day`, `from` and `to` filters (`indexer` is not checked: a Grab has no indexer id). */
 function passes(g: GrabEntry, q: URLSearchParams): boolean {
   const words = (q.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean)
   const kinds = q.getAll('kind')
   const slots = q.getAll('slot')
   const ids = q.getAll('grab')
+  const days = q.getAll('day')
+  const day = g.updated_at.slice(0, 10)
   return (
+    (days.length === 0 || days.includes(day)) &&
+    (!q.get('from') || day >= q.get('from')!) &&
+    (!q.get('to') || day <= q.get('to')!) &&
     words.every((w) => [g.title, g.release_name, g.indexer].some((h) => h.toLowerCase().includes(w))) &&
     (kinds.length === 0 || (g.kind !== null && kinds.includes(g.kind))) &&
     (slots.length === 0 || (g.slot !== null && slots.includes(g.slot))) &&

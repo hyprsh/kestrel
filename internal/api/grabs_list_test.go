@@ -226,6 +226,40 @@ func TestGrabsFilterOnTheServerByWordsKindSlotAndIdBeforePaging(t *testing.T) {
 	}
 }
 
+func TestGrabsFilterByUTCDayRangeAndIndexer(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	s.publish(t, uhdRelease)
+	s.pass(t, jobs.Search)
+	alpha := instancesByName(t, s.browser)["Alpha"].ID
+	today := s.in.clock.Now().UTC()
+	day := func(d time.Time) string { return d.Format("2006-01-02") }
+
+	cases := []struct {
+		query string
+		want  int
+	}{
+		{"?day=" + day(today), 2},
+		{"?day=" + day(today.AddDate(0, 0, -1)), 0},
+		{"?day=" + day(today.AddDate(0, 0, -1)) + "&day=" + day(today), 2},
+		{"?from=" + day(today) + "&to=" + day(today), 2},
+		{"?from=" + day(today.AddDate(0, 0, 1)), 0},
+		{"?to=" + day(today.AddDate(0, 0, -1)), 0},
+		{"?indexer=" + itoa(alpha), 2},
+		{"?indexer=" + itoa(alpha+100), 0},
+		{"?indexer=" + itoa(alpha) + "&day=" + day(today.AddDate(0, 0, -2)), 0},
+	}
+	for _, c := range cases {
+		if l := s.grabs(t, c.query); len(l.Items) != c.want {
+			t.Errorf("GET /grabs%s = %d Grabs, want %d", c.query, len(l.Items), c.want)
+		}
+	}
+	if r := s.valid("GET", "/grabs/summary?day="+day(today.AddDate(0, 0, -1)), ""); r.Status != 200 {
+		t.Errorf("GET /grabs/summary by day = %d %s", r.Status, r.Body)
+	}
+}
+
 func TestTheGrabsSummaryCountsTheFinishedOnesThatPassTheFilterOverAllHistory(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)

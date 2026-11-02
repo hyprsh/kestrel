@@ -1199,6 +1199,10 @@ export interface paths {
          *     before. `q` keeps the Grabs whose Title, Release name or indexer contain every one of its
          *     words (any case); `kind`, `slot` and `grab` (ids) keep the Grabs of those kinds, Slots and ids.
          *     A Grab whose Title was deleted has no kind or Slot, so `kind` and `slot` leave it out.
+         *     `day` (UTC dates, may repeat) keeps the Grabs whose state last changed on one of those days;
+         *     `from` and `to` keep those that changed on or after the first and on or before the last UTC day;
+         *     `indexer` (ids, as `GET /stats` lists them) keeps the Grabs from those indexers. The Overview's
+         *     Grabs per day and Indexers open Activity with these.
          */
         get: operations["listGrabs"];
         put?: never;
@@ -1232,7 +1236,8 @@ export interface paths {
          * What the Grab history holds
          * @description How many `imported` and `failed` Grabs match the filter, over all the history Kestrel holds, and
          *     when the oldest of them last changed state (`oldest`, null when none match). It takes the filters
-         *     of `GET /grabs` that are not about paging or state (`q`, `kind`, `slot`, `grab`), so Activity's
+         *     of `GET /grabs` that are not about paging or state (`q`, `kind`, `slot`, `grab`, `day`, `from`, `to`,
+         *     `indexer`), so Activity's
          *     Done and Failed counts stay true however many pages are loaded.
          */
         get: operations["getGrabsSummary"];
@@ -7351,6 +7356,10 @@ export interface operations {
                 kind?: components["schemas"]["TitleKind"][];
                 slot?: components["schemas"]["SlotId"][];
                 grab?: number[];
+                day?: string[];
+                from?: string;
+                to?: string;
+                indexer?: number[];
                 limit?: number;
                 cursor?: string;
             };
@@ -7410,6 +7419,10 @@ export interface operations {
                 kind?: components["schemas"]["TitleKind"][];
                 slot?: components["schemas"]["SlotId"][];
                 grab?: number[];
+                day?: string[];
+                from?: string;
+                to?: string;
+                indexer?: number[];
             };
             header?: never;
             path?: never;
