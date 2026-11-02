@@ -331,7 +331,7 @@ func importDue(ctx context.Context, r *Runner, d Deps) error {
 				out := acquire.ImportOutcome{Status: acquire.ImportStatus(res.Status), Reason: res.Reason, Path: res.Path, Paths: res.Paths, Inconclusive: res.Inconclusive, Replaced: res.Replaced}
 				for _, e := range res.Episodes {
 					out.Episodes = append(out.Episodes, acquire.EpisodeOutcome{
-						EpisodeID: e.EpisodeID, Season: e.Season, Number: e.Number, Status: acquire.ImportStatus(e.Status),
+						VersionID: e.VersionID, EpisodeID: e.EpisodeID, Season: e.Season, Number: e.Number, Status: acquire.ImportStatus(e.Status),
 						Reason: e.Reason, File: e.File, Path: e.Path,
 					})
 				}

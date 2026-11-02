@@ -55,6 +55,8 @@ type ImportOutcome struct {
 
 // EpisodeOutcome is what an Import did for one episode.
 type EpisodeOutcome struct {
+	// VersionID is the Version the result is for when one Grab filled several; 0 means the Grab's first.
+	VersionID int64
 	// EpisodeID is 0 for a file that named no known episode.
 	EpisodeID int64
 	Season    int
@@ -226,8 +228,12 @@ func (s *Service) recordEpisodes(ctx context.Context, row db.Grab, eps []Episode
 		data, _ := json.Marshal(map[string]any{
 			"season": e.Season, "episode": e.Number, "status": e.Status, "reason": e.Reason, "file": e.File, "path": e.Path,
 		})
+		versionID := row.VersionID.Int64
+		if e.VersionID != 0 {
+			versionID = e.VersionID
+		}
 		s.hist.Record(ctx, history.Event{
-			Kind: history.ImportEpisode, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, EpisodeID: e.EpisodeID, GrabID: row.ID,
+			Kind: history.ImportEpisode, TitleID: row.TitleID.Int64, VersionID: versionID, EpisodeID: e.EpisodeID, GrabID: row.ID,
 			Message: msg, Data: data,
 		})
 	}

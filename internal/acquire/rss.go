@@ -309,20 +309,33 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		return nil, err
 	}
 	var errs []error
-	for _, plan := range plans {
+	for _, group := range sharedPlans(plans) {
+		plan := group[0]
 		e := entries[entryKey(plan.Candidate)]
-		eps, err := s.placeholdersFor(ctx, d.ID, plan.Covers, episodes)
-		if err != nil {
-			errs = append(errs, err)
+		var covers, also []int64
+		var placeholderErr error
+		for i, p := range group {
+			eps, err := s.placeholdersFor(ctx, d.ID, p.Covers, episodes)
+			if err != nil {
+				placeholderErr = err
+				break
+			}
+			episodes = eps
+			for _, ref := range p.Covers {
+				if id := episodeID(episodes, ref); !slices.Contains(covers, id) {
+					covers = append(covers, id)
+				}
+			}
+			if i > 0 {
+				also = append(also, versionOf[p.Slot])
+			}
+		}
+		if placeholderErr != nil {
+			errs = append(errs, placeholderErr)
 			continue
 		}
-		episodes = eps
-		var covers []int64
-		for _, ref := range plan.Covers {
-			covers = append(covers, episodeID(episodes, ref))
-		}
 		g, err := s.send(ctx, outgoing{
-			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
+			titleID: d.ID, versionID: versionOf[plan.Slot], also: also, e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
 			episodes: covers, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
 		if err != nil {

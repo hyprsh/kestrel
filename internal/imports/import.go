@@ -107,7 +107,7 @@ type Library interface {
 	Episodes(ctx context.Context, titleID int64, view library.View) ([]library.Episode, error)
 	FilesReplacedBy(ctx context.Context, versionID int64, episodeIDs []int64) ([]library.File, error)
 	ReplaceEpisodeFile(ctx context.Context, titleID int64, folder string, f library.NewFile, episodeIDs []int64) ([]library.File, error)
-	FilesOfGrab(ctx context.Context, grabID int64) ([]library.File, error)
+	FilesOfGrab(ctx context.Context, grabID, versionID int64) ([]library.File, error)
 	PathsOfVersion(ctx context.Context, versionID int64) ([]string, error)
 	FilesOfVersion(ctx context.Context, versionID int64) ([]library.File, error)
 	ApplyRescore(ctx context.Context, rs []library.Rescored) error
@@ -269,32 +269,46 @@ func stalledBy(err error) Result {
 // environment's (Stalled), and importing again is always safe.
 //
 // A Grab that fills several Versions is imported once for each, in order, from the same download: each Version keeps
-// its own file name and file record, and the download's file is removed only after the last. The first Version that is
-// not imported ends the run with its Result (the Versions before it keep their files); a rerun finishes the rest.
+// its own file name and file record, and the download's files are removed only after the last. A Version that has
+// nothing to take (every file would be no upgrade for it) is left alone; the first one that stalls or rejects the
+// Release ends the run with its Result (the Versions before it keep their files), and a rerun finishes the rest.
 func (s *Service) Import(ctx context.Context, g Grab) Result {
 	if len(g.VersionIDs) < 2 {
 		return s.importOne(ctx, g)
 	}
-	var first Result
+	var out, leftAlone Result
+	imported := false
 	for i, id := range g.VersionIDs {
 		one := g
 		one.VersionID, one.VersionIDs = id, nil
 		one.CanRemove = g.CanRemove && i == len(g.VersionIDs)-1
 		res := s.importOne(ctx, one)
-		if res.Status != Imported {
+		for j := range res.Episodes {
+			res.Episodes[j].VersionID = id
+		}
+		switch {
+		case res.Status == Imported:
+			if !imported {
+				imported = true
+				out = res
+				out.Paths = []string{res.Path}
+				continue
+			}
+			out.Paths = append(out.Paths, res.Path)
+			out.Replaced += res.Replaced
+			out.Inconclusive = out.Inconclusive || res.Inconclusive
+			out.CrossDevice = out.CrossDevice || res.CrossDevice
+			out.Episodes = append(out.Episodes, res.Episodes...)
+		case res.Status == Rejected && res.Reason == ReasonNotUpgrade:
+			leftAlone = res
+		default:
 			return res
 		}
-		if i == 0 {
-			first = res
-			first.Paths = []string{res.Path}
-			continue
-		}
-		first.Paths = append(first.Paths, res.Path)
-		first.Replaced += res.Replaced
-		first.Inconclusive = first.Inconclusive || res.Inconclusive
-		first.CrossDevice = first.CrossDevice || res.CrossDevice
 	}
-	return first
+	if !imported {
+		return leftAlone
+	}
+	return out
 }
 
 func (s *Service) importOne(ctx context.Context, g Grab) Result {

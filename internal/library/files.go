@@ -152,9 +152,9 @@ func (s *Service) FilesReplacedBy(ctx context.Context, versionID int64, episodeI
 	return out, nil
 }
 
-// FilesOfGrab returns the files an Import recorded for a Grab, oldest first.
-func (s *Service) FilesOfGrab(ctx context.Context, grabID int64) ([]File, error) {
-	rows, err := db.New(s.st.Read()).ListFilesOfGrab(ctx, sql.NullInt64{Int64: grabID, Valid: true})
+// FilesOfGrab returns the files an Import recorded for a Grab under the Version, oldest first.
+func (s *Service) FilesOfGrab(ctx context.Context, grabID, versionID int64) ([]File, error) {
+	rows, err := db.New(s.st.Read()).ListFilesOfGrab(ctx, db.ListFilesOfGrabParams{GrabID: sql.NullInt64{Int64: grabID, Valid: true}, VersionID: versionID})
 	if err != nil {
 		return nil, err
 	}

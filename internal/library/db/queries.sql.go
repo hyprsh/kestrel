@@ -1177,11 +1177,16 @@ func (q *Queries) ListFiles(ctx context.Context) ([]File, error) {
 }
 
 const listFilesOfGrab = `-- name: ListFilesOfGrab :many
-SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? ORDER BY id
+SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE grab_id = ? AND version_id = ? ORDER BY id
 `
 
-func (q *Queries) ListFilesOfGrab(ctx context.Context, grabID sql.NullInt64) ([]File, error) {
-	rows, err := q.db.QueryContext(ctx, listFilesOfGrab, grabID)
+type ListFilesOfGrabParams struct {
+	GrabID    sql.NullInt64
+	VersionID int64
+}
+
+func (q *Queries) ListFilesOfGrab(ctx context.Context, arg ListFilesOfGrabParams) ([]File, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesOfGrab, arg.GrabID, arg.VersionID)
 	if err != nil {
 		return nil, err
 	}

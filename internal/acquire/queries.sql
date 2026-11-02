@@ -65,6 +65,10 @@ INSERT INTO grab_episodes (grab_id, episode_id) VALUES (?, ?);
 -- name: ListActiveGrabEpisodes :many
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing')
+UNION
+SELECT gv.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id JOIN grab_versions gv ON gv.grab_id = g.id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing');
 
 -- The episodes of a Title its active Grabs are fetching. A stalled Import still holds its episodes.

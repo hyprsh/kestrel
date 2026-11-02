@@ -426,6 +426,10 @@ const listActiveGrabEpisodes = `-- name: ListActiveGrabEpisodes :many
 SELECT g.version_id, ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.state IN ('sent', 'downloading', 'completed', 'importing')
+UNION
+SELECT gv.version_id, ge.episode_id
+FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id JOIN grab_versions gv ON gv.grab_id = g.id
+WHERE g.state IN ('sent', 'downloading', 'completed', 'importing')
 `
 
 type ListActiveGrabEpisodesRow struct {
