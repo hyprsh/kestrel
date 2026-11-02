@@ -60,9 +60,14 @@ func (s *Service) Grabs(ctx context.Context, f GrabFilter) ([]Record, error) {
 	out := make([]Record, len(rows))
 	for i, r := range rows {
 		out[i] = Record{Grab: grabOf(r.Grab), BlocklistReason: r.BlocklistReason}
+
 		if r.Grab.StalledSince.Valid {
 			out[i].Stall = &Stall{Reason: r.Grab.StalledReason.String, Since: parseTime(r.Grab.StalledSince.String), NextAt: parseTime(r.Grab.NextImportAt.String)}
 		}
 	}
-	return out, nil
+	grabs := make([]*Grab, len(out))
+	for i := range out {
+		grabs[i] = &out[i].Grab
+	}
+	return out, s.bind(ctx, grabs...)
 }

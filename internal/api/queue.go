@@ -33,7 +33,7 @@ func (s *server) ListQueue(ctx context.Context, _ oapi.ListQueueRequestObject) (
 			PhaseSince: a.Since, BytesTotal: a.BytesTotal, BytesLeft: a.BytesLeft, IsUpgrade: a.IsUpgrade,
 			Indexer: a.IndexerName, Size: a.Size, Score: a.Score, GrabbedAt: a.CreatedAt,
 			Stuck: stuckOf(a),
-			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Episodes: about.episodes, EpisodeIds: about.episodeIDs,
+			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Slots: slotsPtr(about.slots), Episodes: about.episodes, EpisodeIds: about.episodeIDs,
 			CheckingFiles: a.ImportChecking,
 		}
 		if a.ETA > 0 {
@@ -75,7 +75,9 @@ type grabAbout struct {
 	year      *int
 	kind      *oapi.TitleKind
 	slot      *oapi.SlotId
-	episodes  []string
+	// slots are every Slot the download fills, slot first.
+	slots    []oapi.SlotId
+	episodes []string
 	// episodeIDs are those episodes' ids.
 	episodeIDs []int64
 	// version is the Grab's Version, nil when it is gone.
@@ -118,6 +120,19 @@ func (c *grabTitles) about(g acquire.Grab) grabAbout {
 		if v.ID == g.VersionID {
 			slot := slotToAPI(v.Slot)
 			out.slot, out.version = &slot, &d.Versions[i]
+		}
+	}
+	if out.slot != nil {
+		out.slots = []oapi.SlotId{*out.slot}
+		for _, id := range g.VersionIDs {
+			if id == g.VersionID {
+				continue
+			}
+			for _, v := range d.Versions {
+				if v.ID == id {
+					out.slots = append(out.slots, slotToAPI(v.Slot))
+				}
+			}
 		}
 	}
 	return out
@@ -177,4 +192,12 @@ func (s *server) episodeLabels(ctx context.Context, grabID, titleID int64, view 
 		i = j + 1
 	}
 	return out, nil
+}
+
+// slotsPtr is the optional `slots` of a Grab: left out when the Version is gone.
+func slotsPtr(s []oapi.SlotId) *[]oapi.SlotId {
+	if len(s) == 0 {
+		return nil
+	}
+	return &s
 }

@@ -30,6 +30,8 @@ const (
 // EpisodeResult is what an Import did for one episode of a Series Grab. A pack
 // has one per episode its files name; the Log records each.
 type EpisodeResult struct {
+	// VersionID is the Version the result is for, set when one Grab fills several Versions; 0 otherwise.
+	VersionID int64
 	// EpisodeID is 0 when the file named no known episode.
 	EpisodeID int64
 	Season    int
@@ -87,7 +89,7 @@ func (s *Service) importSeries(ctx context.Context, g Grab, d library.Detail, ve
 	}
 
 	// Files an earlier run committed: finish their rename.
-	recorded, err := s.lib.FilesOfGrab(ctx, g.ID)
+	recorded, err := s.lib.FilesOfGrab(ctx, g.ID, g.VersionID)
 	if err != nil {
 		return stalledBy(err)
 	}

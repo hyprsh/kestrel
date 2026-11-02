@@ -245,11 +245,20 @@ func (s *Service) blockGrab(ctx context.Context, g db.Grab, reason string) error
 // the Version stays Wanted and the sweep finds it again. There is no limit on
 // retries.
 func (s *Service) retry(ctx context.Context, g db.Grab) ([]Grab, error) {
+	also, err := db.New(s.st.Read()).ListGrabVersionsOf(ctx, g.ID)
+	if err != nil {
+		return nil, err
+	}
+	return s.retryVersions(ctx, g, also)
+}
+
+// retryVersions is retry for a Grab that also filled the Versions in also: each looks for its next best Release.
+func (s *Service) retryVersions(ctx context.Context, g db.Grab, also []int64) ([]Grab, error) {
 	if !g.TitleID.Valid || !g.VersionID.Valid {
 		return nil, nil // the Title or Version was removed meanwhile
 	}
 	// A failed Upgrade leaves a Filled Version: its next best Release is the next Upgrade.
-	out, err := s.searchTitle(ctx, g.TitleID.Int64, []int64{g.VersionID.Int64}, library.Scope{}, true, g.IsUpgrade == 1)
+	out, err := s.searchTitle(ctx, g.TitleID.Int64, append([]int64{g.VersionID.Int64}, also...), library.Scope{}, true, g.IsUpgrade == 1)
 	if errors.Is(err, library.ErrNotFound) {
 		return nil, nil
 	}
