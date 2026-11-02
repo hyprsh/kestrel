@@ -34,13 +34,17 @@ function useWindowedRows(count: number, listRef: RefObject<HTMLDivElement | null
     estimateSize: () => (phone ? ROW_ESTIMATE.phone : ROW_ESTIMATE.desktop),
     overscan: OVERSCAN,
     scrollMargin: topOffset,
+    // The scroller is measured only after the first commit. Until then the list is taken to be as tall as the window, so
+    // that commit draws a screenful of rows rather than every Title (a Library opened from another screen has its Titles cached).
+    initialRect: { width: 0, height: typeof window === 'undefined' ? 0 : window.innerHeight },
   })
   useEffect(() => {
     if (index >= 0 && index < count) virtualizer.scrollToIndex(index, { align: 'auto' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index])
+  const all = virtualizer.getVirtualItems() // sets `scrollRect` from `initialRect` before it is measured
   const measured = (virtualizer.scrollRect?.height ?? 0) > 0
-  const items = measured ? virtualizer.getVirtualItems() : null
+  const items = measured ? all : null
   const total = virtualizer.getTotalSize()
   return { virtualizer, items, total, measured }
 }
