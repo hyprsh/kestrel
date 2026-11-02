@@ -146,10 +146,21 @@ describe('the Version rows', () => {
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByText('8 Wanted · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
+    const row = within(hd).getByRole('button', { name: /^Standard: 228 of 240 episodes/ })
     expect(within(hd).getByRole('img', { name: /^Standard: 228 of 240 episodes/ })).toHaveTextContent(/228\/240/)
     expect(hd.querySelector('[data-bar="filled"]')).not.toBeNull()
-    expect(within(hd).getAllByText('412.0 GB').length).toBeGreaterThan(0)
+    // Opened (a lone Slot with something Wanted opens itself), each fact shows once: the facts say the coverage and size, the header does not.
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+    expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('228 of 240 episodes · 8 Wanted · 2 Long Missing · 4 not monitored')
+    expect(within(hd).queryByText('8 Wanted · 2 Long Missing · 4 not monitored')).not.toBeInTheDocument()
+    expect(within(hd).getAllByText('412.0 GB')).toHaveLength(1)
+    expect(within(hd).getAllByText('Standard').length).toBeGreaterThan(0)
+    expect(within(hd).queryByText('Profile')).not.toBeInTheDocument() // the header names the Profile
+    // Closed, the header says them and the facts are folded away.
+    await userEvent.click(row)
+    expect(within(hd).getByText('8 Wanted · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
+    expect(within(hd).getAllByText('412.0 GB')).toHaveLength(1)
+    expect(within(hd).queryByText('Coverage')).not.toBeInTheDocument()
   })
 
   it('say a complete Series Version as Complete, its count in its chip, with a thin bar', async () => {
@@ -159,9 +170,16 @@ describe('the Version rows', () => {
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByText('Complete')).toBeInTheDocument()
+    const row = within(hd).getByRole('button', { name: /^Standard: 62 of 62 episodes/ })
     expect(within(hd).getByRole('img', { name: /^Standard: 62 of 62 episodes/ })).toHaveTextContent(/62\/62/)
     expect(hd.querySelector('[data-complete]')).not.toBeNull()
+    if (row.getAttribute('aria-expanded') === 'true') await userEvent.click(row)
+    expect(within(hd).getByText('Complete')).toBeInTheDocument()
+    expect(within(hd).getAllByText('1.0 GB')).toHaveLength(1)
+    await userEvent.click(row)
+    expect(within(hd).queryByText('Complete')).not.toBeInTheDocument() // opened, the Coverage fact says it
+    expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('62 of 62 episodes')
+    expect(within(hd).getAllByText('1.0 GB')).toHaveLength(1)
   })
 
   it('leave a Wanted Special out of a Series Version’s episode total but count it as Wanted', async () => {
@@ -172,7 +190,7 @@ describe('the Version rows', () => {
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByText('1 Wanted')).toBeInTheDocument()
+    expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('2 of 2 episodes · 1 Wanted')
     expect(within(hd).getByRole('img', { name: /^Standard: 2 of 2 episodes/ })).toHaveTextContent(/2\/2/)
   })
 
