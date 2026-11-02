@@ -23,7 +23,7 @@ const MIN_PASSWORD = 8
  */
 export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () => void }) {
   const setup = useSetup(signedIn)
-  const sections = setup.data?.sections ?? { language: 'todo', download_client: 'todo', indexer: 'todo', root_folders: 'todo', profiles: 'todo' }
+  const sections = setup.data?.sections ?? { language: 'todo', download_client: 'todo', indexer: 'todo', root_folders: 'todo', slots: 'todo' }
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -116,7 +116,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={6}
             id="slots"
             title="Slots"
-            state={sections.profiles}
+            state={sections.slots}
             summary={<SlotsSummary />}
             description="A Slot is a copy of each Title, with its own default Profile for a new Movie and a new Series. Start from a preset, then adjust the Slots."
           >
@@ -129,7 +129,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             n={7}
             id="profiles"
             title="Profiles"
-            checked={sections.profiles === 'done'}
+            checked={sections.slots === 'done'}
             description="Choose which Profiles to enable. The ones your Slots use are on and stay on. Tick a suggestion to add it; Settings, Profiles lists them all."
           >
             <EnableProfiles />
@@ -150,7 +150,7 @@ const sectionTitles: Record<string, string> = {
   download_client: 'Download client',
   indexer: 'Indexer',
   root_folders: 'Root folders',
-  profiles: 'Slots',
+  slots: 'Slots',
 }
 
 /** "Finish setup" names whatever is still missing instead of letting the admin through. */

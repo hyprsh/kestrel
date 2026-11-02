@@ -99,10 +99,10 @@ func TestAGermanHouseholdChoosingGermanPlusOriginalGetsBothSlotsAndTheirProfiles
 	// The wizard can finish on the Slots' defaults alone.
 	if st := decode[struct {
 		Sections struct {
-			Profiles string `json:"profiles"`
+			Slots string `json:"slots"`
 		} `json:"sections"`
-	}](t, b.valid("GET", "/setup", "")); st.Sections.Profiles != "done" {
-		t.Errorf("profiles section = %q, want done", st.Sections.Profiles)
+	}](t, b.valid("GET", "/setup", "")); st.Sections.Slots != "done" {
+		t.Errorf("slots section = %q, want done", st.Sections.Slots)
 	}
 }
 

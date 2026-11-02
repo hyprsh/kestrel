@@ -153,7 +153,7 @@ describe('the wizard', () => {
 
   it('Finish setup lists every missing section and lets the admin through once none is missing', async () => {
     fakeSettings()
-    const setup = fakeSetup({ language: 'done', profiles: 'done' })
+    const setup = fakeSetup({ language: 'done', slots: 'done' })
     renderApp()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Finish setup' }))
@@ -216,7 +216,7 @@ describe('a Primary Language change in the background', () => {
 describe('running setup again', () => {
   it('opens from Settings with the account already done and every other section as a summary', async () => {
     fakeSettings()
-    const setup = fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' }, true)
+    const setup = fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' }, true)
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     await userEvent.click(await screen.findByRole('link', { name: 'General' }))
@@ -402,7 +402,7 @@ describe('the Slots step', () => {
 
   it('is done when the Slots on for new Titles have both defaults, and folds to a summary', async () => {
     fakeSlots({ slots: german, presets: { list: presetList(true), result: {} } })
-    fakeSetup({ language: 'done', profiles: 'done' })
+    fakeSetup({ language: 'done', slots: 'done' })
     fakeAdoption()
     renderApp()
 

@@ -441,19 +441,19 @@ func (s setupSources) state(ctx context.Context) (oapi.Setup, error) {
 		return out, err
 	}
 	out.Sections.RootFolders = state(rootsSaved)
-	// A fresh install has no Profiles and a Standard Slot without defaults (ADR 0026): the section is done when every Slot
+	// A fresh install has no Profiles and a Standard Slot without defaults (#304): the section is done when every Slot
 	// that is on for new Titles has a default Profile for Movies and for Series.
 	gaps, err := s.slotGaps(ctx)
 	if err != nil {
 		return out, err
 	}
-	out.Sections.Profiles = state(len(gaps) == 0)
+	out.Sections.Slots = state(len(gaps) == 0)
 	_, out.Completed, err = s.settings.Get(ctx, setupCompletedKey)
 	return out, err
 }
 
 // slotGaps names each Slot that is on for new Titles and lacks a default Profile for Movies or Series, as the field errors
-// of the Profiles section.
+// of the Slots section.
 func (s setupSources) slotGaps(ctx context.Context) ([]fieldError, error) {
 	set, err := s.slots.List(ctx)
 	if err != nil {
@@ -461,13 +461,13 @@ func (s setupSources) slotGaps(ctx context.Context) ([]fieldError, error) {
 	}
 	var out []fieldError
 	for _, m := range slot.MissingDefaults(set) {
-		out = append(out, fieldError{Field: "sections.profiles", Code: "todo", Message: m.Message()})
+		out = append(out, fieldError{Field: "sections.slots", Code: "todo", Message: m.Message()})
 	}
 	return out, nil
 }
 
-// missingSections lists the sections still to set up, as field errors. A Profiles section that is not done is worded by
-// its gaps, one per Slot and kind.
+// missingSections lists the sections still to set up, as field errors, then the Slots' gaps, one per Slot and kind: the
+// Slots section is worded by them.
 func missingSections(st oapi.Setup, gaps []fieldError) []fieldError {
 	var missing []fieldError
 	for _, sec := range []struct {
@@ -476,17 +476,13 @@ func missingSections(st oapi.Setup, gaps []fieldError) []fieldError {
 	}{
 		{"account", st.Sections.Account}, {"language", st.Sections.Language},
 		{"download_client", st.Sections.DownloadClient}, {"indexer", st.Sections.Indexer},
-		{"root_folders", st.Sections.RootFolders}, {"profiles", st.Sections.Profiles},
+		{"root_folders", st.Sections.RootFolders},
 	} {
 		if sec.state != oapi.Done {
-			if sec.name == "profiles" && len(gaps) > 0 {
-				missing = append(missing, gaps...)
-				continue
-			}
 			missing = append(missing, fieldError{Field: "sections." + sec.name, Code: "todo", Message: sec.name + " is not set up yet"})
 		}
 	}
-	return missing
+	return append(missing, gaps...)
 }
 
 func (s *server) GetSetup(ctx context.Context, _ oapi.GetSetupRequestObject) (oapi.GetSetupResponseObject, error) {

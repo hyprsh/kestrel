@@ -71,7 +71,8 @@ func (a *App) EnforceConfigFile(ctx context.Context) error {
 			return fmt.Errorf("config file %s: %w", f.Path, err)
 		}
 	}
-	if err := a.declarer.api.CompleteSetup(ctx); err != nil {
+	// A file that declares the Profiles and the Slots has checked the Slots' defaults above.
+	if err := a.declarer.api.CompleteSetup(ctx, f.Profiles != nil && f.Slots != nil); err != nil {
 		return fmt.Errorf("config file %s: completing setup: %w", f.Path, err)
 	}
 	return nil
@@ -174,6 +175,13 @@ func (d declarer) sections() []section {
 				if err := slotsError(d.slots.CheckDeclared(ctx, want, profileKeys)); err != nil {
 					return err
 				}
+				// A file that declares the Profiles and the Slots owns the setup finish rule (#304): it fails here, naming the
+				// Slot and the kind, rather than setup never completing.
+				if f.Profiles != nil {
+					for _, m := range slot.MissingDefaults(declaredRecords(f)) {
+						return fmt.Errorf("slots: %s", m.Message())
+					}
+				}
 				// A file that declares the Profiles checks the defaults against them; else against the saved ones.
 				if f.Profiles == nil {
 					return slotsError(d.slots.CheckDefaultKinds(ctx, want))
@@ -206,9 +214,7 @@ func (d declarer) sections() []section {
 				// A Slot's default stays enabled: the Slots the file declares, else the stored ones.
 				var recs []slot.Record
 				if f.Slots != nil {
-					for _, sl := range f.Slots {
-						recs = append(recs, slot.Record{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries})
-					}
+					recs = declaredRecords(f)
 				} else {
 					var err error
 					if recs, err = d.slots.List(ctx); err != nil {
@@ -550,6 +556,15 @@ func validation(section string, err error) error {
 		field = section
 	}
 	return fmt.Errorf("%s: %s", field, msg)
+}
+
+// declaredRecords are the Slots the file declares, as records.
+func declaredRecords(f *configfile.File) []slot.Record {
+	recs := make([]slot.Record, len(f.Slots))
+	for i, sl := range f.Slots {
+		recs[i] = slot.Record{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries, OnForNew: sl.OnForNew}
+	}
+	return recs
 }
 
 // declaredPrimary is the Primary Language the file declares, or empty when it leaves the language to the saved one.

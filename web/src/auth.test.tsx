@@ -16,7 +16,7 @@ const body = (status: number, code: string) => ({ type: 'about:blank', title: 'x
 /** The server state machine the SPA talks to: fresh, then logged out, then logged in. */
 function fakeServer(initial: 'fresh' | 'logged-out' | 'logged-in') {
   let state = initial
-  if (initial === 'fresh') fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' })
+  if (initial === 'fresh') fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' })
   const calls: { path: string; body?: unknown }[] = []
   server.use(
     http.get('/auth/me', ({ response }) =>

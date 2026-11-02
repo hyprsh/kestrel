@@ -3565,7 +3565,7 @@ components:
           type: boolean
         sections:
           type: object
-          required: [account, language, download_client, indexer, root_folders, profiles]
+          required: [account, language, download_client, indexer, root_folders, slots]
           properties:
             account:
               $ref: "#/components/schemas/SetupSectionState"
@@ -3577,7 +3577,7 @@ components:
               $ref: "#/components/schemas/SetupSectionState"
             root_folders:
               $ref: "#/components/schemas/SetupSectionState"
-            profiles:
+            slots:
               $ref: "#/components/schemas/SetupSectionState"
     PrimaryLanguage:
       type: string

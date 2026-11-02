@@ -4934,8 +4934,8 @@ type Setup struct {
 		DownloadClient SetupSectionState `json:"download_client"`
 		Indexer        SetupSectionState `json:"indexer"`
 		Language       SetupSectionState `json:"language"`
-		Profiles       SetupSectionState `json:"profiles"`
 		RootFolders    SetupSectionState `json:"root_folders"`
+		Slots          SetupSectionState `json:"slots"`
 	} `json:"sections"`
 }
 

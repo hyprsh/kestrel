@@ -47,7 +47,7 @@ function fakeStep() {
   const sent: { method: string; body: unknown }[] = []
   let profiles = [profile('hd-primary', 'HD', { default_movies: true, default_series: true })]
   const offered = [suggestion('HD Original', 'hd', 'original'), suggestion('Any', 'any', 'primary'), suggestion('4K Remux', 'uhd', 'primary', { release_family: 'remux-web' })]
-  fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' })
+  fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' })
   server.use(
     http.get('/slots', ({ response }) => response(200).json({ items: [slot('standard', 'Standard', 0)] })),
     http.get('/profiles', ({ response }) => response(200).json({ items: profiles })),

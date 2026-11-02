@@ -173,3 +173,14 @@ func TestAProfileTheFileLeavesOutThatASlotDefaultsToFailsStartupNamingIt(t *test
 		t.Fatalf("err = %v, want one naming 4k-primary", err)
 	}
 }
+
+// The setup finish rule (a default for each Slot that is on for new Titles) is the file's to keep at startup: a file that
+// breaks it fails there, naming the Slot and the kind, instead of never completing setup in silence.
+func TestAFileDeclaringASlotOnForNewTitlesWithoutADefaultFailsStartupNamingItAndTheKind(t *testing.T) {
+	t.Parallel()
+	body := strings.Replace(twoProfiles, "{id: remux, label: Remux, default_movies: remux-4k, default_series: remux-4k}", "{id: remux, label: Remux, default_movies: remux-4k, on_for_new_titles: true}", 1)
+	err := newFreshInstance(t, "").declare(body)
+	if err == nil || !strings.Contains(err.Error(), "slots") || !strings.Contains(err.Error(), "Remux has no default Profile for Series") {
+		t.Fatalf("err = %v, want one naming the Slot Remux and Series", err)
+	}
+}

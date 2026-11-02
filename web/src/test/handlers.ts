@@ -73,7 +73,7 @@ export const handlers = [
     response(200).json({
       account_exists: true,
       completed: true,
-      sections: { account: 'done', language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', profiles: 'done' },
+      sections: { account: 'done', language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' },
     }),
   ),
   http.get('/settings', ({ response }) =>

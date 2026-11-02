@@ -2688,7 +2688,7 @@ export interface components {
                 download_client: components["schemas"]["SetupSectionState"];
                 indexer: components["schemas"]["SetupSectionState"];
                 root_folders: components["schemas"]["SetupSectionState"];
-                profiles: components["schemas"]["SetupSectionState"];
+                slots: components["schemas"]["SetupSectionState"];
             };
         };
         /**

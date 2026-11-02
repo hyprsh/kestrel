@@ -273,7 +273,7 @@ func TestSettingsHaveNoKidsRuleOrKidsRootFolders(t *testing.T) {
 	if strings.Contains(strings.ToLower(body), "kids") {
 		t.Errorf("GET /settings mentions kids: %s", body)
 	}
-	if setup := b.valid("GET", "/setup", "").Body; strings.Contains(strings.ToLower(setup), "kids") || !strings.Contains(setup, `"profiles":"done"`) {
+	if setup := b.valid("GET", "/setup", "").Body; strings.Contains(strings.ToLower(setup), "kids") || !strings.Contains(setup, `"slots":"done"`) {
 		t.Errorf("GET /setup = %s", setup)
 	}
 }
