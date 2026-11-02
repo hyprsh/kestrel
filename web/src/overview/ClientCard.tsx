@@ -1,8 +1,9 @@
 // The download client: its name and connection state, how fast and how long it downloaded, and the last 14 days of speed
-// as columns in one hue.
+// as columns in the design's single-series colour.
+import { ColumnChart } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
 import { StatCard } from '../layout/StatCard'
-import { ChartTable, Columns, mark, Swatch } from './charts'
+import { mark, Swatch } from './charts'
 import { dayText, durationText, speedText } from './statsText'
 
 function Figure({ value, label, danger }: { value: string; label: string; danger?: boolean }) {
@@ -54,18 +55,12 @@ export function ClientCard({ stats }: { stats: Stats }) {
             <p className="label-12 m-0 text-gray-900">Speeds appear once a download has been timed.</p>
           ) : (
             <>
-              <Columns
+              <ColumnChart
                 height={48}
-                ticks={false}
-                scaleMax={Math.max(...speeds)}
-                alternative={`Average speed per day, last 14 days, ${speedRange(speeds)}`}
-                format={(n) => speedText(n)}
-                columns={days.map((d) => ({ key: d.day, title: dayText(d.day), parts: [{ name: 'Speed', className: mark.blue, n: d.bytes_per_second ?? 0 }] }))}
-              />
-              <ChartTable
-                caption="Average speed per day, last 14 days"
-                head={['Day', 'Average speed']}
-                rows={days.map((d) => [dayText(d.day), d.bytes_per_second === null ? 'no downloads' : speedText(d.bytes_per_second)])}
+                aria-label={`Average speed per day, last 14 days, ${speedRange(speeds)}`}
+                series={[{ key: 'speed', label: 'Speed' }]}
+                valueFormatter={speedText}
+                data={days.map((d) => ({ label: dayText(d.day), values: { speed: d.bytes_per_second ?? 0 } }))}
               />
               <span className="label-12 text-gray-900">Speed per day, last 14 days</span>
             </>
