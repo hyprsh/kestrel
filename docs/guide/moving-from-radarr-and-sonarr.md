@@ -22,7 +22,7 @@ Read [Getting started](getting-started.md) first and set Kestrel up with a downl
 | Indexers synced from Prowlarr                                           | Newznab indexers added directly, each with an optional daily limit on API requests and on Grabs.                                                                                                              |
 | Import lists, Overseerr or Jellyseerr                                   | **Requests**: people who share your Plex server sign in to Kestrel with Plex, and Kestrel can read Plex Watchlists. Silo users can ask too. See [Requesters](configuration.md#requesters-plex-sign-in).       |
 | Connect: refresh Jellyfin or Plex                                       | Kestrel refreshes Jellyfin and Plex after an Import (Settings > Media servers).                                                                                                                               |
-| Naming format                                                           | One fixed naming scheme, so that Plex and Jellyfin group a Title's Versions as one item ([ADR 0003](../adr/0003-fixed-naming-scheme-with-slot-labels.md)).                                                    |
+| Naming format                                                           | One fixed naming scheme, so that Plex and Jellyfin group a Title's Versions as one item.                                                                                                                      |
 
 ## What has no equivalent
 

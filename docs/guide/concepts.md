@@ -8,7 +8,7 @@ Here is the whole flow in one picture. You add a **Title**. Kestrel makes a **Ve
 
 A movie or a series that Kestrel tracks. It comes in two kinds: a **Movie** is one film, and a **Series** is seasons and episodes.
 
-Example: _Paddington_ (2014) is a Movie, and _Breaking Bad_ is a Series. Kestrel looks up Movies at TMDB and Series at TheTVDB, so a Title's posters, seasons and air dates come from there ([ADR 0002](../adr/0002-tmdb-for-movies-tvdb-for-series.md)).
+Example: _Paddington_ (2014) is a Movie, and _Breaking Bad_ is a Series. Kestrel looks up Movies at TMDB and Series at TheTVDB, so a Title's posters, seasons and air dates come from there.
 
 ## Slot
 

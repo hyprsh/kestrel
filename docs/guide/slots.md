@@ -1,6 +1,6 @@
 # Slots
 
-A Slot is one copy of a Title that Kestrel keeps as its own file. A Profile is the rule Kestrel follows to grab that copy. This page explains the difference, shows what you can do with your own Slots, and covers the upgrade to Kestrel releases that let you define them ([ADR 0024](../adr/0024-admins-define-the-slots.md)). [Concepts](concepts.md#slot) has the plain-words definition.
+A Slot is one copy of a Title that Kestrel keeps as its own file. A Profile is the rule Kestrel follows to grab that copy. This page explains the difference, shows what you can do with your own Slots, and covers the upgrade to Kestrel releases that let you define them. [Concepts](concepts.md#slot) has the plain-words definition.
 
 ## Slot or Profile
 
@@ -37,7 +37,7 @@ Open Settings > Library > Slots. Each row shows the Slot's label, its default Pr
 
 **Add a Slot.** Choose **Add Slot...** (hidden at four). Give it a label, which shows a preview of a file name, pick a default Profile for Movies and for Series (or None), and say whether new Titles get it. A new Slot reaches your existing Titles only if you tick **Also add to existing Movies / Series**, which shows how many of each. The new Versions start Wanted, and Kestrel searches them like the rest of the wanted list. A kind with no default Profile gets none. A Title that already uses that Profile in another Slot is skipped and counted in the message.
 
-**Rename a Slot.** Choose **Edit...** and change the label. Kestrel shows "Renames N files" first, and then renames the Slot's files on disk, as it does when a Title's metadata changes ([ADR 0003](../adr/0003-fixed-naming-scheme-with-slot-labels.md)). The count is every file the Slot holds, whether or not its name changes. The old label stays as an alias that Adoption still recognises, so a file or an old backup that carries it is still matched to the Slot.
+**Rename a Slot.** Choose **Edit...** and change the label. Kestrel shows "Renames N files" first, and then renames the Slot's files on disk, as it does when a Title's metadata changes. The count is every file the Slot holds, whether or not its name changes. The old label stays as an alias that Adoption still recognises, so a file or an old backup that carries it is still matched to the Slot.
 
 **Reorder.** Drag a row, or focus its handle and press the up and down arrow keys. The order is the order of chips, menus and filters everywhere in Kestrel, and Adoption uses it to guess a Slot.
 
@@ -72,7 +72,7 @@ Existing libraries keep what they had, and nothing on disk changes: no file is r
 - Defaults moved from Profiles to Slots. The `default_movies` and `default_series` fields of a Profile are read-only and derived from the Slots in the API, and are ignored in the Config File's `profiles` section. To change a default, change the Slot.
 - A Version can no longer share its Profile with another Version of the same Title. Adding a Version or switching a Profile that would clash answers `422 profile_taken`, and a bulk action skips the Title.
 - A new Slot reaches an old Title only if you ask for it when you add the Slot.
-- **API clients:** four changes break the additive-only rule of [ADR 0009](../adr/0009-spec-first-openapi.md) on purpose, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo. Check your own scripts against them:
+- **API clients:** the API otherwise only adds things, but four changes here break that on purpose, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo. Check your own scripts against them:
   1. Every Slot field changes from the enum `standard | 4k` to a string (the id). The schema that was called `Slot` is now `SlotId`, and `Slot` names the Slot record, so a generated client needs regenerating.
   2. A Profile's `slot` is optional and deprecated: it is the first Slot that names the Profile as a default, and missing for a Profile no Slot names.
   3. `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`. Set the default with `PATCH /slots/{id}`.

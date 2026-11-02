@@ -1,6 +1,6 @@
 # The API
 
-The REST API is defined by [`api/openapi.yaml`](../../api/openapi.yaml) ([ADR 0009](../adr/0009-spec-first-openapi.md)). The [API reference](/api/reference/) renders every operation in it, so you can read it before you install Kestrel. A running instance serves the spec at `{base}/api/v1/openapi.json`, and the same interactive reference (Scalar, loaded from a CDN) at `{base}/api/docs`.
+The REST API is defined by [`api/openapi.yaml`](../../api/openapi.yaml). The [API reference](/api/reference/) renders every operation in it, so you can read it before you install Kestrel. A running instance serves the spec at `{base}/api/v1/openapi.json`, and the same interactive reference (Scalar, loaded from a CDN) at `{base}/api/docs`.
 
 ## Authentication
 

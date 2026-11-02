@@ -93,7 +93,7 @@ The docs are at **<https://hyprsh.github.io/kestrel/>**.
 - [Contributing](https://hyprsh.github.io/kestrel/development/contributing): build it, change it, release it.
 - [Security](SECURITY.md): how to report a vulnerability.
 
-The words Kestrel uses are in the [glossary](https://hyprsh.github.io/kestrel/glossary), and the decisions behind it in the [ADRs](https://hyprsh.github.io/kestrel/adr/).
+The words Kestrel uses are in the [glossary](https://hyprsh.github.io/kestrel/glossary).
 
 ## Licence
 

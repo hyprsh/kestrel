@@ -120,7 +120,7 @@ If a [Config File](configuration.md#the-config-file) declares the account, Kestr
 
 **Does it work with Prowlarr?** Kestrel has no Prowlarr integration. It talks to Newznab indexers directly: add each indexer's Newznab URL and API key in Settings > Downloads.
 
-**Can I change how files are named?** No. Kestrel uses one fixed naming scheme, so that Plex and Jellyfin group a Title's Versions as one item, and a Slot's label is part of the file name ([ADR 0003](../adr/0003-fixed-naming-scheme-with-slot-labels.md)).
+**Can I change how files are named?** No. Kestrel uses one fixed naming scheme, so that Plex and Jellyfin group a Title's Versions as one item, and a Slot's label is part of the file name.
 
 **Can a Title have more than Standard and 4K?** Yes, up to four copies. A Title has at most one Version per Slot, and you define the Slots in Settings > Library > Slots ([Slots](slots.md)). Which one plays, and who may watch 4K, is your media server's choice.
 
