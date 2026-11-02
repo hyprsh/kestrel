@@ -162,15 +162,23 @@ func (s *Service) busyVersions(ctx context.Context) (map[int64]bool, error) {
 	}
 	busy := map[int64]bool{}
 	for _, a := range active {
-		busy[a.VersionID] = true
+		for _, id := range a.VersionIDs {
+			busy[id] = true
+		}
 	}
 	// A Version whose Import is stalled still has its download.
 	stalled, err := db.New(s.st.Read()).ListStalledGrabs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, g := range stalled {
-		busy[g.VersionID.Int64] = true
+	for _, row := range stalled {
+		g := grabOf(row)
+		if err := s.bind(ctx, &g); err != nil {
+			return nil, err
+		}
+		for _, id := range g.VersionIDs {
+			busy[id] = true
+		}
 	}
 	return busy, nil
 }
@@ -217,10 +225,15 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		return nil, err
 	}
 	var errs []error
-	for _, plan := range plans {
+	for _, group := range sharedPlans(plans) {
+		plan := group[0]
 		e := entries[entryKey(plan.Candidate)]
+		var also []int64
+		for _, p := range group[1:] {
+			also = append(also, versionOf[p.Slot])
+		}
 		g, err := s.send(ctx, outgoing{
-			titleID: d.ID, versionID: versionOf[plan.Slot], e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade, by: GrabbedByRSS,
+			titleID: d.ID, versionID: versionOf[plan.Slot], also: also, e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
 		if err != nil {
 			errs = append(errs, err)

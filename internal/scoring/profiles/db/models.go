@@ -158,6 +158,11 @@ type GrabEpisode struct {
 	EpisodeID int64
 }
 
+type GrabVersion struct {
+	GrabID    int64
+	VersionID int64
+}
+
 type HealthIssue struct {
 	ID          int64
 	Key         string

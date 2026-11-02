@@ -73,6 +73,16 @@ SELECT DISTINCT ge.episode_id
 FROM grab_episodes ge JOIN grabs g ON g.id = ge.grab_id
 WHERE g.title_id = ? AND g.state IN ('sent', 'downloading', 'completed', 'importing');
 
+-- The Versions besides its first that a Grab also fills (one download, several Versions).
+-- name: InsertGrabVersion :exec
+INSERT INTO grab_versions (grab_id, version_id) VALUES (?, ?);
+
+-- name: ListGrabVersions :many
+SELECT grab_id, version_id FROM grab_versions ORDER BY grab_id, version_id;
+
+-- name: ListGrabVersionsOf :many
+SELECT version_id FROM grab_versions WHERE grab_id = ? ORDER BY version_id;
+
 -- name: ListGrabEpisodes :many
 SELECT episode_id FROM grab_episodes WHERE grab_id = ? ORDER BY episode_id;
 
