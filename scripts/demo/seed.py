@@ -100,9 +100,11 @@ profiles = call("GET", "/profiles")
 items = profiles["items"] if isinstance(profiles, dict) and "items" in profiles else profiles
 
 
+slots = {s["id"]: s for s in call("GET", "/slots")["items"]}
+
+
 def default(slot, kind):
-    enabled = [p for p in items if p["slot"] == slot and p["enabled"]]
-    return next((p["key"] for p in enabled if p.get("default_" + kind)), enabled[0]["key"])
+    return slots[slot]["default_" + kind]
 
 
 std_m, std_s, k4_s = default("standard", "movies"), default("standard", "series"), default("4k", "series")
