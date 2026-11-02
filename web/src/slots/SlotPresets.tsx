@@ -10,7 +10,7 @@ const describe = (p: SlotPreset) =>
 const problemText = (e: unknown) => (e instanceof ApiError && [409, 422].includes(e.status) ? e.message : 'Could not apply the preset. Try again.')
 
 /**
- * The setup wizard's Slot presets (ADR 0026), offered while the library holds no Version. Choosing one replaces the Slots with
+ * The setup wizard's Slot presets (#304), offered while the library holds no Version. Choosing one replaces the Slots with
  * the preset's, imports and enables each default Profile, and sets the defaults, all or nothing. Renders nothing once the
  * server offers none (a Version exists, or the Config File declares the Slots).
  */

@@ -72,7 +72,7 @@ type RootFolders struct {
 // Profile is one Profile's declared settings. A nil field is one the file left out.
 type Profile struct {
 	Enabled *bool `yaml:"enabled"`
-	// Name and Resolution (hd, uhd or any) complete the recipe with ReleaseFamily and LanguageRule (ADR 0026). A key that
+	// Name and Resolution (hd, 4k or any) complete the recipe with ReleaseFamily and LanguageRule (ADR 0026). A key that
 	// is not one of the six builtin Profiles is a recipe Profile and gives all four; a builtin key may leave them out
 	// to keep its builtin recipe.
 	Name       *string `yaml:"name"`

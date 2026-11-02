@@ -1,4 +1,4 @@
-// The Slots (ADR 0024): GET/POST /slots, PATCH/DELETE /slots/{id}, the dry run that counts a rename's files, and the setup presets (ADR 0026).
+// The Slots (ADR 0024): GET/POST /slots, PATCH/DELETE /slots/{id}, the dry run that counts a rename's files, and the setup presets (#304).
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { failure } from './queries'

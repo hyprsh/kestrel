@@ -440,7 +440,7 @@ func plan(cur []slot.Record, want []Declared) (set, dropped []slot.Record, err e
 // leaves out still holds Versions.
 //
 // A file that declares the Profiles brings them with it: declaredProfiles are their keys, which a default may name before
-// they are stored (a fresh install has none, ADR 0026). Nil when the file declares none.
+// they are stored (a fresh install has none, #304). Nil when the file declares none.
 func (s *Service) CheckDeclared(ctx context.Context, want []Declared, declaredProfiles []string) error {
 	return s.declare(ctx, want, false, false, declaredProfiles)
 }
@@ -468,7 +468,7 @@ func (s *Service) Declare(ctx context.Context, want []Declared) error {
 }
 
 // Replace makes the Slots those of want, as Declare does, but with the rules of the API: each default must be an
-// enabled Profile. It is how a setup preset replaces the Slots (ADR 0026), inside the caller's transaction (InTx).
+// enabled Profile. It is how a setup preset replaces the Slots (#304), inside the caller's transaction (InTx).
 func (s *Service) Replace(ctx context.Context, want []Declared) error {
 	return s.declare(ctx, want, true, true, nil)
 }

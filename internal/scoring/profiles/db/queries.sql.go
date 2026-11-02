@@ -128,7 +128,7 @@ type InsertBuiltinProfileParams struct {
 	TrashProfileSeries string
 }
 
-// One of the six builtin Profiles that a fresh install does not seed (ADR 0026), made when a Config File declares them.
+// One of the six builtin Profiles that a fresh install does not seed (#304), made when a Config File declares them.
 func (q *Queries) InsertBuiltinProfile(ctx context.Context, arg InsertBuiltinProfileParams) error {
 	_, err := q.db.ExecContext(ctx, insertBuiltinProfile,
 		arg.Key,
@@ -393,7 +393,7 @@ type SetProfileShapeParams struct {
 	Key       string
 }
 
-// The resolution range of a Profile (ADR 0026), as a Config File declares it.
+// The resolution range of a Profile, as a Config File declares it.
 func (q *Queries) SetProfileShape(ctx context.Context, arg SetProfileShapeParams) error {
 	_, err := q.db.ExecContext(ctx, setProfileShape,
 		arg.Any,

@@ -47,13 +47,13 @@ INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_h
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertBuiltinProfile :exec
--- One of the six builtin Profiles that a fresh install does not seed (ADR 0026), made when a Config File declares them.
+-- One of the six builtin Profiles that a fresh install does not seed (#304), made when a Config File declares them.
 INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
     trash_profile_movies, trash_profile_series, original_language, custom)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, 'reject', 0);
 
 -- name: SetProfileShape :exec
--- The resolution range of a Profile (ADR 0026), as a Config File declares it.
+-- The resolution range of a Profile, as a Config File declares it.
 UPDATE profiles SET any = ?, min_height = ?, max_height = ? WHERE key = ?;
 
 

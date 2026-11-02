@@ -23,9 +23,10 @@ type State struct {
 	Family   scoring.ReleaseFamily
 	Language string
 	// Name and Resolution complete the recipe. A Profile that is not one of the six builtin ones needs all four of Name,
-	// Family, Resolution and Language; a builtin one leaves them empty to keep its own.
+	// Family, Resolution and Language; a builtin one leaves them empty to keep its own. Resolution is the Config File's
+	// word: hd, 4k or any.
 	Name       string
-	Resolution Resolution
+	Resolution string
 }
 
 // builtinProfile is the builtin Profile with the key, as shipped.
@@ -81,11 +82,11 @@ func declaredProfile(base Profile, key string, s State, prefix string) (Profile,
 		p.Rule, p.Named = rule, named
 	}
 	if s.Resolution != "" {
-		if !slices.Contains(Resolutions, s.Resolution) {
-			return p, invalid(prefix+"resolution", "Choose hd, uhd or any")
+		res, ok := ResolutionOf(s.Resolution)
+		if !ok {
+			return p, invalid(prefix+"resolution", "Choose hd, 4k or any")
 		}
-		p.Any = s.Resolution == ResAny
-		p.MinHeight, p.MaxHeight = scoring.HeightBounds(s.Resolution == ResUHD, p.Any)
+		p.setResolution(res)
 	}
 	return p, nil
 }
@@ -225,7 +226,7 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State, declared La
 		if err != nil {
 			return err
 		}
-		// A fresh install has none of the six (ADR 0026): the file declares them into being, as it says.
+		// A fresh install has none of the six (#304): the file declares them into being, as it says.
 		if rows, err = s.insertMissing(ctx, q, rows, want, primary); err != nil {
 			return err
 		}
@@ -374,7 +375,7 @@ func (s *Service) insertMissing(ctx context.Context, q *db.Queries, rows []db.Pr
 	return q.ListProfiles(ctx)
 }
 
-// EnsureDeclared makes the Profiles the file declares and the database lacks: a fresh install has none (ADR 0026), and a
+// EnsureDeclared makes the Profiles the file declares and the database lacks: a fresh install has none (#304), and a
 // Slot's default must name a Profile that is there, so they come before the Slots. declared is the Primary Language the file
 // declares, empty for the stored one.
 func (s *Service) EnsureDeclared(ctx context.Context, want map[string]State, declared Language) error {

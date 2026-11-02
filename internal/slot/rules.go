@@ -213,7 +213,7 @@ func (m MissingDefault) Message() string {
 }
 
 // MissingDefaults lists every Slot that is on for new Titles and lacks a default for Movies or for Series, in the order of
-// the set, Movies before Series within a Slot. Finishing setup needs none (ADR 0026).
+// the set, Movies before Series within a Slot. Finishing setup needs none (#304).
 func MissingDefaults(set []Record) []MissingDefault {
 	var out []MissingDefault
 	for _, r := range set {

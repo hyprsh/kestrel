@@ -49,12 +49,11 @@ func (s *server) profileToAPI(p profiles.Profile, slots []slot.Record) oapi.Prof
 		movies = movies || r.DefaultMovies == p.Key
 		series = series || r.DefaultSeries == p.Key
 	}
-	kinds := []oapi.TitleKind{}
-	if p.AppliesTo(release.KindMovie) {
-		kinds = append(kinds, oapi.Movie)
-	}
-	if p.AppliesTo(release.KindSeries) {
-		kinds = append(kinds, oapi.Series)
+	var applies []release.Kind
+	for _, k := range []release.Kind{release.KindMovie, release.KindSeries} {
+		if p.AppliesTo(k) {
+			applies = append(applies, k)
+		}
 	}
 	var custom *bool
 	if p.Custom {
@@ -62,7 +61,8 @@ func (s *server) profileToAPI(p profiles.Profile, slots []slot.Record) oapi.Prof
 		custom = &yes
 	}
 	return oapi.Profile{
-		Key: p.Key, Name: p.Name, Slot: sl, LanguageRule: oapi.ProfileLanguageRule(p.RuleKey()), Kinds: kinds, ReleaseFamily: oapi.ProfileReleaseFamily(p.Family.OrDefault()),
+		Key: p.Key, Name: p.Name, Slot: sl, LanguageRule: oapi.ProfileLanguageRule(p.RuleKey()), Kinds: kindsToAPI(applies), ReleaseFamily: oapi.ProfileReleaseFamily(p.Family.OrDefault()),
+		Resolution:       oapi.ProfileResolution(p.Resolution()),
 		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalChoice), OriginalFallback: p.OriginalChoice.DeprecatedFlag(),
 		Enabled: p.Enabled, DefaultMovies: movies, DefaultSeries: series,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
@@ -162,9 +162,11 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 		if b.Name != nil {
 			name = *b.Name
 		}
-		p, err = s.profiles.Import(ctx, profiles.Recipe{
-			Family: scoring.ReleaseFamily(*b.ReleaseFamily), Resolution: profiles.Resolution(*b.Resolution), Rule: string(*b.LanguageRule),
-		}, name)
+		var rc profiles.Recipe
+		if rc, err = profiles.ParseRecipe(scoring.ReleaseFamily(*b.ReleaseFamily), profiles.Resolution(*b.Resolution), string(*b.LanguageRule)); err != nil {
+			return nil, profilesProblem(err)
+		}
+		p, err = s.profiles.Import(ctx, rc, name)
 	case b.CopyFrom != nil && b.Name != nil:
 		p, err = s.profiles.Create(ctx, *b.Name, *b.CopyFrom)
 	default:
@@ -193,17 +195,9 @@ func (s *server) ListProfileSuggestions(ctx context.Context, _ oapi.ListProfileS
 			})
 		}
 		g := &out.Groups[len(out.Groups)-1]
-		kinds := []oapi.TitleKind{}
-		for _, k := range sg.Kinds {
-			if k == release.KindMovie {
-				kinds = append(kinds, oapi.Movie)
-			} else {
-				kinds = append(kinds, oapi.Series)
-			}
-		}
 		g.Items = append(g.Items, oapi.ProfileSuggestion{
 			Name: sg.Name, ReleaseFamily: oapi.ProfileReleaseFamily(sg.Recipe.Family), Resolution: oapi.ProfileResolution(sg.Recipe.Resolution),
-			LanguageRule: oapi.ProfileLanguageRule(sg.Recipe.Rule), Kinds: kinds,
+			LanguageRule: oapi.ProfileLanguageRule(sg.Recipe.RuleKey()), Kinds: kindsToAPI(sg.Kinds),
 		})
 	}
 	return oapi.ListProfileSuggestions200JSONResponse(out), nil

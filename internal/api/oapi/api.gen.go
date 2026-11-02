@@ -3884,6 +3884,9 @@ type Profile struct {
 	// ReleaseFamily Which kind of Releases the Profile goes after, as TRaSH groups them. Any is always `bluray-web`.
 	ReleaseFamily ProfileReleaseFamily `json:"release_family"`
 
+	// Resolution The resolution range the Profile takes, as a recipe names it; `min_height` and `max_height` are its bounds.
+	Resolution ProfileResolution `json:"resolution"`
+
 	// Slot Deprecated: a Profile belongs to no Slot (any Profile can fill any Slot). For v1 clients this is derived
 	// from the Slots: the first Slot, in order, that names the Profile as its default for either kind. Left out
 	// for a Profile no Slot names as its default.
@@ -5065,7 +5068,7 @@ type SlotPresetId string
 
 // SlotPresetList defines model for SlotPresetList.
 type SlotPresetList struct {
-	// Available `false` once the library holds a Version, or while the Config File declares `slots`.
+	// Available `false` once the library holds a Version, or while the Config File declares `slots` or `profiles`.
 	Available bool         `json:"available"`
 	Items     []SlotPreset `json:"items"`
 }

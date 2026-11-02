@@ -586,11 +586,11 @@ paths:
       operationId: listSlotPresets
       summary: The Slot presets the setup wizard offers
       description: |
-        The four presets of ADR 0026, each a set of Slots with the recipe of every default Profile. `available` is
+        The four presets, each a set of Slots with the recipe of every default Profile. `available` is
         `false`, and `items` empty, once the library holds any Version: a preset replaces the Slots, so a library that
         has Versions edits them one by one (`PATCH /slots/{id}`). The Primary Language names the preset that is
         labelled with it ("German + Original") and the Profiles that follow it. `items` is empty too while the
-        Config File declares `slots`.
+        Config File declares `slots` or `profiles`.
       tags: [slots]
       responses:
         "200":
@@ -3902,7 +3902,7 @@ components:
       properties:
         available:
           type: boolean
-          description: "`false` once the library holds a Version, or while the Config File declares `slots`."
+          description: "`false` once the library holds a Version, or while the Config File declares `slots` or `profiles`."
         items:
           type: array
           items:
@@ -3971,7 +3971,7 @@ components:
           description: "`duplicate_profile`: the keys of the two Profiles that are the same recipe."
     Profile:
       type: object
-      required: [key, name, release_family, language_rule, kinds, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
+      required: [key, name, release_family, resolution, language_rule, kinds, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
       properties:
         from_config_file:
           type: boolean
@@ -3994,6 +3994,10 @@ components:
           allOf:
             - $ref: "#/components/schemas/ProfileReleaseFamily"
           description: Which kind of Releases the Profile goes after, as TRaSH groups them. Any is always `bluray-web`.
+        resolution:
+          allOf:
+            - $ref: "#/components/schemas/ProfileResolution"
+          description: The resolution range the Profile takes, as a recipe names it; `min_height` and `max_height` are its bounds.
         language_rule:
           allOf:
             - $ref: "#/components/schemas/ProfileLanguageRule"

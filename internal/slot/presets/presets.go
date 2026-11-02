@@ -1,4 +1,4 @@
-// Package presets holds the Slot presets of the setup wizard (ADR 0026) and applies one in a single transaction:
+// Package presets holds the Slot presets of the setup wizard (#304) and applies one in a single transaction:
 // it replaces the Slots, brings in each Slot's default Profiles as recipes, and sets the defaults.
 package presets
 
@@ -44,15 +44,19 @@ type Preset struct {
 	Slots []Slot
 }
 
-func recipe(family scoring.ReleaseFamily, res profiles.Resolution, rule string) *profiles.Recipe {
+func recipe(family scoring.ReleaseFamily, res profiles.Resolution, rule scoring.LanguageRule) *profiles.Recipe {
 	return &profiles.Recipe{Family: family, Resolution: res, Rule: rule}
 }
 
 // All is the presets for a household whose Primary Language is named lang ("German"), in the order the wizard shows
 // them. This is the one place that says what they are.
 func All(lang string) []Preset {
-	hd := func() *profiles.Recipe { return recipe(scoring.FamilyBlurayWeb, profiles.ResHD, "primary") }
-	uhd := func() *profiles.Recipe { return recipe(scoring.FamilyBlurayWeb, profiles.ResUHD, "primary") }
+	hd := func() *profiles.Recipe {
+		return recipe(scoring.FamilyBlurayWeb, profiles.ResHD, scoring.PrimaryLanguage)
+	}
+	uhd := func() *profiles.Recipe {
+		return recipe(scoring.FamilyBlurayWeb, profiles.ResUHD, scoring.PrimaryLanguage)
+	}
 	return []Preset{
 		{ID: OneCopy, Name: "One copy", Slots: []Slot{
 			{Label: "Standard", Movies: hd(), Series: hd(), OnForNew: true},
@@ -63,11 +67,11 @@ func All(lang string) []Preset {
 		}},
 		{ID: StreamingRemuxArchive, Name: "Streaming + Remux archive", Slots: []Slot{
 			{Label: "Standard", Movies: hd(), Series: hd(), OnForNew: true},
-			{Label: "Remux", Movies: recipe(scoring.FamilyRemuxWeb, profiles.ResUHD, "primary")},
+			{Label: "Remux", Movies: recipe(scoring.FamilyRemuxWeb, profiles.ResUHD, scoring.PrimaryLanguage)},
 		}},
 		{ID: LanguagePlusOriginal, Name: lang + " + Original", Slots: []Slot{
 			{Label: lang, Movies: hd(), Series: hd(), OnForNew: true},
-			{Label: "Original", Movies: recipe(scoring.FamilyBlurayWeb, profiles.ResHD, "original"), Series: recipe(scoring.FamilyBlurayWeb, profiles.ResHD, "original"), OnForNew: true},
+			{Label: "Original", Movies: recipe(scoring.FamilyBlurayWeb, profiles.ResHD, scoring.OriginalLanguage), Series: recipe(scoring.FamilyBlurayWeb, profiles.ResHD, scoring.OriginalLanguage), OnForNew: true},
 		}},
 	}
 }

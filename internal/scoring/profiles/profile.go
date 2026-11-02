@@ -63,14 +63,34 @@ func (p Profile) Spec(primary release.Language) scoring.ProfileSpec {
 
 // RuleKey is the Profile's language rule as the API and the Config File name it: primary, original, or the
 // named language's code (en, de or fr).
-func (p Profile) RuleKey() string {
-	switch p.Rule {
+func (p Profile) RuleKey() string { return ruleKey(p.Rule, p.Named) }
+
+// ruleKey is the key of a language rule: primary, original, or the named language's code.
+func ruleKey(rule scoring.LanguageRule, named Language) string {
+	switch rule {
 	case scoring.OriginalLanguage:
 		return "original"
 	case scoring.NamedLanguage:
-		return string(p.Named)
+		return string(named)
 	}
 	return "primary"
+}
+
+// Resolution is the resolution range of the Profile as a recipe names it.
+func (p Profile) Resolution() Resolution {
+	switch {
+	case p.UHD():
+		return ResUHD
+	case p.Any:
+		return ResAny
+	}
+	return ResHD
+}
+
+// setResolution gives the Profile the bounds of a resolution range.
+func (p *Profile) setResolution(r Resolution) {
+	p.Any = r == ResAny
+	p.MinHeight, p.MaxHeight = scoring.HeightBounds(r == ResUHD, p.Any)
 }
 
 // ParseRule is the language rule a key names, and the named language when it is one; false for a key that is none.

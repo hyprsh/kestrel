@@ -13,7 +13,7 @@ import (
 // twoProfiles declares two Profiles, one of the builtin keys on its builtin recipe and one recipe Profile, and two Slots.
 const twoProfiles = `profiles:
   hd-primary: {enabled: true, original_language: reject}
-  remux-4k:   {enabled: true, original_language: offer, name: 4K Remux, release_family: remux-web, resolution: uhd, language_rule: primary}
+  remux-4k:   {enabled: true, original_language: offer, name: 4K Remux, release_family: remux-web, resolution: 4k, language_rule: primary}
 slots:
   - {id: standard, label: Standard, default_movies: hd-primary, default_series: hd-primary, on_for_new_titles: true}
   - {id: remux, label: Remux, default_movies: remux-4k, default_series: remux-4k}
@@ -123,18 +123,27 @@ func TestAFileNamingTheSixBuiltinProfilesKeepsTheHouseholdsCustomOnesDisabled(t 
 	}
 }
 
+// The Config File says 4k, as the GLOSSARY does; uhd is not one of its words.
+func TestADeclaredResolutionIsHdFourKOrAnyAndNotUhd(t *testing.T) {
+	t.Parallel()
+	err := newFreshInstance(t, "").declare(strings.Replace(twoProfiles, "resolution: 4k", "resolution: uhd", 1))
+	if err == nil || !strings.Contains(err.Error(), "profiles.remux-4k.resolution") || !strings.Contains(err.Error(), "hd, 4k or any") {
+		t.Fatalf("err = %v, want one on profiles.remux-4k.resolution naming hd, 4k and any", err)
+	}
+}
+
 func TestADeclaredRecipeProfileNeedsANameARecipeAndAResolution(t *testing.T) {
 	t.Parallel()
 	for _, field := range []string{"name", "release_family", "resolution", "language_rule"} {
 		t.Run(field, func(t *testing.T) {
 			t.Parallel()
 			var kept []string
-			for _, kv := range []string{"name: 4K Remux", "release_family: remux-web", "resolution: uhd", "language_rule: primary"} {
+			for _, kv := range []string{"name: 4K Remux", "release_family: remux-web", "resolution: 4k", "language_rule: primary"} {
 				if !strings.HasPrefix(kv, field+":") {
 					kept = append(kept, kv)
 				}
 			}
-			body := strings.Replace(twoProfiles, "name: 4K Remux, release_family: remux-web, resolution: uhd, language_rule: primary", strings.Join(kept, ", "), 1)
+			body := strings.Replace(twoProfiles, "name: 4K Remux, release_family: remux-web, resolution: 4k, language_rule: primary", strings.Join(kept, ", "), 1)
 			err := newInstance(t, "").declare(declaredAccount+body, "KESTREL_ADMIN_PASSWORD", "correct horse")
 			if err == nil || !strings.Contains(err.Error(), "profiles.remux-4k."+field) {
 				t.Fatalf("err = %v, want one naming profiles.remux-4k.%s", err, field)

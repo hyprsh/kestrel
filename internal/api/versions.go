@@ -21,12 +21,24 @@ func (s *server) checkProfile(ctx context.Context, key string, kind release.Kind
 	return profileProblem("profile", all, key, kind)
 }
 
-// kindOf is the scoring kind of a Title's kind.
-func kindOf(k library.Kind) release.Kind {
-	if k == library.Series {
+// kindOf is the scoring kind of a Title's kind, as the library or the API names it.
+func kindOf[K library.Kind | oapi.TitleKind](k K) release.Kind {
+	if string(k) == string(release.KindSeries) {
 		return release.KindSeries
 	}
 	return release.KindMovie
+}
+
+// kindsToAPI is the kinds as the API names them; never nil, so it encodes as a list.
+func kindsToAPI(ks []release.Kind) []oapi.TitleKind {
+	out := make([]oapi.TitleKind, len(ks))
+	for i, k := range ks {
+		out[i] = oapi.Movie
+		if k == release.KindSeries {
+			out[i] = oapi.Series
+		}
+	}
+	return out
 }
 
 func kindName(k release.Kind) string {
@@ -196,12 +208,4 @@ func (s *server) RefreshTitle(ctx context.Context, r oapi.RefreshTitleRequestObj
 	}
 	s.refresher.Enqueue(r.Id)
 	return oapi.RefreshTitle202Response{}, nil
-}
-
-// kindOfAPI is the scoring kind of a Title kind as the API names it.
-func kindOfAPI(k oapi.TitleKind) release.Kind {
-	if k == oapi.Series {
-		return release.KindSeries
-	}
-	return release.KindMovie
 }

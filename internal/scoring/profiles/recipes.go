@@ -2,10 +2,9 @@ package profiles
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hyprsh/kestrel/internal/release"
@@ -25,12 +24,38 @@ const (
 // Resolutions lists them in display order.
 var Resolutions = []Resolution{ResHD, ResUHD, ResAny}
 
-// Recipe is what a Profile is made of (ADR 0026): a resolution range, a Release Family and a language rule. Rule
-// is the key the API and the Config File name: primary, original, or a named language's code.
+// ResolutionOf is the resolution range a Config File's `resolution` names: hd, 4k or any.
+func ResolutionOf(word string) (Resolution, bool) {
+	switch word {
+	case "hd":
+		return ResHD, true
+	case "4k":
+		return ResUHD, true
+	case "any":
+		return ResAny, true
+	}
+	return "", false
+}
+
+// Recipe is what a Profile is made of (ADR 0026): a resolution range, a Release Family and a language rule. Named is the
+// language of a named-language rule and empty otherwise.
 type Recipe struct {
 	Family     scoring.ReleaseFamily
 	Resolution Resolution
-	Rule       string
+	Rule       scoring.LanguageRule
+	Named      Language
+}
+
+// RuleKey is the rule as the API names it: primary, original, or the named language's code.
+func (r Recipe) RuleKey() string { return ruleKey(r.Rule, r.Named) }
+
+// ParseRecipe is the recipe a Release Family, a resolution and a language rule key name; a *ValidationError when the key is none.
+func ParseRecipe(family scoring.ReleaseFamily, res Resolution, rule string) (Recipe, error) {
+	r, named, ok := ParseRule(rule)
+	if !ok {
+		return Recipe{}, invalid("language_rule", "Choose primary, original, en, de or fr")
+	}
+	return Recipe{Family: family, Resolution: res, Rule: r, Named: named}, nil
 }
 
 // Suggestion is a recipe the household can import, with the name it would get and the kinds it applies to.
@@ -45,41 +70,28 @@ var ErrRecipeExists = errors.New("a Profile for that recipe exists")
 
 // RecipeOf is the recipe a Profile is made of, as stored.
 func RecipeOf(p Profile) Recipe {
-	res := ResHD
-	switch {
-	case p.UHD():
-		res = ResUHD
-	case p.Any:
-		res = ResAny
-	}
-	return Recipe{Family: p.Family.OrDefault(), Resolution: res, Rule: p.RuleKey()}
+	return Recipe{Family: p.Family.OrDefault(), Resolution: p.Resolution(), Rule: p.Rule, Named: p.Named}
 }
 
 // normalized is the recipe with a named language that is the Primary Language written as the Primary-Language rule,
 // which is what the Profile does under that Primary Language.
 func (r Recipe) normalized(primary Language) Recipe {
-	if r.Rule == string(primary) {
-		r.Rule = "primary"
+	if r.Rule == scoring.NamedLanguage && r.Named == primary {
+		r.Rule, r.Named = scoring.PrimaryLanguage, ""
 	}
 	return r
 }
 
 // profile is the Profile the recipe makes, named name.
 func (r Recipe) profile(name string) (Profile, bool) {
-	rule, named, ok := ParseRule(r.Rule)
-	if !ok || !r.Family.Valid() {
+	if !r.Family.Valid() || !slices.Contains(Resolutions, r.Resolution) {
 		return Profile{}, false
 	}
-	p := Profile{Name: name, Family: r.Family, Rule: rule, Named: named, OriginalChoice: scoring.OriginalReject}
-	switch r.Resolution {
-	case ResHD:
-	case ResUHD:
-	case ResAny:
-		p.Any = true
-	default:
+	if _, _, ok := ParseRule(r.RuleKey()); !ok {
 		return Profile{}, false
 	}
-	p.MinHeight, p.MaxHeight = scoring.HeightBounds(r.Resolution == ResUHD, p.Any)
+	p := Profile{Name: name, Family: r.Family, Rule: r.Rule, Named: r.Named, OriginalChoice: scoring.OriginalReject}
+	p.setResolution(r.Resolution)
 	return p, true
 }
 
@@ -103,12 +115,11 @@ func recipeName(r Recipe) string {
 		parts = []string{res}
 	}
 	switch r.Rule {
-	case "primary":
-	case "original":
+	case scoring.PrimaryLanguage:
+	case scoring.OriginalLanguage:
 		parts = append(parts, "Original")
 	default:
-		_, named, _ := ParseRule(r.Rule)
-		parts = append(parts, named.Release().Name)
+		parts = append(parts, r.Named.Release().Name)
 	}
 	return strings.Join(parts, " ")
 }
@@ -127,6 +138,15 @@ func kindsOf(r Recipe, primary Language) []release.Kind {
 		}
 	}
 	return out
+}
+
+// suggestedRules are the language rules a suggestion can have, in display order.
+var suggestedRules = []struct {
+	rule  scoring.LanguageRule
+	named Language
+}{
+	{scoring.PrimaryLanguage, ""}, {scoring.OriginalLanguage, ""},
+	{scoring.NamedLanguage, English}, {scoring.NamedLanguage, German}, {scoring.NamedLanguage, French},
 }
 
 // Suggestions lists every valid recipe the household has no Profile for, in display order: by Release Family, then
@@ -148,8 +168,8 @@ func (s *Service) Suggestions(ctx context.Context) ([]Suggestion, error) {
 	var out []Suggestion
 	for _, family := range scoring.ReleaseFamilies {
 		for _, res := range Resolutions {
-			for _, rule := range []string{"primary", "original", string(English), string(German), string(French)} {
-				r := Recipe{Family: family, Resolution: res, Rule: rule}
+			for _, rule := range suggestedRules {
+				r := Recipe{Family: family, Resolution: res, Rule: rule.rule, Named: rule.named}
 				if r.normalized(region.Primary) != r || have[r] {
 					continue
 				}
@@ -200,31 +220,12 @@ func (s *Service) Import(ctx context.Context, r Recipe, name string) (Profile, e
 		if err := checkName(name, "", rows); err != nil {
 			return err
 		}
-		top, err := q.MaxProfileSort(ctx)
-		if err != nil {
-			return err
-		}
-		var b [4]byte
-		_, _ = rand.Read(b[:])
-		key := "custom-" + hex.EncodeToString(b[:])
-		if err := q.InsertCustomProfile(ctx, db.InsertCustomProfileParams{
-			Key: key, Name: name, Sort: toInt64(top) + 1, Any: b2i(p.Any), ReleaseFamily: string(p.Family), LanguageRule: p.RuleKey(),
+		out, err = insertCustom(ctx, q, db.InsertCustomProfileParams{
+			Name: name, Any: b2i(p.Any), ReleaseFamily: string(p.Family), LanguageRule: p.RuleKey(),
 			MinHeight: int64(p.MinHeight), MaxHeight: int64(p.MaxHeight),
 			TrashProfileMovies: movies, TrashProfileSeries: series, OriginalLanguage: string(scoring.OriginalReject),
-		}); err != nil {
-			return err
-		}
-		rows, err = q.ListProfiles(ctx)
-		if err != nil {
-			return err
-		}
-		for _, row := range rows {
-			if row.Key == key {
-				out, err = fromRow(row)
-				return err
-			}
-		}
-		return ErrNotFound
+		})
+		return err
 	})
 	return out, err
 }
@@ -233,7 +234,7 @@ func (s *Service) Import(ctx context.Context, r Recipe, name string) (Profile, e
 func (r Recipe) Name() string { return recipeName(r) }
 
 // Ensure is the household's Profile of the recipe, enabled: the one it has, or else an import of the recipe. A setup
-// preset names its default Profiles this way (ADR 0026), so a household that already has "HD" keeps it.
+// preset names its default Profiles this way (#304), so a household that already has "HD" keeps it.
 func (s *Service) Ensure(ctx context.Context, r Recipe) (Profile, error) {
 	var all []Profile
 	err := s.write(ctx, func(q *db.Queries) error { // through the write side, to see what an open transaction has made

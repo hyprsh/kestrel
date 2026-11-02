@@ -109,7 +109,7 @@ func (d declarer) sections() []section {
 		})
 	}
 	// The language applies after the Profiles and the Slots: the Profiles it re-backs and the Slots it checks them against
-	// are then the file's, so a file that changes the language and the Profiles at once starts (ADR 0026).
+	// are then the file's, so a file that changes the language and the Profiles at once starts (#304).
 	var language *section
 	if l := f.LanguageRegion; l != nil {
 		want := profiles.Region{Primary: profiles.Language(l.PrimaryLanguage), Country: l.ReleaseDateCountry}
@@ -132,7 +132,7 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.declareDisplay(ctx, patch) },
 		})
 	}
-	// A fresh install has none of the six builtin Profiles (ADR 0026), and a Slot's default must name one: a file that
+	// A fresh install has none of the six builtin Profiles (#304), and a Slot's default must name one: a file that
 	// declares the Profiles makes them first, then the Slots and the Profiles' settings apply as before.
 	var wantProfiles map[string]profiles.State
 	var profileKeys []string // non-nil when the file declares the Profiles
@@ -151,7 +151,7 @@ func (d declarer) sections() []section {
 				st.Name = *p.Name
 			}
 			if p.Resolution != nil {
-				st.Resolution = profiles.Resolution(*p.Resolution)
+				st.Resolution = *p.Resolution
 			}
 			wantProfiles[key] = st
 			profileKeys = append(profileKeys, key)
@@ -196,12 +196,12 @@ func (d declarer) sections() []section {
 		out = append(out, section{
 			check: func(ctx context.Context) error {
 				// The recipes are backed under the Primary Language the file declares, else the stored one.
-				primary := profiles.Language("")
-				if l := f.LanguageRegion; l != nil {
-					primary = profiles.Language(l.PrimaryLanguage)
-				} else if region, _, err := d.profiles.Region(ctx); err != nil {
-					return err
-				} else {
+				primary := declaredPrimary(f)
+				if primary == "" {
+					region, _, err := d.profiles.Region(ctx)
+					if err != nil {
+						return err
+					}
 					primary = region.Primary
 				}
 				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want, primary))); err != nil {

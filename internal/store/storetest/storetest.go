@@ -1,6 +1,6 @@
 // Package storetest gives tests a config dir whose database is already
 // migrated. Dir holds the six Profiles and the 4K Slot that installs before
-// ADR 0026 have, which the tests were written against; FreshDir holds what a
+// #304 have, which the tests were written against; FreshDir holds what a
 // fresh install gets (no Profiles, only the Standard Slot). Running every migration takes about 10 ms per store, and about
 // 140 ms under the race detector; copying a database migrated once per test
 // binary takes about a tenth of that. store.Open then finds nothing to migrate.

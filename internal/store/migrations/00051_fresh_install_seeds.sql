@@ -1,5 +1,5 @@
 -- +goose Up
--- Owned by the profiles and slot modules (ADR 0026): a fresh install starts with no Profiles and one Slot, Standard, on for
+-- Owned by the profiles and slot modules (#304): a fresh install starts with no Profiles and one Slot, Standard, on for
 -- new Titles with no default Profile. Migrations 00005, 00046 and 00048 still seed the six Profiles and the 4K Slot, and stay
 -- as they are, because an install that already ran them keeps what they made.
 --

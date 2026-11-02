@@ -452,11 +452,11 @@ export interface paths {
         };
         /**
          * The Slot presets the setup wizard offers
-         * @description The four presets of ADR 0026, each a set of Slots with the recipe of every default Profile. `available` is
+         * @description The four presets, each a set of Slots with the recipe of every default Profile. `available` is
          *     `false`, and `items` empty, once the library holds any Version: a preset replaces the Slots, so a library that
          *     has Versions edits them one by one (`PATCH /slots/{id}`). The Primary Language names the preset that is
          *     labelled with it ("German + Original") and the Profiles that follow it. `items` is empty too while the
-         *     Config File declares `slots`.
+         *     Config File declares `slots` or `profiles`.
          */
         get: operations["listSlotPresets"];
         put?: never;
@@ -2901,7 +2901,7 @@ export interface components {
             slots: components["schemas"]["SlotPresetSlot"][];
         };
         SlotPresetList: {
-            /** @description `false` once the library holds a Version, or while the Config File declares `slots`. */
+            /** @description `false` once the library holds a Version, or while the Config File declares `slots` or `profiles`. */
             available: boolean;
             items: components["schemas"]["SlotPreset"][];
         };
@@ -2961,6 +2961,8 @@ export interface components {
             slot?: components["schemas"]["SlotId"];
             /** @description Which kind of Releases the Profile goes after, as TRaSH groups them. Any is always `bluray-web`. */
             release_family: components["schemas"]["ProfileReleaseFamily"];
+            /** @description The resolution range the Profile takes, as a recipe names it; `min_height` and `max_height` are its bounds. */
+            resolution: components["schemas"]["ProfileResolution"];
             /**
              * @description Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
              *     Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same

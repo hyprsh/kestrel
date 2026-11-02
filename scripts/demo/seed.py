@@ -83,7 +83,7 @@ def call(method, path, body=None):
 for d in ("movies", "movies-family", "tv"):
     os.makedirs(f"{ROOT}/{d}", exist_ok=True)
 
-# A fresh install has no Profiles and only the Standard Slot (ADR 0026), and the demo library is today's: the six Profiles
+# A fresh install has no Profiles and only the Standard Slot (#304), and the demo library is today's: the six Profiles
 # and the 4K Slot, with the defaults they always had. Written straight into SQLite before the first API call reads them.
 _seed = sqlite3.connect(args.db, timeout=60)
 _seed.executescript("""
