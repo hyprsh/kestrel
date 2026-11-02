@@ -82,7 +82,8 @@ export function ProfilesSection() {
       {list.map((p) => {
         const d = detailOf(p.key)
         const scoring = mainScoring(d)
-        const uses = !p.enabled ? 'Off' : d && d.titles > 0 ? `${slotLabel[p.slot]} of ${plural(d.titles, 'Title')}` : `${slotLabel[p.slot]} · unused`
+        const place = (p.slot && slotLabel[p.slot]) || 'Any Slot' // a Profile has no Slot of its own now: #293 reworks this row
+        const uses = !p.enabled ? 'Off' : d && d.titles > 0 ? `${place} of ${plural(d.titles, 'Title')}` : `${place} · unused`
         const defaultFor = [p.default_movies ? 'Movies' : null, p.default_series ? 'Series' : null].filter(Boolean).join(' and ')
         const cutoff = scoring?.cutoff ?? null
         return (

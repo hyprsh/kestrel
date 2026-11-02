@@ -58,7 +58,7 @@ func TestBackingProfileTable(t *testing.T) {
 		{release.LangGerman, scoring.OriginalLanguage, slot.FourK, false, "uhd-bluray-web", "web-2160p"},
 	}
 	for _, r := range rows {
-		prof, err := snap.Profile(scoring.ProfileSpec{Slot: r.slot, Any: r.wide, Rule: r.rule, Primary: r.primary})
+		prof, err := snap.Profile(scoring.ProfileSpec{UHD: r.slot == slot.FourK, Any: r.wide, Rule: r.rule, Primary: r.primary})
 		if err != nil {
 			t.Errorf("%s rule %d %v wide=%v: %v", r.primary.Name, r.rule, r.slot, r.wide, err)
 			continue
@@ -81,7 +81,7 @@ func TestEveryProfileOfEveryPrimaryLanguageResolves(t *testing.T) {
 					if wide && sl != slot.Standard {
 						continue
 					}
-					if _, err := snap.Profile(scoring.ProfileSpec{Slot: sl, Any: wide, Rule: rule, Primary: primary}); err != nil {
+					if _, err := snap.Profile(scoring.ProfileSpec{UHD: sl == slot.FourK, Any: wide, Rule: rule, Primary: primary}); err != nil {
 						t.Errorf("%s rule=%d %v wide=%v: %v", primary.Name, rule, sl, wide, err)
 					}
 				}
@@ -91,7 +91,7 @@ func TestEveryProfileOfEveryPrimaryLanguageResolves(t *testing.T) {
 }
 
 func TestUnsupportedPrimaryLanguageHasNoBackingProfile(t *testing.T) {
-	_, err := embedded(t).Profile(scoring.ProfileSpec{Slot: slot.Standard, Primary: release.LangJapanese})
+	_, err := embedded(t).Profile(scoring.ProfileSpec{Primary: release.LangJapanese})
 	if err == nil {
 		t.Fatal("expected an error for a Primary Language TRaSH has no profiles for")
 	}
@@ -101,9 +101,8 @@ func TestAnyProfileSharesTheHDScoresAndWidensTheQualities(t *testing.T) {
 	snap := embedded(t)
 	spec := scoring.ProfileSpec{Rule: scoring.PrimaryLanguage, Primary: release.LangGerman}
 
-	spec.Slot = slot.Standard
 	hd, _ := snap.Profile(spec)
-	spec.Slot, spec.Any = slot.Standard, true
+	spec.Any = true
 	wide, _ := snap.Profile(spec)
 
 	if hd.MinHeight != 720 || hd.MaxHeight != 1080 || wide.MinHeight != 0 || wide.MaxHeight != 1080 {
@@ -162,7 +161,7 @@ func TestGermanProfileScoresFollowTheTrashScoreSet(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			prof, err := snap.Profile(scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
+			prof, err := snap.Profile(scoring.ProfileSpec{Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
 			if err != nil {
 				t.Fatal(err)
 			}

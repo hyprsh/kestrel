@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hyprsh/kestrel/internal/slot"
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
-	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 	"github.com/hyprsh/kestrel/internal/settings"
 	"github.com/hyprsh/kestrel/internal/store"
 	"github.com/hyprsh/kestrel/internal/store/storetest"
@@ -76,18 +74,10 @@ func TestSeedsTheSixBuiltinProfiles(t *testing.T) {
 		}
 	}
 	m := byKey(t, s)
-	if hd := m["hd-primary"]; !hd.DefaultMovies || !hd.DefaultSeries {
-		t.Errorf("hd-primary is not the default of both kinds: %+v", hd)
-	}
-	for _, k := range []string{"4k-original", "4k-primary", "any-primary", "hd-original"} {
-		if m[k].DefaultMovies || m[k].DefaultSeries {
-			t.Errorf("%s has a default out of the box", k)
-		}
-	}
-	if k := m["any-primary"]; !k.Any || k.Slot != slot.Standard || k.MinHeight != 0 || k.MaxHeight != 1080 {
+	if k := m["any-primary"]; !k.Any || k.MinHeight != 0 || k.MaxHeight != 1080 {
 		t.Errorf("any-primary = %+v", k)
 	}
-	if o := m["4k-original"]; o.Rule != scoring.OriginalLanguage || o.Slot != slot.FourK || o.MinHeight != 2160 {
+	if o := m["4k-original"]; o.Rule != scoring.OriginalLanguage || o.MinHeight != 2160 || o.MaxHeight != 2160 {
 		t.Errorf("4k-original = %+v", o)
 	}
 }
@@ -124,104 +114,69 @@ func TestUnknownProfileKey(t *testing.T) {
 	}
 }
 
-func TestAtMostOneDefaultPerSlotAndKind(t *testing.T) {
-	s := newService(t)
-	ctx := context.Background()
-
-	// Moving the HD default for Movies leaves Series alone.
-	if _, err := s.Patch(ctx, "any-primary", profiles.Patch{DefaultMovies: yes()}); err != nil {
-		t.Fatal(err)
-	}
-	m := byKey(t, s)
-	if m["hd-primary"].DefaultMovies || !m["any-primary"].DefaultMovies {
-		t.Errorf("movies default did not move: hd=%v wide=%v", m["hd-primary"].DefaultMovies, m["any-primary"].DefaultMovies)
-	}
-	if !m["hd-primary"].DefaultSeries || m["any-primary"].DefaultSeries {
-		t.Errorf("series default moved too")
-	}
-
-	// 4K takes a default and let go of it.
-	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{DefaultSeries: yes()}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{DefaultSeries: yes()}); err != nil {
-		t.Fatal(err)
-	}
-	m = byKey(t, s)
-	if m["4k-primary"].DefaultSeries || !m["4k-original"].DefaultSeries {
-		t.Errorf("4K series default did not move: %+v %+v", m["4k-primary"], m["4k-original"])
-	}
-	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{DefaultSeries: no()}); err != nil {
-		t.Fatalf("unsetting a 4K default: %v", err)
-	}
-	for _, p := range byKey(t, s) {
-		if p.Slot == slot.FourK && p.DefaultSeries {
-			t.Errorf("%s kept its default", p.Key)
-		}
-	}
+func setSlotDefaults(t *testing.T, st *store.Store, slotID, movies, series string) {
+	t.Helper()
+	mustExec(t, st, `UPDATE slots SET default_movies = ?, default_series = ? WHERE id = ?`, movies, series, slotID)
 }
 
-func TestHDAlwaysHasExactlyOneDefault(t *testing.T) {
-	s := newService(t)
+func TestAProfileASlotDefaultsToCannotBeDisabled(t *testing.T) {
+	s, st := newRig(t)
 	ctx := context.Background()
 
-	_, err := s.Patch(ctx, "hd-primary", profiles.Patch{DefaultMovies: no()})
-	wantField(t, err, "default_movies")
-	_, err = s.Patch(ctx, "hd-primary", profiles.Patch{DefaultSeries: no()})
-	wantField(t, err, "default_series")
-	_, err = s.Patch(ctx, "hd-primary", profiles.Patch{Enabled: no()})
-	wantField(t, err, "enabled")
-
-	// Unchanged after the refusals.
-	if p := byKey(t, s)["hd-primary"]; !p.Enabled || !p.DefaultMovies || !p.DefaultSeries {
+	// A fresh library has hd-primary as the Standard default and 4k-primary as the 4K default.
+	for _, key := range []string{"hd-primary", "4k-primary"} {
+		_, err := s.Patch(ctx, key, profiles.Patch{Enabled: no()})
+		var de *profiles.DefaultError
+		if !errors.As(err, &de) || de.Profile != key {
+			t.Fatalf("disabling the default %s: err = %v, want a *DefaultError", key, err)
+		}
+	}
+	if p := byKey(t, s)["hd-primary"]; !p.Enabled {
 		t.Errorf("hd-primary changed by a rejected patch: %+v", p)
 	}
 
-	// Another HD default for both kinds frees hd-primary to be disabled.
-	if _, err := s.Patch(ctx, "hd-original", profiles.Patch{DefaultMovies: yes(), DefaultSeries: yes()}); err != nil {
-		t.Fatal(err)
+	// A Profile that is the default for one kind only is still held.
+	setSlotDefaults(t, st, "standard", "hd-original", "hd-primary")
+	if _, err := s.Patch(ctx, "hd-primary", profiles.Patch{Enabled: no()}); err == nil {
+		t.Error("disabled the Series default")
 	}
+	// Once the default moves, the old one can go.
+	setSlotDefaults(t, st, "standard", "hd-original", "hd-original")
 	if _, err := s.Patch(ctx, "hd-primary", profiles.Patch{Enabled: no()}); err != nil {
-		t.Fatalf("disabling a non-default HD Profile: %v", err)
+		t.Fatalf("disabling a Profile no Slot defaults to: %v", err)
+	}
+	// Any Profile can be a Slot's default, so a Profile no Slot used before can be held too.
+	setSlotDefaults(t, st, "4k", "any-primary", "any-primary")
+	if _, err := s.Patch(ctx, "any-primary", profiles.Patch{Enabled: no()}); err == nil {
+		t.Error("disabled the 4K Slot's default, a Standard-range Profile")
 	}
 }
 
-func TestDisablingAProfileClearsItsDefaults(t *testing.T) {
-	s := newService(t)
+func TestAProfileASlotDefaultsToCannotBeDeleted(t *testing.T) {
+	s, st := newRig(t)
 	ctx := context.Background()
-	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{DefaultMovies: yes(), DefaultSeries: yes()}); err != nil {
-		t.Fatal(err)
-	}
-	p, err := s.Patch(ctx, "4k-primary", profiles.Patch{Enabled: no()})
+	p, err := s.Create(ctx, "Mine", "hd-primary")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Enabled || p.DefaultMovies || p.DefaultSeries {
-		t.Errorf("after disabling: %+v", p)
+	setSlotDefaults(t, st, "4k", p.Key, p.Key)
+	var de *profiles.DefaultError
+	if err := s.Delete(ctx, p.Key); !errors.As(err, &de) {
+		t.Fatalf("deleting a Slot's default: err = %v, want a *DefaultError", err)
 	}
-}
-
-func TestADisabledProfileCannotBeADefault(t *testing.T) {
-	s := newService(t)
-	ctx := context.Background()
-	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{Enabled: no()}); err != nil {
-		t.Fatal(err)
-	}
-	_, err := s.Patch(ctx, "4k-original", profiles.Patch{DefaultMovies: yes()})
-	wantField(t, err, "default_movies")
-	// Enabling and defaulting in one patch is fine.
-	if _, err := s.Patch(ctx, "4k-original", profiles.Patch{Enabled: yes(), DefaultMovies: yes()}); err != nil {
-		t.Fatalf("enable and default together: %v", err)
+	setSlotDefaults(t, st, "4k", "4k-primary", "4k-primary")
+	if err := s.Delete(ctx, p.Key); err != nil {
+		t.Fatalf("deleting it once no Slot defaults to it: %v", err)
 	}
 }
 
 func TestOriginalLanguageChoiceIsKeptWhenDisabling(t *testing.T) {
 	s := newService(t)
 	ctx := context.Background()
-	if _, err := s.Patch(ctx, "4k-primary", profiles.Patch{OriginalChoice: choice(scoring.OriginalOffer)}); err != nil {
+	if _, err := s.Patch(ctx, "any-primary", profiles.Patch{OriginalChoice: choice(scoring.OriginalOffer)}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := s.Patch(ctx, "4k-primary", profiles.Patch{Enabled: no()})
+	p, err := s.Patch(ctx, "any-primary", profiles.Patch{Enabled: no()})
 	if err != nil || p.OriginalChoice != scoring.OriginalOffer {
 		t.Fatalf("%+v, %v", p, err)
 	}
@@ -317,59 +272,38 @@ func TestRepointKeepsProfileSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := byKey(t, s)["hd-primary"]
-	if p.OriginalChoice != scoring.OriginalAccept || !p.DefaultMovies || !p.Enabled {
+	if p.OriginalChoice != scoring.OriginalAccept || !p.Enabled {
 		t.Errorf("settings lost on re-point: %+v", p)
 	}
 }
 
-func TestSeededProfilesLieInsideTheirSlot(t *testing.T) {
-	for _, p := range byKey(t, newService(t)) {
-		if !p.Slot.Contains(p.MinHeight, p.MaxHeight) {
-			t.Errorf("%s: heights %d-%d are outside the %v Slot", p.Key, p.MinHeight, p.MaxHeight, p.Slot)
-		}
-	}
+func TestAProfilesOwnHeightRangeIsTheOnlyResolutionRule(t *testing.T) {
 	for _, p := range profiles.Builtin() {
-		if !p.Slot.Contains(p.MinHeight, p.MaxHeight) {
-			t.Errorf("builtin %s: heights %d-%d are outside the %v Slot", p.Key, p.MinHeight, p.MaxHeight, p.Slot)
+		if p.MinHeight < 0 || p.MaxHeight > 2160 || p.MinHeight > p.MaxHeight {
+			t.Errorf("builtin %s: heights %d-%d", p.Key, p.MinHeight, p.MaxHeight)
 		}
 	}
-}
-
-func TestLoadingARowOutsideItsSlotIsAnError(t *testing.T) {
-	row := db.Profile{Key: "x", Name: "X", Slot: "standard", LanguageRule: "primary", MinHeight: 0, MaxHeight: 2160}
-	if _, err := profiles.FromRow(row); err == nil {
-		t.Error("a Standard row up to 2160p loaded")
-	}
-	row.MaxHeight = 1080
-	if _, err := profiles.FromRow(row); err != nil {
-		t.Errorf("a Standard row 0-1080 was refused: %v", err)
-	}
-}
-
-func TestAProfileOutsideItsSlotCannotBeStored(t *testing.T) {
 	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
 	n := 0
-	insert := func(slotKey string, minH, maxH int) error {
+	insert := func(minH, maxH int) error {
 		n++
-		_, err := st.Write().Exec(`INSERT INTO profiles (key, name, sort, slot, any, language_rule, min_height, max_height, trash_profile_movies, trash_profile_series)
-			VALUES (?, 'X', 99, ?, 0, 'primary', ?, ?, 'a', 'b')`, fmt.Sprintf("x-%d", n), slotKey, minH, maxH)
+		_, err := st.Write().Exec(`INSERT INTO profiles (key, name, sort, any, language_rule, min_height, max_height, trash_profile_movies, trash_profile_series)
+			VALUES (?, 'X', 99, 0, 'primary', ?, ?, 'a', 'b')`, fmt.Sprintf("x-%d", n), minH, maxH)
 		return err
 	}
-	if err := insert("standard", 0, 2160); err == nil {
-		t.Error("a Standard Profile up to 2160p was stored")
+	for _, c := range [][2]int{{0, 2160}, {1080, 2160}, {2160, 2160}, {480, 1080}} {
+		if err := insert(c[0], c[1]); err != nil {
+			t.Errorf("a Profile %d-%d was refused: %v", c[0], c[1], err)
+		}
 	}
-	if err := insert("4k", 1080, 2160); err == nil {
-		t.Error("a 4K Profile from 1080p was stored")
-	}
-	if err := insert("hd", 720, 1080); err == nil {
-		t.Error("a Profile in the retired hd Slot was stored")
-	}
-	if err := insert("standard", 480, 1080); err != nil {
-		t.Errorf("a Standard Profile 480-1080 was refused: %v", err)
+	for _, c := range [][2]int{{0, 4320}, {1080, 720}, {-1, 1080}} {
+		if err := insert(c[0], c[1]); err == nil {
+			t.Errorf("a Profile %d-%d was stored", c[0], c[1])
+		}
 	}
 }
 

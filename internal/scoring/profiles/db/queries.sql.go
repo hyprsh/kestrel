@@ -10,24 +10,6 @@ import (
 	"database/sql"
 )
 
-const clearSlotDefaultMovies = `-- name: ClearSlotDefaultMovies :exec
-UPDATE profiles SET default_movies = 0 WHERE slot = ?
-`
-
-func (q *Queries) ClearSlotDefaultMovies(ctx context.Context, slot string) error {
-	_, err := q.db.ExecContext(ctx, clearSlotDefaultMovies, slot)
-	return err
-}
-
-const clearSlotDefaultSeries = `-- name: ClearSlotDefaultSeries :exec
-UPDATE profiles SET default_series = 0 WHERE slot = ?
-`
-
-func (q *Queries) ClearSlotDefaultSeries(ctx context.Context, slot string) error {
-	_, err := q.db.ExecContext(ctx, clearSlotDefaultSeries, slot)
-	return err
-}
-
 const cutoffFiles = `-- name: CutoffFiles :many
 SELECT v.profile_key, t.kind, f.version_id, f.score, f.parsed_release,
        (SELECT COUNT(*) FROM file_episodes fe WHERE fe.file_id = f.id) AS episodes
@@ -128,18 +110,17 @@ func (q *Queries) DeleteCustomProfile(ctx context.Context, key string) (int64, e
 }
 
 const insertCustomProfile = `-- name: InsertCustomProfile :exec
-INSERT INTO profiles (key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-    default_movies, default_series, trash_profile_movies, trash_profile_series, original_language, custom,
+INSERT INTO profiles (key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+    trash_profile_movies, trash_profile_series, original_language, custom,
     series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
     movie_min_size, movie_max_size, episode_min_size, episode_max_size)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertCustomProfileParams struct {
 	Key                string
 	Name               string
 	Sort               int64
-	Slot               string
 	Any                int64
 	LanguageRule       string
 	MinHeight          int64
@@ -165,7 +146,6 @@ func (q *Queries) InsertCustomProfile(ctx context.Context, arg InsertCustomProfi
 		arg.Key,
 		arg.Name,
 		arg.Sort,
-		arg.Slot,
 		arg.Any,
 		arg.LanguageRule,
 		arg.MinHeight,
@@ -189,8 +169,8 @@ func (q *Queries) InsertCustomProfile(ctx context.Context, arg InsertCustomProfi
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language,
+SELECT key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+       trash_profile_movies, trash_profile_series, original_language,
        custom, series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
        movie_min_size, movie_max_size, episode_min_size, episode_max_size
 FROM profiles ORDER BY sort
@@ -209,15 +189,12 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]Profile, error) {
 			&i.Key,
 			&i.Name,
 			&i.Sort,
-			&i.Slot,
 			&i.Any,
 			&i.LanguageRule,
 			&i.MinHeight,
 			&i.MaxHeight,
 			&i.Enabled,
 			&i.OriginalFallback,
-			&i.DefaultMovies,
-			&i.DefaultSeries,
 			&i.TrashProfileMovies,
 			&i.TrashProfileSeries,
 			&i.OriginalLanguage,
@@ -268,38 +245,8 @@ func (q *Queries) ProfileVersionCount(ctx context.Context, profileKey string) (i
 	return count, err
 }
 
-const setProfileDefaultMovies = `-- name: SetProfileDefaultMovies :exec
-UPDATE profiles SET default_movies = ? WHERE key = ?
-`
-
-type SetProfileDefaultMoviesParams struct {
-	DefaultMovies int64
-	Key           string
-}
-
-func (q *Queries) SetProfileDefaultMovies(ctx context.Context, arg SetProfileDefaultMoviesParams) error {
-	_, err := q.db.ExecContext(ctx, setProfileDefaultMovies, arg.DefaultMovies, arg.Key)
-	return err
-}
-
-const setProfileDefaultSeries = `-- name: SetProfileDefaultSeries :exec
-UPDATE profiles SET default_series = ? WHERE key = ?
-`
-
-type SetProfileDefaultSeriesParams struct {
-	DefaultSeries int64
-	Key           string
-}
-
-func (q *Queries) SetProfileDefaultSeries(ctx context.Context, arg SetProfileDefaultSeriesParams) error {
-	_, err := q.db.ExecContext(ctx, setProfileDefaultSeries, arg.DefaultSeries, arg.Key)
-	return err
-}
-
 const setProfileEnabled = `-- name: SetProfileEnabled :exec
-UPDATE profiles SET enabled = ?1, default_movies = CASE WHEN ?1 = 0 THEN 0 ELSE default_movies END,
-    default_series = CASE WHEN ?1 = 0 THEN 0 ELSE default_series END
-WHERE key = ?2
+UPDATE profiles SET enabled = ? WHERE key = ?
 `
 
 type SetProfileEnabledParams struct {
@@ -393,6 +340,39 @@ type SetProfileTrashParams struct {
 func (q *Queries) SetProfileTrash(ctx context.Context, arg SetProfileTrashParams) error {
 	_, err := q.db.ExecContext(ctx, setProfileTrash, arg.TrashProfileMovies, arg.TrashProfileSeries, arg.Key)
 	return err
+}
+
+const slotsDefaulting = `-- name: SlotsDefaulting :many
+SELECT id, label FROM slots WHERE default_movies = ?1 OR default_series = ?1 ORDER BY position
+`
+
+type SlotsDefaultingRow struct {
+	ID    string
+	Label string
+}
+
+// The Slots that name the Profile as their default for either kind, in order (ADR 0024).
+func (q *Queries) SlotsDefaulting(ctx context.Context, defaultMovies sql.NullString) ([]SlotsDefaultingRow, error) {
+	rows, err := q.db.QueryContext(ctx, slotsDefaulting, defaultMovies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SlotsDefaultingRow
+	for rows.Next() {
+		var i SlotsDefaultingRow
+		if err := rows.Scan(&i.ID, &i.Label); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const versionProfileKeys = `-- name: VersionProfileKeys :many

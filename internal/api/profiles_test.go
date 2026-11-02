@@ -67,12 +67,60 @@ func TestProfilesAreSeededAndPatchable(t *testing.T) {
 	if m = profileMap(t, b); m["hd-primary"].OriginalLanguage != "offer" {
 		t.Error("offer not stored")
 	}
-	p = decode[profileJSON](t, b.valid("PATCH", "/profiles/4k-primary", `{"default_movies":true}`))
-	if !p.DefaultMovies || p.DefaultSeries {
-		t.Errorf("4K default: %+v", p)
+	// The defaults belong to the Slots: a Profile only shows which Slot names it (read-only, for v1 clients).
+	b.valid("PATCH", "/slots/4k", `{"default_movies":"hd-original"}`)
+	m = profileMap(t, b)
+	if o := m["hd-original"]; !o.DefaultMovies || o.DefaultSeries || o.Slot != "4k" {
+		t.Errorf("hd-original after the 4K Slot took it as its Movies default: %+v", o)
 	}
-	if m = profileMap(t, b); !m["4k-primary"].DefaultMovies {
-		t.Error("4K default not stored")
+	if k := m["4k-primary"]; k.DefaultMovies || !k.DefaultSeries || k.Slot != "4k" {
+		t.Errorf("4k-primary, still the 4K Slot's Series default: %+v", k)
+	}
+	if a := m["any-primary"]; a.DefaultMovies || a.DefaultSeries || a.Slot != "" {
+		t.Errorf("any-primary, no Slot's default: %+v", a)
+	}
+}
+
+func TestADefaultCannotBeSetOnAProfileAnyMore(t *testing.T) {
+	t.Parallel()
+	b := newInstance(t, "").setUp()
+	for _, body := range []string{`{"default_movies":true}`, `{"default_series":false}`} {
+		r := b.do("PATCH", "/profiles/4k-primary", body)
+		if r.Status != 422 || !strings.Contains(r.Body, `"code":"validation"`) {
+			t.Errorf("PATCH %s = %d %s", body, r.Status, r.Body)
+		}
+	}
+}
+
+func TestAProfileASlotDefaultsToCannotBeDisabledOrDeleted(t *testing.T) {
+	t.Parallel()
+	b := newInstance(t, "").setUp()
+	for _, key := range []string{"hd-primary", "4k-primary"} {
+		r := b.do("PATCH", "/profiles/"+key, `{"enabled":false}`)
+		if r.Status != 409 || !strings.Contains(r.Body, `"code":"conflict"`) {
+			t.Errorf("disabling the Slot default %s = %d %s", key, r.Status, r.Body)
+		}
+	}
+	if m := profileMap(t, b); !m["hd-primary"].Enabled {
+		t.Error("a refused disable changed the Profile")
+	}
+	custom := decode[profileJSON](t, b.valid("POST", "/profiles", `{"name":"Mine","copy_from":"hd-primary"}`))
+	b.valid("PATCH", "/slots/4k", `{"default_movies":"`+custom.Key+`"}`)
+	if r := b.do("DELETE", "/profiles/"+custom.Key, ""); r.Status != 409 {
+		t.Errorf("deleting a Slot default = %d %s", r.Status, r.Body)
+	}
+	// Once the default moves, both are free.
+	b.valid("PATCH", "/slots/4k", `{"default_movies":"4k-primary"}`)
+	if r := b.do("DELETE", "/profiles/"+custom.Key, ""); r.Status != 204 {
+		t.Errorf("deleting it once no Slot defaults to it = %d %s", r.Status, r.Body)
+	}
+	b.valid("PATCH", "/slots/standard", `{"default_movies":"hd-original","default_series":"hd-original"}`)
+	if p := decode[profileJSON](t, b.valid("PATCH", "/profiles/hd-primary", `{"enabled":false}`)); p.Enabled {
+		t.Errorf("hd-primary still enabled: %+v", p)
+	}
+	// A disabled Profile cannot become a default.
+	if r := b.do("PATCH", "/slots/standard", `{"default_movies":"hd-primary"}`); r.Status != 422 {
+		t.Errorf("a disabled default = %d %s", r.Status, r.Body)
 	}
 }
 
@@ -84,7 +132,6 @@ func TestProfileRulesAreValidationErrors(t *testing.T) {
 		{"/profiles/hd-original", `{"original_language":"offer"}`, "original_language"},
 		{"/profiles/hd-primary", `{"original_language":"offer","original_fallback":true}`, "original_fallback"},
 		{"/profiles/hd-primary", `{"default_movies":false}`, "default_movies"},
-		{"/profiles/hd-primary", `{"enabled":false}`, "enabled"},
 	} {
 		r := b.do("PATCH", c.path, c.body)
 		if r.Status != 422 || !strings.Contains(r.Body, `"code":"validation"`) || !strings.Contains(r.Body, `"field":"`+c.field+`"`) {
@@ -202,7 +249,7 @@ func TestTheAnyProfilesTakeTheKidsProfilesPlace(t *testing.T) {
 	m := profileMap(t, b)
 	for key, name := range map[string]string{"any-primary": "Any", "any-original": "Any Original"} {
 		p := m[key]
-		if p.Name != name || p.Slot != "standard" || p.MinHeight != 0 || p.MaxHeight != 1080 || !p.Enabled || p.DefaultMovies || p.DefaultSeries {
+		if p.Name != name || p.MinHeight != 0 || p.MaxHeight != 1080 || !p.Enabled || p.DefaultMovies || p.DefaultSeries {
 			t.Errorf("%s = %+v", key, p)
 		}
 	}

@@ -25,35 +25,28 @@ type SuggestedSlot struct {
 
 // Suggestion is what the add panel preselects for a Title.
 type Suggestion struct {
-	// Slots holds every Slot that has a default for the kind, in Slot order.
+	// Slots holds every Slot that is on for new Titles and has an enabled default for the kind, in Slot order.
 	Slots []SuggestedSlot
 }
 
 // Suggest computes the add panel's preselection, shared with Requests: every
-// Slot with a default Profile for the kind, resolved by Profile resolution
-// (PRD Settled 8).
-func Suggest(all []profiles.Profile, kind Kind) Suggestion {
+// Slot that is on for new Titles, with its default Profile for the kind (ADR 0024).
+// A Slot without an enabled default for the kind is left out.
+func Suggest(all []profiles.Profile, slots []slot.Record, kind Kind) Suggestion {
 	var s Suggestion
 	rk := release.KindMovie
 	if kind == Series {
 		rk = release.KindSeries
 	}
-	for _, sl := range slot.All {
-		hasDefault := false
-		for _, p := range all {
-			if p.Enabled && p.Slot == sl && p.Default(rk) {
-				hasDefault = true
-			}
-		}
-		if !hasDefault {
+	for _, sl := range slots {
+		if !sl.OnForNew {
 			continue
 		}
 		r, err := profiles.Resolve(all, rk, sl)
 		if err != nil {
 			continue
 		}
-		out := SuggestedSlot{Slot: sl, Profile: r, Reason: ReasonDefault, Label: r.Name}
-		s.Slots = append(s.Slots, out)
+		s.Slots = append(s.Slots, SuggestedSlot{Slot: sl.ID, Profile: r, Reason: ReasonDefault, Label: r.Name})
 	}
 	return s
 }

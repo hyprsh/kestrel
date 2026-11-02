@@ -263,15 +263,12 @@ type Profile struct {
 	Key                string
 	Name               string
 	Sort               int64
-	Slot               string
 	Any                int64
 	LanguageRule       string
 	MinHeight          int64
 	MaxHeight          int64
 	Enabled            int64
 	OriginalFallback   int64
-	DefaultMovies      int64
-	DefaultSeries      int64
 	TrashProfileMovies string
 	TrashProfileSeries string
 	OriginalLanguage   string

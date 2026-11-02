@@ -13,8 +13,8 @@ import (
 // 720p and 1080p and nothing else.
 func TestQualityOutsideTheProfilesAllowedQualitiesIsRejected(t *testing.T) {
 	snap := embedded(t)
-	spec := func(slot slot.Slot, wide bool) scoring.ProfileSpec {
-		return scoring.ProfileSpec{Slot: slot, Any: wide, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
+	spec := func(sl slot.Slot, wide bool) scoring.ProfileSpec {
+		return scoring.ProfileSpec{UHD: sl == slot.FourK, Any: wide, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
 	}
 	cases := []struct {
 		name    string
@@ -60,7 +60,7 @@ func TestUnknownQualityIsNotAllowed(t *testing.T) {
 }
 
 func TestQualityRejectionComesAfterResolutionAndBeforeLanguage(t *testing.T) {
-	prof, err := embedded(t).Profile(scoring.ProfileSpec{Slot: slot.Standard, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
+	prof, err := embedded(t).Profile(scoring.ProfileSpec{Rule: scoring.PrimaryLanguage, Primary: release.LangGerman})
 	if err != nil {
 		t.Fatal(err)
 	}

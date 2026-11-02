@@ -106,15 +106,25 @@ func (s *Service) write(ctx context.Context, f func(*db.Queries) error) error {
 	return tx.Commit()
 }
 
-// profileKeys checks that each key names a Profile; field names the field in the error.
-func profileKeys(ctx context.Context, q *db.Queries, field string, keys ...string) error {
+// profileKeys checks that each key names a Profile; field names the field in the error. With enabled
+// the Profile must also be enabled, as a default is (ADR 0024): a Config File skips that here, because
+// it declares the Profiles' settings in the same pass.
+func profileKeys(ctx context.Context, q *db.Queries, field string, enabled bool, keys ...string) error {
 	have, err := q.ProfileKeys(ctx)
 	if err != nil {
 		return err
 	}
+	on, err := q.EnabledProfileKeys(ctx)
+	if err != nil {
+		return err
+	}
 	for _, k := range keys {
-		if k != "" && !slices.Contains(have, k) {
+		switch {
+		case k == "":
+		case !slices.Contains(have, k):
 			return &slot.RuleError{Field: field, Message: fmt.Sprintf("no such Profile %q", k)}
+		case enabled && !slices.Contains(on, k):
+			return &slot.RuleError{Field: field, Message: fmt.Sprintf("the Profile %q is disabled: a default must be enabled", k)}
 		}
 	}
 	return nil
@@ -159,10 +169,10 @@ func (s *Service) Create(ctx context.Context, in Create) (slot.Record, error) {
 		if err := slot.CheckSet(append(slices.Clone(cur), out)); err != nil {
 			return err
 		}
-		if err := profileKeys(ctx, q, "default_movies", in.DefaultMovies); err != nil {
+		if err := profileKeys(ctx, q, "default_movies", true, in.DefaultMovies); err != nil {
 			return err
 		}
-		if err := profileKeys(ctx, q, "default_series", in.DefaultSeries); err != nil {
+		if err := profileKeys(ctx, q, "default_series", true, in.DefaultSeries); err != nil {
 			return err
 		}
 		return writeSet(ctx, q, cur, append(slices.Clone(cur), out))
@@ -207,10 +217,10 @@ func (s *Service) Update(ctx context.Context, id slot.Slot, p Patch) (slot.Recor
 		if err := slot.CheckSet(set); err != nil {
 			return err
 		}
-		if err := profileKeys(ctx, q, "default_movies", r.DefaultMovies); err != nil {
+		if err := profileKeys(ctx, q, "default_movies", true, r.DefaultMovies); err != nil {
 			return err
 		}
-		if err := profileKeys(ctx, q, "default_series", r.DefaultSeries); err != nil {
+		if err := profileKeys(ctx, q, "default_series", true, r.DefaultSeries); err != nil {
 			return err
 		}
 		if err := writeSet(ctx, q, cur, set); err != nil {
@@ -336,10 +346,10 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool) erro
 			return err
 		}
 		for _, r := range set {
-			if err := profileKeys(ctx, q, "default_movies", r.DefaultMovies); err != nil {
+			if err := profileKeys(ctx, q, "default_movies", false, r.DefaultMovies); err != nil {
 				return err
 			}
-			if err := profileKeys(ctx, q, "default_series", r.DefaultSeries); err != nil {
+			if err := profileKeys(ctx, q, "default_series", false, r.DefaultSeries); err != nil {
 				return err
 			}
 		}

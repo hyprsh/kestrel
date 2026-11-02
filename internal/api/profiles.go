@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/configfile"
@@ -12,23 +13,40 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/display"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 func profilesProblem(err error) error {
 	var ve *profiles.ValidationError
+	var de *profiles.DefaultError
 	switch {
 	case errors.Is(err, profiles.ErrNotFound):
 		return problem(http.StatusNotFound, "not_found", "no such Profile")
 	case errors.Is(err, profiles.ErrInUse):
 		return problem(http.StatusConflict, "conflict", "A Version still uses that Profile: switch it to another Profile first")
+	case errors.As(err, &de):
+		return problem(http.StatusConflict, "conflict", de.Error())
 	case errors.As(err, &ve):
 		return invalid(ve.Field, ve.Code, ve.Message)
 	}
 	return err
 }
 
-func (s *server) profileToAPI(p profiles.Profile) oapi.Profile {
-	slot := slotToAPI(p.Slot)
+// profileToAPI is the Profile as the API shows it. A Profile has no Slot of its own: for v1 clients its `slot` is the
+// first Slot that names it as a default, and `default_movies` and `default_series` say whether any Slot does.
+func (s *server) profileToAPI(p profiles.Profile, slots []slot.Record) oapi.Profile {
+	var sl *oapi.SlotId
+	var movies, series bool
+	for _, r := range slots {
+		if r.DefaultMovies == p.Key || r.DefaultSeries == p.Key {
+			if sl == nil {
+				id := r.ID.Key()
+				sl = &id
+			}
+		}
+		movies = movies || r.DefaultMovies == p.Key
+		series = series || r.DefaultSeries == p.Key
+	}
 	rule := oapi.ProfileLanguageRule("primary")
 	if p.Rule == scoring.OriginalLanguage {
 		rule = "original"
@@ -39,9 +57,9 @@ func (s *server) profileToAPI(p profiles.Profile) oapi.Profile {
 		custom = &yes
 	}
 	return oapi.Profile{
-		Key: p.Key, Name: p.Name, Slot: slot, LanguageRule: rule,
+		Key: p.Key, Name: p.Name, Slot: sl, LanguageRule: rule,
 		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalChoice), OriginalFallback: p.OriginalChoice.DeprecatedFlag(),
-		Enabled: p.Enabled, DefaultMovies: p.DefaultMovies, DefaultSeries: p.DefaultSeries,
+		Enabled: p.Enabled, DefaultMovies: movies, DefaultSeries: series,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,
 		TrashProfileMovies: p.TrashMovies, TrashProfileSeries: p.TrashSeries,
 		FromConfigFile: s.declares(configfile.SectionProfiles), Custom: custom,
@@ -129,7 +147,11 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 	if err != nil {
 		return nil, profilesProblem(err)
 	}
-	return oapi.CreateProfile201JSONResponse(s.profileToAPI(p)), nil
+	slots, err := s.slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.CreateProfile201JSONResponse(s.profileToAPI(p, slots)), nil
 }
 
 func (s *server) DeleteProfile(ctx context.Context, r oapi.DeleteProfileRequestObject) (oapi.DeleteProfileResponseObject, error) {
@@ -147,9 +169,13 @@ func (s *server) ListProfiles(ctx context.Context, _ oapi.ListProfilesRequestObj
 	if err != nil {
 		return nil, err
 	}
+	slots, err := s.slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := oapi.ProfileList{Items: make([]oapi.Profile, len(all))}
 	for i, p := range all {
-		out.Items[i] = s.profileToAPI(p)
+		out.Items[i] = s.profileToAPI(p, slots)
 	}
 	return oapi.ListProfiles200JSONResponse(out), nil
 }
@@ -162,12 +188,17 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 		return nil, err
 	}
 	b := r.Body
+	for field, set := range map[string]*bool{"default_movies": b.DefaultMovies, "default_series": b.DefaultSeries} {
+		if set != nil {
+			return nil, invalid(field, "invalid", "The defaults for new Titles belong to the Slots: set it with PATCH /slots/{id}")
+		}
+	}
 	original, err := scoring.OriginalChoiceOf((*scoring.OriginalChoice)(b.OriginalLanguage), b.OriginalFallback)
 	if err != nil {
 		return nil, invalid("original_fallback", "invalid", "original_fallback disagrees with original_language; send original_language only")
 	}
 	patch := profiles.Patch{
-		Enabled: b.Enabled, OriginalChoice: original, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries, Name: b.Name,
+		Enabled: b.Enabled, OriginalChoice: original, Name: b.Name,
 	}
 	if b.Overlay != nil {
 		o := overlayFromAPI(*b.Overlay)
@@ -187,7 +218,11 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 			return nil, err
 		}
 	}
-	return oapi.PatchProfile200JSONResponse(s.profileToAPI(p)), nil
+	slots, err := s.slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PatchProfile200JSONResponse(s.profileToAPI(p, slots)), nil
 }
 
 // restoreRegion undoes setRegion, in a transaction of its own.
@@ -252,10 +287,51 @@ func (s *server) settingsBody(ctx context.Context) (oapi.Settings, error) {
 	}
 	out.Display = displayToAPI(d)
 	s.fillDeclaredDisplay(&out)
+	recs, err := s.slots.List(ctx)
+	if err != nil {
+		return oapi.Settings{}, err
+	}
+	if w := sharedDefaultWarnings(recs); len(w) > 0 {
+		out.Warnings = &w
+	}
 	out.FromConfigFile.LanguageRegion = s.declares(configfile.SectionLanguageRegion)
 	out.FromConfigFile.RootFolders = s.declares(configfile.SectionRootFolders)
 	out.FromConfigFile.CheckGithubUpdates = s.declares(configfile.SectionCheckGitHubUpdates)
 	return out, nil
+}
+
+// sharedDefaultWarnings warns about every (kind, Profile) that two or more Slots name as their default (ADR 0024): a
+// Title's Versions use different Profiles, so Versions in those Slots could not both take it. It is a warning, not an error.
+func sharedDefaultWarnings(recs []slot.Record) []oapi.SettingsWarning {
+	var out []oapi.SettingsWarning
+	for _, kind := range []string{"movies", "series"} {
+		by := map[string][]string{}
+		var order []string
+		for _, r := range recs {
+			key := r.DefaultMovies
+			if kind == "series" {
+				key = r.DefaultSeries
+			}
+			if key == "" {
+				continue
+			}
+			if _, seen := by[key]; !seen {
+				order = append(order, key)
+			}
+			by[key] = append(by[key], r.ID.Key())
+		}
+		for _, key := range order {
+			if len(by[key]) < 2 {
+				continue
+			}
+			k, ids := kind, by[key]
+			out = append(out, oapi.SettingsWarning{
+				Code: oapi.SharedSlotDefault, Kind: &k, Profile: &key, Slots: &ids,
+				Message: "The Slots " + strings.Join(ids, " and ") + " share the Profile " + key + " as their default for " + kind + ": a Title's Versions use different Profiles, so only one of them can take it",
+			})
+		}
+	}
+	return out
 }
 
 func (s *server) GetSettings(ctx context.Context, _ oapi.GetSettingsRequestObject) (oapi.GetSettingsResponseObject, error) {

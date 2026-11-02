@@ -24,7 +24,7 @@ Example: _Dune_ has two Versions, Standard and 4K. Kestrel finds a better 1080p 
 
 ## Profile
 
-A named quality-and-language target that a Version follows, such as HD, Any or 4K. Each Profile belongs to one Slot and covers a fixed range of resolutions. Kestrel has six, backed by [TRaSH Guides](https://trash-guides.info) profiles:
+A named quality-and-language target that a Version follows, such as HD, Any or 4K. Each Profile covers a fixed range of resolutions and belongs to no Slot: any Profile can fill any Slot, and a Slot names its default Profile per kind. Kestrel has six, backed by [TRaSH Guides](https://trash-guides.info) profiles:
 
 | Profile      | Slot     | Takes                        | Language                            |
 | ------------ | -------- | ---------------------------- | ----------------------------------- |

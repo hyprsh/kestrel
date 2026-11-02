@@ -407,7 +407,7 @@ func (a *Adoption) planSeriesFile(e *env, m seriesFacts, title Title, en entry, 
 	if ver != nil {
 		profileKey = ver.Profile
 	} else {
-		r, err := profiles.ResolveAccepting(e.profiles, release.KindSeries, slot, a.accepts(e, f.info.Class()))
+		r, err := profiles.ResolveAccepting(e.profiles, release.KindSeries, e.slotRecord(slot), a.accepts(e, f.info.Class()))
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}

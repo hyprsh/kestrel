@@ -28,6 +28,7 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
 	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -270,21 +271,27 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		kind = release.KindSeries
 	}
 
+	records, err := slots.New(s.d.Store).List(ctx)
+	if err != nil {
+		return Result{}, err
+	}
 	have := map[slot.Slot]bool{}
+	used := map[string]bool{} // the Profiles the Title's Versions already use: one Profile per Version of a Title
 	if tgt.existing != nil {
 		for _, v := range tgt.existing.Versions {
 			have[v.Slot] = true
+			used[v.Profile] = true
 		}
 	}
 	var specs []library.VersionSpec
 	chosen := map[slot.Slot]string{}
-	for _, sl := range in.Slots {
+	for i, sl := range in.Slots {
 		if have[sl.Slot] {
 			continue // accepted unchanged
 		}
 		key := sl.Profile
 		if key == "" {
-			r, err := profiles.Resolve(all, kind, sl.Slot)
+			r, err := profiles.Resolve(all, kind, slotRecord(records, sl.Slot))
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
 				return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 			}
@@ -295,6 +302,10 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		} else if p := profileByKey(all, key); !p.Enabled {
 			return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
 		}
+		if used[key] {
+			return Result{}, invalid(fmt.Sprintf("slots[%d].profile", i), "profile_taken", fmt.Sprintf("Another Version of the Title already uses the Profile %s: name a different Profile for this Slot", profileByKey(all, key).Name))
+		}
+		used[key] = true
 		chosen[sl.Slot] = key
 		specs = append(specs, library.VersionSpec{Slot: sl.Slot, Profile: key})
 	}
@@ -319,6 +330,14 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	res, err := s.store(ctx, in, prior, d.Title, titleID, slots, "")
 	res.SearchDue = searchDue
 	return res, err
+}
+
+// slotRecord is the stored Slot of an id; one that is not stored has no defaults.
+func slotRecord(all []slot.Record, id slot.Slot) slot.Record {
+	if i := slices.IndexFunc(all, func(r slot.Record) bool { return r.ID == id }); i >= 0 {
+		return all[i]
+	}
+	return slot.Record{ID: id}
 }
 
 func profileByKey(all []profiles.Profile, key string) profiles.Profile {
@@ -347,6 +366,7 @@ func validate(in Input, all []profiles.Profile) error {
 		return invalid("slots", "required", "Name at least one Slot")
 	}
 	seen := map[slot.Slot]bool{}
+	named := map[string]bool{}
 	for i, sl := range in.Slots {
 		field := fmt.Sprintf("slots[%d]", i)
 		if seen[sl.Slot] {
@@ -357,12 +377,13 @@ func validate(in Input, all []profiles.Profile) error {
 			continue
 		}
 		// A disabled Profile is a valid name; Submit rejects the Request for it (NoEnabledProfile).
-		switch _, err := profiles.Pick(all, sl.Profile, sl.Slot); {
-		case errors.Is(err, profiles.ErrNoSuchProfile):
+		if _, err := profiles.Pick(all, sl.Profile); errors.Is(err, profiles.ErrNoSuchProfile) {
 			return invalid(field+".profile", "not_found", "No such Profile")
-		case errors.Is(err, profiles.ErrWrongSlot):
-			return invalid(field+".profile", "wrong_slot", "That Profile belongs to another Slot")
 		}
+		if named[sl.Profile] {
+			return invalid(field+".profile", "profile_taken", "A Title's Versions use different Profiles: two Slots name the same one")
+		}
+		named[sl.Profile] = true
 	}
 	if in.Seasons != nil {
 		if in.Kind != library.Series {

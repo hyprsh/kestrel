@@ -22,6 +22,33 @@ func (q *Queries) DeleteSlot(ctx context.Context, id string) (int64, error) {
 	return result.RowsAffected()
 }
 
+const enabledProfileKeys = `-- name: EnabledProfileKeys :many
+SELECT key FROM profiles WHERE enabled = 1
+`
+
+func (q *Queries) EnabledProfileKeys(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, enabledProfileKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		items = append(items, key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertSlot = `-- name: InsertSlot :exec
 INSERT INTO slots (id, label, default_movies, default_series, on_for_new, position) VALUES (?, ?, ?, ?, ?, ?)
 `

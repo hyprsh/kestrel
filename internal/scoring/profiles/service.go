@@ -14,7 +14,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 	"github.com/hyprsh/kestrel/internal/settings"
-	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/store"
 )
 
@@ -67,8 +66,6 @@ type RegionPatch struct {
 type Patch struct {
 	Enabled        *bool
 	OriginalChoice *scoring.OriginalChoice
-	DefaultMovies  *bool
-	DefaultSeries  *bool
 	// Name renames a custom Profile; a builtin one keeps its name.
 	Name *string
 	// Overlay replaces everything the household set on top of TRaSH (ADR 0023).
@@ -80,6 +77,33 @@ var ErrNotFound = errors.New("profile not found")
 
 // ErrInUse is returned when deleting a Profile that Versions still use.
 var ErrInUse = errors.New("profile is in use")
+
+// DefaultError is returned when disabling or deleting a Profile that Slots name as their default (ADR 0024):
+// the default has to change first. Slots holds their ids.
+type DefaultError struct {
+	Profile string
+	Slots   []string
+}
+
+func (e *DefaultError) Error() string {
+	return fmt.Sprintf("the Profile %s is the default of the %s: choose another default first", e.Profile, strings.Join(e.Slots, " and "))
+}
+
+// notADefault is nil unless a Slot names the Profile as its default for a kind.
+func notADefault(ctx context.Context, q *db.Queries, key string) error {
+	rows, err := q.SlotsDefaulting(ctx, sql.NullString{String: key, Valid: true})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	e := &DefaultError{Profile: key}
+	for _, r := range rows {
+		e.Slots = append(e.Slots, "Slot "+r.Label)
+	}
+	return e
+}
 
 // ValidationError is a rejected write. Field is an API field name.
 type ValidationError struct {
@@ -128,13 +152,9 @@ func New(st *store.Store, s *settings.Settings) *Service {
 }
 
 func fromRow(r db.Profile) (Profile, error) {
-	sl, _ := slot.Parse(r.Slot) // the table CHECK keeps the value valid
 	rule := scoring.PrimaryLanguage
 	if r.LanguageRule == "original" {
 		rule = scoring.OriginalLanguage
-	}
-	if !sl.Contains(int(r.MinHeight), int(r.MaxHeight)) {
-		return Profile{}, fmt.Errorf("profiles: %s has heights %d-%d outside its %v Slot", r.Key, r.MinHeight, r.MaxHeight, sl)
 	}
 	series, err := prefsOf(r.SeriesQualities)
 	if err != nil {
@@ -145,10 +165,9 @@ func fromRow(r db.Profile) (Profile, error) {
 		return Profile{}, fmt.Errorf("profiles: %s movie_qualities: %w", r.Key, err)
 	}
 	return Profile{
-		Key: r.Key, Name: r.Name, Slot: sl, Any: r.Any == 1, Rule: rule,
+		Key: r.Key, Name: r.Name, Any: r.Any == 1, Rule: rule,
 		MinHeight: int(r.MinHeight), MaxHeight: int(r.MaxHeight),
 		Enabled: r.Enabled == 1, OriginalChoice: scoring.OriginalChoice(r.OriginalLanguage),
-		DefaultMovies: r.DefaultMovies == 1, DefaultSeries: r.DefaultSeries == 1,
 		TrashMovies: r.TrashProfileMovies, TrashSeries: r.TrashProfileSeries,
 		Custom: r.Custom == 1,
 		Overlay: scoring.Overlay{
@@ -253,13 +272,10 @@ func b2i(b bool) int64 {
 }
 
 // Patch changes one Profile. A rejected patch changes nothing. The rules
-// (PRD Settled 1 and 8): Original-Language Profiles always reject
-// Original-only Releases; a Slot has at most one default per kind, so a new default
-// replaces the old; the Standard Slot always keeps exactly one default per kind, so unsetting
-// or disabling it is refused until another Standard Profile is the default; a
-// disabled Profile is no default, and disabling clears its flags.
+// (PRD Settled 1 and ADR 0024): Original-Language Profiles always
+// reject Original-only Releases, and a Profile that a Slot names as its default cannot be disabled
+// until that default changes (*DefaultError).
 func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, error) {
-	sets := func(b *bool) bool { return b != nil && *b }
 	var out Profile
 	err := s.write(ctx, func(q *db.Queries) error {
 		rows, err := q.ListProfiles(ctx)
@@ -285,19 +301,6 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		}
 		if p.OriginalChoice != nil {
 			next.OriginalChoice = *p.OriginalChoice
-		}
-		if p.DefaultMovies != nil {
-			next.DefaultMovies = *p.DefaultMovies
-		}
-		if p.DefaultSeries != nil {
-			next.DefaultSeries = *p.DefaultSeries
-		}
-		if cur.Custom && (sets(p.DefaultMovies) || sets(p.DefaultSeries)) {
-			field := "default_movies"
-			if !sets(p.DefaultMovies) {
-				field = "default_series"
-			}
-			return invalid(field, "A custom Profile cannot be a default: the defaults are the builtin Profiles")
 		}
 		if p.Name != nil {
 			name := strings.TrimSpace(*p.Name)
@@ -325,31 +328,11 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 			}
 			next.Overlay = ov
 		}
-		// Disabling clears the flags, unless the patch itself sets one on a disabled Profile.
-		own := State{Enabled: next.Enabled, OriginalChoice: next.OriginalChoice, DefaultMovies: sets(p.DefaultMovies), DefaultSeries: sets(p.DefaultSeries)}
-		if err := checkOwn(next.Rule, own, ""); err != nil {
+		if err := checkOwn(next.Rule, State{Enabled: next.Enabled, OriginalChoice: next.OriginalChoice}, ""); err != nil {
 			return err
 		}
-		if !next.Enabled {
-			next.DefaultMovies, next.DefaultSeries = false, false
-		}
-		if cur.Slot == slot.Standard {
-			if cur.DefaultMovies && !next.DefaultMovies {
-				return standardDefaultError(p, "default_movies", "movies")
-			}
-			if cur.DefaultSeries && !next.DefaultSeries {
-				return standardDefaultError(p, "default_series", "series")
-			}
-		}
-
-		slotKey := cur.Slot.Key()
-		if next.DefaultMovies && !cur.DefaultMovies {
-			if err := q.ClearSlotDefaultMovies(ctx, slotKey); err != nil {
-				return err
-			}
-		}
-		if next.DefaultSeries && !cur.DefaultSeries {
-			if err := q.ClearSlotDefaultSeries(ctx, slotKey); err != nil {
+		if cur.Enabled && !next.Enabled {
+			if err := notADefault(ctx, q, key); err != nil {
 				return err
 			}
 		}
@@ -361,12 +344,6 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 		}); err != nil {
 			return err
 		}
-		if err := q.SetProfileDefaultMovies(ctx, db.SetProfileDefaultMoviesParams{DefaultMovies: b2i(next.DefaultMovies), Key: key}); err != nil {
-			return err
-		}
-		if err := q.SetProfileDefaultSeries(ctx, db.SetProfileDefaultSeriesParams{DefaultSeries: b2i(next.DefaultSeries), Key: key}); err != nil {
-			return err
-		}
 		out = next
 		return nil
 	})
@@ -374,9 +351,9 @@ func (s *Service) Patch(ctx context.Context, key string, p Patch) (Profile, erro
 }
 
 // checkOwn applies the rules that hold within one Profile, for Patch and
-// CheckAll: original_language is reject, offer or accept, an
+// CheckAll: original_language is reject, offer or accept, and an
 // Original-Language Profile always rejects (it already requires the Original
-// Language), and a default is enabled. prefix goes before each field.
+// Language). prefix goes before each field.
 func checkOwn(rule scoring.LanguageRule, s State, prefix string) error {
 	if !s.OriginalChoice.Valid() {
 		return invalid(prefix+"original_language", "Choose reject, offer or accept")
@@ -384,23 +361,7 @@ func checkOwn(rule scoring.LanguageRule, s State, prefix string) error {
 	if s.OriginalChoice != scoring.OriginalReject && rule == scoring.OriginalLanguage {
 		return invalid(prefix+"original_language", "An Original-Language Profile already requires the Original Language, so it has no Original-Language choice")
 	}
-	if s.Enabled {
-		return nil
-	}
-	if s.DefaultMovies {
-		return invalid(prefix+"default_movies", "A disabled Profile cannot be a default")
-	}
-	if s.DefaultSeries {
-		return invalid(prefix+"default_series", "A disabled Profile cannot be a default")
-	}
 	return nil
-}
-
-func standardDefaultError(p Patch, field, kind string) error {
-	if p.Enabled != nil && !*p.Enabled && (field == "default_movies" && p.DefaultMovies == nil || field == "default_series" && p.DefaultSeries == nil) {
-		field = "enabled"
-	}
-	return invalid(field, "The Standard Slot always has a default for "+kind+": make another Standard Profile the default first")
 }
 
 // Region returns the language settings and whether they were ever saved.

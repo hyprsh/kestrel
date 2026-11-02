@@ -278,15 +278,13 @@ List all six Profiles or none: `hd-primary`, `hd-original`, `any-primary`, `any-
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`           | `true` or `false`.                                                                                                                                                                                                                                                              |
 | `original_language` | What the Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject`, `offer` it for approval in Needs attention, or `accept`. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). |
-| `default_movies`    | `true` if new Movies get this Profile for its Slot.                                                                                                                                                                                                                             |
-| `default_series`    | `true` if new Series get this Profile for its Slot.                                                                                                                                                                                                                             |
+| `default_movies`    | Deprecated and ignored: the defaults for new Titles belong to the Slots (see `slots`).
+| `default_series`    | Deprecated and ignored, like `default_movies`. Left out, nothing changes.
 
 The rules of Settings > Profiles hold across the six:
 
 - An Original-Language Profile (`*-original`) always rejects.
-- A default must be enabled.
-- A Slot has at most one default per kind.
-- The Standard Slot has exactly one default for Movies and one for Series. The 4K Slot may have none.
+- A Profile that a Slot names as its default stays enabled: declare the new default in `slots` before switching the old one off.
 
 #### slots
 

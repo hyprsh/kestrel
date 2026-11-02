@@ -145,11 +145,9 @@ func TestAcceptingASuggestionThatPlansToSkippedStoresTheRowSkippedWithItsReason(
 	a.put(t, "Paddington (2014)/paddington.uhd.short.mkv", "x")
 	a.put(t, "Paddington/pad.uhd.mkv", "chosen by hand")
 	a.scan(t)
-	// The Standard Slot always keeps a default, so the 4K files lose their Profiles.
-	for _, key := range []string{"4k-primary", "4k-original"} {
-		if r := a.valid("PATCH", "/profiles/"+key, `{"enabled":false}`); r.Status != 200 {
-			t.Fatalf("disable %s = %d %s", key, r.Status, r.Body)
-		}
+	// The 4K Slot loses its default Profiles, so the 4K files have none to take.
+	if r := a.valid("PATCH", "/slots/4k", `{"default_movies":"","default_series":""}`); r.Status != 200 {
+		t.Fatalf("clear the 4K defaults = %d %s", r.Status, r.Body)
 	}
 	pad, hand := a.rowOf(t, "Paddington (2014)"), a.rowOf(t, "Paddington")
 

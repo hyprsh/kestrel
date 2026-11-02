@@ -18,3 +18,6 @@ SELECT COUNT(*) FROM versions WHERE slot = ?;
 
 -- name: ProfileKeys :many
 SELECT key FROM profiles;
+
+-- name: EnabledProfileKeys :many
+SELECT key FROM profiles WHERE enabled = 1;

@@ -146,12 +146,10 @@ func TestARequestNamingAnExistingSlotLeavesItUnchangedAndReportsIt(t *testing.T)
 	}
 }
 
-func TestASlotWithNoEnabledProfileRejectsTheRequestAndAddsNothing(t *testing.T) {
+func TestASlotWithNoDefaultProfileRejectsTheRequestAndAddsNothing(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)
-	for _, k := range []string{"4k-primary", "4k-original"} {
-		s.valid("PATCH", "/profiles/"+k, `{"enabled":false}`)
-	}
+	s.valid("PATCH", "/slots/4k", `{"default_movies":""}`) // the 4K Slot has no default Profile for Movies
 
 	r := s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null"))
 
@@ -175,9 +173,7 @@ func TestASlotWithNoEnabledProfileRejectsTheRequestAndAddsNothing(t *testing.T) 
 func TestRetryingARejectedRequestEvaluatesItAgain(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)
-	for _, k := range []string{"4k-primary", "4k-original"} {
-		s.valid("PATCH", "/profiles/"+k, `{"enabled":false}`)
-	}
+	s.valid("PATCH", "/slots/4k", `{"default_movies":""}`) // the 4K Slot has no default Profile for Movies
 	first := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null")))
 	if first.Outcome != "rejected" {
 		t.Fatalf("first = %+v", first)
@@ -186,7 +182,7 @@ func TestRetryingARejectedRequestEvaluatesItAgain(t *testing.T) {
 		t.Fatalf("a retry that is still rejected = %d %s, want the stored one", r.Status, r.Body)
 	}
 
-	s.valid("PATCH", "/profiles/4k-primary", `{"enabled":true}`)
+	s.valid("PATCH", "/slots/4k", `{"default_movies":"4k-primary"}`)
 	r := s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, dualSlots, "null"))
 
 	if r.Status != 201 {
@@ -216,11 +212,11 @@ func TestMalformedRequestsAre422(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)
 	for name, body := range map[string]string{
-		"no slots":       requestBody("a", "movie", 116149, `[]`, "null"),
-		"duplicate slot": requestBody("b", "movie", 116149, `[{"slot":"standard"},{"slot":"standard"}]`, "null"),
-		"unknown key":    requestBody("c", "movie", 116149, `[{"slot":"standard","profile":"nope"}]`, "null"),
-		"wrong slot":     requestBody("d", "movie", 116149, `[{"slot":"standard","profile":"4k-primary"}]`, "null"),
-		"movie seasons":  requestBody("e", "movie", 116149, `[{"slot":"standard"}]`, "[1]"),
+		"no slots":          requestBody("a", "movie", 116149, `[]`, "null"),
+		"duplicate slot":    requestBody("b", "movie", 116149, `[{"slot":"standard"},{"slot":"standard"}]`, "null"),
+		"unknown key":       requestBody("c", "movie", 116149, `[{"slot":"standard","profile":"nope"}]`, "null"),
+		"one Profile twice": requestBody("d", "movie", 116149, `[{"slot":"standard","profile":"hd-primary"},{"slot":"4k","profile":"hd-primary"}]`, "null"),
+		"movie seasons":     requestBody("e", "movie", 116149, `[{"slot":"standard"}]`, "[1]"),
 	} {
 		if r := s.do("POST", "/requests", body); r.Status != 422 {
 			t.Errorf("%s = %d %s, want 422", name, r.Status, r.Body)

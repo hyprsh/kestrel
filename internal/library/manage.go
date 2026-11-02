@@ -67,10 +67,20 @@ func (s *Service) SetProfile(ctx context.Context, versionID int64, profile strin
 	}
 	defer tx.Rollback()
 	q := db.New(tx)
-	if _, err := q.GetVersion(ctx, versionID); errors.Is(err, sql.ErrNoRows) {
+	v, err := q.GetVersion(ctx, versionID)
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrVersionNotFound
 	} else if err != nil {
 		return err
+	}
+	others, err := q.ListVersionsOfTitle(ctx, v.TitleID)
+	if err != nil {
+		return err
+	}
+	for _, o := range others {
+		if o.ID != versionID && o.ProfileKey == profile {
+			return ErrProfileTaken
+		}
 	}
 	if err := q.SetVersionProfile(ctx, db.SetVersionProfileParams{ProfileKey: profile, ID: versionID}); err != nil {
 		return err

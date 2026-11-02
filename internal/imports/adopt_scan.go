@@ -26,6 +26,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+	"github.com/hyprsh/kestrel/internal/slot"
+	"github.com/hyprsh/kestrel/internal/slot/slots"
 )
 
 // maxCandidates is how many Movies a Needs choice row offers.
@@ -60,6 +62,7 @@ type entry struct {
 // env is what planning reads once per scan or edit.
 type env struct {
 	profiles []profiles.Profile
+	slots    []slot.Record
 	region   profiles.Region
 	held     map[string]bool
 	// folders maps a tracked Title's folder path to it.
@@ -72,10 +75,21 @@ type env struct {
 	running bool
 }
 
+// slotRecord is the stored Slot of an id; a Slot that is not stored has no defaults.
+func (e *env) slotRecord(id slot.Slot) slot.Record {
+	if i := slices.IndexFunc(e.slots, func(r slot.Record) bool { return r.ID == id }); i >= 0 {
+		return e.slots[i]
+	}
+	return slot.Record{ID: id}
+}
+
 func (a *Adoption) env(ctx context.Context) (*env, error) {
 	e := &env{folders: map[string]library.Tracked{}, byTMDB: map[int]library.Tracked{}, seriesByTMDB: map[int]library.Tracked{}}
 	var err error
 	if e.profiles, err = a.d.Profiles.List(ctx); err != nil {
+		return nil, err
+	}
+	if e.slots, err = slots.New(a.d.Store).List(ctx); err != nil {
 		return nil, err
 	}
 	if e.region, _, err = a.d.Profiles.Region(ctx); err != nil {
@@ -729,7 +743,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	if ver != nil {
 		profileKey = ver.Profile
 	} else {
-		r, err := profiles.ResolveAccepting(e.profiles, release.KindMovie, slot, a.accepts(e, f.info.Class()))
+		r, err := profiles.ResolveAccepting(e.profiles, release.KindMovie, e.slotRecord(slot), a.accepts(e, f.info.Class()))
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}

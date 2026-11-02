@@ -1,30 +1,20 @@
 -- name: ListProfiles :many
-SELECT key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-       default_movies, default_series, trash_profile_movies, trash_profile_series, original_language,
+SELECT key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+       trash_profile_movies, trash_profile_series, original_language,
        custom, series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
        movie_min_size, movie_max_size, episode_min_size, episode_max_size
 FROM profiles ORDER BY sort;
 
 -- name: SetProfileEnabled :exec
-UPDATE profiles SET enabled = ?1, default_movies = CASE WHEN ?1 = 0 THEN 0 ELSE default_movies END,
-    default_series = CASE WHEN ?1 = 0 THEN 0 ELSE default_series END
-WHERE key = ?2;
+UPDATE profiles SET enabled = ? WHERE key = ?;
 
 -- name: SetProfileOriginalChoice :exec
 -- original_fallback is kept in step for older readers (scoring.OriginalChoice.DeprecatedFlag).
 UPDATE profiles SET original_language = ?, original_fallback = ? WHERE key = ?;
 
--- name: ClearSlotDefaultMovies :exec
-UPDATE profiles SET default_movies = 0 WHERE slot = ?;
-
--- name: ClearSlotDefaultSeries :exec
-UPDATE profiles SET default_series = 0 WHERE slot = ?;
-
--- name: SetProfileDefaultMovies :exec
-UPDATE profiles SET default_movies = ? WHERE key = ?;
-
--- name: SetProfileDefaultSeries :exec
-UPDATE profiles SET default_series = ? WHERE key = ?;
+-- The Slots that name the Profile as their default for either kind, in order (ADR 0024).
+-- name: SlotsDefaulting :many
+SELECT id, label FROM slots WHERE default_movies = ?1 OR default_series = ?1 ORDER BY position;
 
 -- name: SetProfileTrash :exec
 UPDATE profiles SET trash_profile_movies = ?, trash_profile_series = ? WHERE key = ?;
@@ -39,11 +29,11 @@ WHERE key = ?;
 UPDATE profiles SET name = ? WHERE key = ?;
 
 -- name: InsertCustomProfile :exec
-INSERT INTO profiles (key, name, sort, slot, any, language_rule, min_height, max_height, enabled, original_fallback,
-    default_movies, default_series, trash_profile_movies, trash_profile_series, original_language, custom,
+INSERT INTO profiles (key, name, sort, any, language_rule, min_height, max_height, enabled, original_fallback,
+    trash_profile_movies, trash_profile_series, original_language, custom,
     series_qualities, movie_qualities, series_cutoff, movie_cutoff, upgrade_until, min_score,
     movie_min_size, movie_max_size, episode_min_size, episode_max_size)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: DeleteCustomProfile :execrows
 DELETE FROM profiles WHERE key = ? AND custom = 1;

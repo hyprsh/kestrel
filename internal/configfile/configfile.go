@@ -76,8 +76,11 @@ type Profile struct {
 	// deprecated OriginalFallback stands in for it (scoring.OriginalChoiceOf).
 	OriginalChoice   *scoring.OriginalChoice `yaml:"original_language"`
 	OriginalFallback *bool                   `yaml:"original_fallback"`
-	DefaultMovies    *bool                   `yaml:"default_movies"`
-	DefaultSeries    *bool                   `yaml:"default_series"`
+	// DefaultMovies and DefaultSeries are deprecated and ignored: the defaults for new Titles belong to
+	// the Slots (ADR 0024), declared in the `slots` section. They stay parsed so a file written before
+	// still loads, and are not required.
+	DefaultMovies *bool `yaml:"default_movies"`
+	DefaultSeries *bool `yaml:"default_series"`
 }
 
 // Choice is the Profile's declared OriginalChoice, from original_language or
@@ -398,8 +401,6 @@ func (f *File) complete() error {
 		p, field := f.Profiles[key], "profiles."+key+"."
 		need(p.Enabled != nil, field+"enabled")
 		need(p.OriginalChoice != nil || p.OriginalFallback != nil, field+"original_language")
-		need(p.DefaultMovies != nil, field+"default_movies")
-		need(p.DefaultSeries != nil, field+"default_series")
 	}
 	for i, sl := range f.Slots {
 		need(sl.Label != "", fmt.Sprintf("slots[%d].label", i))
