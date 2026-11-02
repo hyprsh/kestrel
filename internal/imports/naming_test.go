@@ -2,7 +2,6 @@ package imports_test
 
 import (
 	"errors"
-	"github.com/hyprsh/kestrel/internal/slot"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -100,7 +99,7 @@ func TestMovieFileNameBracketsInOrder(t *testing.T) {
 		Languages: []string{"eng", "deu"},
 		Primary:   "deu",
 	}
-	got, err := imports.MovieFileName(duneTitle, slot.FourK, f, ".mkv")
+	got, err := imports.MovieFileName(duneTitle, "4K", f, ".mkv")
 	if err != nil {
 		t.Fatalf("MovieFileName: %v", err)
 	}
@@ -112,21 +111,23 @@ func TestMovieFileNameBracketsInOrder(t *testing.T) {
 
 func TestMovieFileNameSlotLabels(t *testing.T) {
 	tests := []struct {
-		slot slot.Slot
-		want string
+		label string
+		want  string
 	}{
-		{slot.Standard, "[Standard]"},
-		{slot.FourK, "[4K]"},
+		{"Standard", "[Standard]"},
+		{"Remux", "[Remux]"},
+		{"Kids + Dub", "[Kids + Dub]"},
+		{"4K", "[4K]"},
 	}
 	for _, tt := range tests {
 		f := imports.FileFacts{Release: plain}
-		got, err := imports.MovieFileName(duneTitle, tt.slot, f, ".mkv")
+		got, err := imports.MovieFileName(duneTitle, tt.label, f, ".mkv")
 		if err != nil {
 			t.Fatalf("MovieFileName: %v", err)
 		}
 		want := duneFolder + " - " + tt.want + "[Bluray-1080p]-GRP.mkv"
 		if got != want {
-			t.Errorf("slot %v: got %q, want %q", tt.slot, got, want)
+			t.Errorf("slot %v: got %q, want %q", tt.label, got, want)
 		}
 	}
 }
@@ -143,7 +144,7 @@ func TestMovieFileNameQualityRevision(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := imports.MovieFileName(duneTitle, slot.Standard, imports.FileFacts{Release: tt.rel}, ".mkv")
+			got, err := imports.MovieFileName(duneTitle, "Standard", imports.FileFacts{Release: tt.rel}, ".mkv")
 			if err != nil {
 				t.Fatalf("MovieFileName: %v", err)
 			}
@@ -188,7 +189,7 @@ func TestMovieFileNameAudioAndVideoFromProbe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := imports.MovieFileName(duneTitle, slot.Standard, imports.FileFacts{Release: plain, Probe: tt.probe}, ".mkv")
+			got, err := imports.MovieFileName(duneTitle, "Standard", imports.FileFacts{Release: plain, Probe: tt.probe}, ".mkv")
 			if err != nil {
 				t.Fatalf("MovieFileName: %v", err)
 			}
@@ -203,7 +204,7 @@ func TestMovieFileNameAudioAndVideoFromProbe(t *testing.T) {
 func TestMovieFileNameEditionAndGroup(t *testing.T) {
 	t.Run("no group leaves no dash", func(t *testing.T) {
 		f := imports.FileFacts{Release: rel("Bluray-1080p", release.Revision{Version: 1}, "", "")}
-		got, err := imports.MovieFileName(duneTitle, slot.Standard, f, ".mkv")
+		got, err := imports.MovieFileName(duneTitle, "Standard", f, ".mkv")
 		if err != nil {
 			t.Fatalf("MovieFileName: %v", err)
 		}
@@ -213,7 +214,7 @@ func TestMovieFileNameEditionAndGroup(t *testing.T) {
 	})
 	t.Run("edition is a plain bracket after quality", func(t *testing.T) {
 		f := imports.FileFacts{Release: rel("Bluray-1080p", release.Revision{Version: 1}, "Director's Cut", "GRP")}
-		got, err := imports.MovieFileName(duneTitle, slot.Standard, f, ".mkv")
+		got, err := imports.MovieFileName(duneTitle, "Standard", f, ".mkv")
 		if err != nil {
 			t.Fatalf("MovieFileName: %v", err)
 		}
@@ -256,7 +257,7 @@ func TestMovieFileNameLanguageTag(t *testing.T) {
 			title := duneTitle
 			title.OriginalLanguage = tt.original
 			f := imports.FileFacts{Release: plain, Languages: tt.probed, Primary: tt.primary}
-			got, err := imports.MovieFileName(title, slot.Standard, f, ".mkv")
+			got, err := imports.MovieFileName(title, "Standard", f, ".mkv")
 			if err != nil {
 				t.Fatalf("MovieFileName: %v", err)
 			}
@@ -276,7 +277,7 @@ func TestMovieFileNameFileNameCap(t *testing.T) {
 	long := strings.TrimSpace(strings.Repeat("abcdefghi ", 40))
 	title := imports.Title{Name: long, Year: 2021, TMDBID: 1, OriginalLanguage: "eng"}
 	f := imports.FileFacts{Release: plain, Languages: []string{"deu", "eng"}, Primary: "deu"}
-	got, err := imports.MovieFileName(title, slot.Standard, f, ".mkv")
+	got, err := imports.MovieFileName(title, "Standard", f, ".mkv")
 	if err != nil {
 		t.Fatalf("MovieFileName: %v", err)
 	}
@@ -309,7 +310,7 @@ func TestMovieFileNameKeepsFolderPrefixWhenItFits(t *testing.T) {
 	// the file starts with the folder name (Jellyfin groups Versions by it).
 	title := imports.Title{Name: strings.TrimSpace(strings.Repeat("abcdefghi ", 15)), Year: 2021, TMDBID: 1, OriginalLanguage: "eng"}
 	f := imports.FileFacts{Release: plain, Languages: []string{"deu", "eng"}, Primary: "deu"}
-	got, err := imports.MovieFileName(title, slot.Standard, f, ".mkv")
+	got, err := imports.MovieFileName(title, "Standard", f, ".mkv")
 	if err != nil {
 		t.Fatalf("MovieFileName: %v", err)
 	}
@@ -325,7 +326,7 @@ func TestMovieFileNameKeepsFolderPrefixWhenItFits(t *testing.T) {
 func TestMovieFileNameCapKeepsRunesWhole(t *testing.T) {
 	long := strings.Repeat("Äö Ü", 80)
 	title := imports.Title{Name: long, Year: 2021, TMDBID: 1}
-	got, err := imports.MovieFileName(title, slot.Standard, imports.FileFacts{Release: plain}, ".mkv")
+	got, err := imports.MovieFileName(title, "Standard", imports.FileFacts{Release: plain}, ".mkv")
 	if err != nil {
 		t.Fatalf("MovieFileName: %v", err)
 	}
@@ -339,17 +340,17 @@ func TestMovieFileNameCapKeepsRunesWhole(t *testing.T) {
 
 func TestMovieFileNameErrorsWhenBracketsDoNotFit(t *testing.T) {
 	f := imports.FileFacts{Release: rel("Bluray-1080p", release.Revision{Version: 1}, strings.Repeat("x", 300), "GRP")}
-	_, err := imports.MovieFileName(duneTitle, slot.Standard, f, ".mkv")
+	_, err := imports.MovieFileName(duneTitle, "Standard", f, ".mkv")
 	if !errors.Is(err, imports.ErrTooLong) {
 		t.Errorf("err = %v, want ErrTooLong", err)
 	}
 }
 
 func TestMovieFileNameRequiresTitleAndDottedExt(t *testing.T) {
-	if _, err := imports.MovieFileName(imports.Title{Year: 2021, TMDBID: 1}, slot.Standard, imports.FileFacts{Release: plain}, ".mkv"); err == nil {
+	if _, err := imports.MovieFileName(imports.Title{Year: 2021, TMDBID: 1}, "Standard", imports.FileFacts{Release: plain}, ".mkv"); err == nil {
 		t.Error("empty title: want error")
 	}
-	if _, err := imports.MovieFileName(duneTitle, slot.Standard, imports.FileFacts{Release: plain}, "mkv"); err == nil {
+	if _, err := imports.MovieFileName(duneTitle, "Standard", imports.FileFacts{Release: plain}, "mkv"); err == nil {
 		t.Error("extension without dot: want error")
 	}
 }
@@ -363,21 +364,21 @@ func TestEpisodeFileNames(t *testing.T) {
 		Primary:   "deu",
 	}
 	tests := []struct {
-		name string
-		ep   imports.Episode
-		slot slot.Slot
-		want string
+		name  string
+		ep    imports.Episode
+		label string
+		want  string
 	}{
-		{"single episode carries no episode title", imports.Episode{Season: 1, First: 1, Last: 1}, slot.Standard,
+		{"single episode carries no episode title", imports.Episode{Season: 1, First: 1, Last: 1}, "Standard",
 			"Dark (2017) - S01E01 - [Standard][WEBDL-1080p][German][EAC3 5.1][h264]-GRP.mkv"},
-		{"multi-episode range", imports.Episode{Season: 1, First: 1, Last: 2}, slot.Standard,
+		{"multi-episode range", imports.Episode{Season: 1, First: 1, Last: 2}, "Standard",
 			"Dark (2017) - S01E01-E02 - [Standard][WEBDL-1080p][German][EAC3 5.1][h264]-GRP.mkv"},
-		{"specials are season 0", imports.Episode{Season: 0, First: 3, Last: 3}, slot.Standard,
+		{"specials are season 0", imports.Episode{Season: 0, First: 3, Last: 3}, "Standard",
 			"Dark (2017) - S00E03 - [Standard][WEBDL-1080p][German][EAC3 5.1][h264]-GRP.mkv"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := imports.EpisodeFileName(dark, tt.slot, tt.ep, f, ".mkv")
+			got, err := imports.EpisodeFileName(dark, tt.label, tt.ep, f, ".mkv")
 			if err != nil {
 				t.Fatalf("EpisodeFileName: %v", err)
 			}
@@ -387,7 +388,7 @@ func TestEpisodeFileNames(t *testing.T) {
 		})
 	}
 	t.Run("last before first is rejected", func(t *testing.T) {
-		if _, err := imports.EpisodeFileName(dark, slot.Standard, imports.Episode{Season: 1, First: 2, Last: 1}, f, ".mkv"); err == nil {
+		if _, err := imports.EpisodeFileName(dark, "Standard", imports.Episode{Season: 1, First: 2, Last: 1}, f, ".mkv"); err == nil {
 			t.Error("want error")
 		}
 	})

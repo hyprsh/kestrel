@@ -29,6 +29,7 @@ const file = (name: string, over: Partial<components['schemas']['AdoptionFile']>
   to: `/data/media/movies/Paddington (2014) {tmdb-116149}/Paddington (2014) {tmdb-116149} - [Standard] ${name}.mkv`,
   size: 8 << 30,
   slot: 'standard',
+  slot_guessed: false,
   profile: 'hd-primary',
   score: 1750,
   action: 'create',

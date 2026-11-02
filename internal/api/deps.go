@@ -85,6 +85,9 @@ type Slots interface {
 	Known(ctx context.Context, id slot.Slot) (bool, error)
 	Create(ctx context.Context, in slots.Create) (slot.Record, error)
 	Update(ctx context.Context, id slot.Slot, p slots.Patch) (slot.Record, error)
+	// Check is Update without the write, and Files the number of files a Slot's Versions hold.
+	Check(ctx context.Context, id slot.Slot, p slots.Patch) (slot.Record, error)
+	Files(ctx context.Context, id slot.Slot) (int, error)
 	Delete(ctx context.Context, id slot.Slot) error
 }
 

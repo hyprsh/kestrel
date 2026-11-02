@@ -466,7 +466,8 @@ export interface paths {
         /**
          * Change a Slot
          * @description Changes the label, the default Profiles, whether new Titles get the Slot, and its position. The id never
-         *     changes. `404 not_found` for an unknown id; `422 validation` as for `POST /slots`, and for a `position` past
+         *     changes. A new `label` renames every file of the Slot on disk and logs each Title's rename in the Log (as a
+         *     metadata rename does), and keeps the old label as an alias that Adoption still recognises. `404 not_found` for an unknown id; `422 validation` as for `POST /slots`, and for a `position` past
          *     the last Slot; `409 conflict` when no Slot would be left on for new Titles, and while the Config File declares
          *     `slots`.
          */
@@ -2783,6 +2784,11 @@ export interface components {
             position: number;
             /** @description `true` while the Config File declares `slots`, which declares every Slot at once. */
             from_config_file: boolean;
+            /**
+             * @description Only on the answer to `PATCH /slots/{id}` that changes the label: how many files carry the Slot's old label
+             *     (a dry run: that the rename will touch; a save: that it renamed or is renaming).
+             */
+            renames_files?: number;
         };
         SlotList: {
             /** @description In order, at least one and at most four. */
@@ -4164,6 +4170,12 @@ export interface components {
             /** Format: int64 */
             size: number;
             slot: components["schemas"]["SlotId"];
+            /**
+             * @description `true` when the file's name carries no label (or alias) of a Slot at the place Adoption reads it, so `slot` is
+             *     a guess from the file's resolution (ADR 0024): the first Slot whose default Profile covers it, else the first
+             *     Slot. The review lists these.
+             */
+            slot_guessed: boolean;
             /** @description Key of the Profile the Version has or gets. */
             profile: string;
             score: number;
@@ -6269,7 +6281,14 @@ export interface operations {
     };
     patchSlot: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description When `true` the change is checked against every rule and answered as it would be saved, but nothing is
+                 *     saved and no file is renamed. A new `label` is then answered with `renames_files`, the number of files the
+                 *     rename will touch, for Settings' "Renames N files".
+                 */
+                dry_run?: boolean;
+            };
             header?: never;
             path: {
                 /** @description A Slot's `id` from `GET /slots`. */

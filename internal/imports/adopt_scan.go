@@ -26,6 +26,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/resolution"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
+
+	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // maxCandidates is how many Movies a Needs choice row offers.
@@ -36,9 +38,6 @@ var (
 	// and the *arrs [tmdbid-N], [imdbid-tt..]. A tag is taken as certain.
 	tmdbTagRx = regexp.MustCompile(`(?i)(?:\{tmdb-(\d+)\}|\[tmdbid[-=](\d+)\])`)
 	imdbTagRx = regexp.MustCompile(`(?i)(?:\{imdb-(tt\d+)\}|\[imdbid[-=](tt\d+)\])`)
-	// slotLabelRx is Kestrel's own `- [Standard]` or `- [4K]` label, which wins
-	// over the probe. The old SD, HD and UHD labels are not recognised.
-	slotLabelRx = regexp.MustCompile(`(?i) - \[(Standard|4K)\]`)
 )
 
 // subtitleExts are every sidecar subtitle format that moves with its video.
@@ -60,8 +59,11 @@ type entry struct {
 // env is what planning reads once per scan or edit.
 type env struct {
 	profiles []profiles.Profile
-	region   profiles.Region
-	held     map[string]bool
+	// slots are the Slots in order, and aliases the labels they used to have.
+	slots   []slot.Record
+	aliases map[slot.Slot][]string
+	region  profiles.Region
+	held    map[string]bool
 	// folders maps a tracked Title's folder path to it.
 	folders map[string]library.Tracked
 	byTMDB  map[int]library.Tracked
@@ -76,6 +78,12 @@ func (a *Adoption) env(ctx context.Context) (*env, error) {
 	e := &env{folders: map[string]library.Tracked{}, byTMDB: map[int]library.Tracked{}, seriesByTMDB: map[int]library.Tracked{}}
 	var err error
 	if e.profiles, err = a.d.Profiles.List(ctx); err != nil {
+		return nil, err
+	}
+	if e.slots, err = a.slots.List(ctx); err != nil {
+		return nil, err
+	}
+	if e.aliases, err = a.slots.Aliases(ctx); err != nil {
 		return nil, err
 	}
 	if e.region, _, err = a.d.Profiles.Region(ctx); err != nil {
@@ -714,7 +722,7 @@ func (a *Adoption) accepts(e *env, class probe.Class) func(profiles.Profile) boo
 // for the whole entry.
 func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probed, dir string) (PlanFile, string, error) {
 	base := strings.TrimSuffix(filepath.Base(f.path), filepath.Ext(f.path))
-	slot := slotFor(base, f.info)
+	slot, guessed := a.slotFor(e, library.Movie, titleFolderOf(en), base, f.info)
 
 	// The Profile is the Version's own, else Profile resolution picks one.
 	var ver *library.Version
@@ -766,7 +774,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	)
 
 	ext := strings.ToLower(filepath.Ext(f.path))
-	name, err := MovieFileName(title, slot, FileFacts{Release: parsed, Probe: f.info, Languages: languages, Primary: primary}, ext)
+	name, err := MovieFileName(title, labelIn(e.slots, slot), FileFacts{Release: parsed, Probe: f.info, Languages: languages, Primary: primary}, ext)
 	if err != nil {
 		return PlanFile{}, SkipInvalid, nil
 	}
@@ -775,7 +783,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	probeJSON, _ := json.Marshal(f.info)
 	misfit, _ := fitOf(profile, f.info, verdict, false)
 	pf := PlanFile{
-		Path: f.path, To: to, Size: f.info.Size, Slot: slot, Profile: profileKey, Score: verdict.Score, Action: ActionCreate, Ticked: true,
+		Path: f.path, To: to, Size: f.info.Size, Slot: slot, SlotGuessed: guessed, Profile: profileKey, Score: verdict.Score, Action: ActionCreate, Ticked: true,
 		Misfit: misfit, ReleaseName: base, Parsed: parsedJSON, Probe: probeJSON,
 	}
 	switch {
