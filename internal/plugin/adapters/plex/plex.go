@@ -121,6 +121,9 @@ func (c *Client) Refresh(ctx context.Context, conn plugin.Connection, changes []
 			continue
 		}
 		_, err := c.get(ctx, conn, "/library/sections/"+url.PathEscape(key)+"/refresh", url.Values{"path": {ch.Path}})
+		if err != nil && plugin.AsError(err).Code == plugin.CodeRateLimited {
+			return err // the host waits and sends the batch again
+		}
 		if err != nil && first == nil {
 			first = err
 		}

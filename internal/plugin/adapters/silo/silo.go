@@ -78,8 +78,15 @@ func (*Client) ListOptions(context.Context, plugin.Connection, string) ([]plugin
 func (c *Client) Refresh(ctx context.Context, conn plugin.Connection, changes []mediaserver.Change) error {
 	var first error
 	for _, ch := range changes {
-		if err := c.scan(ctx, conn, ch.Path); err != nil && first == nil {
-			first = err
+		if err := c.scan(ctx, conn, ch.Path); err != nil {
+			// A rate limit ends the batch: the host waits and sends it all again,
+			// and scans are idempotent.
+			if plugin.AsError(err).Code == plugin.CodeRateLimited {
+				return err
+			}
+			if first == nil {
+				first = err
+			}
 		}
 	}
 	return first
