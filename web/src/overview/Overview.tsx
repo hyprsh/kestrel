@@ -59,7 +59,8 @@ export function Overview({
     <>
       {/* A phone's header is the panel's: the title with what runs and Health. A desktop has the title in the content. */}
       {phone && <SidePanel title="Overview" />}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Relative, so the cards' hidden tables for screen readers (sr-only, absolutely placed) stay in this scroll area instead of lengthening the page. */}
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
         {/* Left aligned beside the rail like every screen's content, 24/32 padding, and no wider than the dashboard needs. */}
         <div className="max-w-[1120px] p-4 sm:px-8 sm:py-6">
           <div className="mb-6 flex items-center gap-3 max-sm:mb-4 max-sm:justify-end">
