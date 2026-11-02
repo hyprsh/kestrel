@@ -5,10 +5,12 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
@@ -57,12 +59,27 @@ func NewRouter(o Options) *Router { return &Router{opts: o} }
 // gets a value of its own. No Profile key or absolute Root folder can be it.
 const defaultOption = "default"
 
+// The two Silo tiers. Each maps to one Kestrel Slot (ADR 0024).
+const (
+	tier1080p = "1080p"
+	tier2160p = "2160p"
+)
+
+var tiers = [...]string{tier1080p, tier2160p}
+
 // settings is the connection's config blob. Silo request routes can override
 // any key per tier; an empty value or defaultOption means Kestrel's default.
 type settings struct {
-	standardProfile, fourKProfile, rootFolder string
+	// slotOf and profileOf are the Slot each tier maps to (standard for 1080p
+	// and 4k for 2160p unless the config says otherwise) and the Profile asked
+	// for there, "" for the Slot's default.
+	slotOf     map[string]slot.Slot
+	profileOf  map[string]string
+	rootFolder string
 	// watchAhead is nil for Kestrel's default, else the chosen on or off.
 	watchAhead *bool
+	// shadowed lists the tiers whose profile key and alias are both set.
+	shadowed []string
 }
 
 func settingsOf(c *pluginv1.RouterConnection) settings {
@@ -74,7 +91,35 @@ func settingsOf(c *pluginv1.RouterConnection) settings {
 		}
 		return v
 	}
-	out := settings{standardProfile: get("standard_profile"), fourKProfile: get("4k_profile"), rootFolder: get("root_folder")}
+	out := settings{
+		slotOf:     map[string]slot.Slot{tier1080p: slot.Standard, tier2160p: slot.FourK},
+		profileOf:  map[string]string{},
+		rootFolder: get("root_folder"),
+	}
+	for _, t := range tiers {
+		if id := get(t + "_slot"); id != "" {
+			out.slotOf[t] = slot.Slot(id)
+		}
+		// standard_profile and 4k_profile are aliases for the seeded Slots; the
+		// per-tier key wins over them.
+		var alias, aliasKey string
+		switch out.slotOf[t] {
+		case slot.Standard:
+			aliasKey = "standard_profile"
+		case slot.FourK:
+			aliasKey = "4k_profile"
+		}
+		if aliasKey != "" {
+			alias = get(aliasKey)
+		}
+		out.profileOf[t] = get(t + "_profile")
+		switch {
+		case out.profileOf[t] == "":
+			out.profileOf[t] = alias
+		case alias != "":
+			out.shadowed = append(out.shadowed, t)
+		}
+	}
 	switch get("watch_ahead") {
 	case "on":
 		out.watchAhead = new(true)
@@ -84,33 +129,48 @@ func settingsOf(c *pluginv1.RouterConnection) settings {
 	return out
 }
 
-// slotOf maps a Silo tier to a Kestrel Slot. An unknown tier falls back to
-// Standard with ok false.
-func slotOf(q *pluginv1.RequestedQuality) (slot.Slot, bool) {
+// shadowLogged remembers the connections whose alias-versus-key clash was logged.
+var shadowLogged sync.Map
+
+// logShadowed says once per connection that a per-tier profile key beat the
+// alias set next to it.
+func logShadowed(connID string, cfg settings) {
+	for _, t := range cfg.shadowed {
+		if _, seen := shadowLogged.LoadOrStore(connID+"/"+t, true); seen {
+			continue
+		}
+		alias := "standard_profile"
+		if cfg.slotOf[t] == slot.FourK {
+			alias = "4k_profile"
+		}
+		slog.Warn("kestrel plugin: both "+alias+" and "+t+"_profile are set; "+t+"_profile is used", "connection", connID, "tier", t)
+	}
+}
+
+// tierOf names the Silo tier of a requested quality: 2160p for a 4K one, the
+// id itself when it is a tier; ok is false for any other id.
+func tierOf(q *pluginv1.RequestedQuality) (tier string, ok bool) {
 	if q.GetIs4K() {
-		return slot.FourK, true
+		return tier2160p, true
 	}
-	return slotOfTier(q.GetId())
+	return tierOfID(q.GetId())
 }
 
-// slotOfTier maps a Silo tier id to a Kestrel Slot. An unknown tier falls
-// back to Standard with ok false.
-func slotOfTier(id string) (slot.Slot, bool) {
-	switch id {
-	case "2160p":
-		return slot.FourK, true
-	case "1080p":
-		return slot.Standard, true
+func tierOfID(id string) (string, bool) {
+	if id == tier1080p || id == tier2160p {
+		return id, true
 	}
-	return slot.Standard, false
+	return tier1080p, false
 }
 
-// qualityOf is the Silo tier a Slot answers.
-func qualityOf(sl slot.Slot) string {
-	if sl == slot.FourK {
-		return "2160p"
+// slotOfTier is the Kestrel Slot a Silo tier id maps to. An unknown tier
+// follows the 1080p mapping with ok false, and is logged.
+func (s settings) slotOfTier(id string) (slot.Slot, bool) {
+	tier, ok := tierOfID(id)
+	if !ok {
+		slog.Warn("kestrel plugin: Silo asked for an unknown tier; using the 1080p mapping", "tier", id)
 	}
-	return "1080p"
+	return s.slotOf[tier], ok
 }
 
 func (r *Router) client(c *pluginv1.RouterConnection) (*client, error) {
@@ -128,8 +188,8 @@ func intID(s string) *int {
 	return &n
 }
 
-// Fulfill turns the Silo Request into one Kestrel Request naming the Standard
-// and/or 4K Slot and answers with one Target per Silo tier.
+// Fulfill turns the Silo Request into one Kestrel Request naming the Slots the
+// asked tiers map to and answers with one Target per Silo tier.
 func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*pluginv1.FulfillResponse, error) {
 	if len(in.GetConnections()) == 0 {
 		return &pluginv1.FulfillResponse{Message: "no Kestrel connection is configured"}, nil
@@ -142,31 +202,39 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	cfg := settingsOf(conn)
 	d := in.GetRequest()
 
-	var tiers []slot.Slot // Kestrel Slots with a Silo target, in tier order
+	logShadowed(conn.GetId(), cfg)
+
+	var asked []string // Silo tiers Kestrel serves, in the order asked
 	var skipped []*pluginv1.FulfillmentTarget
 	for _, q := range in.GetQualities() {
-		sl, ok := slotOf(q)
+		tier, ok := tierOf(q)
 		if !ok {
+			slog.Warn("kestrel plugin: Silo asked for an unknown tier", "tier", q.GetId())
 			skipped = append(skipped, &pluginv1.FulfillmentTarget{
 				Quality: q.GetId(), ConnectionId: conn.GetId(), Status: "failed", Message: "Kestrel has no Slot for " + q.GetId(),
 			})
 			continue
 		}
-		if !slices.Contains(tiers, sl) {
-			tiers = append(tiers, sl)
+		if !slices.Contains(asked, tier) {
+			asked = append(asked, tier)
 		}
 	}
 	if len(in.GetQualities()) == 0 {
-		tiers = []slot.Slot{slot.Standard}
+		asked = []string{tier1080p}
 	}
-	if len(tiers) == 0 {
+	if len(asked) == 0 {
 		return &pluginv1.FulfillResponse{Targets: skipped, Message: "no tier Kestrel can serve"}, nil
 	}
 
+	// One Kestrel Slot per distinct mapping; two tiers on one Slot share it.
 	var slots []slotCreate
-	for _, s := range tiers {
-		sc := slotCreate{Slot: s.Key()}
-		if p := map[slot.Slot]string{slot.Standard: cfg.standardProfile, slot.FourK: cfg.fourKProfile}[s]; p != "" {
+	for _, t := range asked {
+		id := cfg.slotOf[t].Key()
+		if slices.ContainsFunc(slots, func(sc slotCreate) bool { return sc.Slot == id }) {
+			continue
+		}
+		sc := slotCreate{Slot: id}
+		if p := cfg.profileOf[t]; p != "" {
 			sc.Profile = &p
 		}
 		slots = append(slots, sc)
@@ -213,8 +281,8 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	}
 
 	res := &pluginv1.FulfillResponse{Targets: skipped}
-	for _, sl := range tiers {
-		res.Targets = append(res.Targets, targetOf(conn.GetId(), req, sl))
+	for _, t := range asked {
+		res.Targets = append(res.Targets, targetOf(conn.GetId(), req, t, cfg.slotOf[t]))
 	}
 	return res, nil
 }
@@ -265,16 +333,16 @@ func rejection(reason *string) string {
 	return "Kestrel rejected the Request: " + *reason
 }
 
-func targetOf(connID string, req kestrelRequest, sl slot.Slot) *pluginv1.FulfillmentTarget {
-	st := statusOf(req, sl)
+func targetOf(connID string, req kestrelRequest, tier string, sl slot.Slot) *pluginv1.FulfillmentTarget {
+	st := statusOf(req, tier, sl)
 	return &pluginv1.FulfillmentTarget{
-		Quality: qualityOf(sl), ConnectionId: connID, ExternalId: strconv.FormatInt(req.ID, 10),
+		Quality: tier, ConnectionId: connID, ExternalId: strconv.FormatInt(req.ID, 10),
 		ExternalStatus: st.ExternalStatus, Status: st.Status, Message: st.Message, Wording: st.Wording,
 	}
 }
 
-func statusOf(req kestrelRequest, sl slot.Slot) *pluginv1.TargetStatus {
-	out := &pluginv1.TargetStatus{Quality: qualityOf(sl)}
+func statusOf(req kestrelRequest, tier string, sl slot.Slot) *pluginv1.TargetStatus {
+	out := &pluginv1.TargetStatus{Quality: tier}
 	if req.Outcome == "rejected" {
 		out.Status, out.Message = "failed", rejection(req.RejectReason)
 		return out
@@ -352,12 +420,13 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 		if err != nil {
 			return nil, err
 		}
+		cfg := settingsOf(c)
 		for _, t := range refs {
 			n, _ := strconv.ParseInt(t.GetExternalId(), 10, 64)
-			sl, _ := slotOfTier(t.GetQuality())
+			sl, _ := cfg.slotOfTier(t.GetQuality())
 			st := &pluginv1.TargetStatus{Quality: t.GetQuality(), ConnectionId: id, Status: "failed", Message: "Kestrel no longer has this Request"}
 			if req, ok := got[n]; ok {
-				st = statusOf(req, sl)
+				st = statusOf(req, t.GetQuality(), sl)
 				st.ConnectionId = id
 				st.Quality = t.GetQuality()
 			}
@@ -367,8 +436,8 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 	return res, nil
 }
 
-// ListConfigOptions fills the Standard Profile, 4K Profile and Root folder
-// dropdowns from Kestrel. Root folders are offered for both kinds: one of the
+// ListConfigOptions fills the Slot, Profile and Root folder dropdowns from
+// Kestrel. Root folders are offered for both kinds: one of the
 // wrong kind for a Request is Kestrel's 422, surfaced as the Request's failure.
 // Silo's Test button lists options rather than calling TestConnection, so the
 // API major is compared here first; client errors pass through unchanged for
@@ -393,21 +462,45 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 	if err != nil {
 		return nil, err
 	}
+	slots, err := cl.slots(ctx)
+	if err != nil {
+		return nil, err
+	}
 	folders := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: defaultOption, Label: "Kestrel default"}}}
 	for _, p := range roots {
 		folders.Options = append(folders.Options, &pluginv1.ConfigOption{Value: p, Label: p})
 	}
+	slotList := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: defaultOption, Label: "Default"}}}
+	for _, sl := range slots {
+		slotList.Options = append(slotList.Options, &pluginv1.ConfigOption{Value: sl.ID, Label: sl.Label})
+	}
+	// The Profiles offered for a Slot are the enabled ones that belong to it, or
+	// every enabled one where none does (a Slot of the admin's own).
 	list := func(sl slot.Slot) *pluginv1.ConfigOptionList {
 		out := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: defaultOption, Label: "Kestrel default"}}}
+		var own, all []*pluginv1.ConfigOption
 		for _, p := range profiles {
-			if p.Slot == sl.Key() && p.Enabled {
-				out.Options = append(out.Options, &pluginv1.ConfigOption{Value: p.Key, Label: p.Name})
+			if !p.Enabled {
+				continue
+			}
+			o := &pluginv1.ConfigOption{Value: p.Key, Label: p.Name}
+			all = append(all, o)
+			if p.Slot == sl.Key() {
+				own = append(own, o)
 			}
 		}
+		if len(own) == 0 {
+			own = all
+		}
+		out.Options = append(out.Options, own...)
 		return out
 	}
+	cfg := settingsOf(in.GetConnection())
 	return &pluginv1.ListConfigOptionsResponse{OptionsByField: map[string]*pluginv1.ConfigOptionList{
-		"standard_profile": list(slot.Standard), "4k_profile": list(slot.FourK), "root_folder": folders,
+		"standard_profile": list(slot.Standard), "4k_profile": list(slot.FourK),
+		"1080p_slot": slotList, "2160p_slot": slotList,
+		"1080p_profile": list(cfg.slotOf[tier1080p]), "2160p_profile": list(cfg.slotOf[tier2160p]),
+		"root_folder": folders,
 	}}, nil
 }
 
@@ -436,7 +529,29 @@ func majorMismatch(version string, major int) string {
 	return fmt.Sprintf("Kestrel %s speaks API v%d but this plugin speaks v%d; install the plugin release that matches Kestrel", version, major, APIMajor)
 }
 
-// Validate has no cross-connection rules.
-func (r *Router) Validate(context.Context, *pluginv1.ValidateRequest) (*pluginv1.ValidateResponse, error) {
-	return &pluginv1.ValidateResponse{}, nil
+// Validate fails a tier that maps to a Slot Kestrel does not have, naming the
+// tier's field. It reads Kestrel's Slots with the connection; where Kestrel
+// cannot be reached the mapping is left for Test connection to report.
+func (r *Router) Validate(ctx context.Context, in *pluginv1.ValidateRequest) (*pluginv1.ValidateResponse, error) {
+	res := &pluginv1.ValidateResponse{}
+	c := in.GetConnection()
+	cl, err := r.client(c)
+	if err != nil {
+		return res, nil
+	}
+	known, err := cl.slots(ctx)
+	if err != nil {
+		return res, nil
+	}
+	cfg := settingsOf(c)
+	for _, t := range tiers {
+		id := cfg.slotOf[t].Key()
+		if !slices.ContainsFunc(known, func(sl kestrelSlot) bool { return sl.ID == id }) {
+			if res.FieldErrors == nil {
+				res.FieldErrors = map[string]string{}
+			}
+			res.FieldErrors[t+"_slot"] = fmt.Sprintf("Kestrel has no Slot %q for the %s tier", id, t)
+		}
+	}
+	return res, nil
 }

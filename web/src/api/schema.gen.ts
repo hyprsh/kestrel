@@ -5502,7 +5502,8 @@ export interface components {
             source_request_id: string;
             requester: components["schemas"]["Requester"];
             title: components["schemas"]["RequestTitle"];
-            slots: components["schemas"]["RequestSlotCreate"][];
+            /** @description The Slots to add a Version in, each with an optional Profile. Left out (or empty), the Request gets a Version in every Slot that is on for new Titles, each with that Slot's default Profile for the Title's kind (ADR 0024). */
+            slots?: components["schemas"]["RequestSlotCreate"][];
             /** @description One of the configured Root folders of the Title's kind; left out means the first one. It applies only to a Title the Request creates: a Request never moves a Title already in the library. Not one of that kind's Root folders is a `422` on `root_folder`. */
             root_folder?: string;
             /** @description Series only; `null` or left out asks for the whole Series. */

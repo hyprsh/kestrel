@@ -173,8 +173,8 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(opts.OptionsByField) != 3 {
-		t.Errorf("fields = %v, want exactly standard_profile, 4k_profile and root_folder", opts.OptionsByField)
+	if len(opts.OptionsByField) != 7 {
+		t.Errorf("fields = %v, want exactly the two aliases, the tier Slot and Profile fields and root_folder", opts.OptionsByField)
 	}
 	std := opts.OptionsByField["standard_profile"].GetOptions()
 	uhd := opts.OptionsByField["4k_profile"].GetOptions()

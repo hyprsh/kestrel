@@ -154,8 +154,13 @@ type Deps struct {
 	Library     *library.Service
 	Profiles    *profiles.Service
 	RootFolders *rootfolders.Service
-	Meta        metadata.Provider
-	TVDB        metadata.TVDBProvider
+	// Slots lists the Slots, for a Request that names none (ADR 0024). Nil
+	// leaves such a Request a validation error.
+	Slots interface {
+		List(ctx context.Context) ([]slot.Record, error)
+	}
+	Meta metadata.Provider
+	TVDB metadata.TVDBProvider
 	// Grabs lists the active Grabs.
 	Grabs interface {
 		Active(ctx context.Context) ([]acquire.Active, error)
@@ -236,6 +241,10 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	defaults, err := s.fillSlots(ctx, &in)
+	if err != nil {
+		return Result{}, err
+	}
 	if err := validate(in, all); err != nil {
 		return Result{}, err
 	}
@@ -284,6 +293,9 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 		}
 		key := sl.Profile
 		if key == "" {
+			key = defaults[sl.Slot]
+		}
+		if key == "" {
 			r, err := profiles.Resolve(all, kind, sl.Slot)
 			if errors.Is(err, profiles.ErrNoEnabledProfile) {
 				return s.store(ctx, in, prior, tgt.name(), 0, nil, NoEnabledProfile)
@@ -319,6 +331,32 @@ func (s *Service) Submit(ctx context.Context, in Input) (Result, error) {
 	res, err := s.store(ctx, in, prior, d.Title, titleID, slots, "")
 	res.SearchDue = searchDue
 	return res, err
+}
+
+// fillSlots gives a Request that names no Slot every Slot that is on for new
+// Titles (ADR 0024), and returns each one's default Profile key for the Title's
+// kind, read from the Slot record; "" leaves the choice to Profile resolution.
+// A Request that names Slots is left as it is.
+func (s *Service) fillSlots(ctx context.Context, in *Input) (map[slot.Slot]string, error) {
+	if len(in.Slots) > 0 || s.d.Slots == nil {
+		return nil, nil
+	}
+	all, err := s.d.Slots.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defaults := map[slot.Slot]string{}
+	for _, r := range all {
+		if !r.OnForNew {
+			continue
+		}
+		in.Slots = append(in.Slots, SlotInput{Slot: r.ID})
+		defaults[r.ID] = r.DefaultMovies
+		if in.Kind == library.Series {
+			defaults[r.ID] = r.DefaultSeries
+		}
+	}
+	return defaults, nil
 }
 
 func profileByKey(all []profiles.Profile, key string) profiles.Profile {

@@ -11,7 +11,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/requests"
 	"github.com/hyprsh/kestrel/internal/settings/rootfolders"
-	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 // plexSource is the source of the Requests Requesters make in Kestrel's own UI.
@@ -67,7 +66,7 @@ func (s *server) CreateMyRequest(ctx context.Context, r oapi.CreateMyRequestRequ
 
 // submitRequesterRequest is a Requester's Request for a Title, whichever way it
 // comes in (their own in the UI, or Watchlist sync's for a title they added to
-// their Watchlist): the Standard Slot under Profile resolution, into the
+// their Watchlist): every Slot that is on for new Titles under its default Profile (ADR 0024), into the
 // person's Root folder when one is set. One function, so the two cannot drift.
 func (s *server) submitRequesterRequest(ctx context.Context, who requester, source, sourceRequestID string, kind library.Kind, tmdbID, tvdbID int) (requests.Request, bool, error) {
 	root, err := s.requesterRoot(ctx, who, kind)
@@ -82,7 +81,6 @@ func (s *server) submitRequesterRequest(ctx context.Context, who requester, sour
 		Source: source, SourceRequestID: sourceRequestID,
 		RequesterID: who.id, RequesterName: who.name,
 		Kind: kind, TMDBID: tmdbID, TVDBID: tvdbID,
-		Slots:      []requests.SlotInput{{Slot: slot.Standard}},
 		RootFolder: root, WatchAhead: switches.WatchAhead,
 	})
 }
