@@ -263,7 +263,7 @@ func New(opts Options) *App {
 		panic("app: loading the stored TRaSH snapshot: " + err.Error())
 	}
 	reqs := requests.New(requests.Deps{
-		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs, RootFolders: roots,
+		Store: st, Clock: opts.Clock, Library: lib, Profiles: profs, RootFolders: roots, Slots: slotSvc,
 		Meta: meta, TVDB: tvdb, Grabs: acq,
 	})
 	refresher := jobs.NewRefresher(jobs.RefresherDeps{

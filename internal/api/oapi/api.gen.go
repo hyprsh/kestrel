@@ -4284,8 +4284,10 @@ type RequestCreate struct {
 	RootFolder *string `json:"root_folder,omitempty"`
 
 	// Seasons Series only; `null` or left out asks for the whole Series.
-	Seasons *[]int              `json:"seasons,omitempty"`
-	Slots   []RequestSlotCreate `json:"slots"`
+	Seasons *[]int `json:"seasons,omitempty"`
+
+	// Slots The Slots to add a Version in, each with an optional Profile. Left out (or empty), the Request gets a Version in every Slot that is on for new Titles, each with that Slot's default Profile for the Title's kind (ADR 0024).
+	Slots *[]RequestSlotCreate `json:"slots,omitempty"`
 
 	// Source Example: silo
 	Source string `json:"source"`
