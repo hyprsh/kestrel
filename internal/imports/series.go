@@ -419,7 +419,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 	}
 	partial := partialPath(in.g.ID, target)
 	_ = os.Remove(partial)
-	cross, err := place(s.link, video, partial)
+	cross, err := s.placeFor(in.g, video, partial)
 	if err != nil {
 		_ = os.Remove(partial)
 		stall(err)
@@ -469,6 +469,7 @@ func (in *seriesImport) file(ctx context.Context, video string, out *Result) {
 		stall(err)
 		return
 	}
+	in.g.noteLibraryCopy(video, target)
 	for _, old := range replaced {
 		if old.Path != target {
 			removeWithSidecars(old.Path)

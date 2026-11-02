@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -72,6 +73,10 @@ type Grab struct {
 	Overridden bool
 	// Checking, when set, is told how many downloaded files the Import is about to check, once it has found them.
 	Checking func(files int)
+	// placed maps a downloaded video to the library file the first Version of a shared Grab got from it, so every
+	// further Version hardlinks that file (it is in the same Title folder, so on the same device) instead of copying the
+	// download again when that is on another filesystem.
+	placed map[string]string
 }
 
 // Result is the outcome of one Import.
@@ -278,6 +283,7 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 	}
 	var out, leftAlone Result
 	imported := false
+	g.placed = map[string]string{}
 	for i, id := range g.VersionIDs {
 		one := g
 		one.VersionID, one.VersionIDs = id, nil
@@ -309,6 +315,30 @@ func (s *Service) Import(ctx context.Context, g Grab) Result {
 		return leftAlone
 	}
 	return out
+}
+
+// placeFor puts a downloaded video at dst for one Version. The first Version of a shared Grab gets it from the
+// download; each further one gets a hardlink of the first one's library file, and a copy of it, logged, if that
+// link fails.
+func (s *Service) placeFor(g Grab, video, dst string) (cross bool, err error) {
+	first, ok := g.placed[video]
+	if !ok {
+		return place(s.link, video, dst)
+	}
+	if err := s.link(first, dst); err != nil {
+		slog.Warn("importing: hardlinking a shared download between Versions failed, copying instead", "from", first, "to", dst, "err", err)
+		return false, copyVerified(first, dst)
+	}
+	return false, nil
+}
+
+// noteLibraryCopy records the library file a Version got from a downloaded video, for the Versions after it.
+func (g Grab) noteLibraryCopy(video, target string) {
+	if g.placed != nil {
+		if _, ok := g.placed[video]; !ok {
+			g.placed[video] = target
+		}
+	}
 }
 
 func (s *Service) importOne(ctx context.Context, g Grab) Result {
@@ -480,7 +510,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	if err := os.MkdirAll(dir, 0o777); err != nil {
 		return stalledBy(err)
 	}
-	cross, err := place(s.link, src.video, partial)
+	cross, err := s.placeFor(g, src.video, partial)
 	if err != nil {
 		_ = os.Remove(partial)
 		return stalledBy(err)
@@ -512,6 +542,7 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 	if err := os.Rename(partial, target); err != nil {
 		return stalledBy(err)
 	}
+	g.noteLibraryCopy(src.video, target)
 	for _, old := range replaced {
 		if old.Path != target {
 			removeWithSidecars(old.Path)

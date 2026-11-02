@@ -63,6 +63,31 @@ func TestASeasonPackBoundToTwoVersionsIsLinkedAsEpisodeFilesUnderEachVersionsNam
 	}
 }
 
+func TestASeasonPackOnAnotherFilesystemIsCopiedOnceAndLinkedUnderTheOtherVersionsNames(t *testing.T) {
+	ctx := context.Background()
+	s := newSeriesRig(t)
+	s.crossDeviceFromDownloads = true
+	other, err := s.lib.AddVersion(ctx, s.titleID, library.VersionSpec{Slot: slot.FourK, Profile: "any-primary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := s.download(t, packName, 9, []string{"Night.Show.S01E01.1080p.WEB-DL.H264-GRP.mkv"})
+	g.VersionIDs = []int64{s.version, other}
+
+	if res := s.svc.Import(ctx, g); res.Status != imports.Imported {
+		t.Fatalf("result = %+v", res)
+	}
+	entries, _ := os.ReadDir(filepath.Join(s.root, seriesRoot, "Season 01"))
+	if len(entries) != 2 {
+		t.Fatalf("season folder holds %d files, want 1 per Version", len(entries))
+	}
+	a, _ := entries[0].Info()
+	b, _ := entries[1].Info()
+	if !os.SameFile(a, b) {
+		t.Error("the second Version's file is a second copy of the download, want a hardlink of the first")
+	}
+}
+
 func TestASharedPackThatOneVersionHasNothingToTakeFromStillImportsForTheOther(t *testing.T) {
 	ctx := context.Background()
 	s := newSeriesRig(t)

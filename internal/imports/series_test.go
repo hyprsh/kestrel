@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -67,6 +68,12 @@ func newSeriesRig(t *testing.T) *seriesRig {
 	r.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return seriesNow }})
 	svc, err := imports.New(imports.Deps{
 		Library: r.lib, Renames: r.lib, Slots: slots.New(st), Health: r.health, FolderChanged: r.notes.changed, History: &r.log, Blocklist: &r.blocks, Remove: r.remove, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return seriesNow },
+		Link: func(src, dst string) error {
+			if r.crossDeviceFromDownloads && strings.HasPrefix(src, r.downs) {
+				return &os.LinkError{Op: "link", Old: src, New: dst, Err: syscall.EXDEV}
+			}
+			return os.Link(src, dst)
+		},
 		Step: func(step string) error {
 			if r.hook != nil {
 				return r.hook(step)

@@ -70,6 +70,9 @@ type rig struct {
 	notes    recorder
 	// crossDevice makes hardlinks fail with EXDEV, as across a filesystem boundary.
 	crossDevice bool
+	// crossDeviceFromDownloads makes only the hardlinks that start in the download folder fail with EXDEV: the
+	// download is on another filesystem than the library.
+	crossDeviceFromDownloads bool
 	// crossDeviceRename makes folder renames fail with EXDEV.
 	crossDeviceRename bool
 	// failMove makes the database write of a Move fail.
@@ -142,7 +145,7 @@ func newRig(t *testing.T) *rig {
 		Library: r.lib, Slots: r.slotSvc, Renames: renames{r.lib, r}, Rename: r.renameDir, Profiles: profiles.New(st, settings.New(st)), Prober: r.prober, Clock: func() time.Time { return now }, Health: r.health, FolderChanged: r.notes.changed,
 		History: &r.log, Blocklist: &r.blocks, Remove: r.remove,
 		Link: func(src, dst string) error {
-			if r.crossDevice {
+			if r.crossDevice || (r.crossDeviceFromDownloads && strings.HasPrefix(src, r.downs)) {
 				return &os.LinkError{Op: "link", Old: src, New: dst, Err: syscall.EXDEV}
 			}
 			return os.Link(src, dst)

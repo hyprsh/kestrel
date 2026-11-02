@@ -71,6 +71,38 @@ func TestOneDownloadBoundToTwoVersionsIsLinkedUnderEachVersionsOwnName(t *testin
 	}
 }
 
+func TestASharedDownloadOnAnotherFilesystemIsCopiedOnceAndTheOtherVersionsAreHardlinksOfThatCopy(t *testing.T) {
+	r, g, other := sharedRig(t)
+	r.crossDeviceFromDownloads = true
+
+	res := r.svc.Import(context.Background(), g)
+
+	if res.Status != imports.Imported || !res.CrossDevice {
+		t.Fatalf("result = %+v", res)
+	}
+	a, errA := os.Stat(versionOf(t, r, r.versions[slot.Standard]).File.Path)
+	b, errB := os.Stat(versionOf(t, r, other).File.Path)
+	if errA != nil || errB != nil || !os.SameFile(a, b) {
+		t.Errorf("the second Version's file is a second copy, want a hardlink of the first: %v %v", errA, errB)
+	}
+}
+
+func TestASharedDownloadFallsBackToACopyWhenTheLibraryCannotHardlinkEither(t *testing.T) {
+	r, g, other := sharedRig(t)
+	r.crossDevice = true
+
+	res := r.svc.Import(context.Background(), g)
+
+	if res.Status != imports.Imported {
+		t.Fatalf("result = %+v", res)
+	}
+	a, errA := os.Stat(versionOf(t, r, r.versions[slot.Standard]).File.Path)
+	b, errB := os.Stat(versionOf(t, r, other).File.Path)
+	if errA != nil || errB != nil || os.SameFile(a, b) || a.Size() != b.Size() {
+		t.Errorf("want two equal copies: %v %v", errA, errB)
+	}
+}
+
 func TestUpgradingOnlyOneSharedVersionLeavesTheOthersFileUntouched(t *testing.T) {
 	ctx := context.Background()
 	r, g, other := sharedRig(t)
