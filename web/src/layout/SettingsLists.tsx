@@ -60,6 +60,54 @@ export function IndexerLine({
   )
 }
 
+/** The head of the Slot list: the column names over the rows, in the rows' grid. */
+export function SlotHead() {
+  return (
+    <div className="label-12 hidden grid-cols-[16px_minmax(0,1fr)_minmax(0,1.4fr)_90px_80px_32px] items-center gap-x-3.5 bg-background-200 px-4 py-2 text-gray-900 sm:grid">
+      <span />
+      <span>Slot</span>
+      <span>Default Profile</span>
+      <span>Holds</span>
+      <span>New Titles</span>
+      <span />
+    </div>
+  )
+}
+
+/** One Slot of the list: the drag `handle`, its `label`, its `defaults`, the Versions it `holds`, the on-for-new-Titles `toggle` and the `menu`. On a phone the cells stack under the label. */
+export function SlotLine({
+  dragging,
+  handle,
+  label,
+  defaults,
+  holds,
+  toggle,
+  menu,
+  ...drag
+}: {
+  dragging: boolean
+  handle: ReactNode
+  label: ReactNode
+  defaults: ReactNode
+  holds: ReactNode
+  toggle: ReactNode
+  menu: ReactNode
+} & Pick<HTMLAttributes<HTMLDivElement>, 'draggable' | 'onDragStart' | 'onDragEnd' | 'onDragOver' | 'onDrop'>) {
+  return (
+    <div
+      {...drag}
+      className={`grid grid-cols-[16px_minmax(0,1fr)_auto_32px] items-center gap-x-3.5 gap-y-1 px-4 py-3 text-[13px] sm:grid-cols-[16px_minmax(0,1fr)_minmax(0,1.4fr)_90px_80px_32px] ${dragging ? 'opacity-50' : ''}`}
+    >
+      {handle}
+      <span className="font-semibold">{label}</span>
+      <span className="col-start-2 row-start-2 min-w-0 text-gray-900 sm:col-start-auto sm:row-start-auto">{defaults}</span>
+      <span className="col-start-2 row-start-3 text-gray-900 sm:col-start-auto sm:row-start-auto">{holds}</span>
+      <span className="col-start-3 row-start-1 sm:col-start-auto sm:row-start-auto">{toggle}</span>
+      <span className="col-start-4 row-start-1 sm:col-start-auto sm:row-start-auto">{menu}</span>
+    </div>
+  )
+}
+
 /** The card of one Profile: name, what uses it and its action in a row, then the quality chips and a line of facts. `selected` marks the one open in the sheet. */
 export function ProfileCard({ name, uses, action, selected, children }: { name: string; uses: ReactNode; action: ReactNode; selected: boolean; children: ReactNode }) {
   return (
