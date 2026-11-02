@@ -12,10 +12,11 @@ import { SeasonMenu, SeasonSearchButton, TickedBar, useEpisodeActions } from './
 import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
 import { EpisodeList } from './EpisodeList'
 import { useEpisodeView } from './episodeView'
-import { bySeason, defaultSeason, episodeCode, isUnaired, matchesFilter, orderEpisodes, orderSeasons, seasonName, seasonRow, type EpisodeFilter } from './episodes'
+import { bySeason, defaultSeasons, episodeCode, isUnaired, matchesFilter, orderEpisodes, orderSeasons, seasonName, seasonRow, type EpisodeFilter } from './episodes'
 import { grabsByEpisode } from './cellDetail'
 import { MonitorToggle } from './MonitorToggle'
 import { SeasonAccordion } from './SeasonAccordion'
+import { chipColumn } from './StateBar'
 import { cellOf, slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 
@@ -25,7 +26,7 @@ const noEpisodes: Episode[] = []
  * What a Series adds to its Title page, below its header: the Seasons as an accordion (one row per season with its
  * bookmark, a bar of its episodes, a chip per Slot and the count), each opening in place to the season's tools (its
  * filters, Search season, its menu) and episode list (a chip per Slot), and, while episodes are ticked, their floating bar.
- * The first season with something Wanted opens by itself. The open seasons live in the address bar ("?open=5,3", or the old
+ * The newest season and every one with something Wanted open by themselves. The open seasons live in the address bar ("?open=5,3", or the old
  * "?season=2"), as does the found episode (episodeView.ts). The Slots come from the Title's Versions, any number.
  */
 export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; onManualSearch?: (t: ManualSearchTarget) => void }) {
@@ -43,13 +44,13 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const queue = useQueue()
   const grabs = useMemo(() => grabsByEpisode(queue.data, title.id), [queue.data, title.id])
 
-  // Which seasons are open: the address's ("?open=5,3", or the old "?season=2"), else the first with something Wanted (the newest when nothing is). The found episode's season is open too.
+  // Which seasons are open: the address's ("?open=5,3", or the old "?season=2"), else what seasons_open says (the newest and every Wanted one by default). The found episode's season is open too.
   const own = useMemo(() => {
-    const wanted = seasons.find((n) => (grouped.get(n) ?? []).some((e) => slots.some((s) => cellOf(e, s)?.state === 'wanted')))
-    return wanted ?? defaultSeason(seasons, display.seasons_open)
+    const wanted = seasons.filter((n) => (grouped.get(n) ?? []).some((e) => slots.some((s) => cellOf(e, s)?.state === 'wanted')))
+    return defaultSeasons(seasons, wanted, display.seasons_open)
   }, [seasons, grouped, slots, display.seasons_open])
   const open = useMemo(() => {
-    const named = view.open ?? (view.season !== null ? [view.season] : [own])
+    const named = view.open ?? (view.season !== null ? [view.season] : own)
     const set = new Set(named.filter((n) => grouped.has(n)))
     if (view.season !== null && view.episode !== null && grouped.has(view.season)) set.add(view.season)
     return set
@@ -166,7 +167,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
     )
   }
   return (
-    <section aria-label="Seasons" className="mt-6 flex flex-col gap-2">
+    <section aria-label="Seasons" className="mt-6 flex flex-col gap-2" style={chipColumn(slotList.length)}>
       <div className="flex items-center gap-2">
         <h3 className="heading-16 flex-1">Seasons</h3>
         {showField ? (
@@ -179,11 +180,11 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
             <FindEpisodeField find={find} autoFocus />
           </div>
         ) : (
-          <Button variant="tertiary" size="small" svgOnly aria-label="Find an episode" title="Find an episode" onClick={() => setFinding(true)}>
-            <Search aria-hidden className="size-4" />
+          <Button variant="secondary" size="small" aria-label="Find an episode" title="Find an episode" prefix={<Search aria-hidden className="size-4" />} onClick={() => setFinding(true)}>
+            Find
           </Button>
         )}
-        <Button variant="tertiary" size="small" onClick={() => view.setOpen(allOpen ? [] : seasons)}>
+        <Button variant="secondary" size="small" onClick={() => view.setOpen(allOpen ? [] : seasons)}>
           {allOpen ? 'Collapse all' : 'Expand all'}
         </Button>
       </div>

@@ -64,7 +64,7 @@ type UpcomingFilters struct {
 // Display is the household's view defaults.
 type Display struct {
 	SeasonOrder string `json:"season_order"`
-	// SeasonsOpen decides where a Series page starts: LatestAndWanted opens the newest season, the other two the first.
+	// SeasonsOpen decides where a Series page starts: LatestAndWanted opens the newest season and every season with something Wanted, the other two the first season with something Wanted, else the first.
 	// Only the first is offered in Settings (a switch); the Config File and API still accept all three.
 	SeasonsOpen      string          `json:"seasons_open"`
 	ManualSearchSort string          `json:"manual_search_sort"`

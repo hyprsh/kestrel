@@ -7,17 +7,18 @@ import { MonitorToggle } from './MonitorToggle'
 import { SlotChips, type ChipData } from './SlotChip'
 import { seasonName, slotTally, tallyCount, type SlotTally } from './episodes'
 import { combinedState, type Combined, type SlotInfo } from './slots'
+import { barColor, chipsShown, rowColumns, StateBar, type BarPart } from './StateBar'
 import { usePhone } from '../responsive'
 import { plural } from '../format'
 
 /** The bar's colour of each combined episode state. */
-const barColor: Record<Combined, string> = {
-  filled: 'bg-green-700',
-  partial: 'bg-amber-700',
-  wanted: 'bg-amber-700',
-  downloading: 'bg-blue-700',
-  unreleased: 'bg-gray-300',
-  unmonitored: 'bg-gray-300',
+const stateColor: Record<Combined, string> = {
+  filled: barColor.filled,
+  partial: barColor.wanted,
+  wanted: barColor.wanted,
+  downloading: barColor.downloading,
+  unreleased: barColor.quiet,
+  unmonitored: barColor.quiet,
 }
 
 /** A Slot's row of a season in words, for the row's name and the chip's tooltip: "Standard 8 of 10, 2 downloading, 6 not aired". */
@@ -31,15 +32,15 @@ function say(t: SlotTally, name: string): string {
 }
 
 /** The chip of one Slot in one season: "STD 8/10" with the dot of the worst state in it. */
-function tallyChip(t: SlotTally, monitored: boolean, slot: SlotInfo, several: boolean): ChipData {
+function tallyChip(t: SlotTally, monitored: boolean, slot: SlotInfo): ChipData {
   const empty = t.counted === 0 && t.filled === 0
   const state = !monitored ? 'unmonitored' : t.wanted > 0 ? 'wanted' : t.downloading > 0 ? 'downloading' : empty ? (t.unaired > 0 && t.unmonitored === 0 ? 'unreleased' : 'unmonitored') : 'filled'
-  return { key: t.slot, short: several ? slot.short : '', state, text: empty ? undefined : `${t.filled}/${t.counted}`, tip: say(t, slot.name) }
+  return { key: t.slot, short: slot.short, state, text: empty ? undefined : `${t.filled}/${t.counted}`, tip: say(t, slot.name) }
 }
 
 /**
- * What a season says about itself in one line: "Complete" (only when nothing in it is unmonitored), "6 Wanted · 6 downloading",
- * "1 of 6 · 5 not monitored", "Not aired", "Not monitored" (nothing in it is monitored).
+ * What a season says about itself in one line, apart from its chip's count: "Complete" (only when nothing in it is unmonitored),
+ * "6 Wanted · 6 downloading", "5 not monitored", "Not aired", "Not monitored" (nothing in it is monitored).
  */
 function standing(states: Combined[], monitored: boolean): { text: string; tone: string } {
   if (!monitored) return { text: 'Not monitored', tone: 'text-gray-900' }
@@ -53,9 +54,9 @@ function standing(states: Combined[], monitored: boolean): { text: string; tone:
     const parts = [wanted > 0 ? `${wanted} Wanted` : null, downloading > 0 ? `${downloading} downloading` : null, off_].filter(Boolean)
     return { text: parts.join(' \u00b7 '), tone: wanted > 0 ? 'text-amber-900' : 'text-blue-900' }
   }
-  if (off > 0) return { text: `${n('filled')} of ${states.length} \u00b7 ${off_}`, tone: 'text-gray-900' }
+  if (off > 0) return { text: off_!, tone: 'text-gray-900' }
   if (unaired === states.length) return { text: 'Not aired', tone: 'text-gray-900' }
-  return { text: unaired > 0 ? `Complete \u00b7 ${unaired} not aired` : 'Complete', tone: 'text-green-900' }
+  return { text: unaired > 0 ? `Complete \u00b7 ${unaired} not aired` : 'Complete', tone: 'text-gray-900' }
 }
 
 /**
@@ -92,23 +93,26 @@ export function SeasonAccordion({
         const tallies = slots.map((s) => slotTally(eps, s.key))
         const line = standing(states, monitored)
         const isOpen = open.has(n)
-        const bar = (['filled', 'partial', 'downloading', 'unreleased', 'unmonitored'] as Combined[]).map((k) => ({ k, n: states.filter((s) => s === k).length })).filter((b) => b.n > 0)
+        const bar: BarPart[] = (['filled', 'partial', 'downloading', 'unreleased', 'unmonitored'] as Combined[]).map((k) => ({ key: k, n: states.filter((s) => s === k).length, color: stateColor[k] }))
+        const complete = eps.length > 0 && states.every((s) => s === 'filled')
+        // The chip counts what is Have; the trailing figure is the season's episodes, said only when it is not the chip's own total.
+        const total = tallies.some((t) => t.counted !== eps.length) ? plural(eps.length, 'ep') : ''
         return (
           <div key={n} data-monitored={monitored ? 'on' : 'off'} data-season={n}>
             <AccordionRow
               label={`${name}: ${line.text}${monitored ? `, ${tallies.map((t, i) => say(t, slots[i].name)).join('; ')}` : ''}`}
               open={isOpen}
               onToggle={() => onToggle(n)}
-              gridClass={phone ? 'grid-cols-[16px_minmax(0,1fr)_auto] min-h-14 py-2.5' : 'grid-cols-[16px_28px_88px_minmax(0,1fr)_auto_64px] h-[52px]'}
+              gridClass={phone ? 'grid-cols-[16px_minmax(0,1fr)] min-h-14 py-2.5' : rowColumns}
               header={
                 phone ? (
                   <>
                     <Chevron open={isOpen} />
                     <span className="flex min-w-0 flex-col gap-1.5">
                       <span className={`label-14 font-semibold ${monitored ? '' : 'text-gray-900'}`}>{name}</span>
-                      <Bar bar={bar} total={eps.length} />
+                      <StateBar parts={bar} complete={complete} />
+                      <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
                     </span>
-                    <span className={`label-12 text-right ${line.tone}`}>{line.text}</span>
                   </>
                 ) : (
                   <>
@@ -118,11 +122,11 @@ export function SeasonAccordion({
                     </span>
                     <span className={`label-14 font-semibold ${monitored ? '' : 'text-gray-900'}`}>{name}</span>
                     <span className="flex min-w-0 flex-col gap-1">
-                      <Bar bar={bar} total={eps.length} />
+                      <StateBar parts={bar} complete={complete} />
                       <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>
                     </span>
-                    <span className="relative flex gap-1.5">{monitored && <SlotChips chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i], slots.length > 1))} max={4} />}</span>
-                    <span className="label-12 pointer-events-none text-right text-gray-900">{plural(eps.length, 'ep')}</span>
+                    <span className="relative flex justify-end gap-1.5">{monitored && <SlotChips chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i]))} max={chipsShown} />}</span>
+                    <span className="label-12 pointer-events-none text-right text-gray-900 tabular-nums">{total}</span>
                   </>
                 )
               }
@@ -132,14 +136,5 @@ export function SeasonAccordion({
         )
       })}
     </AccordionList>
-  )
-}
-
-/** A bar of a season's episodes by state, in proportion. */
-function Bar({ bar, total }: { bar: { k: Combined; n: number }[]; total: number }) {
-  return (
-    <span aria-hidden className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-gray-100 max-sm:h-1.5">
-      {total > 0 && bar.map((b) => <span key={b.k} data-bar={b.k} style={{ flex: `${b.n} 0 0` }} className={barColor[b.k]} />)}
-    </span>
   )
 }

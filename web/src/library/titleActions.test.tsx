@@ -146,10 +146,22 @@ describe('the Version rows', () => {
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByText('228 of 240 episodes · 8 Wanted · 4 not monitored')).toBeInTheDocument()
+    expect(within(hd).getByText('8 Wanted · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
     expect(within(hd).getByRole('img', { name: /^Standard: 228 of 240 episodes/ })).toHaveTextContent(/228\/240/)
     expect(hd.querySelector('[data-bar="filled"]')).not.toBeNull()
     expect(within(hd).getAllByText('412.0 GB').length).toBeGreaterThan(0)
+  })
+
+  it('say a complete Series Version as Complete, its count in its chip, with a thin bar', async () => {
+    const r = seriesRow(5, 'Breaking Bad')
+    fakeSeries()
+    standardOnly(r, { episodes: 62, filled: 62, wanted: 0, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 })
+    const pane = await openTitle(/breaking bad/i)
+
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect(within(hd).getByText('Complete')).toBeInTheDocument()
+    expect(within(hd).getByRole('img', { name: /^Standard: 62 of 62 episodes/ })).toHaveTextContent(/62\/62/)
+    expect(hd.querySelector('[data-complete]')).not.toBeNull()
   })
 
   it('leave a Wanted Special out of a Series Version’s episode total but count it as Wanted', async () => {
@@ -160,7 +172,7 @@ describe('the Version rows', () => {
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
-    expect(within(hd).getByText('2 of 2 episodes · 1 Wanted')).toBeInTheDocument()
+    expect(within(hd).getByText('1 Wanted')).toBeInTheDocument()
     expect(within(hd).getByRole('img', { name: /^Standard: 2 of 2 episodes/ })).toHaveTextContent(/2\/2/)
   })
 

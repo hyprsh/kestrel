@@ -93,6 +93,30 @@ describe('the Seasons at a glance on the Title page', () => {
     await waitFor(() => expect(location.search).toBe('?open='))
   })
 
+  describe('the seasons it opens by itself (seasons_open: latest_and_wanted)', () => {
+    const wantedCells = { standard: cell('wanted'), '4k': cell('wanted') }
+    async function openedSeasons(wantedIn: number | null) {
+      const state = fakeSeries()
+      state.get().episodes = [1, 2, 3, 4, 5].map((n) => episode(n, n, 1, `Episode ${n}`, { cells: n === wantedIn ? wantedCells : filled }))
+      renderApp()
+      await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+      await screen.findByRole('region', { name: 'Seasons' })
+      return screen.getAllByRole('button', { name: /^Season \d+:/, expanded: true }).map((b) => /^Season (\d+):/.exec(b.getAttribute('aria-label') ?? '')![1])
+    }
+
+    it('opens only the newest season when nothing is Wanted', async () => {
+      expect(await openedSeasons(null)).toEqual(['5'])
+    })
+
+    it('opens a Wanted older season and the newest', async () => {
+      expect(await openedSeasons(2)).toEqual(['2', '5'])
+    })
+
+    it('opens only the newest season when it is the one with something Wanted', async () => {
+      expect(await openedSeasons(5)).toEqual(['5'])
+    })
+  })
+
   it('reads the open seasons from the address, and the old ?season= too', async () => {
     const state = fakeSeries()
     state.get().episodes = [episode(1, 1, 1, 'Pilot', { cells: filled }), episode(2, 2, 1, 'Next', { cells: filled }), episode(3, 3, 1, 'Later', { cells: filled })]
@@ -321,7 +345,7 @@ describe('what a season says when some of its episodes are not monitored', () =>
     const row = (name: RegExp) => screen.getByRole('button', { name }).closest<HTMLElement>('[role=listitem]')!
 
     const specials = row(/^Specials:/)
-    expect(within(specials).getByText('1 of 6 · 5 not monitored')).toBeInTheDocument()
+    expect(within(specials).getByText('5 not monitored')).toBeInTheDocument()
     expect(within(specials).queryByText('Complete')).not.toBeInTheDocument()
     expect(within(specials).getByRole('button', { name: 'Stop monitoring Specials' })).toBeInTheDocument() // some of it is monitored
     expect(within(row(/^Season 1:/)).getByText('Complete')).toBeInTheDocument()

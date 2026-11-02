@@ -170,7 +170,7 @@ silo: # Watch-ahead for Silo; see "Watch-ahead for Silo"
 
 display: # optional; each key you name is read-only in Settings > General > Display
   season_order: newest_first # oldest_first (default) or newest_first; Specials come first oldest first, last newest first
-  seasons_open: latest_and_wanted # latest_and_wanted (default) starts a Series page on its newest season; all or none on its first
+  seasons_open: latest_and_wanted # latest_and_wanted (default) opens a Series page's newest season and every season with something Wanted; all or none its first season with something Wanted, else its first
   manual_search_sort: best_first # best_first (default), or <column>_asc / <column>_desc
   upcoming_display: agenda # agenda (default) or month; a browser's own last choice wins
   upcoming_filters:
@@ -353,7 +353,7 @@ The household-wide view defaults. Name any of the keys: each one you name is rea
 | Field                | Value                                                                                                                                                                                                                         |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `season_order`       | `oldest_first` or `newest_first`. Newest first reverses the seasons and the episodes in each. Specials come before Season 1 oldest first, and last newest first.                                                              |
-| `seasons_open`       | `latest_and_wanted` (default) starts a Series page on its newest season, Settings' "Open the newest season" switched on. `all` or `none` start it on the first season, the switch off. A link to a season or an episode wins. |
+| `seasons_open`       | `latest_and_wanted` (default) opens a Series page's newest season and every season with something Wanted, Settings' "Open the newest season" switched on. `all` or `none` open its first season with something Wanted, else its first season, the switch off. A link to a season or an episode wins. |
 | `manual_search_sort` | `best_first`, or a column and a direction such as `size_desc`. The columns are `score`, `release`, `quality`, `languages`, `formats`, `size`, `age` and `indexer`. `score_desc` is `best_first`.                              |
 | `upcoming_display`   | `agenda` (default) or `month`: the display Upcoming opens with. A browser that picked its own display keeps it.                                                                                                               |
 | `upcoming_filters`   | `kind` (`all`, `movie` or `series`), `wanted_only` and `hide_imported`. Declared as a whole: a filter you leave out takes its default (`all`, `false`, `false`).                                                              |

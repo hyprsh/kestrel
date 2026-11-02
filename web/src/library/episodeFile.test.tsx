@@ -47,8 +47,9 @@ async function openSeries() {
   const user = userEvent.setup()
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await user.click(await screen.findByRole('button', { name: 'Library' }))
-  const grid = await screen.findByRole('grid', { name: 'Episodes' })
-  await pickSeason('Season 1') // Season 2, the latest, opens first
+  await screen.findAllByRole('grid', { name: 'Episodes' })
+  await pickSeason('Season 1') // Season 2, the latest, opens with Season 1, which has something Wanted
+  const grid = screen.getByRole('grid', { name: 'Episodes' })
   return { user, grid, state }
 }
 

@@ -43,8 +43,33 @@ describe("a Title's downloads on its page", () => {
     expect(await within(uhd).findByText('Downloading S05E09–E10')).toBeInTheDocument()
     expect(within(pane).getByRole('listitem', { name: 'Standard' })).not.toHaveTextContent('Downloading')
     await userEvent.click(within(uhd).getByRole('button', { name: /^4K:/ }))
-    expect(within(uhd).getByText('75%')).toBeInTheDocument()
-    expect(within(uhd).getByRole('button', { name: /^S05E09–E10/ })).toBeInTheDocument() // a link into Activity
+    expect(within(uhd).getByText(/^75%/)).toBeInTheDocument()
+    expect(within(uhd).getByRole('button', { name: /^S05E09–E10 in Activity/ })).toBeInTheDocument() // a link into Activity
+  })
+
+  it('draws a line per Grab in a Series Slot, each with its progress and a link into Activity', async () => {
+    fakeSeries()
+    fakeQueue([
+      queueItem({ grab_id: 1, title_id: 5, slot: '4k', episodes: ['S05E05', 'S05E06', 'S05E07', 'S05E08'], bytes_total: 1000, bytes_left: 250, eta: 120 }),
+      queueItem({ grab_id: 2, title_id: 5, slot: '4k', episodes: ['S05E09'], bytes_total: 1000, bytes_left: 500, eta: 600 }),
+    ])
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const pane = await screen.findByRole('region', { name: /breaking bad/i })
+    const uhd = await within(pane).findByRole('listitem', { name: '4K' })
+    await userEvent.click(within(uhd).getByRole('button', { name: /^4K:/ }))
+
+    const lines = within(uhd)
+      .getAllByRole('listitem')
+      .filter((li) => li !== uhd)
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toHaveTextContent(/^S05E05–E08/)
+    expect(lines[0]).toHaveTextContent('75% · 2 min left')
+    expect(within(lines[0]).getByRole('progressbar')).toBeInTheDocument()
+    expect(within(lines[0]).getByRole('button', { name: 'S05E05–E08 in Activity' })).toBeInTheDocument()
+    expect(lines[1]).toHaveTextContent(/^S05E09/)
+    expect(lines[1]).toHaveTextContent('50% · 10 min left')
+    expect(within(lines[1]).getByRole('button', { name: 'S05E09 in Activity' })).toBeInTheDocument()
   })
 
   it('has no download line when nothing of this Title is downloading', async () => {

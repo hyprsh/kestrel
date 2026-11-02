@@ -4,22 +4,24 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { serveDisplay } from '../test/serveDisplay'
-import { episode, fakeSeries, pickSeason } from '../test/series'
+import { cell, episode, fakeSeries } from '../test/series'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
-/** A Series with Seasons 1 to 3 and Specials, two episodes in each of seasons 1 and 3, all aired. */
-function fakeLongSeries() {
+/** A Series with Seasons 1 to 3 and Specials, two episodes in each of seasons 1 and 3, all aired. Everything is filled, but for Season 1 when `wantedInOne`. */
+function fakeLongSeries(wantedInOne = false) {
+  const filled = { standard: cell('filled', 100), '4k': cell('filled', 100) }
+  const has = (season: number) => (wantedInOne && season === 1 ? {} : { cells: filled })
   const state = fakeSeries()
   state.episodes.splice(
     0,
     state.episodes.length,
-    episode(1, 0, 1, 'Special'),
-    episode(2, 1, 1, 'One A'),
-    episode(3, 1, 2, 'One B'),
-    episode(4, 2, 1, 'Two A'),
-    episode(5, 3, 1, 'Three A'),
-    episode(6, 3, 2, 'Three B'),
+    episode(1, 0, 1, 'Special', has(0)),
+    episode(2, 1, 1, 'One A', has(1)),
+    episode(3, 1, 2, 'One B', has(1)),
+    episode(4, 2, 1, 'Two A', has(2)),
+    episode(5, 3, 1, 'Three A', has(3)),
+    episode(6, 3, 2, 'Three B', has(3)),
   )
   return state
 }
@@ -27,7 +29,7 @@ function fakeLongSeries() {
 async function openGrid() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  return screen.findByRole('grid', { name: 'Episodes' })
+  return (await screen.findAllByRole('grid', { name: 'Episodes' }))[0]
 }
 
 /** The seasons in the Seasons at a glance, in order. */
@@ -43,14 +45,15 @@ const rowsOf = (grid: HTMLElement) =>
 beforeEach(() => localStorage.clear())
 
 describe('season order in the episode table', () => {
-  it('lists Specials, then Season 1, 2 and 3 in the Seasons, opens the first with something Wanted, and the oldest episode first, by default', async () => {
+  it('lists Specials, then Season 1, 2 and 3 in the Seasons, opens the newest and the one with something Wanted, and the oldest episode first, by default', async () => {
     serveDisplay()
-    fakeLongSeries()
-    const grid = await openGrid()
+    fakeLongSeries(true)
+    await openGrid()
     expect(await tabsOf()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
-    expect(rowsOf(grid)).toEqual(['Season 1 episode 1', 'Season 1 episode 2']) // the first season with something Wanted is open
-    await pickSeason('Season 3')
-    expect(rowsOf(screen.getByRole('grid', { name: 'Episodes' }))).toEqual(['Season 3 episode 1', 'Season 3 episode 2'])
+    // Season 1 has something Wanted and Season 3 is the newest: those two are open.
+    expect(rowsOf(screen.getByRole('region', { name: 'Season 1 episodes' }))).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
+    expect(rowsOf(screen.getByRole('region', { name: 'Season 3 episodes' }))).toEqual(['Season 3 episode 1', 'Season 3 episode 2'])
+    expect(screen.queryByRole('region', { name: 'Season 2 episodes' })).not.toBeInTheDocument()
   })
 
   it('lists Season 3 first, then 2, 1 and Specials, with the newest episode first, with newest first', async () => {
