@@ -16,7 +16,7 @@ import { baseName } from './cellDetail'
 import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid, lastSearchWords } from './accordion'
 import { useEpisodeView } from './episodeView'
 import { importedOn, EndOfPath } from './EpisodeFilePopover'
-import { audioLine, qualityLine, qualityName } from './media'
+import { audioLine, qualityName } from './media'
 import { AddVersion } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
 import { SlotChips } from './SlotChip'
@@ -30,20 +30,27 @@ import { whyNoneFit } from './WantedLine'
 type Version = TitleDetail['versions'][number]
 
 /** A Slot's state in a line: "Have · BluRay 1080p", "Downloading 40% · 13 min left", "Wanted 12 days · next search in 4 h". */
-function stateLine(v: Version, dl: SlotDownloads | null, now: number): { text: string; tone: string; state: SlotDotState | null } {
+function stateLine(v: Version, dl: SlotDownloads | null, now: number): { text: string; summary: string; tone: string; state: SlotDotState | null } {
   const state = dl ? 'downloading' : dotState(v.state, v.long_missing)
-  if (dl) return { text: `Downloading${dl.pct !== null ? ` ${dl.pct}%` : ''}${dl.eta !== null ? ` · ${span(dl.eta * 1000)} left` : ''}`, tone: 'text-blue-900', state: 'downloading' }
-  if (v.file) return { text: `Have${v.file.quality ? ` · ${qualityName(v.file.quality)}` : ''}`, tone: 'text-green-900', state: 'filled' }
+  if (dl) {
+    const text = `Downloading${dl.pct !== null ? ` ${dl.pct}%` : ''}${dl.eta !== null ? ` · ${span(dl.eta * 1000)} left` : ''}`
+    return { text, summary: text, tone: 'text-blue-900', state: 'downloading' }
+  }
+  // A filled Version's state is the chip's: its summary is the quality alone, and the codec is the Video fact's.
+  if (v.file) return { text: `Have${v.file.quality ? ` · ${qualityName(v.file.quality)}` : ''}`, summary: v.file.quality ? qualityName(v.file.quality) : '', tone: 'text-gray-900', state: 'filled' }
   if (state === 'wanted' || state === 'long_missing') {
     const d = days(v.wanted_since, now)
     const what = state === 'long_missing' ? 'Long Missing' : 'Wanted'
+    const text = `${what}${d >= 1 ? ` ${plural(d, 'day')}` : ''}${v.next_search_at ? ` · next search ${until(v.next_search_at, now)}` : ''}`
     return {
-      text: `${what}${d >= 1 ? ` ${plural(d, 'day')}` : ''}${v.next_search_at ? ` · next search ${until(v.next_search_at, now)}` : ''}`,
+      text,
+      summary: text,
       tone: state === 'long_missing' ? 'text-red-900' : 'text-amber-900',
       state,
     }
   }
-  return { text: state ? stateName[state] : 'No Version', tone: 'text-gray-900', state }
+  const text = state ? stateName[state] : 'No Version'
+  return { text, summary: text, tone: 'text-gray-900', state }
 }
 
 export function MovieSection({
@@ -137,6 +144,11 @@ function SlotRow({
   const fileName = f ? baseName(f.path) : grab ? grab.release_name : 'No file yet'
   const total = grab ? downloads!.items.reduce((n, i) => n + i.bytes_total, 0) : 0
   const sizeText = f ? size(f.size) : total > 0 ? size(total) : '—'
+  // A filled row closed says quality, file name and size once each; opened, the facts below say them and the header keeps the name and chip.
+  // A Wanted or downloading row keeps its line open too: it is what explains the chip.
+  const detailed = open && !!f
+  const showSummary = !detailed && line.summary !== ''
+  const showSize = !detailed
   const chip = (
     <SlotChips
       chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: downloads?.pct != null ? `${downloads.pct}%` : undefined, tip: `${name}: ${line.text}` }]}
@@ -159,21 +171,23 @@ function SlotRow({
           <span className="flex min-w-0 flex-col gap-px">
             <span className="label-14 font-semibold">{name}</span>
             <span className="label-12-mono truncate text-gray-900">{profileName(v.profile)}</span>
-            {phone && <span className={`label-12 truncate ${line.tone}`}>{line.text}</span>}
+            {phone && showSummary && <span className={`label-12 truncate ${line.tone}`}>{line.summary}</span>}
           </span>
           {!phone && (
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className={`label-13 truncate ${line.tone}`}>{line.text}</span>
-              <span dir="rtl" title={f?.path} className="label-12-mono block min-w-0 truncate text-left text-gray-900">
-                <bdi>{fileName}</bdi>
-              </span>
+              {showSummary && <span className={`label-13 truncate ${line.tone}`}>{line.summary}</span>}
+              {!detailed && (
+                <span dir="rtl" title={f?.path} className="label-12-mono block min-w-0 truncate text-left text-gray-900">
+                  <bdi>{fileName}</bdi>
+                </span>
+              )}
             </span>
           )}
           <span className="relative flex items-center gap-2">
             {chip}
-            {phone && <span className="label-12 text-gray-900">{sizeText}</span>}
+            {phone && showSize && <span className="label-12 text-gray-900">{sizeText}</span>}
           </span>
-          {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{sizeText}</span>}
+          {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{showSize ? sizeText : ''}</span>}
         </>
       }
       body={<SlotBody {...{ title, profiles, profileName }} version={v} downloads={downloads} now={now} onManualSearch={manual} />}
@@ -256,7 +270,7 @@ function SlotBody({
       <div className={wrap}>
         <OriginalOfferNote offer={v.original_offer} />
         <div className={grid}>
-          <Fact k="Quality">{qualityLine(f, false) || '—'}</Fact>
+          <Fact k="Quality">{f.quality ? qualityName(f.quality) : '—'}</Fact>
           <Fact k="Video">{[f.video_codec, f.hdr ?? 'SDR'].filter(Boolean).join(' · ') || '—'}</Fact>
           <Fact k="Audio">{audio || '—'}</Fact>
           <Fact k="Custom Format Score">{f.score === null ? '—' : `${f.score > 0 ? '+' : ''}${f.score.toLocaleString()}`}</Fact>

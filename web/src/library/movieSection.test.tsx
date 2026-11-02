@@ -22,6 +22,7 @@ const file = {
   release_name: 'Paddington.2014.1080p.WEB-DL',
   score: 100,
   quality: 'WEBDL-1080p',
+  video_codec: 'H.264',
   languages: ['English'],
   imported_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
 }
@@ -44,9 +45,12 @@ describe("a Movie's Versions on its Title page", () => {
     const versions = await within(pane).findByRole('region', { name: 'Versions' })
     expect(within(versions).getByRole('heading', { name: 'Versions' })).toBeInTheDocument()
     const row_ = within(versions).getByRole('button', { name: 'Standard: Have · WEB-DL 1080p' })
+    await userEvent.click(row_) // the only Slot opens itself; close it
     const item = row_.closest('[role=listitem]') as HTMLElement
     expect(item).toHaveTextContent('Standard')
-    expect(item).toHaveTextContent('Have · WEB-DL 1080p')
+    expect(item).toHaveTextContent('WEB-DL 1080p')
+    expect(item).not.toHaveTextContent('Have') // the chip says the state
+    expect(item).not.toHaveTextContent('H.264') // the codec is the Video fact's
     expect(within(item).getByText('Paddington (2014) - [Standard][WEBDL-1080p].mkv').closest('[title]')).toHaveAttribute('title', file.path)
     expect(item).toHaveTextContent('1.6 GB')
     expect(within(item).getByRole('img', { name: /^Standard: Have/ })).toHaveAttribute('data-state', 'filled')
@@ -62,6 +66,10 @@ describe("a Movie's Versions on its Title page", () => {
     expect(row_).toHaveAttribute('aria-expanded', 'true') // the only Slot opens
     const item = row_.closest('[role=listitem]') as HTMLElement
     for (const k of ['Quality', 'Video', 'Audio', 'Custom Format Score', 'Size', 'Imported', 'Path']) expect(within(item).getByText(k)).toBeInTheDocument()
+    // Opened, the header repeats none of them: the size and the file name show once, in the facts.
+    expect(within(item).getAllByText('1.6 GB')).toHaveLength(1)
+    expect(within(item).getAllByText(/Paddington \(2014\)/)).toHaveLength(1)
+    expect(within(item).getByText('Quality').nextSibling).not.toHaveTextContent('H.264')
     expect(within(item).getByText('+100')).toBeInTheDocument()
     expect(within(item).getByRole('button', { name: 'Search for an Upgrade' })).toBeEnabled()
     expect(within(item).getByRole('button', { name: 'Manual search' })).toBeInTheDocument()
