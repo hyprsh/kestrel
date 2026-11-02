@@ -23,8 +23,12 @@ An episode Kestrel added itself because a Release named it before TheTVDB listed
 _Avoid_: TBA episode, ghost episode
 
 **Profile**:
-A named, switchable quality-and-language target, such as HD, Any or 4K, backed by a TRaSH profile. Any takes every resolution up to 1080p, for Titles that never had an HD release. Each Profile covers a fixed resolution range, and either requires the Primary Language or requires the Title's Original Language. A Primary-Language Profile rejects, offers (an Original Offer) or accepts a Release that has the Title's Original Language but no Primary-Language audio. Profiles can be enabled or disabled and named as a Slot's default for new Movies or new Series. Any Profile can fill any Slot, and a Version's Profile can be switched at any time without moving or renaming the Version. On top of TRaSH's data a household sets, per Profile, the order and acceptance of the qualities, a Cutoff, an Upgrade-until Score, a minimum Score and Size limits, and can make a custom Profile as a copy of another. TRaSH's Custom Formats and their Scores stay TRaSH's.
-_Avoid_: Quality profile, preset, UHD (say 4K), Kids Profile
+A named, switchable quality-and-language target, such as HD, Any, 4K or 4K Remux. A Profile is a recipe: a resolution range, a Release Family and a language rule, and Kestrel backs it with the TRaSH profile that fits that recipe in the household's language. Any takes every resolution up to 1080p, for Titles that never had an HD release. A Profile requires the Primary Language, the Title's Original Language, or one named language (English, German or French). A Primary-Language Profile rejects, offers (an Original Offer) or accepts a Release that has the Title's Original Language but no Primary-Language audio. Profiles can be enabled or disabled and named as a Slot's default for new Movies or new Series. Any Profile can fill any Slot, and a Version's Profile can be switched at any time without moving or renaming the Version. On top of TRaSH's data a household sets, per Profile, the order and acceptance of the qualities, a Cutoff, an Upgrade-until Score, a minimum Score and Size limits, and can make a custom Profile as a copy of another. TRaSH's Custom Formats and their Scores stay TRaSH's.
+_Avoid_: Quality profile, preset, UHD (say 4K), Kids Profile, TRaSH profile (for the Profile itself)
+
+**Release Family**:
+Which kind of Releases a Profile goes after, as TRaSH groups them: Bluray + WEB (encodes from either), Remux + WEB, WEB, or SQP. Every Profile has one; HD, Any and 4K are Bluray + WEB.
+_Avoid_: Source (that is an Indexer), tier (TRaSH uses it for release groups), quality (as a noun for this)
 
 **Cutoff**:
 How far a Profile takes Upgrades: the quality that is "good enough" (a quality in the Profile's ladder, best first) and the Upgrade-until Score. A file has reached it when its quality is the Cutoff quality or a better one in the ladder, and its Score is at least the Upgrade-until Score; a Profile may set either or both, and with neither it never stops upgrading. A file at its Cutoff is left alone: no Release upgrades it and the Upgrade sweep does not search for it. A file below its Profile's Cutoff is not Wanted; it only waits for an Upgrade.
@@ -38,11 +42,11 @@ A named place in every Title that holds at most one Version, such as Standard or
 _Avoid_: Tier (TRaSH uses it for release groups), Profile (for the place a Version fills)
 
 **Primary Language**:
-The household's own language, chosen once for the whole library: English, German or French. Profiles require it unless they require the Original Language instead.
+The household's own language, chosen once for the whole library: English, German or French. A Primary-Language Profile follows it when it changes; a Profile that requires a named language does not.
 _Avoid_: Household language, dub language, German (when the Primary Language is meant)
 
 **Original Language**:
-The language a Title was made in, as its metadata states. A Profile can require it instead of the Primary Language.
+The language a Title was made in, as its metadata states. A Profile can require it instead of the Primary Language or a named language.
 _Avoid_: O-Ton, VO, English (when the Original Language is meant)
 
 **Version**:
