@@ -13,10 +13,10 @@ Each Slot names a default Profile for Movies and one for Series. A new Version i
 
 ## What a Slot is for
 
-Kestrel starts with two Slots, **Standard** and **4K**, and you can have up to four. Two examples that the old fixed pair could not do, since both want a second copy at a resolution another Slot already covers:
+A fresh install starts with one Slot, **Standard**. A library that already existed keeps **Standard** and **4K**. You can have up to four Slots. Two examples that a fixed Standard and 4K pair could not do, since both want a second copy at a resolution another Slot already covers:
 
-- **A Remux next to a streaming copy.** Keep Standard on HD and add a Slot named `Remux`, with `Any` as its default. A Title then holds a lossless 1080p file for the home cinema and a compact one for the tablet, at the same resolution.
-- **A dub next to the Original Language.** Keep Standard on `HD Original` and add a Slot named `German`, with `HD` as its default. Each Title then holds both audio versions at 1080p, side by side.
+- **A Remux next to a streaming copy.** Keep Standard on HD and add a Slot named `Remux`, with `HD Remux` as its default (add that Profile from Suggested in Settings > Profiles first). A Title then holds a lossless 1080p file for the home cinema and a compact one for the tablet, at the same resolution.
+- **A dub next to the Original Language.** In a household whose Primary Language is German, keep Standard on `HD Original` and add a Slot named `German`, with `HD` as its default. Each Title then holds both audio versions at 1080p, side by side.
 
 Give two Slots different default Profiles, as here: a Title can't use one Profile in two Versions.
 
