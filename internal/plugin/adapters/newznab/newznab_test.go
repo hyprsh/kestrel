@@ -199,6 +199,19 @@ func TestMovieSearchByIDsSendsTheRightRequestAndMapsTheFeed(t *testing.T) {
 	}
 }
 
+func TestAPILimitsAreReadInAnyLetterCase(t *testing.T) {
+	srv := serve(t, map[string]string{"movie": "movie_camelcase_limits.xml"})
+	res, err := newznab.New(nil).Search(ctx(), srv.conn(nil), indexer.SearchQuery{
+		Media: indexer.MediaMovie, Mode: indexer.ModeIDs, IMDBID: "tt0133093", Limit: 50,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (indexer.Limits{Reported: true, APICurrent: 12, APIMax: 100, GrabCurrent: 3, GrabMax: 50}); res.Limits != want {
+		t.Errorf("limits %+v, want %+v", res.Limits, want)
+	}
+}
+
 func TestSeriesSearchSendsIDsSeasonAndEpisode(t *testing.T) {
 	srv := serve(t, map[string]string{"tvsearch": "tvsearch.xml"})
 	res, err := newznab.New(nil).Search(ctx(), srv.conn(nil), indexer.SearchQuery{

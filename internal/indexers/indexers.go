@@ -1,7 +1,8 @@
 // Package indexers is the host of the indexer.v1 plugins (ADR 0008). It owns
 // what a plugin leaves to its host: which indexers are asked, one lane per
-// enabled indexer and all in parallel; paging through a result; falling back
-// from an ID search to a text search; and caching each indexer's Caps.
+// enabled indexer and all in parallel (or only those of one Indexer Priority,
+// for a caller that asks the groups in turn); paging through a result; falling
+// back from an ID search to a text search; and caching each indexer's Caps.
 //
 // Budgets, pacing and pauses (budget.go) are the host's too: every request a
 // lane makes, and every NZB fetch, goes through them.
@@ -14,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -135,14 +137,40 @@ type Result struct {
 // are done or ctx ends, whichever is first; lanes that ended with ctx report
 // an unavailable Failure.
 func (s *Service) Search(ctx context.Context, q Query) Result {
-	return s.fan(ctx, true, func(inst instances.Instance) ([]Release, *Failure) { return s.lane(ctx, inst, q) })
+	return s.fan(ctx, true, nil, func(inst instances.Instance) ([]Release, *Failure) { return s.lane(ctx, inst, q) })
+}
+
+// SearchGroup is Search over the enabled indexers whose Indexer Priority is
+// priority: one group of Priorities. A priority no enabled indexer has asks
+// none and returns an empty Result.
+func (s *Service) SearchGroup(ctx context.Context, q Query, priority int) Result {
+	in := func(inst instances.Instance) bool { return inst.Priority == priority }
+	return s.fan(ctx, true, in, func(inst instances.Instance) ([]Release, *Failure) { return s.lane(ctx, inst, q) })
+}
+
+// Priorities are the Indexer Priorities of the enabled indexers, lowest
+// first and each once: the groups an automatic search asks in turn. An error
+// reading the indexers gives none.
+func (s *Service) Priorities(ctx context.Context) []int {
+	enabled, err := s.inst.Enabled(ctx, indexer.Contract.ID)
+	if err != nil {
+		return nil
+	}
+	var out []int
+	for _, inst := range enabled {
+		if !slices.Contains(out, inst.Priority) {
+			out = append(out, inst.Priority)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // RSS reads the newest releases of every enabled indexer: one lane per
 // indexer, one request per kind of media (Movie, then Series) and no paging,
 // so a pass costs next to nothing. Each Release says which feed it came from.
 func (s *Service) RSS(ctx context.Context) Result {
-	return s.fan(ctx, false, func(inst instances.Instance) ([]Release, *Failure) { return s.rssLane(ctx, inst) })
+	return s.fan(ctx, false, nil, func(inst instances.Instance) ([]Release, *Failure) { return s.rssLane(ctx, inst) })
 }
 
 // rssLane reads one indexer's feed for each media. A feed that fails does not
@@ -182,12 +210,16 @@ func (s *Service) Enabled(ctx context.Context) int {
 	return len(enabled)
 }
 
-// fan runs one lane per enabled indexer, in parallel, and gathers the answers. With record, each lane
-// that really asked its indexer is kept in indexer_searches (the Overview's Hit and Answer columns).
-func (s *Service) fan(ctx context.Context, record bool, lane func(instances.Instance) ([]Release, *Failure)) Result {
+// fan runs one lane per enabled indexer (only those keep holds, when it is set), in parallel, and gathers the
+// answers. With record, each lane that really asked its indexer is kept in indexer_searches (the Overview's Hit
+// and Answer columns).
+func (s *Service) fan(ctx context.Context, record bool, keep func(instances.Instance) bool, lane func(instances.Instance) ([]Release, *Failure)) Result {
 	enabled, err := s.inst.Enabled(ctx, indexer.Contract.ID)
 	if err != nil {
 		return Result{Failures: []Failure{{Code: plugin.CodeUnavailable, Message: err.Error()}}}
+	}
+	if keep != nil {
+		enabled = slices.DeleteFunc(slices.Clone(enabled), func(inst instances.Instance) bool { return !keep(inst) })
 	}
 	type laneResult struct {
 		releases []Release

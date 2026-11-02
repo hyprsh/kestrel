@@ -55,6 +55,7 @@ export function InstanceForm({
   manifest,
   instance,
   managed,
+  priorityHint,
   label,
   onSaved,
   onCancel,
@@ -63,6 +64,8 @@ export function InstanceForm({
   instance?: PluginInstance
   /** Adds Name, Enabled and Priority to the form, for plugins of which many instances may exist. */
   managed?: boolean
+  /** A hint under a managed form's Priority, saying what the number does; with it Priority takes its own line. */
+  priorityHint?: string
   /** The form's accessible name; defaults to the plugin's. */
   label?: string
   onSaved?: () => void
@@ -130,12 +133,21 @@ export function InstanceForm({
       {managed && (
         <>
           <Input size="small" label="Name" disabled={declared} value={meta.name} onChange={(e) => setMetaField({ name: e.target.value })} />
-          <div className="flex items-end gap-4">
-            <Input size="small" label="Priority" type="number" className="w-24" disabled={declared} value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />
-            <Checkbox checked={meta.enabled} disabled={declared && !enabledOnly} onChange={(e) => setMetaField({ enabled: e.target.checked })}>
-              Enabled
-            </Checkbox>
-          </div>
+          {priorityHint ? (
+            <>
+              <Input size="small" label="Priority" type="number" hint={priorityHint} disabled={declared} value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />
+              <Checkbox checked={meta.enabled} disabled={declared && !enabledOnly} onChange={(e) => setMetaField({ enabled: e.target.checked })}>
+                Enabled
+              </Checkbox>
+            </>
+          ) : (
+            <div className="flex items-end gap-4">
+              <Input size="small" label="Priority" type="number" className="w-24" disabled={declared} value={meta.priority} onChange={(e) => setMetaField({ priority: e.target.value })} />
+              <Checkbox checked={meta.enabled} disabled={declared && !enabledOnly} onChange={(e) => setMetaField({ enabled: e.target.checked })}>
+                Enabled
+              </Checkbox>
+            </div>
+          )}
         </>
       )}
       <fieldset disabled={declared} className="contents">

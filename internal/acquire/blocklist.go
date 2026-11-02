@@ -111,6 +111,12 @@ const (
 	sameReleaseSize   = 2 << 20
 )
 
+// sameRelease is the *arr rule for one Release posted to two Indexers: the same
+// name, posted within two minutes, with a size within two megabytes.
+func sameRelease(nameA string, atA time.Time, sizeA int64, nameB string, atB time.Time, sizeB int64) bool {
+	return nameA == nameB && atA.Sub(atB).Abs() <= sameReleaseWindow && abs(sizeA-sizeB) <= sameReleaseSize
+}
+
 // blocklisted applies the *arr rule: the same indexer's GUID, or the same title
 // posted at the same time, or the same title from another indexer posted within
 // two minutes with a size within two megabytes.
@@ -130,7 +136,7 @@ func (s *Service) blocklisted(ctx context.Context, r indexers.Release) (bool, er
 		if row.IndexerID == r.IndexerID && gap == 0 {
 			return true, nil
 		}
-		if row.IndexerID != r.IndexerID && gap.Abs() <= sameReleaseWindow && abs(row.Size-r.Size) <= sameReleaseSize {
+		if row.IndexerID != r.IndexerID && sameRelease(row.ReleaseName, parseTime(row.PublishedAt), row.Size, r.Title, r.PublishDate, r.Size) {
 			return true, nil
 		}
 	}

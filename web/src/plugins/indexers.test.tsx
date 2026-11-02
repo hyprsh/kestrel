@@ -214,6 +214,13 @@ describe('Settings indexers', () => {
     expect(screen.getByText(/1 indexer needs attention/)).toBeInTheDocument()
   })
 
+  it('says every indexer is asked at once while the enabled ones share one priority', async () => {
+    fakeIndexers({ indexers: [stored(1, 'Geek', { priority: 0 }), stored(2, 'Relay', { priority: 0 }), stored(3, 'Slow', { enabled: false, priority: 5 })] })
+    const section = await open()
+
+    expect(await section.findByText('Kestrel asks every indexer at once. Drag to ask them in order instead.')).toBeInTheDocument()
+  })
+
   it('moves an indexer with the arrow keys on its handle and saves the order as priorities', async () => {
     const sent = fakeIndexers({ indexers: [stored(1, 'Geek', { priority: 1 }), stored(2, 'Slow', { priority: 2 }), stored(3, 'Relay', { priority: 3 })] })
     const section = await open()

@@ -139,8 +139,8 @@ func Rejections(slot Slot, c Candidate) []scoring.Rejection {
 }
 
 // Decide chooses the Releases to grab, at most per Version and unit: the
-// highest Score wins at once, ties go to the newer post, then the larger size,
-// then the lower indexer priority. There is no delay.
+// highest Score wins at once, ties go to the lower indexer priority, then the
+// newer post, then the larger size. There is no delay.
 //
 // For Series, once a season has finished airing a season pack is preferred
 // unless a single episode scores higher than the pack for some episode the
@@ -237,9 +237,9 @@ func eligible(c Candidate, v Version, units map[EpisodeRef]*Unit) (option, bool)
 func rank(a, b option) int {
 	return cmp.Or(
 		cmp.Compare(b.score, a.score),
+		cmp.Compare(a.c.IndexerPriority, b.c.IndexerPriority),
 		b.c.PublishDate.Compare(a.c.PublishDate),
 		cmp.Compare(b.c.Size, a.c.Size),
-		cmp.Compare(a.c.IndexerPriority, b.c.IndexerPriority),
 		cmp.Compare(a.c.GUID, b.c.GUID),
 	)
 }

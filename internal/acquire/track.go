@@ -371,35 +371,63 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 	obs := ObserverOf(ctx)
 	obs.Searching(targetOf(sub.detail, in))
 	out.asked = true
-	entries, failures, err := s.candidates(ctx, sub, library.Scope{}, fromCache)
-	if err != nil {
-		return out, err
-	}
-	obs.Releases(len(entries))
-	out.found(entries)
-	out.Failures = failures
+	// The indexers are asked by Indexer Priority: each group only while the earlier ones left a Version with
+	// nothing grabbed, and its Releases count only for what was left (ADR 0025). Each round grabs what it plans,
+	// so a Grab that cannot be sent leaves its Version to the next group.
+	var entries []*entry
+	var sent []GrabPlan
+	var failed []failedSend
 	byRelease := map[string]*entry{}
-	for _, e := range entries {
-		in.Candidates = append(in.Candidates, e.cand)
-		byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
-	}
-	plans, err := s.decide(ctx, in)
-	if err != nil {
-		return out, err
-	}
-	var errs []error
-	for _, plan := range plans {
-		e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
-		if e == nil {
-			continue
-		}
-		g, err := s.grab(ctx, slotVersion[plan.Slot], e.id, false)
+	left := in.Versions
+	paused, checked := false, false
+	for _, g := range s.groupsOf(ctx) {
+		found, failures, err := s.candidates(ctx, sub, library.Scope{}, g, fromCache)
 		if err != nil {
-			errs = append(errs, err)
-			continue
+			return out, err
 		}
-		out.Grabbed = append(out.Grabbed, g)
+		obs.Releases(len(found))
+		out.Failures = append(out.Failures, failures...)
+		round := Input{Versions: left}
+		for _, e := range found {
+			in.Candidates = append(in.Candidates, e.cand)
+			round.Candidates = append(round.Candidates, e.cand)
+			byRelease[e.cand.GUID+"\x00"+e.cand.IndexerID] = e
+		}
+		entries = append(entries, found...)
+		got := s.plan(round)
+		if !checked {
+			// Pause Grabs is checked once, before the first Grab. While it is on nothing is sent, and what
+			// would be grabbed still counts as covered.
+			if paused, err = s.grabsPaused(ctx); err != nil {
+				out.found(entries)
+				return out, err
+			}
+			checked = true
+		}
+		done := got
+		if !paused {
+			done = nil
+			for _, plan := range got {
+				e := byRelease[plan.Candidate.GUID+"\x00"+plan.Candidate.IndexerID]
+				if e == nil {
+					continue
+				}
+				gr, err := s.grab(ctx, slotVersion[plan.Slot], e.id, false)
+				if err != nil {
+					failed = append(failed, failedSend{plan, err})
+					continue
+				}
+				out.Grabbed = append(out.Grabbed, gr)
+				done = append(done, plan)
+			}
+		}
+		sent = append(sent, done...)
+		if left = leftover(left, done); len(left) == 0 {
+			break
+		}
 	}
+	out.found(entries)
+	errs := sendErrors(failed, sent)
 	errs = append(errs, s.noteOffers(ctx, sub.detail, slotVersion, in, byRelease, nil))
 	return out, errors.Join(errs...)
 }
