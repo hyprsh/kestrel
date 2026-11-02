@@ -43,9 +43,9 @@ func TestASeriesVersionCoverageCountsTheEpisodesItHoldsAndWantsAndTheirSize(t *t
 	t.Parallel()
 	s := newSeriesSearch(t)
 
-	// Monitored and aired: S01E01-E03, S02E01-E02. The Special aired but is unmonitored, S02E03 and S03E01 are still to come.
+	// Monitored and aired: S01E01-E03, S02E01-E02. The Special aired but is unmonitored and left out, S02E03 and S03E01 are still to come.
 	state, c := versionCoverage(t, s.search)
-	if state != "wanted" || c == nil || *c != (coverageJSON{Episodes: 5, Filled: 0, Wanted: 5, Unmonitored: 1}) {
+	if state != "wanted" || c == nil || *c != (coverageJSON{Episodes: 5, Filled: 0, Wanted: 5}) {
 		t.Fatalf("before any Import: state %s, coverage %+v", state, c)
 	}
 
@@ -57,7 +57,7 @@ func TestASeriesVersionCoverageCountsTheEpisodesItHoldsAndWantsAndTheirSize(t *t
 	s.pass(t, jobs.Import)
 
 	state, c = versionCoverage(t, s.search)
-	want := coverageJSON{Episodes: 5, Filled: 1, Wanted: 4, Unmonitored: 1, Size: goodProbe().Size}
+	want := coverageJSON{Episodes: 5, Filled: 1, Wanted: 4, Size: goodProbe().Size}
 	if state != "wanted" || c == nil || *c != want {
 		t.Fatalf("after one Import: state %s, coverage %+v, want %+v", state, c, want)
 	}
@@ -79,7 +79,7 @@ func TestASeriesVersionCoverageCountsAWantedEpisodeWithAGrabInFlightAsDownloadin
 	s.pass(t, jobs.Search)
 
 	_, c := versionCoverage(t, s.search)
-	want := coverageJSON{Episodes: 5, Wanted: 5, Unmonitored: 1, Downloading: 1}
+	want := coverageJSON{Episodes: 5, Wanted: 5, Downloading: 1}
 	if c == nil || *c != want {
 		t.Fatalf("Grab in flight: coverage %+v, want %+v", c, want)
 	}
@@ -92,7 +92,7 @@ func TestASeriesVersionCoverageCountsAWantedEpisodeWithAGrabInFlightAsDownloadin
 	if c == nil || *c != want {
 		t.Fatalf("100 days later: coverage %+v, want %+v", c, want)
 	}
-	// The five segments are disjoint and add up to the released episodes.
+	// The five segments are disjoint and add up to the released regular episodes.
 	segments := []int{c.Filled, c.Downloading, c.LongMissing - c.DownloadingLongMissing,
 		c.Wanted - c.Downloading - (c.LongMissing - c.DownloadingLongMissing), c.Unmonitored}
 	sum := 0
@@ -102,8 +102,8 @@ func TestASeriesVersionCoverageCountsAWantedEpisodeWithAGrabInFlightAsDownloadin
 		}
 		sum += n
 	}
-	if sum != 6 {
-		t.Fatalf("segments %v add up to %d, want the 6 released episodes", segments, sum)
+	if sum != 5 {
+		t.Fatalf("segments %v add up to %d, want the 5 released regular episodes", segments, sum)
 	}
 }
 

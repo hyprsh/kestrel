@@ -152,6 +152,18 @@ describe('the Version rows', () => {
     expect(within(hd).getAllByText('412.0 GB').length).toBeGreaterThan(0)
   })
 
+  it('leave a Wanted Special out of a Series Version’s episode total but count it as Wanted', async () => {
+    const r = seriesRow(5, 'Breaking Bad')
+    fakeSeries()
+    // Both regular episodes are filled; the one Wanted episode is a monitored Special, so it is not in `episodes`.
+    standardOnly(r, { episodes: 2, filled: 2, wanted: 1, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 })
+    const pane = await openTitle(/breaking bad/i)
+
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect(within(hd).getByText('2 of 2 episodes · 1 Wanted')).toBeInTheDocument()
+    expect(within(hd).getByRole('img', { name: /^Standard: 2 of 2 episodes/ })).toHaveTextContent(/2\/2/)
+  })
+
   it('keep a Series’ Slot rows closed when it has two Slots, and open and ring the one ?slot= names', async () => {
     fakeSeries()
     history.replaceState(null, '', '/library?slot=4k')

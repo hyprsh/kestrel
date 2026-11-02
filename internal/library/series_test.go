@@ -268,8 +268,9 @@ func TestASeriesSlotCountsItsEpisodesHaveAndAired(t *testing.T) {
 				t.Errorf("a Movie counts no episodes, got %v %v", sl.EpisodesHave, sl.EpisodesAired)
 			}
 		case library.Series:
-			if sl.EpisodesHave == nil || sl.EpisodesAired == nil || *sl.EpisodesHave != 0 || *sl.EpisodesAired < 1 {
-				t.Errorf("a Series with no files has 0 of its aired episodes, got %v %v", sl.EpisodesHave, sl.EpisodesAired)
+			// Pilot, Cat and Seven have aired; the aired Special is left out.
+			if sl.EpisodesHave == nil || sl.EpisodesAired == nil || *sl.EpisodesHave != 0 || *sl.EpisodesAired != 3 {
+				t.Errorf("a Series with no files has 0 of its 3 aired regular episodes, got %v %v", sl.EpisodesHave, sl.EpisodesAired)
 			}
 		}
 	}
