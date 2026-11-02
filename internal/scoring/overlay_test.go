@@ -6,7 +6,6 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
-	"github.com/hyprsh/kestrel/internal/slot"
 )
 
 const gb = int64(1) << 30
@@ -199,7 +198,7 @@ func TestAtCutoffNeedsTheQualityAndTheScore(t *testing.T) {
 }
 
 func TestFourKProfileLadderStaysInItsSlot(t *testing.T) {
-	spec := scoring.ProfileSpec{Slot: slot.FourK, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
+	spec := scoring.ProfileSpec{UHD: true, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish}
 	for _, q := range profileOf(t, spec).Ladder(release.KindMovie) {
 		if q.Accepted && !slices.ContainsFunc(release.Qualities(release.KindMovie), func(x release.Quality) bool { return x.Name == q.Name && x.Resolution == 2160 }) {
 			t.Errorf("%s accepted in the 4K Slot", q.Name)

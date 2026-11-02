@@ -107,18 +107,8 @@ func (d declarer) sections() []section {
 			apply: func(ctx context.Context) error { return d.declareDisplay(ctx, patch) },
 		})
 	}
-	if f.Profiles != nil {
-		want := map[string]profiles.State{}
-		for key, p := range f.Profiles {
-			want[key] = profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice(), DefaultMovies: *p.DefaultMovies, DefaultSeries: *p.DefaultSeries}
-		}
-		out = append(out, section{
-			check: func(context.Context) error {
-				return validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want)))
-			},
-			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
-		})
-	}
+	// The Slots go first: a Profile a Slot names as its default can't be disabled, so the file's new
+	// defaults must be in place before it switches the old ones off.
 	if f.Slots != nil {
 		want := make([]slots.Declared, len(f.Slots))
 		for i, sl := range f.Slots {
@@ -127,6 +117,40 @@ func (d declarer) sections() []section {
 		out = append(out, section{
 			check: func(ctx context.Context) error { return slotsError(d.slots.CheckDeclared(ctx, want)) },
 			apply: func(ctx context.Context) error { return slotsError(d.slots.Declare(ctx, want)) },
+		})
+	}
+	if f.Profiles != nil {
+		want := map[string]profiles.State{}
+		for key, p := range f.Profiles {
+			want[key] = profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
+		}
+		out = append(out, section{
+			check: func(ctx context.Context) error {
+				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want))); err != nil {
+					return err
+				}
+				// A Slot's default stays enabled: the Slots the file declares, else the stored ones.
+				var recs []slot.Record
+				if f.Slots != nil {
+					for _, sl := range f.Slots {
+						recs = append(recs, slot.Record{ID: slot.Slot(sl.ID), Label: sl.Label, DefaultMovies: sl.DefaultMovies, DefaultSeries: sl.DefaultSeries})
+					}
+				} else {
+					var err error
+					if recs, err = d.slots.List(ctx); err != nil {
+						return err
+					}
+				}
+				for _, r := range recs {
+					for _, key := range []string{r.DefaultMovies, r.DefaultSeries} {
+						if w, ok := want[key]; ok && !w.Enabled {
+							return fmt.Errorf("profiles.%s.enabled: the Profile is the default of the Slot %s: choose another default for it first", key, r.Label)
+						}
+					}
+				}
+				return nil
+			},
+			apply: func(ctx context.Context) error { return d.profiles.SetAll(ctx, want) },
 		})
 	}
 	if f.PluginInstances != nil {

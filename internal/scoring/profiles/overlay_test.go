@@ -121,7 +121,7 @@ func TestAnOverlayIsRefusedWhenItContradictsItself(t *testing.T) {
 	}
 }
 
-func TestNewProfileCopiesAnotherAndStartsEnabledButNeverDefault(t *testing.T) {
+func TestNewProfileCopiesAnotherAndStartsEnabled(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newRig(t)
 	if _, err := s.Patch(ctx, "hd-primary", profiles.Patch{Overlay: &scoring.Overlay{UpgradeUntil: intp(900)}}); err != nil {
@@ -131,7 +131,7 @@ func TestNewProfileCopiesAnotherAndStartsEnabledButNeverDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !p.Custom || p.Name != "Movies at 720" || !p.Enabled || p.DefaultMovies || p.DefaultSeries || p.Slot != byKey(t, s)["hd-primary"].Slot {
+	if !p.Custom || p.Name != "Movies at 720" || !p.Enabled || p.MinHeight != 720 || p.MaxHeight != 1080 {
 		t.Errorf("created %+v", p)
 	}
 	if p.Overlay.UpgradeUntil == nil || *p.Overlay.UpgradeUntil != 900 {
@@ -149,9 +149,7 @@ func TestNewProfileCopiesAnotherAndStartsEnabledButNeverDefault(t *testing.T) {
 	if byKey(t, s)["hd-primary"].Overlay.UpgradeUntil == nil {
 		t.Error("changing the copy changed the original")
 	}
-	// But it cannot be a default, and a builtin cannot be renamed.
-	_, err = s.Patch(ctx, p.Key, profiles.Patch{DefaultMovies: yes()})
-	wantField(t, err, "default_movies")
+	// A builtin cannot be renamed.
 	_, err = s.Patch(ctx, "hd-primary", profiles.Patch{Name: &renamed})
 	wantField(t, err, "name")
 }
@@ -212,7 +210,7 @@ func TestSettingAllProfilesFromTheConfigFileLeavesCustomOnesAlone(t *testing.T) 
 	p, _ := s.Create(ctx, "Mine", "hd-primary")
 	want := map[string]profiles.State{}
 	for _, b := range profiles.Builtin() {
-		want[b.Key] = profiles.State{Enabled: true, OriginalChoice: scoring.OriginalReject, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries}
+		want[b.Key] = profiles.State{Enabled: true, OriginalChoice: scoring.OriginalReject}
 	}
 	if err := s.SetAll(ctx, want); err != nil {
 		t.Fatal(err)

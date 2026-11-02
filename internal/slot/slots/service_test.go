@@ -73,7 +73,7 @@ func TestAFreshDatabaseListsTheTwoSeededSlots(t *testing.T) {
 	if std.ID != "standard" || std.Label != "Standard" || !std.OnForNew || std.DefaultMovies != "hd-primary" || std.DefaultSeries != "hd-primary" || std.Position != 0 {
 		t.Errorf("standard = %+v", std)
 	}
-	if fourK.ID != "4k" || fourK.Label != "4K" || fourK.OnForNew || fourK.DefaultMovies != "" || fourK.DefaultSeries != "" || fourK.Position != 1 {
+	if fourK.ID != "4k" || fourK.Label != "4K" || fourK.OnForNew || fourK.DefaultMovies != "4k-primary" || fourK.DefaultSeries != "4k-primary" || fourK.Position != 1 {
 		t.Errorf("4k = %+v", fourK)
 	}
 }

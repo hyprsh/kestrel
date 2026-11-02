@@ -86,14 +86,15 @@ func TestSwitchingTheStandardProfileInBulkSkipsTitlesWithoutAStandardVersion(t *
 	}
 }
 
-func TestABulkProfileSwitchToAProfileOfAnotherSlotIsRefused(t *testing.T) {
+func TestABulkProfileSwitchToAProfileAnotherVersionUsesIsSkipped(t *testing.T) {
 	t.Parallel()
 	b := newBulkLibrary(t)
 
-	r := b.valid("POST", "/titles/bulk", fmt.Sprintf(`{"action":"switch_profile","slot":"standard","profile":"4k-primary","title_ids":[%d]}`, b.paddington))
+	// Paddington's 4K Version already uses 4k-primary, so its Standard Version cannot take it too.
+	got := b.bulk(t, fmt.Sprintf(`{"action":"switch_profile","slot":"standard","profile":"4k-primary","title_ids":[%d]}`, b.paddington))
 
-	if r.Status != 422 {
-		t.Errorf("wrong Slot = %d %s, want 422", r.Status, r.Body)
+	if o := got.outcomes(); o["skipped/profile_taken"] != 1 {
+		t.Errorf("outcomes = %v, want skipped as profile_taken", o)
 	}
 	if p := b.profileIn(t, b.paddington, "standard"); p != "hd-primary" {
 		t.Errorf("Paddington moved to %q", p)

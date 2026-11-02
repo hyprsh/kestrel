@@ -489,8 +489,8 @@ export interface paths {
         put?: never;
         /**
          * Make a custom Profile
-         * @description Copies the Profile `copy_from` under a new `name`: the same Slot, audio rule, resolutions, TRaSH backing and
-         *     settings on top of TRaSH. It starts enabled and is never a default. `422 validation` for an empty,
+         * @description Copies the Profile `copy_from` under a new `name`: the same audio rule, resolutions, TRaSH backing and
+         *     settings on top of TRaSH. It starts enabled. `422 validation` for an empty,
          *     too long or taken `name`; `404 not_found` for an unknown `copy_from`; `409 conflict` while the Config File
          *     declares `profiles`.
          */
@@ -516,23 +516,21 @@ export interface paths {
         /**
          * Delete a custom Profile
          * @description Only a custom Profile can be deleted (`422 validation` for a builtin one). `409 conflict` while a Version
-         *     still uses it, and while the Config File declares `profiles`.
+         *     still uses it, while a Slot names it as its default, and while the Config File declares `profiles`.
          */
         delete: operations["deleteProfile"];
         options?: never;
         head?: never;
         /**
          * Change a Profile's settings
-         * @description A Slot has at most one default Profile per kind: making one the default replaces the old.
-         *     The Standard Slot always keeps exactly one default per kind, so unsetting or disabling it is a
-         *     `validation` error until another Standard Profile is the default. Disabling a Profile clears its defaults, and
-         *     a disabled Profile cannot be made a default. `original_language` other than `reject` (or
+         * @description The defaults for new Titles belong to the Slots (`PATCH /slots/{id}`), not to Profiles: sending
+         *     `default_movies` or `default_series` is a `422 validation`. A Profile that any Slot names as its default
+         *     cannot be disabled: `409 conflict` until that default changes. `original_language` other than `reject` (or
          *     `original_fallback: true`) is a `validation` error on Original-Language Profiles, and so is an
          *     `original_fallback` that disagrees with `original_language` in the same patch.
          *     `name` renames a custom Profile only. `overlay` replaces everything set on top of TRaSH at once (see
          *     `ProfileOverlay`); it is a `validation` error when a size's smallest bound is above its largest, a quality list
-         *     names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. A custom Profile
-         *     cannot be made a default. When `overlay` changes what the Profile does, the Versions under it are re-scored from
+         *     names an unknown or repeated quality or accepts none, or a cutoff is not an accepted quality. When `overlay` changes what the Profile does, the Versions under it are re-scored from
          *     what was stored at Import.
          *     `409 conflict` while the Config File declares `profiles`.
          */
@@ -670,7 +668,7 @@ export interface paths {
          *     monitored, `seasons`.
          *     A `422` names the field and code: `body` / `required` (no body), `versions` / `required`
          *     (no Version), `versions[i].slot` / `invalid` (not a Slot) or `duplicate` (a Slot twice),
-         *     `versions[i].profile` / `not_found`, `disabled` or `wrong_slot`, `root_folder` / `not_found`
+         *     `versions[i].profile` / `not_found`, `disabled` or `profile_taken` (two Versions of a Title use different Profiles), `root_folder` / `not_found`
          *     (not one of the kind's Root folders) or `required` (none configured), `series_monitor` /
          *     `invalid`, `seasons` / `invalid` (a negative season), `unknown` (a season the Series does
          *     not have) or `not_a_series` (seasons for a Movie), and `tmdb_id` / `not_on_tvdb` (a Series
@@ -707,10 +705,11 @@ export interface paths {
          *       its mode and an unmonitored one gets `all`. Again: `unchanged`.
          *     - `switch_profile` moves each Title's Version in `slot` to `profile`, as
          *       `PATCH /versions/{id}` does: the file is re-scored and the Version searched. A Title with no
-         *       Version in that Slot is skipped as `no_version`. Again: `unchanged`.
+         *       Version in that Slot is skipped as `no_version`, and one whose other Version already uses `profile` as
+         *       `profile_taken`. Again: `unchanged`.
          *     - `add_version` adds a Version in `slot` under `profile`, as `POST /titles/{id}/versions`
-         *       does. A Title whose Slot already holds a Version is skipped as `slot_taken`. Again:
-         *       `slot_taken`.
+         *       does. A Title whose Slot already holds a Version is skipped as `slot_taken`, and one whose
+         *       other Version already uses `profile` as `profile_taken`. Again: `slot_taken`.
          *     - `remove_version` removes each Title's Version in `slot`, as `DELETE /versions/{id}` does;
          *       files stay on disk unless `delete_files` is true. No Version there: skipped as `no_version`.
          *       Again: `no_version`.
@@ -817,8 +816,9 @@ export interface paths {
         put?: never;
         /**
          * Add a Version to an empty Slot
-         * @description Adds a Wanted Version under an enabled Profile of the Slot and searches it at once.
-         *     `409` when the Slot already holds a Version.
+         * @description Adds a Wanted Version under any enabled Profile and searches it at once.
+         *     `409` when the Slot already holds a Version; `422 validation` (`profile_taken`) when another Version of
+         *     the Title already uses the Profile.
          */
         post: operations["addVersion"];
         delete?: never;
@@ -849,7 +849,9 @@ export interface paths {
         head?: never;
         /**
          * Switch a Version's Profile
-         * @description Moves the Version to another enabled Profile of its Slot (HD to Any, say). The file is
+         * @description Moves the Version to any other enabled Profile (HD to Any or to 4K, say); the Version stays in its Slot and
+         *     its file is not renamed. `422 validation` (`profile_taken`) when another Version of the Title already
+         *     uses that Profile. The file is
          *     re-scored under the new Profile from what was stored at Import: no re-parse, no new ffprobe,
          *     no rename. A file the new Profile no longer accepts by resolution class or language is a
          *     `misfit`: the Version becomes Wanted and any fitting Release replaces the file whatever its
@@ -2628,6 +2630,8 @@ export interface components {
              */
             pause_grabs: boolean;
             display: components["schemas"]["Display"];
+            /** @description Things in the settings worth a look that are not errors. Left out when there are none. */
+            warnings?: components["schemas"]["SettingsWarning"][];
             /**
              * @description Per section, `true` while the Config File declares it. A declared section can't be
              *     changed here: a patch naming it answers `409 conflict`.
@@ -2817,6 +2821,20 @@ export interface components {
             /** @description The 0-based place to move the Slot to; the others shift to make room. */
             position?: number;
         };
+        SettingsWarning: {
+            /**
+             * @description `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+             * @enum {string}
+             */
+            code: "shared_slot_default";
+            message: string;
+            /** @description `movies` or `series`: the kind whose default is shared. */
+            kind?: string;
+            /** @description The Profile key the Slots share. */
+            profile?: string;
+            /** @description The ids of the Slots that share it, in order. */
+            slots?: components["schemas"]["SlotId"][];
+        };
         Profile: {
             /** @description `true` while the Config File declares `profiles`, which declares every Profile at once. */
             from_config_file: boolean;
@@ -2824,7 +2842,13 @@ export interface components {
             key: string;
             /** @example HD */
             name: string;
-            slot: components["schemas"]["SlotId"];
+            /**
+             * @deprecated
+             * @description Deprecated: a Profile belongs to no Slot (any Profile can fill any Slot). For v1 clients this is derived
+             *     from the Slots: the first Slot, in order, that names the Profile as its default for either kind. Left out
+             *     for a Profile no Slot names as its default.
+             */
+            slot?: components["schemas"]["SlotId"];
             /**
              * @description Which audio the Profile requires.
              * @enum {string}
@@ -2838,7 +2862,15 @@ export interface components {
              */
             original_fallback: boolean;
             enabled: boolean;
+            /**
+             * @deprecated
+             * @description Derived and read-only: `true` while any Slot names the Profile as its default for Movies. Set it on the Slot (`PATCH /slots/{id}`).
+             */
             default_movies: boolean;
+            /**
+             * @deprecated
+             * @description Derived and read-only: `true` while any Slot names the Profile as its default for Series.
+             */
             default_series: boolean;
             min_height: number;
             max_height: number;
@@ -2905,7 +2937,15 @@ export interface components {
              * @description Deprecated in favour of `original_language`; `true` sets `accept`, `false` sets `reject`.
              */
             original_fallback?: boolean;
+            /**
+             * @deprecated
+             * @description No longer settable here: the defaults belong to the Slots. Sending it is a `422 validation`; use `PATCH /slots/{id}`.
+             */
             default_movies?: boolean;
+            /**
+             * @deprecated
+             * @description No longer settable here (see `default_movies`).
+             */
             default_series?: boolean;
             /** @description Renames a custom Profile. */
             name?: string;
@@ -3513,13 +3553,14 @@ export interface components {
             /**
              * @description Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
              *     already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
-             *     in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+             *     in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
+             *     Title already uses the Profile; `nothing_wanted`, none of its
              *     Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
              *     download client could not cancel the Title's download (`message` has what it said);
              *     `internal`, an unexpected error, which the log has.
              * @enum {string|null}
              */
-            reason: "unchanged" | "not_found" | "no_version" | "slot_taken" | "nothing_wanted" | "frozen" | "download_client" | "internal" | null;
+            reason: "unchanged" | "not_found" | "no_version" | "slot_taken" | "profile_taken" | "nothing_wanted" | "frozen" | "download_client" | "internal" | null;
             /** @description The reason in a sentence. */
             message: string | null;
         };

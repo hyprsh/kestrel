@@ -45,7 +45,8 @@ func TestSlotsAreSeededWithTheStandardAndTheOptInFourK(t *testing.T) {
 		std.DefaultMovies == nil || *std.DefaultMovies != "hd-primary" || std.DefaultSeries == nil || *std.DefaultSeries != "hd-primary" {
 		t.Errorf("standard = %+v", std)
 	}
-	if fourK.ID != "4k" || fourK.Label != "4K" || fourK.OnForNewTitles || fourK.Position != 1 || fourK.DefaultMovies != nil || fourK.DefaultSeries != nil {
+	if fourK.ID != "4k" || fourK.Label != "4K" || fourK.OnForNewTitles || fourK.Position != 1 ||
+		fourK.DefaultMovies == nil || *fourK.DefaultMovies != "4k-primary" || fourK.DefaultSeries == nil || *fourK.DefaultSeries != "4k-primary" {
 		t.Errorf("4k = %+v", fourK)
 	}
 }

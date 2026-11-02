@@ -16,8 +16,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 )
 
-// Create makes a custom Profile named name as a copy of the Profile copyKey: the same Slot, language rule,
-// resolutions, TRaSH backing and settings on top of TRaSH. It starts enabled and is no default. A rejection is a
+// Create makes a custom Profile named name as a copy of the Profile copyKey: the same language rule,
+// resolutions, TRaSH backing and settings on top of TRaSH. It starts enabled. A rejection is a
 // *ValidationError, or ErrNotFound for a copyKey that does not exist.
 func (s *Service) Create(ctx context.Context, name, copyKey string) (Profile, error) {
 	name = strings.TrimSpace(name)
@@ -47,7 +47,7 @@ func (s *Service) Create(ctx context.Context, name, copyKey string) (Profile, er
 		_, _ = rand.Read(b[:])
 		key := "custom-" + hex.EncodeToString(b[:])
 		if err := q.InsertCustomProfile(ctx, db.InsertCustomProfileParams{
-			Key: key, Name: name, Sort: toInt64(top) + 1, Slot: src.Slot, Any: src.Any, LanguageRule: src.LanguageRule,
+			Key: key, Name: name, Sort: toInt64(top) + 1, Any: src.Any, LanguageRule: src.LanguageRule,
 			MinHeight: src.MinHeight, MaxHeight: src.MaxHeight, OriginalFallback: src.OriginalFallback,
 			TrashProfileMovies: src.TrashProfileMovies, TrashProfileSeries: src.TrashProfileSeries, OriginalLanguage: src.OriginalLanguage,
 			SeriesQualities: src.SeriesQualities, MovieQualities: src.MovieQualities, SeriesCutoff: src.SeriesCutoff, MovieCutoff: src.MovieCutoff,
@@ -84,7 +84,7 @@ func toInt64(v interface{}) int64 {
 }
 
 // Delete removes a custom Profile. A builtin Profile cannot be deleted, and neither can one a Version still uses
-// (ErrInUse); a rejection for the first is a *ValidationError.
+// (ErrInUse) or a Slot names as its default (*DefaultError); a rejection for the first is a *ValidationError.
 func (s *Service) Delete(ctx context.Context, key string) error {
 	return s.write(ctx, func(q *db.Queries) error {
 		rows, err := q.ListProfiles(ctx)
@@ -102,6 +102,9 @@ func (s *Service) Delete(ctx context.Context, key string) error {
 			return ErrNotFound
 		case cur.Custom != 1:
 			return invalid("key", "A builtin Profile cannot be deleted")
+		}
+		if err := notADefault(ctx, q, key); err != nil {
+			return err
 		}
 		n, err := q.ProfileVersionCount(ctx, key)
 		if err != nil {

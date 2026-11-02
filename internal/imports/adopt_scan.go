@@ -74,6 +74,14 @@ type env struct {
 	running bool
 }
 
+// slotRecord is the stored Slot of an id; a Slot that is not stored has no defaults.
+func (e *env) slotRecord(id slot.Slot) slot.Record {
+	if i := slices.IndexFunc(e.slots, func(r slot.Record) bool { return r.ID == id }); i >= 0 {
+		return e.slots[i]
+	}
+	return slot.Record{ID: id}
+}
+
 func (a *Adoption) env(ctx context.Context) (*env, error) {
 	e := &env{folders: map[string]library.Tracked{}, byTMDB: map[int]library.Tracked{}, seriesByTMDB: map[int]library.Tracked{}}
 	var err error
@@ -737,7 +745,7 @@ func (a *Adoption) planFile(e *env, m movieFacts, title Title, en entry, f probe
 	if ver != nil {
 		profileKey = ver.Profile
 	} else {
-		r, err := profiles.ResolveAccepting(e.profiles, release.KindMovie, slot, a.accepts(e, f.info.Class()))
+		r, err := profiles.ResolveAccepting(e.profiles, release.KindMovie, e.slotRecord(slot), a.accepts(e, f.info.Class()))
 		if err != nil {
 			return PlanFile{}, SkipNoEnabledProfile, nil
 		}

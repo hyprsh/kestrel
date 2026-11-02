@@ -140,12 +140,3 @@ func (s *server) slotFromAPI(ctx context.Context, id oapi.SlotId, field string) 
 	}
 	return sl, nil
 }
-
-// slotIDs is the ids of Slot records, in their order.
-func slotIDs(rs []slot.Record) []slot.Slot {
-	out := make([]slot.Slot, len(rs))
-	for i, r := range rs {
-		out[i] = r.ID
-	}
-	return out
-}

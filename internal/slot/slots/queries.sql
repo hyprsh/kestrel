@@ -19,6 +19,9 @@ SELECT COUNT(*) FROM versions WHERE slot = ?;
 -- name: ProfileKeys :many
 SELECT key FROM profiles;
 
+-- name: EnabledProfileKeys :many
+SELECT key FROM profiles WHERE enabled = 1;
+
 -- name: ListSlotAliases :many
 SELECT slot, alias FROM slot_aliases ORDER BY slot, alias;
 

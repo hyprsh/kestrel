@@ -9,23 +9,25 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
-	"github.com/hyprsh/kestrel/internal/slot"
 )
 
-// checkProfile is the 422 for a Profile that cannot fill the Slot, or nil.
-func (s *server) checkProfile(ctx context.Context, key string, sl slot.Slot) error {
+// checkProfile is the 422 for a Profile that cannot be used, or nil.
+func (s *server) checkProfile(ctx context.Context, key string) error {
 	all, err := s.profiles.List(ctx)
 	if err != nil {
 		return err
 	}
-	return profileProblem("profile", all, key, sl)
+	return profileProblem("profile", all, key)
 }
 
-// profileProblem is nil when the key names an enabled Profile of the Slot, else the 422 saying why not.
-func profileProblem(field string, all []profiles.Profile, key string, sl slot.Slot) error {
-	switch _, err := profiles.Pick(all, key, sl); {
-	case errors.Is(err, profiles.ErrWrongSlot):
-		return invalid(field, "wrong_slot", "That Profile belongs to another Slot")
+// errProfileTaken is the 422 for a Profile another Version of the Title already uses.
+func errProfileTaken(field string) error {
+	return invalid(field, "profile_taken", "Another Version of the Title already uses that Profile: a Title's Versions use different Profiles")
+}
+
+// profileProblem is nil when the key names an enabled Profile (any Profile can fill any Slot), else the 422 saying why not.
+func profileProblem(field string, all []profiles.Profile, key string) error {
+	switch _, err := profiles.Pick(all, key); {
 	case errors.Is(err, profiles.ErrDisabled):
 		return invalid(field, "disabled", "That Profile is disabled")
 	case err != nil:
@@ -64,11 +66,13 @@ func (s *server) AddVersion(ctx context.Context, r oapi.AddVersionRequestObject)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.checkProfile(ctx, r.Body.Profile, sl); err != nil {
+	if err := s.checkProfile(ctx, r.Body.Profile); err != nil {
 		return nil, err
 	}
 	id, err := s.library.AddVersion(ctx, r.Id, library.VersionSpec{Slot: sl, Profile: r.Body.Profile})
 	switch {
+	case errors.Is(err, library.ErrProfileTaken):
+		return nil, errProfileTaken("profile")
 	case errors.Is(err, library.ErrNotFound):
 		return nil, problem(http.StatusNotFound, "not_found", "no such Title")
 	case errors.Is(err, library.ErrSlotTaken):
@@ -95,10 +99,12 @@ func (s *server) PatchVersion(ctx context.Context, r oapi.PatchVersionRequestObj
 	if err != nil {
 		return nil, err
 	}
-	if err := s.checkProfile(ctx, r.Body.Profile, ref.Slot); err != nil {
+	if err := s.checkProfile(ctx, r.Body.Profile); err != nil {
 		return nil, err
 	}
-	if err := s.imports.SwitchProfile(ctx, ref.TitleID, ref.ID, r.Body.Profile); err != nil {
+	if err := s.imports.SwitchProfile(ctx, ref.TitleID, ref.ID, r.Body.Profile); errors.Is(err, library.ErrProfileTaken) {
+		return nil, errProfileTaken("profile")
+	} else if err != nil {
 		return nil, err
 	}
 	s.jobs.Kick(jobs.Search) // search at once under the new Profile

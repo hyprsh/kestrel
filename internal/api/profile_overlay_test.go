@@ -107,7 +107,7 @@ func TestCustomProfilesAreMadeRenamedAndDeletedUnlessAVersionUsesThem(t *testing
 	t.Parallel()
 	w := newWantedRig(t)
 	p := decode[profileJSON](t, w.valid("POST", "/profiles", `{"name":"Mine","copy_from":"hd-primary"}`))
-	if !strings.HasPrefix(p.Key, "custom-") || p.Name != "Mine" || p.Slot != "standard" {
+	if !strings.HasPrefix(p.Key, "custom-") || p.Name != "Mine" || p.MinHeight != 720 {
 		t.Fatalf("created %+v", p)
 	}
 	if r := w.valid("POST", "/profiles", `{"name":"mine","copy_from":"hd-primary"}`); r.Status != 422 {

@@ -170,7 +170,7 @@ func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObjec
 	if err != nil {
 		return nil, err
 	}
-	sug := library.Suggest(all, slotIDs(order), kind)
+	sug := library.Suggest(all, order, kind)
 	certCountry, cert := rel.Certification(region.Country)
 	out := oapi.LookupDetail{
 		Kind: oapi.TitleKind(kind), TmdbId: tmdbID, Title: name, Year: intPtr(year), Overview: overview,
@@ -429,6 +429,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 	}
 	var specs []library.VersionSpec
 	seen := map[slot.Slot]bool{}
+	named := map[string]bool{}
 	for i, v := range b.Versions {
 		sl, err := s.slotFromAPI(ctx, v.Slot, fmt.Sprintf("versions[%d].slot", i))
 		if err != nil {
@@ -437,9 +438,14 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 		if seen[sl] {
 			return nil, invalid(fmt.Sprintf("versions[%d].slot", i), "duplicate", "A Slot holds one Version")
 		}
-		if err := profileProblem(fmt.Sprintf("versions[%d].profile", i), all, v.Profile, sl); err != nil {
+		field := fmt.Sprintf("versions[%d].profile", i)
+		if err := profileProblem(field, all, v.Profile); err != nil {
 			return nil, err
 		}
+		if named[v.Profile] {
+			return nil, errProfileTaken(field)
+		}
+		named[v.Profile] = true
 		seen[sl] = true
 		specs = append(specs, library.VersionSpec{Slot: sl, Profile: v.Profile})
 	}

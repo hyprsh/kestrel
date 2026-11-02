@@ -159,14 +159,14 @@ func (s *server) bulkRows(ctx context.Context) (map[int64]library.Row, error) {
 }
 
 // bulkSlot reads the action's Slot and, given a Profile, checks the Profile
-// can fill it: a wrong one refuses the whole call.
+// can be used: an unknown or disabled one refuses the whole call.
 func (s *server) bulkSlot(ctx context.Context, sl oapi.SlotId, profile *string) (slot.Slot, error) {
 	out, err := s.slotFromAPI(ctx, sl, "slot")
 	if err != nil {
 		return out, err
 	}
 	if profile != nil {
-		err = s.checkProfile(ctx, *profile, out)
+		err = s.checkProfile(ctx, *profile)
 	}
 	return out, err
 }
@@ -230,7 +230,10 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 		case v.Profile == b.Profile:
 			out = append(out, bulkUnchanged(id))
 		default:
-			if err := s.imports.SwitchProfile(ctx, id, v.VersionID, b.Profile); err != nil {
+			if err := s.imports.SwitchProfile(ctx, id, v.VersionID, b.Profile); errors.Is(err, library.ErrProfileTaken) {
+				out = append(out, bulkSkipped(id, oapi.ProfileTaken, "Another Version of the Title already uses that Profile"))
+				continue
+			} else if err != nil {
 				out = append(out, s.bulkFailed(id, err))
 				continue
 			}
@@ -268,6 +271,8 @@ func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesB
 			out = append(out, bulkNotFound(id))
 		case errors.Is(err, library.ErrSlotTaken):
 			out = append(out, bulkSkipped(id, oapi.SlotTaken, "Already has a "+label+" Version"))
+		case errors.Is(err, library.ErrProfileTaken):
+			out = append(out, bulkSkipped(id, oapi.ProfileTaken, "Another Version of the Title already uses that Profile"))
 		case err != nil:
 			out = append(out, s.bulkFailed(id, err))
 		default:

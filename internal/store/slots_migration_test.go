@@ -96,10 +96,10 @@ func TestSlotsMigrationKeepsEveryVersionAndFile(t *testing.T) {
 	if _, err := s.Write().Exec(`INSERT INTO slots (id, label, on_for_new, position) VALUES ('remux', 'Remux', 0, 2)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Write().Exec(`INSERT INTO versions (title_id, slot, profile_key, added_at) VALUES (1, 'remux', 'hd-primary', 'x')`); err != nil {
+	if _, err := s.Write().Exec(`INSERT INTO versions (title_id, slot, profile_key, added_at) VALUES (1, 'remux', 'any-primary', 'x')`); err != nil {
 		t.Errorf("a Version in a new Slot: %v", err)
 	}
-	if _, err := s.Write().Exec(`INSERT INTO versions (title_id, slot, profile_key, added_at) VALUES (1, 'nope', 'hd-primary', 'x')`); err == nil || !strings.Contains(err.Error(), "FOREIGN KEY") {
+	if _, err := s.Write().Exec(`INSERT INTO versions (title_id, slot, profile_key, added_at) VALUES (1, 'nope', 'hd-original', 'x')`); err == nil || !strings.Contains(err.Error(), "FOREIGN KEY") {
 		t.Errorf("a Version in an unknown Slot: %v", err)
 	}
 }

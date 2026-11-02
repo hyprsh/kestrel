@@ -1345,6 +1345,21 @@ func (e ServiceStatusState) Valid() bool {
 	}
 }
 
+// Defines values for SettingsWarningCode.
+const (
+	SharedSlotDefault SettingsWarningCode = "shared_slot_default"
+)
+
+// Valid indicates whether the value is a known member of the SettingsWarningCode enum.
+func (e SettingsWarningCode) Valid() bool {
+	switch e {
+	case SharedSlotDefault:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SetupSectionState.
 const (
 	Done SetupSectionState = "done"
@@ -1494,6 +1509,7 @@ const (
 	NoVersion      TitleBulkOutcomeReason = "no_version"
 	NotFound       TitleBulkOutcomeReason = "not_found"
 	NothingWanted  TitleBulkOutcomeReason = "nothing_wanted"
+	ProfileTaken   TitleBulkOutcomeReason = "profile_taken"
 	SlotTaken      TitleBulkOutcomeReason = "slot_taken"
 	Unchanged      TitleBulkOutcomeReason = "unchanged"
 )
@@ -1512,6 +1528,8 @@ func (e TitleBulkOutcomeReason) Valid() bool {
 	case NotFound:
 		return true
 	case NothingWanted:
+		return true
+	case ProfileTaken:
 		return true
 	case SlotTaken:
 		return true
@@ -3764,10 +3782,16 @@ type Problem struct {
 // Profile defines model for Profile.
 type Profile struct {
 	// Custom `true` for a Profile made with `POST /profiles`, which can be renamed and deleted.
-	Custom        *bool `json:"custom,omitempty"`
-	DefaultMovies bool  `json:"default_movies"`
-	DefaultSeries bool  `json:"default_series"`
-	Enabled       bool  `json:"enabled"`
+	Custom *bool `json:"custom,omitempty"`
+
+	// DefaultMovies Derived and read-only: `true` while any Slot names the Profile as its default for Movies. Set it on the Slot (`PATCH /slots/{id}`).
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	DefaultMovies bool `json:"default_movies"`
+
+	// DefaultSeries Derived and read-only: `true` while any Slot names the Profile as its default for Series.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	DefaultSeries bool `json:"default_series"`
+	Enabled       bool `json:"enabled"`
 
 	// FromConfigFile `true` while the Config File declares `profiles`, which declares every Profile at once.
 	FromConfigFile bool `json:"from_config_file"`
@@ -3794,13 +3818,11 @@ type Profile struct {
 	// Original-Language Profiles.
 	OriginalLanguage OriginalLanguageChoice `json:"original_language"`
 
-	// Slot The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
-	// (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`
-	// where a request sends it, and clients show an id they do not know.
-	//
-	//
-	// Example: standard
-	Slot SlotId `json:"slot"`
+	// Slot Deprecated: a Profile belongs to no Slot (any Profile can fill any Slot). For v1 clients this is derived
+	// from the Slots: the first Slot, in order, that names the Profile as its default for either kind. Left out
+	// for a Profile no Slot names as its default.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Slot *SlotId `json:"slot,omitempty"`
 
 	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
 	TrashProfileMovies string `json:"trash_profile_movies"`
@@ -3897,7 +3919,12 @@ type ProfileOverlay struct {
 
 // ProfilePatch defines model for ProfilePatch.
 type ProfilePatch struct {
+	// DefaultMovies No longer settable here: the defaults belong to the Slots. Sending it is a `422 validation`; use `PATCH /slots/{id}`.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	DefaultMovies *bool `json:"default_movies,omitempty"`
+
+	// DefaultSeries No longer settable here (see `default_movies`).
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	DefaultSeries *bool `json:"default_series,omitempty"`
 	Enabled       *bool `json:"enabled,omitempty"`
 
@@ -4704,6 +4731,9 @@ type Settings struct {
 		// AutoUpdate Check TRaSH daily and take its newest Custom Formats and profiles. On by default (and only while "Check GitHub for updates" is on).
 		AutoUpdate bool `json:"auto_update"`
 	} `json:"trash"`
+
+	// Warnings Things in the settings worth a look that are not errors. Left out when there are none.
+	Warnings *[]SettingsWarning `json:"warnings,omitempty"`
 }
 
 // SettingsPatch defines model for SettingsPatch.
@@ -4750,6 +4780,25 @@ type SettingsPatch struct {
 		AutoUpdate *bool `json:"auto_update,omitempty"`
 	} `json:"trash,omitempty"`
 }
+
+// SettingsWarning defines model for SettingsWarning.
+type SettingsWarning struct {
+	// Code `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+	Code SettingsWarningCode `json:"code"`
+
+	// Kind `movies` or `series`: the kind whose default is shared.
+	Kind    *string `json:"kind,omitempty"`
+	Message string  `json:"message"`
+
+	// Profile The Profile key the Slots share.
+	Profile *string `json:"profile,omitempty"`
+
+	// Slots The ids of the Slots that share it, in order.
+	Slots *[]SlotId `json:"slots,omitempty"`
+}
+
+// SettingsWarningCode `shared_slot_default`: two or more Slots name the same default Profile for one kind (ADR 0024), so a Title's Versions in those Slots could not both use it.
+type SettingsWarningCode string
 
 // Setup defines model for Setup.
 type Setup struct {
@@ -5217,7 +5266,8 @@ type TitleBulkOutcome struct {
 
 	// Reason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
 	// already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
-	// in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+	// in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
+	// Title already uses the Profile; `nothing_wanted`, none of its
 	// Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
 	// download client could not cancel the Title's download (`message` has what it said);
 	// `internal`, an unexpected error, which the log has.
@@ -5230,7 +5280,8 @@ type TitleBulkOutcomeOutcome string
 
 // TitleBulkOutcomeReason Why the Title was skipped or failed, `null` when it changed. Skipped: `unchanged`, it
 // already is as asked; `not_found`, there is no such Title; `no_version`, it has no Version
-// in the Slot; `slot_taken`, the Slot already holds a Version; `nothing_wanted`, none of its
+// in the Slot; `slot_taken`, the Slot already holds a Version; `profile_taken`, another Version of the
+// Title already uses the Profile; `nothing_wanted`, none of its
 // Versions is Wanted; `frozen`, its metadata is frozen. Failed: `download_client`, the
 // download client could not cancel the Title's download (`message` has what it said);
 // `internal`, an unexpected error, which the log has.
