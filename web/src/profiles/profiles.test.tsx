@@ -26,6 +26,7 @@ const profile = (key: string, name: string, rule: Profile['language_rule'], over
   key,
   name,
   release_family: 'bluray-web',
+  kinds: ['movie', 'series'],
   language_rule: rule,
   original_language: 'reject',
   original_fallback: false,

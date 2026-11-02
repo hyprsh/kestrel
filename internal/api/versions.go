@@ -8,16 +8,45 @@ import (
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
 
 // checkProfile is the 422 for a Profile that cannot be used, or nil.
-func (s *server) checkProfile(ctx context.Context, key string) error {
+func (s *server) checkProfile(ctx context.Context, key string, kind release.Kind) error {
 	all, err := s.profiles.List(ctx)
 	if err != nil {
 		return err
 	}
-	return profileProblem("profile", all, key)
+	return profileProblem("profile", all, key, kind)
+}
+
+// kindOf is the scoring kind of a Title's kind.
+func kindOf(k library.Kind) release.Kind {
+	if k == library.Series {
+		return release.KindSeries
+	}
+	return release.KindMovie
+}
+
+func kindName(k release.Kind) string {
+	if k == release.KindSeries {
+		return "a Series"
+	}
+	return "a Movie"
+}
+
+// titleKind is the kind of a Title, or library.ErrNotFound.
+func (s *server) titleKind(ctx context.Context, id int64) (release.Kind, error) {
+	view, err := s.view(ctx)
+	if err != nil {
+		return "", err
+	}
+	d, err := s.library.Get(ctx, id, view)
+	if err != nil {
+		return "", err
+	}
+	return kindOf(d.Kind), nil
 }
 
 // errProfileTaken is the 422 for a Profile another Version of the Title already uses.
@@ -26,8 +55,10 @@ func errProfileTaken(field string) error {
 }
 
 // profileProblem is nil when the key names an enabled Profile (any Profile can fill any Slot), else the 422 saying why not.
-func profileProblem(field string, all []profiles.Profile, key string) error {
-	switch _, err := profiles.Pick(all, key); {
+func profileProblem(field string, all []profiles.Profile, key string, kind release.Kind) error {
+	switch _, err := profiles.PickFor(all, key, kind); {
+	case errors.Is(err, profiles.ErrWrongKind):
+		return invalid(field, "profile_kind", "That Profile does not apply to "+kindName(kind)+": its TRaSH profile covers the other kind only")
 	case errors.Is(err, profiles.ErrDisabled):
 		return invalid(field, "disabled", "That Profile is disabled")
 	case err != nil:
@@ -66,7 +97,14 @@ func (s *server) AddVersion(ctx context.Context, r oapi.AddVersionRequestObject)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.checkProfile(ctx, r.Body.Profile); err != nil {
+	kind, err := s.titleKind(ctx, r.Id)
+	if errors.Is(err, library.ErrNotFound) {
+		return nil, problem(http.StatusNotFound, "not_found", "no such Title")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkProfile(ctx, r.Body.Profile, kind); err != nil {
 		return nil, err
 	}
 	id, err := s.library.AddVersion(ctx, r.Id, library.VersionSpec{Slot: sl, Profile: r.Body.Profile})
@@ -99,7 +137,11 @@ func (s *server) PatchVersion(ctx context.Context, r oapi.PatchVersionRequestObj
 	if err != nil {
 		return nil, err
 	}
-	if err := s.checkProfile(ctx, r.Body.Profile); err != nil {
+	kind, err := s.titleKind(ctx, ref.TitleID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkProfile(ctx, r.Body.Profile, kind); err != nil {
 		return nil, err
 	}
 	if err := s.imports.SwitchProfile(ctx, ref.TitleID, ref.ID, r.Body.Profile); errors.Is(err, library.ErrProfileTaken) {
@@ -147,4 +189,12 @@ func (s *server) RefreshTitle(ctx context.Context, r oapi.RefreshTitleRequestObj
 	}
 	s.refresher.Enqueue(r.Id)
 	return oapi.RefreshTitle202Response{}, nil
+}
+
+// kindOfAPI is the scoring kind of a Title kind as the API names it.
+func kindOfAPI(k oapi.TitleKind) release.Kind {
+	if k == oapi.Series {
+		return release.KindSeries
+	}
+	return release.KindMovie
 }

@@ -137,11 +137,24 @@ func (s *Service) write(ctx context.Context, f func(*db.Queries) error) error {
 // the Profile must also be enabled, as a default is (ADR 0024): a Config File skips that here, because
 // it declares the Profiles' settings in the same pass.
 func profileKeys(ctx context.Context, q *db.Queries, field string, enabled bool, keys ...string) error {
+	return checkProfileKeys(ctx, q, field, enabled, enabled, keys...)
+}
+
+// checkProfileKeys is profileKeys with the two checks apart: enabled that the Profile is enabled, and kinds that it applies to the
+// kind of the field (default_movies or default_series): a Movies-only Profile cannot be a Series default.
+func checkProfileKeys(ctx context.Context, q *db.Queries, field string, enabled, kinds bool, keys ...string) error {
 	have, err := q.ProfileKeys(ctx)
 	if err != nil {
 		return err
 	}
 	on, err := q.EnabledProfileKeys(ctx)
+	if err != nil {
+		return err
+	}
+	applies, err := q.MoviesProfileKeys(ctx)
+	if field == "default_series" {
+		applies, err = q.SeriesProfileKeys(ctx)
+	}
 	if err != nil {
 		return err
 	}
@@ -152,6 +165,8 @@ func profileKeys(ctx context.Context, q *db.Queries, field string, enabled bool,
 			return &slot.RuleError{Field: field, Message: fmt.Sprintf("no such Profile %q", k)}
 		case enabled && !slices.Contains(on, k):
 			return &slot.RuleError{Field: field, Message: fmt.Sprintf("the Profile %q is disabled: a default must be enabled", k)}
+		case kinds && !slices.Contains(applies, k):
+			return &slot.RuleError{Field: field, Message: fmt.Sprintf("the Profile %q does not apply to %s: its TRaSH profile covers the other kind only", k, strings.TrimPrefix(field, "default_"))}
 		}
 	}
 	return nil
@@ -411,6 +426,21 @@ func plan(cur []slot.Record, want []Declared) (set, dropped []slot.Record, err e
 // leaves out still holds Versions.
 func (s *Service) CheckDeclared(ctx context.Context, want []Declared) error {
 	return s.declare(ctx, want, false)
+}
+
+// CheckDefaultKinds is nil when each default a Config File names applies to its kind under the saved Profiles. A file that
+// declares the Profiles checks that against the Profiles it declares, so it does not call this.
+func (s *Service) CheckDefaultKinds(ctx context.Context, want []Declared) error {
+	q := db.New(s.st.Read())
+	for _, r := range want {
+		if err := checkProfileKeys(ctx, q, "default_movies", false, true, r.DefaultMovies); err != nil {
+			return err
+		}
+		if err := checkProfileKeys(ctx, q, "default_series", false, true, r.DefaultSeries); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Declare brings the Slots to a Config File's: a Slot the file leaves out is

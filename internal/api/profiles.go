@@ -47,13 +47,20 @@ func (s *server) profileToAPI(p profiles.Profile, slots []slot.Record) oapi.Prof
 		movies = movies || r.DefaultMovies == p.Key
 		series = series || r.DefaultSeries == p.Key
 	}
+	kinds := []oapi.TitleKind{}
+	if p.AppliesTo(release.KindMovie) {
+		kinds = append(kinds, oapi.Movie)
+	}
+	if p.AppliesTo(release.KindSeries) {
+		kinds = append(kinds, oapi.Series)
+	}
 	var custom *bool
 	if p.Custom {
 		yes := true
 		custom = &yes
 	}
 	return oapi.Profile{
-		Key: p.Key, Name: p.Name, Slot: sl, LanguageRule: oapi.ProfileLanguageRule(p.RuleKey()), ReleaseFamily: oapi.ProfileReleaseFamily(p.Family.OrDefault()),
+		Key: p.Key, Name: p.Name, Slot: sl, LanguageRule: oapi.ProfileLanguageRule(p.RuleKey()), Kinds: kinds, ReleaseFamily: oapi.ProfileReleaseFamily(p.Family.OrDefault()),
 		OriginalLanguage: oapi.OriginalLanguageChoice(p.OriginalChoice), OriginalFallback: p.OriginalChoice.DeprecatedFlag(),
 		Enabled: p.Enabled, DefaultMovies: movies, DefaultSeries: series,
 		MinHeight: p.MinHeight, MaxHeight: p.MaxHeight,

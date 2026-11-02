@@ -16,6 +16,13 @@ UPDATE profiles SET original_language = ?, original_fallback = ? WHERE key = ?;
 -- name: SlotsDefaulting :many
 SELECT id, label FROM slots WHERE default_movies = ?1 OR default_series = ?1 ORDER BY position;
 
+-- The kinds each Profile is used for by a Version, as the Title's kind.
+-- name: VersionProfileKinds :many
+SELECT DISTINCT v.profile_key AS profile_key, t.kind AS kind FROM versions v JOIN titles t ON t.id = v.title_id;
+
+-- name: SlotDefaultProfiles :many
+SELECT label, default_movies, default_series FROM slots ORDER BY position;
+
 -- name: SetProfileTrash :exec
 UPDATE profiles SET trash_profile_movies = ?, trash_profile_series = ? WHERE key = ?;
 

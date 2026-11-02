@@ -212,7 +212,7 @@ func TestSettingAllProfilesFromTheConfigFileLeavesCustomOnesAlone(t *testing.T) 
 	for _, b := range profiles.Builtin() {
 		want[b.Key] = profiles.State{Enabled: true, OriginalChoice: scoring.OriginalReject}
 	}
-	if err := s.SetAll(ctx, want); err != nil {
+	if err := s.SetAll(ctx, want, ""); err != nil {
 		t.Fatal(err)
 	}
 	got := byKey(t, s)[p.Key]

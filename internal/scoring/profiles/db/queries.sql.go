@@ -361,6 +361,39 @@ func (q *Queries) SetProfileTrash(ctx context.Context, arg SetProfileTrashParams
 	return err
 }
 
+const slotDefaultProfiles = `-- name: SlotDefaultProfiles :many
+SELECT label, default_movies, default_series FROM slots ORDER BY position
+`
+
+type SlotDefaultProfilesRow struct {
+	Label         string
+	DefaultMovies sql.NullString
+	DefaultSeries sql.NullString
+}
+
+func (q *Queries) SlotDefaultProfiles(ctx context.Context) ([]SlotDefaultProfilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, slotDefaultProfiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SlotDefaultProfilesRow
+	for rows.Next() {
+		var i SlotDefaultProfilesRow
+		if err := rows.Scan(&i.Label, &i.DefaultMovies, &i.DefaultSeries); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const slotsDefaulting = `-- name: SlotsDefaulting :many
 SELECT id, label FROM slots WHERE default_movies = ?1 OR default_series = ?1 ORDER BY position
 `
@@ -413,6 +446,39 @@ func (q *Queries) VersionProfileKeys(ctx context.Context) ([]VersionProfileKeysR
 	for rows.Next() {
 		var i VersionProfileKeysRow
 		if err := rows.Scan(&i.ID, &i.ProfileKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const versionProfileKinds = `-- name: VersionProfileKinds :many
+SELECT DISTINCT v.profile_key AS profile_key, t.kind AS kind FROM versions v JOIN titles t ON t.id = v.title_id
+`
+
+type VersionProfileKindsRow struct {
+	ProfileKey string
+	Kind       string
+}
+
+// The kinds each Profile is used for by a Version, as the Title's kind.
+func (q *Queries) VersionProfileKinds(ctx context.Context) ([]VersionProfileKindsRow, error) {
+	rows, err := q.db.QueryContext(ctx, versionProfileKinds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VersionProfileKindsRow
+	for rows.Next() {
+		var i VersionProfileKindsRow
+		if err := rows.Scan(&i.ProfileKey, &i.Kind); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -36,3 +36,10 @@ SELECT COUNT(*) FROM files f JOIN versions v ON v.id = f.version_id WHERE v.slot
 
 -- name: SlotTitleIDs :many
 SELECT DISTINCT title_id FROM versions WHERE slot = ? ORDER BY title_id;
+
+-- The Profiles that apply to a kind: those a TRaSH profile backs for it under the Primary Language (ADR 0026).
+-- name: MoviesProfileKeys :many
+SELECT key FROM profiles WHERE trash_profile_movies <> '';
+
+-- name: SeriesProfileKeys :many
+SELECT key FROM profiles WHERE trash_profile_series <> '';

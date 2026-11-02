@@ -105,22 +105,33 @@ func (e *NoBackingError) Error() string {
 }
 
 // Backing names the TRaSH profiles that back the Profile under a Primary Language, for Movies and for Series.
-// A recipe is valid only when both kinds have one: the error is a *NoBackingError naming the kinds that have none.
+// A recipe applies to the kinds that have one, and the other name is empty; when neither has one the error is a
+// *NoBackingError.
 func (p Profile) Backing(primary Language) (movies, series string, err error) {
 	spec := p.Spec(primary.Release())
 	movies, okM := scoring.BackingProfile(spec, release.KindMovie)
 	series, okS := scoring.BackingProfile(spec, release.KindSeries)
-	if okM && okS {
-		return movies, series, nil
+	if !okM && !okS {
+		return "", "", &NoBackingError{Profile: p.Name, Recipe: p.recipeName(primary), Kinds: []release.Kind{release.KindMovie, release.KindSeries}}
 	}
-	e := &NoBackingError{Profile: p.Name, Recipe: p.recipeName(primary)}
-	if !okM {
-		e.Kinds = append(e.Kinds, release.KindMovie)
+	return movies, series, nil
+}
+
+// AppliesTo reports whether the Profile applies to a kind: whether a TRaSH profile backs it for the kind under the
+// current Primary Language (the names the Profile stores).
+func (p Profile) AppliesTo(kind release.Kind) bool {
+	if kind == release.KindMovie {
+		return p.TrashMovies != ""
 	}
-	if !okS {
-		e.Kinds = append(e.Kinds, release.KindSeries)
+	return p.TrashSeries != ""
+}
+
+// LacksBacking is the *NoBackingError for a kind the Profile would not apply to under the Primary Language, or nil.
+func (p Profile) LacksBacking(primary Language, kind release.Kind) error {
+	if _, ok := scoring.BackingProfile(p.Spec(primary.Release()), kind); ok {
+		return nil
 	}
-	return "", "", e
+	return &NoBackingError{Profile: p.Name, Recipe: p.recipeName(primary), Kinds: []release.Kind{kind}}
 }
 
 // recipeName is the recipe in words: the Release Family and the language.
@@ -201,6 +212,19 @@ var (
 	ErrNoSuchProfile = errors.New("no such Profile")
 	ErrDisabled      = errors.New("that Profile is disabled")
 )
+
+// ErrWrongKind means the Profile applies to the other kind only: a Movies-only Profile (SQP, French Remux) cannot
+// be a Series' Version or a Series default (spec #304).
+var ErrWrongKind = errors.New("that Profile does not apply to that kind")
+
+// PickFor is Pick for a Version of a kind: the Profile must also apply to the kind (ErrWrongKind).
+func PickFor(all []Profile, key string, kind release.Kind) (Profile, error) {
+	p, err := Pick(all, key)
+	if err == nil && !p.AppliesTo(kind) {
+		return Profile{}, ErrWrongKind
+	}
+	return p, err
+}
 
 // Pick finds the Profile with the key and checks it can be used: it exists and is enabled.
 // Any Profile can fill any Slot.

@@ -439,7 +439,7 @@ func (s *server) CreateTitle(ctx context.Context, r oapi.CreateTitleRequestObjec
 			return nil, invalid(fmt.Sprintf("versions[%d].slot", i), "duplicate", "A Slot holds one Version")
 		}
 		field := fmt.Sprintf("versions[%d].profile", i)
-		if err := profileProblem(field, all, v.Profile); err != nil {
+		if err := profileProblem(field, all, v.Profile, kindOfAPI(b.Kind)); err != nil {
 			return nil, err
 		}
 		if named[v.Profile] {

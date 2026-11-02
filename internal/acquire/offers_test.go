@@ -115,7 +115,7 @@ func TestANamedLanguageProfileOffersTheOriginalLanguageNotItsOwn(t *testing.T) {
 		want[p.Key] = profiles.State{Enabled: p.Enabled, OriginalChoice: p.OriginalChoice}
 	}
 	want["hd-primary"] = profiles.State{Enabled: true, OriginalChoice: scoring.OriginalOffer, Language: "de"}
-	if err := ps.SetAll(ctx, want); err != nil {
+	if err := ps.SetAll(ctx, want, ""); err != nil {
 		t.Fatal(err)
 	}
 	r.publish(t, hd1080, time.Hour)

@@ -259,7 +259,7 @@ func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
 		d := s.apps[a.kind]
 		name, ok := BackingProfile(spec, a.kind)
 		if !ok {
-			return nil, fmt.Errorf("%w: no %s profile backs %s", ErrUnsupportedProfile, a.dir, spec.describe())
+			continue // the recipe does not apply to this kind
 		}
 		bp, ok := d.profiles[name]
 		if !ok {
@@ -280,6 +280,9 @@ func (s *Snapshot) Profile(spec ProfileSpec) (*Profile, error) {
 			set.minScore = *spec.Overlay.MinScore
 		}
 		p.sets[a.kind] = set
+	}
+	if len(p.sets) == 0 {
+		return nil, fmt.Errorf("%w: no TRaSH profile backs %s", ErrUnsupportedProfile, spec.describe())
 	}
 	return p, nil
 }
@@ -317,26 +320,32 @@ func (d *appData) formatsFor(bp *backingProfile) []scoredFormat {
 
 // BackingProfile answers which TRaSH profile backs the recipe for a kind: the file name (without .json),
 // or false when there is none (ADR 0026). Every other module asks this to decide what to offer; a recipe
-// is offered only where it has a backing profile for every kind. It never falls back to another language.
+// applies to the kinds that have one. It never falls back to another language, except for Original.
 //
-// The language is the household's for Primary, the named one for NamedLanguage and English for Original,
-// except that a French household's Bluray + WEB Original Profile keeps its MULTi.VO profiles, which is
-// what it was backed by before Release Families. Any is Bluray + WEB, HD and SD only.
+// The language is the household's for Primary and the named one for NamedLanguage. Original uses the
+// household's VO variant where TRaSH has one (French: french-multi-vo-*, Bluray + WEB and Remux + WEB Movies),
+// else the English profile. Any is Bluray + WEB, HD and SD only.
 func BackingProfile(spec ProfileSpec, kind release.Kind) (string, bool) {
 	family := spec.Family.OrDefault()
 	if spec.Any && (family != FamilyBlurayWeb || spec.UHD) {
 		return "", false
 	}
-	lang, variant := spec.Primary, "vf"
 	switch spec.Rule {
 	case OriginalLanguage:
-		lang = release.LangEnglish
-		if family == FamilyBlurayWeb && spec.Primary == release.LangFrench {
-			lang, variant = release.LangFrench, "vo"
+		if spec.Primary == release.LangFrench {
+			if name, ok := backingIn(spec, family, kind, release.LangFrench, "vo"); ok {
+				return name, true
+			}
 		}
+		return backingIn(spec, family, kind, release.LangEnglish, "")
 	case NamedLanguage:
-		lang = spec.Language
+		return backingIn(spec, family, kind, spec.Language, "vf")
 	}
+	return backingIn(spec, family, kind, spec.Primary, "vf")
+}
+
+// backingIn is the TRaSH profile of a family in a language (and, for French, the MULTi variant), or false.
+func backingIn(spec ProfileSpec, family ReleaseFamily, kind release.Kind, lang release.Language, variant string) (string, bool) {
 	pick := func(hd, uhd string) (string, bool) {
 		if spec.UHD {
 			return uhd, true

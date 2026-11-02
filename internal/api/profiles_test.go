@@ -6,20 +6,21 @@ import (
 )
 
 type profileJSON struct {
-	Key                string `json:"key"`
-	Name               string `json:"name"`
-	Slot               string `json:"slot"`
-	ReleaseFamily      string `json:"release_family"`
-	LanguageRule       string `json:"language_rule"`
-	OriginalLanguage   string `json:"original_language"`
-	OriginalFallback   bool   `json:"original_fallback"`
-	Enabled            bool   `json:"enabled"`
-	DefaultMovies      bool   `json:"default_movies"`
-	DefaultSeries      bool   `json:"default_series"`
-	MinHeight          int    `json:"min_height"`
-	MaxHeight          int    `json:"max_height"`
-	TrashProfileMovies string `json:"trash_profile_movies"`
-	TrashProfileSeries string `json:"trash_profile_series"`
+	Key                string   `json:"key"`
+	Name               string   `json:"name"`
+	Slot               string   `json:"slot"`
+	ReleaseFamily      string   `json:"release_family"`
+	Kinds              []string `json:"kinds"`
+	LanguageRule       string   `json:"language_rule"`
+	OriginalLanguage   string   `json:"original_language"`
+	OriginalFallback   bool     `json:"original_fallback"`
+	Enabled            bool     `json:"enabled"`
+	DefaultMovies      bool     `json:"default_movies"`
+	DefaultSeries      bool     `json:"default_series"`
+	MinHeight          int      `json:"min_height"`
+	MaxHeight          int      `json:"max_height"`
+	TrashProfileMovies string   `json:"trash_profile_movies"`
+	TrashProfileSeries string   `json:"trash_profile_series"`
 }
 
 type settingsJSON struct {

@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles/db"
 )
@@ -73,6 +74,18 @@ func CheckAll(want map[string]State, primary Language) error {
 	return nil
 }
 
+// AppliesTo reports whether the builtin Profile key, as declared, applies to a kind under the Primary Language: whether
+// a TRaSH profile backs its recipe for the kind. A Slot's default for a kind must be a Profile that does.
+func AppliesTo(key string, st State, primary Language, kind release.Kind) bool {
+	for _, p := range Builtin() {
+		if p.Key == key {
+			next, err := recipeOf(p, st, "")
+			return err == nil && next.LacksBacking(primary, kind) == nil
+		}
+	}
+	return false
+}
+
 // checkRecipe applies the rules of a recipe: Any is only Bluray + WEB, and an enabled Profile has a backing TRaSH
 // profile for both kinds under the Primary Language.
 func checkRecipe(p Profile, enabled bool, primary Language, prefix string) error {
@@ -82,6 +95,7 @@ func checkRecipe(p Profile, enabled bool, primary Language, prefix string) error
 	if !enabled {
 		return nil
 	}
+	// An enabled Profile applies to at least one kind: SQP and French Remux have Movies only.
 	if _, _, err := p.Backing(primary); err != nil {
 		return invalid(prefix+"release_family", err.Error()+" under the Primary Language "+primary.Release().Name)
 	}
@@ -92,12 +106,18 @@ func checkRecipe(p Profile, enabled bool, primary Language, prefix string) error
 // writes only the Profiles that differ, so the same state twice writes
 // nothing. A Profile a Slot names as its default stays enabled: the file declares the Slots
 // first (see the Config File's order), so the Slot's default is already the one it wants.
-func (s *Service) SetAll(ctx context.Context, want map[string]State) error {
+// declared is the Primary Language the Config File declares, which the recipes are backed under; empty takes the saved one, so a
+// file that changes the language and the Profiles at once is checked against the language it brings.
+func (s *Service) SetAll(ctx context.Context, want map[string]State, declared Language) error {
 	region, _, err := s.Region(ctx)
 	if err != nil {
 		return err
 	}
-	if err := CheckAll(want, region.Primary); err != nil {
+	primary := region.Primary
+	if declared != "" {
+		primary = declared
+	}
+	if err := CheckAll(want, primary); err != nil {
 		return err
 	}
 	return s.write(ctx, func(q *db.Queries) error {
@@ -143,10 +163,8 @@ func (s *Service) SetAll(ctx context.Context, want map[string]State) error {
 				}); err != nil {
 					return err
 				}
-				if movies, series, err := next.Backing(region.Primary); err == nil {
-					return q.SetProfileTrash(ctx, db.SetProfileTrashParams{TrashProfileMovies: movies, TrashProfileSeries: series, Key: cur.Key})
-				}
-				return nil
+				movies, series, _ := next.Backing(primary) // empty when it applies to no kind (a disabled Profile)
+				return q.SetProfileTrash(ctx, db.SetProfileTrashParams{TrashProfileMovies: movies, TrashProfileSeries: series, Key: cur.Key})
 			}
 			// An Original-Language Profile can only reject, so the order follows the direction of the change:
 			// into the Original rule the choice goes first, out of it the recipe does.

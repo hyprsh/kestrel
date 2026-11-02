@@ -3835,6 +3835,10 @@ type Profile struct {
 	// Key Example: hd-primary
 	Key string `json:"key"`
 
+	// Kinds The kinds the Profile applies to: those with a backing TRaSH profile under the current Primary Language.
+	// A Movies-only Profile cannot be a Series' Version (`422 profile_kind`) or a Slot's Series default.
+	Kinds []TitleKind `json:"kinds"`
+
 	// LanguageRule Which audio the Profile requires: `primary` (the household's Primary Language), `original` (the Title's
 	// Original Language) or one named language, `en`, `de` or `fr`. A named-language Profile has the same
 	// `original_language` choice as a `primary` one, judged against its own language.
@@ -3866,10 +3870,10 @@ type Profile struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Slot *SlotId `json:"slot,omitempty"`
 
-	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
+	// TrashProfileMovies The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. Empty when the Profile does not apply to Movies.
 	TrashProfileMovies string `json:"trash_profile_movies"`
 
-	// TrashProfileSeries The same for Series.
+	// TrashProfileSeries The same for Series. Empty when the Profile does not apply to Series (SQP and French Remux have a TRaSH profile for Movies only).
 	TrashProfileSeries string `json:"trash_profile_series"`
 }
 

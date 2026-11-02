@@ -43,7 +43,11 @@ func TestBackingProfileForEveryRecipe(t *testing.T) {
 		{rw, primary, none, fr, false, "french-multi-vf-hd-remux-web", ""},
 		{rw, primary, none, fr, true, "french-multi-vf-uhd-remux-web", ""},
 		{rw, original, none, de, false, "remux-web-1080p", "remux-web-1080p"},
-		{rw, original, none, fr, false, "remux-web-1080p", "remux-web-1080p"},
+		// A French household's Original uses its VO profiles wherever TRaSH has them, else the English ones.
+		{rw, original, none, fr, false, "french-multi-vo-hd-remux-web", "remux-web-1080p"},
+		{rw, original, none, fr, true, "french-multi-vo-uhd-remux-web", "remux-web-2160p"},
+		{web, original, none, fr, false, "web-1080p", "web-1080p"},
+		{sqp, original, none, fr, false, "sqp-1-1080p", ""},
 		{rw, named, de, en, false, "german-hd-remux-web", "german-hd-remux-web"},
 		{rw, named, fr, de, false, "french-multi-vf-hd-remux-web", ""},
 		{rw, named, en, fr, true, "remux-web-2160p", "remux-web-2160p"},
@@ -89,12 +93,32 @@ func TestAnyIsBlurayWebAtHDOnly(t *testing.T) {
 	}
 }
 
-func TestARecipeWithoutABackingProfileForAKindDoesNotResolve(t *testing.T) {
+// A recipe applies to the kinds that have a backing profile (spec #304): SQP and French Remux are Movies-only.
+func TestARecipeWithABackingProfileForOneKindResolvesForThatKindOnly(t *testing.T) {
+	snap := embedded(t)
+	for name, spec := range map[string]scoring.ProfileSpec{
+		"SQP":          {Family: scoring.FamilySQP, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish},
+		"French Remux": {Family: scoring.FamilyRemuxWeb, Rule: scoring.PrimaryLanguage, Primary: release.LangFrench},
+	} {
+		p, err := snap.Profile(spec)
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if p.BackingProfile(release.KindMovie) == "" || p.BackingProfile(release.KindSeries) != "" {
+			t.Errorf("%s: backed by %q for Movies and %q for Series, want Movies only", name, p.BackingProfile(release.KindMovie), p.BackingProfile(release.KindSeries))
+		}
+		if len(p.Formats(release.KindSeries)) != 0 || len(p.AllowedQualities(release.KindSeries)) != 0 {
+			t.Errorf("%s: scores Series", name)
+		}
+	}
+}
+
+func TestARecipeWithoutABackingProfileForAnyKindDoesNotResolve(t *testing.T) {
 	snap := embedded(t)
 	cases := []scoring.ProfileSpec{
-		{Family: scoring.FamilyRemuxWeb, Rule: scoring.PrimaryLanguage, Primary: release.LangFrench}, // French Remux for Series
-		{Family: scoring.FamilyWeb, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman},      // German WEB
-		{Family: scoring.FamilySQP, Rule: scoring.PrimaryLanguage, Primary: release.LangEnglish},     // SQP for Series
+		{Family: scoring.FamilyWeb, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman}, // German WEB
+		{Family: scoring.FamilySQP, Rule: scoring.PrimaryLanguage, Primary: release.LangGerman}, // SQP is English only
 		{Family: scoring.FamilyBlurayWeb, Rule: scoring.NamedLanguage, Language: release.LangSpanish, Primary: release.LangEnglish},
 	}
 	for _, spec := range cases {

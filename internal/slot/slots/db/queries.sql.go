@@ -158,12 +158,67 @@ func (q *Queries) ListSlots(ctx context.Context) ([]Slot, error) {
 	return items, nil
 }
 
+const moviesProfileKeys = `-- name: MoviesProfileKeys :many
+SELECT key FROM profiles WHERE trash_profile_movies <> ''
+`
+
+// The Profiles that apply to a kind: those a TRaSH profile backs for it under the Primary Language (ADR 0026).
+func (q *Queries) MoviesProfileKeys(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, moviesProfileKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		items = append(items, key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const profileKeys = `-- name: ProfileKeys :many
 SELECT key FROM profiles
 `
 
 func (q *Queries) ProfileKeys(ctx context.Context) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, profileKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		items = append(items, key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const seriesProfileKeys = `-- name: SeriesProfileKeys :many
+SELECT key FROM profiles WHERE trash_profile_series <> ''
+`
+
+func (q *Queries) SeriesProfileKeys(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, seriesProfileKeys)
 	if err != nil {
 		return nil, err
 	}

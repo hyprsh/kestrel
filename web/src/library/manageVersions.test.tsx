@@ -73,6 +73,7 @@ describe('manage Versions', () => {
     name: key === '4k-movies' ? '4K movies' : '4K series',
     slot: '4k' as const,
     release_family: 'bluray-web' as const,
+    kinds: ['movie', 'series'] as ('movie' | 'series')[],
     language_rule: 'primary' as const,
     original_language: 'reject' as const,
     original_fallback: false,

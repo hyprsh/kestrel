@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 )
@@ -50,7 +51,7 @@ func TestADeclaredRecipeIsBackedByItsTrashProfile(t *testing.T) {
 		"4k-primary":  {Family: scoring.FamilyWeb},
 		"hd-original": {Family: scoring.FamilyRemuxWeb, Language: "de"}, // named German
 	})
-	if err := s.SetAll(ctx, want); err != nil {
+	if err := s.SetAll(ctx, want, ""); err != nil {
 		t.Fatal(err)
 	}
 	m := byKey(t, s)
@@ -69,7 +70,7 @@ func TestADeclaredRecipeIsBackedByItsTrashProfile(t *testing.T) {
 	// A named-language Profile has an Original Offer choice, an Original-Language one does not.
 	again := declareAll(t, s, nil)
 	again["hd-original"] = profiles.State{Enabled: true, OriginalChoice: scoring.OriginalOffer, Family: scoring.FamilyRemuxWeb, Language: "de"}
-	if err := s.SetAll(ctx, again); err != nil {
+	if err := s.SetAll(ctx, again, ""); err != nil {
 		t.Errorf("a named-language Profile could not offer: %v", err)
 	}
 	if got := byKey(t, s)["hd-original"].OriginalChoice; got != scoring.OriginalOffer {
@@ -85,19 +86,40 @@ func TestARecipeWithoutABackingProfileIsRefusedNamingIt(t *testing.T) {
 		key  string
 		st   profiles.State
 	}{
-		{"SQP for Series", "hd-primary", profiles.State{Family: scoring.FamilySQP}},
+		{"German SQP", "hd-primary", profiles.State{Family: scoring.FamilySQP, Language: "de"}},
 		{"German WEB", "hd-original", profiles.State{Family: scoring.FamilyWeb, Language: "de"}},
-		{"French Remux for Series", "4k-primary", profiles.State{Family: scoring.FamilyRemuxWeb, Language: "fr"}},
 		{"Any with Remux", "any-primary", profiles.State{Family: scoring.FamilyRemuxWeb}},
 		{"an unknown family", "hd-primary", profiles.State{Family: "nope"}},
 		{"an unknown language", "hd-primary", profiles.State{Language: "xx"}},
 	}
 	for _, c := range cases {
-		err := s.SetAll(ctx, declareAll(t, s, map[string]profiles.State{c.key: c.st}))
+		err := s.SetAll(ctx, declareAll(t, s, map[string]profiles.State{c.key: c.st}), "")
 		wantFieldPrefix(t, err, c.key+".")
 	}
 	if got := byKey(t, s)["hd-primary"].Family; got != scoring.FamilyBlurayWeb {
 		t.Errorf("a refused declaration changed the Release Family to %q", got)
+	}
+}
+
+// SQP and French Remux have a TRaSH profile for Movies only: they are Movies-only Profiles, not invalid ones.
+func TestARecipeBackedForOneKindAppliesToThatKindOnly(t *testing.T) {
+	s := newService(t)
+	ctx := context.Background()
+	if err := s.SetAll(ctx, declareAll(t, s, map[string]profiles.State{
+		"hd-original": {Family: scoring.FamilySQP},
+		"4k-original": {Family: scoring.FamilyRemuxWeb, Language: "fr"},
+	}), ""); err != nil {
+		t.Fatal(err)
+	}
+	m := byKey(t, s)
+	for key, w := range map[string]string{"hd-original": "sqp-1-1080p", "4k-original": "french-multi-vf-uhd-remux-web"} {
+		p := m[key]
+		if p.TrashMovies != w || p.TrashSeries != "" || !p.AppliesTo(release.KindMovie) || p.AppliesTo(release.KindSeries) {
+			t.Errorf("%s: %q / %q, applies to Movies %v, Series %v; want Movies only, backed by %q", key, p.TrashMovies, p.TrashSeries, p.AppliesTo(release.KindMovie), p.AppliesTo(release.KindSeries), w)
+		}
+	}
+	if m["hd-primary"].AppliesTo(release.KindSeries) == false {
+		t.Error("an untouched Profile lost Series")
 	}
 }
 

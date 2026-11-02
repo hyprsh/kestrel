@@ -3843,7 +3843,7 @@ components:
           description: The ids of the Slots that share it, in order.
     Profile:
       type: object
-      required: [key, name, release_family, language_rule, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
+      required: [key, name, release_family, language_rule, kinds, original_language, original_fallback, enabled, default_movies, default_series, min_height, max_height, trash_profile_movies, trash_profile_series, from_config_file]
       properties:
         from_config_file:
           type: boolean
@@ -3899,10 +3899,17 @@ components:
           type: integer
         trash_profile_movies:
           type: string
-          description: The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language.
+          description: The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. Empty when the Profile does not apply to Movies.
         trash_profile_series:
           type: string
-          description: The same for Series.
+          description: The same for Series. Empty when the Profile does not apply to Series (SQP and French Remux have a TRaSH profile for Movies only).
+        kinds:
+          type: array
+          description: |
+            The kinds the Profile applies to: those with a backing TRaSH profile under the current Primary Language.
+            A Movies-only Profile cannot be a Series' Version (`422 profile_kind`) or a Slot's Series default.
+          items:
+            $ref: "#/components/schemas/TitleKind"
         custom:
           type: boolean
           description: "`true` for a Profile made with `POST /profiles`, which can be renamed and deleted."

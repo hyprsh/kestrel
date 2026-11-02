@@ -2885,10 +2885,15 @@ export interface components {
             default_series: boolean;
             min_height: number;
             max_height: number;
-            /** @description The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. */
+            /** @description The TRaSH profile file (without .json) backing the Profile for Movies under the current Primary Language. Empty when the Profile does not apply to Movies. */
             trash_profile_movies: string;
-            /** @description The same for Series. */
+            /** @description The same for Series. Empty when the Profile does not apply to Series (SQP and French Remux have a TRaSH profile for Movies only). */
             trash_profile_series: string;
+            /**
+             * @description The kinds the Profile applies to: those with a backing TRaSH profile under the current Primary Language.
+             *     A Movies-only Profile cannot be a Series' Version (`422 profile_kind`) or a Slot's Series default.
+             */
+            kinds: components["schemas"]["TitleKind"][];
             /** @description `true` for a Profile made with `POST /profiles`, which can be renamed and deleted. */
             custom?: boolean;
         };

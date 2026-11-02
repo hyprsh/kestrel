@@ -10,6 +10,8 @@ import (
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/plugin"
+	"github.com/hyprsh/kestrel/internal/release"
+	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
 
@@ -160,15 +162,30 @@ func (s *server) bulkRows(ctx context.Context) (map[int64]library.Row, error) {
 
 // bulkSlot reads the action's Slot and, given a Profile, checks the Profile
 // can be used: an unknown or disabled one refuses the whole call.
-func (s *server) bulkSlot(ctx context.Context, sl oapi.SlotId, profile *string) (slot.Slot, error) {
+func (s *server) bulkSlot(ctx context.Context, sl oapi.SlotId, profile *string, ids []int64) (slot.Slot, error) {
 	out, err := s.slotFromAPI(ctx, sl, "slot")
+	if err != nil || profile == nil {
+		return out, err
+	}
+	all, err := s.profiles.List(ctx)
 	if err != nil {
 		return out, err
 	}
-	if profile != nil {
-		err = s.checkProfile(ctx, *profile)
+	if _, err := profiles.Pick(all, *profile); err != nil { // unknown or disabled, whatever the Titles
+		return out, profileProblem("profile", all, *profile, release.KindMovie)
 	}
-	return out, err
+	rows, err := s.bulkRows(ctx)
+	if err != nil {
+		return out, err
+	}
+	for _, id := range ids {
+		if row, ok := rows[id]; ok {
+			if err := profileProblem("profile", all, *profile, kindOf(row.Kind)); err != nil {
+				return out, err
+			}
+		}
+	}
+	return out, nil
 }
 
 // bulkMonitor sets monitored on Movies and the monitoring mode on Series.
@@ -209,7 +226,7 @@ func (s *server) bulkMonitor(ctx context.Context, ids []int64, b oapi.TitlesBulk
 
 // bulkSwitchProfile moves each Title's Version in the Slot to the Profile.
 func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.TitlesBulkSwitchProfile) ([]oapi.TitleBulkOutcome, error) {
-	sl, err := s.bulkSlot(ctx, b.Slot, &b.Profile)
+	sl, err := s.bulkSlot(ctx, b.Slot, &b.Profile, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +268,7 @@ func (s *server) bulkSwitchProfile(ctx context.Context, ids []int64, b oapi.Titl
 // bulkAddVersion adds a Version in the Slot under the Profile to each Title
 // whose Slot is empty.
 func (s *server) bulkAddVersion(ctx context.Context, ids []int64, b oapi.TitlesBulkAddVersion) ([]oapi.TitleBulkOutcome, error) {
-	sl, err := s.bulkSlot(ctx, b.Slot, &b.Profile)
+	sl, err := s.bulkSlot(ctx, b.Slot, &b.Profile, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +389,7 @@ func (s *server) bulkRemove(ctx context.Context, ids []int64, deleteFiles bool) 
 
 // bulkRemoveVersion removes each Title's Version in the Slot.
 func (s *server) bulkRemoveVersion(ctx context.Context, ids []int64, b oapi.TitlesBulkRemoveVersion) ([]oapi.TitleBulkOutcome, error) {
-	sl, err := s.bulkSlot(ctx, b.Slot, nil)
+	sl, err := s.bulkSlot(ctx, b.Slot, nil, ids)
 	if err != nil {
 		return nil, err
 	}
