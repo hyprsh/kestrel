@@ -352,7 +352,13 @@ export function usePatchProfile() {
 
 /** A Profile changed, was made or went: the list, the details with their counts, and the Overview's cutoff count. */
 const invalidateProfiles = (qc: QueryClient) =>
-  Promise.all([qc.invalidateQueries({ queryKey: ['profiles'] }), qc.invalidateQueries({ queryKey: ['profile-details'] }), qc.invalidateQueries({ queryKey: ['profile-suggestions'] }), qc.invalidateQueries({ queryKey: ['settings'] }), qc.invalidateQueries({ queryKey: ['stats'] })])
+  Promise.all([
+    qc.invalidateQueries({ queryKey: ['profiles'] }),
+    qc.invalidateQueries({ queryKey: ['profile-details'] }),
+    qc.invalidateQueries({ queryKey: ['profile-suggestions'] }),
+    qc.invalidateQueries({ queryKey: ['settings'] }),
+    qc.invalidateQueries({ queryKey: ['stats'] }),
+  ])
 
 /** Makes a custom Profile as a copy of another. */
 export function useCreateProfile() {

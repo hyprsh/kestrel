@@ -496,9 +496,7 @@ describe('Settings', () => {
   it('shows each Profile’s Release Family, language and kinds', async () => {
     fakeProfiles()
     server.use(
-      http.get('/profiles', ({ response }) =>
-        response(200).json({ items: [profile('r', '4K Remux German', 'de', { release_family: 'remux-web', kinds: ['movie'] }), ...seeded().slice(0, 1)] }),
-      ),
+      http.get('/profiles', ({ response }) => response(200).json({ items: [profile('r', '4K Remux German', 'de', { release_family: 'remux-web', kinds: ['movie'] }), ...seeded().slice(0, 1)] })),
     )
     serveDetails()
     await open('Profiles')

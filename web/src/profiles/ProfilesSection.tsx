@@ -5,7 +5,7 @@ import { useCreateProfile, useImportProfile, useProfileSuggestions, useProfiles,
 import { declaresSlots, useSlots, type Slot } from '../api/slots'
 import { ProfileWarnings, SlotWarnings } from '../slots/SlotWarnings'
 import { plural } from '../format'
-import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
+import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips, SuggestionGroup, SuggestionRow } from '../layout/SettingsLists'
 import { SettingsBlock } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { useReport } from '../toasts'
@@ -148,20 +148,20 @@ function Suggested({ declared }: { declared: boolean }) {
     <section aria-label="Suggested" className="flex flex-col gap-2.5 pt-2">
       <h3 className="label-14 font-medium">Suggested</h3>
       {groups.map((g) => (
-        <div key={g.release_family} role="group" aria-label={g.name} className="flex flex-col rounded-md shadow-border">
-          <h4 className="label-12 px-4 pt-3 pb-1 font-medium text-gray-900">{g.name}</h4>
-          <ul className="flex flex-col [&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-gray-alpha-200">
-            {g.items.map((s) => (
-              <li key={`${s.resolution}-${s.language_rule}`} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5">
-                <span className="label-14 font-semibold">{s.name}</span>
-                <span className="label-13 min-w-0 flex-1 text-gray-900">{`${kindsText(s.kinds)} · ${languageText(s.language_rule)}`}</span>
+        <SuggestionGroup key={g.release_family} name={g.name}>
+          {g.items.map((s) => (
+            <SuggestionRow
+              key={`${s.resolution}-${s.language_rule}`}
+              name={s.name}
+              holds={`${kindsText(s.kinds)} · ${languageText(s.language_rule)}`}
+              action={
                 <Button size="small" variant="secondary" aria-label={`Add ${s.name}`} disabled={declared || add.isPending} onClick={() => void run(s)}>
                   Add
                 </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
+              }
+            />
+          ))}
+        </SuggestionGroup>
       ))}
     </section>
   )
