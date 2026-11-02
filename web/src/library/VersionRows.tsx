@@ -138,7 +138,12 @@ function SlotRow({
   const released = c ? c.episodes + c.unmonitored : 0
   const state = downloads ? 'downloading' : dotState(v.state, (c?.long_missing ?? 0) > 0 || v.long_missing)
   const sizeText = c && c.size > 0 ? size(c.size) : '\u2014'
-  const chip = <SlotChips chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: `${name}: ${line.text}` }]} max={1} />
+  const chip = (
+    <SlotChips
+      chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state, text: c && released > 0 ? `${c.filled}/${released}` : undefined, tip: `${name}: ${line.text}` }]}
+      max={1}
+    />
+  )
   return (
     <AccordionRow
       id={`version-${v.slot}`}

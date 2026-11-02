@@ -40,7 +40,7 @@ export const newznab: components['schemas']['PluginManifest'] = {
 
 /** Default handlers: a healthy instance with the admin logged in. Tests override with `server.use(...)`. */
 /** The two Slots a library starts with. */
-export const seededSlots: components['schemas']['Slot'][] = [
+const seededSlots: components['schemas']['Slot'][] = [
   { id: 'standard', label: 'Standard', default_movies: 'hd-primary', default_series: 'hd-primary', on_for_new_titles: true, position: 0, from_config_file: false },
   { id: '4k', label: '4K', default_movies: null, default_series: null, on_for_new_titles: false, position: 1, from_config_file: false },
 ]

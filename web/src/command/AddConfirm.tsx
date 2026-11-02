@@ -124,22 +124,22 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
                 return (
                   <div key={k} className="flex h-8 items-center gap-3">
                     {!single && (
-                    <div className="w-20">
-                      <Checkbox
-                        checked={on}
-                        onChange={(e) =>
-                          setPicked((p) => {
-                            const next = { ...p }
-                            const fallback = fallbackProfile(all, k, result.kind)
-                            if (e.target.checked && fallback) next[k] = fallback
-                            else delete next[k]
-                            return next
-                          })
-                        }
-                      >
-                        {slots.name(k)}
-                      </Checkbox>
-                    </div>
+                      <div className="w-20">
+                        <Checkbox
+                          checked={on}
+                          onChange={(e) =>
+                            setPicked((p) => {
+                              const next = { ...p }
+                              const fallback = fallbackProfile(all, k, result.kind)
+                              if (e.target.checked && fallback) next[k] = fallback
+                              else delete next[k]
+                              return next
+                            })
+                          }
+                        >
+                          {slots.name(k)}
+                        </Checkbox>
+                      </div>
                     )}
                     {on && (
                       <Select size="small" aria-label={`${slots.name(k)} Profile`} value={profileOf(k)} onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.value }))} className="max-w-56">

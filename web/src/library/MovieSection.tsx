@@ -138,7 +138,10 @@ function SlotRow({
   const total = grab ? downloads!.items.reduce((n, i) => n + i.bytes_total, 0) : 0
   const sizeText = f ? size(f.size) : total > 0 ? size(total) : '—'
   const chip = (
-    <SlotChips chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: downloads?.pct != null ? `${downloads.pct}%` : undefined, tip: `${name}: ${line.text}` }]} max={1} />
+    <SlotChips
+      chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: downloads?.pct != null ? `${downloads.pct}%` : undefined, tip: `${name}: ${line.text}` }]}
+      max={1}
+    />
   )
   const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   return (

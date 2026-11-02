@@ -48,7 +48,11 @@ function slotInfo(v: Entry, grab: QueueItem | undefined, profileName: string, no
   return { heading: profileName === v.label ? v.label : `${v.label} · ${profileName}`, state, text, lines }
 }
 
-export function rowChips(r: TitleRow, grabs: readonly QueueItem[], opts: { single?: boolean; profileName?: (key: string) => string; slots?: SlotNames; now?: number; onOpen?: (slot: string) => void } = {}): ChipData[] {
+export function rowChips(
+  r: TitleRow,
+  grabs: readonly QueueItem[],
+  opts: { single?: boolean; profileName?: (key: string) => string; slots?: SlotNames; now?: number; onOpen?: (slot: string) => void } = {},
+): ChipData[] {
   const now = opts.now ?? Date.now()
   return shownSlots(r, grabs).map((v) => {
     const state = entryState(v)

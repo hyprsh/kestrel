@@ -9,6 +9,7 @@ import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
 import { cell, episode, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
+import { serveSlots } from '../test/slots'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -233,5 +234,43 @@ describe('on a phone', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await userEvent.click(within(pilot).getByRole('button', { name: /^4K:/ }))
     expect(await screen.findByRole('dialog', { name: 'S01E01 4K' })).toBeInTheDocument()
+  })
+})
+
+describe('Slots come from the Slot list', () => {
+  async function openMovieIn(slots: string[], client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+    const r = row(1, 'Paddington in Peru', 'Paddington in Peru')
+    fakeLibrary([r])
+    const versions = versionsOf(...slots)
+    server.use(http.get('/titles/{id}', ({ response }) => response(200).json(detail(r, { versions }))))
+    render(<App client={client} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    return screen.findByRole('region', { name: 'Paddington in Peru' })
+  }
+
+  it('lists the Versions in the admin order under the stored labels, and follows a rename without a reload', async () => {
+    const served = serveSlots(['archive', 'Remux archive'], ['standard', 'Streaming'], ['kids', 'Kids'])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const pane = await openMovieIn(['standard', 'archive'], client)
+    const cards = within(pane).getByRole('region', { name: 'Versions' })
+    await waitFor(() =>
+      expect(
+        within(cards)
+          .getAllByRole('listitem')
+          .map((c) => c.getAttribute('aria-label')),
+      ).toEqual(['Remux archive', 'Streaming']),
+    )
+
+    served.rename('standard', 'Living room')
+    await client.invalidateQueries({ queryKey: ['slots'] })
+    await waitFor(() => expect(within(cards).getByRole('listitem', { name: 'Living room' })).toBeInTheDocument())
+    expect(within(cards).queryByRole('listitem', { name: 'Streaming' })).not.toBeInTheDocument()
+  })
+
+  it('leaves the Slot name off the header chip when the library has one Slot', async () => {
+    serveSlots(['standard', 'Standard'])
+    const pane = await openMovieIn(['standard'])
+    const chips = within(pane).getByRole('group', { name: 'Slots' })
+    await waitFor(() => expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['Wanted']))
   })
 })

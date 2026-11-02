@@ -357,9 +357,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
             </MenuItem>
           </DotsMenu>
         }
-        filter={
-          <FilterBar id="upcoming-filter" label="Filter Upcoming" placeholder="Filter titles, e.g. kind:series  /" value={query} onChange={onQuery} qualifiers={upcomingFacets} menus={false} />
-        }
+        filter={<FilterBar id="upcoming-filter" label="Filter Upcoming" placeholder="Filter titles, e.g. kind:series  /" value={query} onChange={onQuery} qualifiers={upcomingFacets} menus={false} />}
         controls={
           <>
             <FacetFilterButton
