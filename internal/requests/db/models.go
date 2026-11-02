@@ -352,6 +352,15 @@ type Setting struct {
 	Value string
 }
 
+type Slot struct {
+	ID            string
+	Label         string
+	DefaultMovies sql.NullString
+	DefaultSeries sql.NullString
+	OnForNew      int64
+	Position      int64
+}
+
 type Title struct {
 	ID                int64
 	Kind              string
