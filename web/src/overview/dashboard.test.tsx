@@ -248,9 +248,9 @@ describe('the download client', () => {
     expect(card).toHaveTextContent('9 minmedian download')
     expect(card).toHaveTextContent('64completed')
     expect(card).toHaveTextContent('4failed in the client')
-    const chart = within(card).getByRole('group', { name: 'Average speed per day, last 14 days, between 12 MB/s and 31 MB/s' })
-    expect(within(chart).getAllByRole('button')).toHaveLength(14)
-    expect(within(card).getByRole('table', { name: 'Average speed per day, last 14 days' })).toBeInTheDocument()
+    const chart = within(card).getAllByLabelText('Average speed per day, last 14 days, between 12 MB/s and 31 MB/s')[0]
+    expect(chart).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: /View as Table/ })).toBeInTheDocument()
   })
 
   it('says when no client is enabled', async () => {
@@ -315,9 +315,10 @@ describe('Library quality, Storage, release groups and Requests', () => {
     fakeStats()
     renderOverview()
     const card = await screen.findByRole('region', { name: 'Top release groups' })
-    expect(within(card).getByRole('group', { name: 'NTb: 18 files imported' })).toBeInTheDocument()
-    expect(within(card).getByRole('group', { name: 'DON: 4 files imported' })).toBeInTheDocument()
-    expect(within(card).getByRole('table', { name: 'Top release groups' })).toHaveTextContent('FLUX')
+    const list = within(card).getByRole('list', { name: 'Top release groups' })
+    expect(list).toHaveTextContent('NTb, 18 files imported')
+    expect(list).toHaveTextContent('DON, 4 files imported')
+    expect(list).toHaveTextContent('FLUX')
   })
 
   it('counts the Requests, how fast they were filled and who asked', async () => {

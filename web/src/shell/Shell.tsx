@@ -55,6 +55,7 @@ const Requests = lazyScreens.requests.Screen
 const SettingsScreen = lazyScreens.settings.Screen
 const Adoption = lazyScreens.adoption.Screen
 const Cleanup = lazyScreens.cleanup.Screen
+// chrome-ok: the lazy Kestrel command-menu screen, not a copy of the design CommandMenu
 const CommandMenu = lazyScreens.menu.Screen
 
 // The rail, tab bar and More sheet items by the name they carry: pointing at, touching or focusing one fetches its screen at once.

@@ -51,7 +51,50 @@ const CALLS: Record<string, string> = {
   'ReactDOM.createPortal': 'Toast, Popover or Sheet',
 }
 
+/**
+ * Names Kestrel has used, or is likely to use, for a piece the design system has under another name: declaring one of them
+ * outside a `chrome-ok:` exemption fails. A declaration named exactly like a design export fails too (see `duplicatesIn`).
+ */
+const ALIASES: Record<string, string> = {
+  Columns: 'ColumnChart',
+  StackedColumns: 'ColumnChart',
+  BarRow: 'BarList',
+  BarHeader: 'BarList',
+  Bar: 'BarList',
+  BarChart: 'BarList',
+  JumpNav: 'NavList',
+  JumpGroup: 'NavList.Group',
+  JumpLink: 'NavItem',
+  SectionList: 'NavList',
+  SettingsNav: 'NavList',
+  QueryHelp: 'QueryHelpButton',
+  FilterHelp: 'QueryHelpButton',
+  SparkBars: 'Sparkbars',
+}
+
 type Hit = { line: number; message: string; class?: string }
+
+/**
+ * Every top-level component or helper that `source` declares under a design export's name (or a known alias of one), such as
+ * a hand-made `ColumnChart` or `NavItem`. `designNames` are the design package's exports. Only declarations count: using or
+ * importing a design component never does.
+ */
+function duplicatesIn(file: string, source: string, designNames: ReadonlySet<string>): Hit[] {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+  const found: Hit[] = []
+  const check = (name: ts.Identifier | undefined, at: ts.Node) => {
+    if (!name || !/^[A-Z]/.test(name.text)) return
+    const instead = designNames.has(name.text) ? name.text : Object.hasOwn(ALIASES, name.text) ? ALIASES[name.text] : undefined
+    if (!instead) return
+    const line = sf.getLineAndCharacterOfPosition(at.getStart(sf)).line + 1
+    found.push({ line, message: `${name.text} duplicates the design's ${instead}. Use it, or say why not with "// chrome-ok: <what ${instead} lacks>" above the declaration` })
+  }
+  for (const node of sf.statements) {
+    if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) check(node.name, node)
+    else if (ts.isVariableStatement(node)) for (const d of node.declarationList.declarations) check(ts.isIdentifier(d.name) ? d.name : undefined, node)
+  }
+  return found
+}
 
 /** The utility part of a class token: the text after its last top-level `:` (variants like `hover:` and `[&_.x]:`). */
 function utilityOf(token: string): string {
@@ -157,11 +200,21 @@ function applyExemptions(source: string, hits: Hit[]): Hit[] {
   return [...hits.filter((h) => !exempt.has(h.line)), ...out]
 }
 
+/** `hits` minus the ones a `chrome-ok: <reason>` line directly above covers; unlike applyExemptions, it leaves other exemptions alone. */
+function withoutExempt(source: string, hits: Hit[]): Hit[] {
+  const lines = source.split('\n')
+  return hits.filter((h) => {
+    const m = EXEMPT.exec(lines[h.line - 2] ?? '')
+    return !(m && m[1].trim() !== '')
+  })
+}
+
 const toViolations = (file: string, hits: Hit[]): Violation[] => hits.sort((a, b) => a.line - b.line).map((h) => ({ file, line: h.line, class: h.class, message: `${file}:${h.line}: ${h.message}` }))
 
-/** Checks one SPA source file. `file` is its path from the web directory, such as `src/log/Log.tsx`. */
-export function checkSource(file: string, source: string): Violation[] {
+/** Checks one SPA source file. `file` is its path from the web directory, such as `src/log/Log.tsx`; `designNames` are the design package's exports. */
+export function checkSource(file: string, source: string, designNames: ReadonlySet<string> = new Set()): Violation[] {
   const marker = markerOf(source.split('\n'))
+  const duplicates = duplicatesIn(file, source, designNames)
   const hits = hitsIn(file, source)
   const conventions = 'see the top comment of src/layout/conventions.ts'
 
@@ -177,10 +230,11 @@ export function checkSource(file: string, source: string): Violation[] {
     } else if (kind !== 'domain-visual') {
       return fail(`unknown marker "chrome: ${marker.value}"; ${conventions}`)
     }
-    return []
+    // A file with a marker is not checked for chrome, but a copy of a design component still is; its `chrome-ok` lines are for those.
+    return toViolations(file, withoutExempt(source, duplicates))
   }
 
-  return toViolations(file, applyExemptions(source, hits))
+  return toViolations(file, applyExemptions(source, [...hits, ...duplicates]))
 }
 
 const TEST_RULES: RegExp[] = [/\btoHaveClass\(/, /\.className\b/, /\bclassList\b/, /\bquerySelector(?:All)?\(\s*['"`](?:\.|\[class)/]
