@@ -7,7 +7,7 @@ import { plural } from '../format'
 import { useReport } from '../toasts'
 
 /** The file name the label shows in: `Title (Year) {tmdb-693134} - [Label][Bluray-1080p]-Group.mkv` (ADR 0003, ADR 0024). */
-export const previewName = (label: string) => `… {tmdb-693134} - [${label.trim() || 'Label'}][Bluray-1080p]…`
+const previewName = (label: string) => `… {tmdb-693134} - [${label.trim() || 'Label'}][Bluray-1080p]…`
 
 /** `value` once it has stayed the same for `ms`, so a rename is asked about when the typing pauses. */
 function useSettled(value: string, ms: number) {
@@ -116,7 +116,9 @@ export function SlotForm({ slot, profiles, titles, onClose }: { slot?: Slot; pro
           <Select size="small" label="Default for Series" value={series} error={fieldOf(problem, 'default_series')} onChange={(e) => setSeries(e.target.value)}>
             {profileOptions}
           </Select>
-          <Toggle label="On for new Titles" aria-label="On for new Titles" labelCasing="normal" checked={on} onChange={setOn} />
+          <Toggle labelCasing="normal" checked={on} onChange={setOn}>
+            On for new Titles
+          </Toggle>
           {!slot && (
             <Checkbox checked={existing} onChange={(e) => setExisting(e.target.checked)}>
               {`Also add to existing Movies (${nMovies}) / Series (${nSeries})`}

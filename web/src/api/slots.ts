@@ -7,7 +7,6 @@ import type { components } from './schema.gen'
 export type Slot = components['schemas']['Slot']
 export type SlotCreate = components['schemas']['SlotCreate']
 export type SlotPatch = components['schemas']['SlotPatch']
-export type SettingsWarning = components['schemas']['SettingsWarning']
 
 /** The Slots in order. */
 export function useSlots() {

@@ -378,7 +378,7 @@ describe('Settings', () => {
 
   it('names every Slot in the defaults line, offers every Profile for each, and warns about a shared default', async () => {
     fakeProfiles()
-    const warning = { code: 'shared_slot_default', kind: 'movies', profile: 'hd-primary', slots: ['standard', '4k'], message: 'Standard and 4K both default to HD for Movies' } as const
+    const warning = { code: 'shared_slot_default' as const, kind: 'movies', profile: 'hd-primary', slots: ['standard', '4k'], message: 'Standard and 4K both default to HD for Movies' }
     server.use(
       http.get('/slots', ({ response }) =>
         response(200).json({ items: [...seededSlots(), { ...seededSlots()[0], id: 'remux', label: 'Remux', position: 2, default_movies: 'any-primary', default_series: null }] }),

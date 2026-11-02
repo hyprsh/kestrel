@@ -36,11 +36,11 @@ const profile = (key: string, name: string, over: Partial<Schemas['Profile']> = 
   ...over,
 })
 
-export const profiles = (): Schemas['Profile'][] => [profile('hd-primary', 'HD'), profile('any-primary', 'Any'), profile('4k-primary', '4K', { min_height: 2160, max_height: 2160 })]
+const profiles = (): Schemas['Profile'][] => [profile('hd-primary', 'HD'), profile('any-primary', 'Any'), profile('4k-primary', '4K', { min_height: 2160, max_height: 2160 })]
 
 const problem = (status: number, code: string, detail: string, errors: { field: string; code: string; message: string }[] = []) => ({ type: 'about:blank', title: 'x', status, code, detail, errors })
 
-export type Sent = { path: string; body?: unknown }
+type Sent = { path: string; body?: unknown }
 
 /**
  * The Slot API with the rules the screen leans on (a taken label is a 422 on `label`, the last Slot a 409), the Profiles,
@@ -122,7 +122,7 @@ export function fakeSlots(opts: { slots?: Slot[]; warnings?: Schemas['SettingsWa
     http.post('/titles/bulk', async ({ request, response }) => {
       const body = (await request.json()) as { action: string; title_ids: number[]; slot?: string }
       sent.push({ path: `bulk ${body.action}`, body })
-      return response(200).json({ items: body.title_ids.map((title_id) => ({ title_id, outcome: 'changed' as const, reason: null })) })
+      return response(200).json({ items: body.title_ids.map((title_id) => ({ title_id, outcome: 'changed' as const, reason: null, message: null })) })
     }),
   )
   return sent
