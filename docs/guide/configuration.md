@@ -66,7 +66,7 @@ Kestrel never downgrades. If the database is newer than the binary, Kestrel refu
 
 ### Updates
 
-Once a day, unless you switch off Settings > General > Updates > "Check GitHub daily" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. A newer release shows in Health and in Settings > About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
+Once a day, unless you switch off Settings > General > Updates > "Check GitHub daily" (or `check_github_updates: false` in the Config File), Kestrel asks GitHub, without signing in, for the latest release and the published security advisories of `hyprsh/kestrel`. The same switch covers the daily check for a newer TRaSH commit, so with it off Kestrel makes no request to GitHub at all. A newer release shows in Health and in Settings > About. An advisory that covers the version you run raises a "Security fix available" warning in Needs attention.
 
 ## The Config File
 
@@ -200,7 +200,7 @@ services:
 
 Mount the file outside `/config`. The entrypoint takes ownership of `/config`, which fails on a read-only mount. The file must be readable by `PUID`.
 
-With every section declared, setup is complete at startup and the first page is the login. Setup completes as soon as nothing is left to do, from the file or from the UI. That takes an account, the language, an enabled download client, an enabled indexer and the root folders.
+With every section declared, setup is complete at startup and the first page is the login. Setup completes as soon as nothing is left to do, from the file or from the UI. That takes an account, the language, an enabled download client, an enabled indexer, the root folders and, for every Slot that is on for new Titles, a default Profile for Movies and one for Series.
 
 ### How it behaves
 
@@ -241,14 +241,14 @@ Every folder must exist and be writable.
 
 #### profiles
 
-List every Profile you have, under a key of your choosing: lower-case letters and digits, with single hyphens between. The section is the whole set, so a Profile it leaves out is disabled and kept, and the Profile endpoints and Settings > Profiles are read-only. Any of the six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`) may appear, in any combination, and keeps its builtin recipe when it gives none. Any other key is a recipe Profile and gives its `name`, `release_family`, `resolution` and `language_rule`. Every Profile takes `enabled` and `original_language`.
+List every Profile you have, under a key of your choosing: lower-case letters and digits, with single hyphens between. The section is the whole set, so a Profile it leaves out is disabled and kept, and the Profile endpoints and Settings > Profiles are read-only. Any of the six builtin keys (`hd-primary`, `hd-original`, `any-primary`, `any-original`, `4k-primary` and `4k-original`) may appear, in any combination, and keeps its builtin recipe when it gives none. Any other key is a recipe Profile and gives its `name`, `release_family`, `resolution` and `language_rule`. Every Profile gives `enabled` and `original_language`, and startup fails if one is missing.
 
 | Field               | Value                                                                                                                                                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`           | `true` or `false`.                                                                                                                                                                                                                                                              |
 | `original_language` | What the Profile does with a Release that has the Title's Original Language but no Primary-Language audio: `reject`, `offer` it for approval in Needs attention, or `accept`. The older `original_fallback` still works in its place (`true` is `accept`, `false` is `reject`). |
 | `name`              | The Profile's name, at most 40 characters and unique. Required for a key that is not a builtin one; a builtin key keeps its own name when it leaves this out.                                                                                                                   |
-| `resolution`        | `hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p). Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out.                                                                                                                   |
+| `resolution`        | `hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p). The API calls the 4K one `uhd`. Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out.                                                                                   |
 | `release_family`    | The Profile's Release Family: `bluray-web`, `remux-web`, `web` or `sqp`. Required for a key that is not a builtin one; a builtin key keeps its own (the six start as `bluray-web`) when it leaves this out. Any is only `bluray-web`.                                           |
 | `language_rule`     | `primary`, `original`, or one named language: `en`, `de` or `fr`. Required for a key that is not a builtin one; a builtin key keeps its own when it leaves this out. A named-language Profile takes `original_language` like a `primary` one, judged against its own language.  |
 | `default_movies`    | Ignored: the defaults for new Titles belong to the Slots (see `slots`). Kestrel logs a warning at startup naming each Profile that still sets it.                                                                                                                               |
@@ -405,7 +405,7 @@ Silo asks for a Title in a resolution tier, and Kestrel files each tier in a Slo
 
 - **One Slot for both tiers** is fine: the Request gets that Slot once, and each tier still has its own status in Silo.
 - **A Slot no tier maps to** can't be requested from Silo and is never reported to it.
-- **A missing Slot** fails the plugin's validation on the field `1080p_slot` or `2160p_slot`.
+- **A missing Slot** fails the plugin's validation on the field `1080p_slot` or `2160p_slot`. A fresh install has no `4k` Slot until you add one (the Standard + 4K preset does), so point `2160p_slot` at another Slot or add one.
 - **Kids and Mobile.** Silo's request routes and per-device caps are the recommended way to serve those audiences. Use a Slot only when you want a separate file.
 
 ## Watch-ahead for Silo
