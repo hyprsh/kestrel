@@ -12,7 +12,7 @@ Example: _Paddington_ (2014) is a Movie, and _Breaking Bad_ is a Series. Kestrel
 
 ## Slot
 
-A named place in a Title for one copy of it, and the name of that copy's file. You define them: Kestrel starts with **Standard** and **4K** (opt-in), and you can add, rename, reorder and remove Slots, up to four. A Title has at most one copy per Slot, and at least one copy overall. A Slot says which copy a Version is; a Profile says which Release to grab for it. [Slots](slots.md) has the rest, with a Remux and a dub as examples.
+A named place in a Title for one copy of it, and the name of that copy's file. You define them: a fresh install starts with **Standard**, a library that already existed keeps **Standard** and **4K**, and you can add, rename, reorder and remove Slots, up to four. A Title has at most one copy per Slot, and at least one copy overall. A Slot says which copy a Version is; a Profile says which Release to grab for it. [Slots](slots.md) has the rest, with a Remux and a dub as examples.
 
 Example: a gaming group keeps _Cyberpunk: Edgerunners_ in Standard only, because the TV in the living room is 1080p. The Household's film nights want _Dune_ in both, so the 4K projector gets the 4K file and the tablet in the kitchen gets the Standard one. Which copy plays is the media server's choice. Kestrel never decides who may watch 4K.
 
@@ -49,13 +49,15 @@ Not every recipe exists, because Kestrel never falls back to another language or
 
 You can switch a Version to another Profile at any time. A Title can't use the same Profile in two Versions.
 
+In Settings > Profiles you can also change what each Profile accepts, on top of what TRaSH gives it: reorder or switch off qualities, choose where Upgrades stop (see [Upgrade](#upgrade)), set a minimum Score, set a smallest and largest size per Movie and per episode, and choose what happens to a Release that has only the Original Language. **New Profile…** copies a Profile to start from.
+
 ## Custom Format and Score
 
 A **Custom Format** is a named trait a Release can have, such as being from a trusted release group, carrying both languages, or being an unwanted encode. TRaSH Guides defines them. Each is worth a number of points under a Profile.
 
 A Release's **Score** is the sum of the points of every Custom Format it matches under that Profile. The higher Score wins a Grab or an Upgrade.
 
-Example: for the HD Profile, a 1080p Release from a top release group matches a Custom Format worth many points. An otherwise identical one from an unknown group matches none, scores lower, and loses. You don't edit Scores in Kestrel. They come from TRaSH, and Kestrel refreshes them daily (Settings > Profiles > TRaSH).
+Example: for the HD Profile, a 1080p Release from a top release group matches a Custom Format worth many points. An otherwise identical one from an unknown group matches none, scores lower, and loses. You don't edit Custom Formats or their Scores in Kestrel. They come from TRaSH, and Kestrel refreshes them daily (Settings > Profiles > TRaSH). What you can set per Profile is a minimum Score.
 
 ## Wanted
 
@@ -81,13 +83,13 @@ Example: Kestrel searches for _Paddington 2_, scores 12 Releases, and picks the 
 
 Moving a completed download into your library, under its Title's folder and naming scheme. Kestrel hardlinks the file when downloads and library share a mount, so it takes no extra space ([The `/data` layout](getting-started.md#the-data-layout)).
 
-Example: SABnzbd finishes `Paddington.2.2017.1080p.BluRay-GRP`. Kestrel imports it to `/data/media/movies/Paddington 2 (2017) {tmdb-346648}/` and names it `Paddington 2 (2017) - [Standard] …`. Then it tells Plex or Jellyfin to refresh.
+Example: SABnzbd finishes `Paddington.2.2017.1080p.BluRay-GRP`. Kestrel imports it to `/data/media/movies/Paddington 2 (2017) {tmdb-346648}/` and names it `Paddington 2 (2017) {tmdb-346648} - [Standard] …`. Then it tells Plex or Jellyfin to refresh.
 
 Adopting files that are already in your library is a different thing, called **Adoption**. See [Moving from Radarr and Sonarr](moving-from-radarr-and-sonarr.md).
 
 ## Upgrade
 
-Replacing a Version's file with a better-scoring Release. Monitored Versions never stop upgrading, and there is no quality cutoff. An unmonitored Title is not upgraded.
+Replacing a Version's file with a better-scoring Release. A monitored Version keeps upgrading until its file reaches its Profile's **Cutoff**, and a Profile with no Cutoff never stops. You set a Cutoff in Settings > Profiles, on a Profile's Edit sheet: **Good enough at** names a quality, and **Upgrade until Score** a Score. A file has reached the Cutoff when its quality is that one or a better one and its Score is at least the Upgrade-until Score. Whichever of the two you leave empty isn't checked. A file that has reached it is left alone. A file below the Cutoff isn't Wanted, it only waits for an Upgrade. An unmonitored Title, or an unmonitored episode of a Series, is not upgraded.
 
 Example: you import a 1080p WEB-DL of a new film. Weeks later a BluRay Release with a higher Score appears, and Kestrel grabs it and replaces the file.
 
