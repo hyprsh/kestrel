@@ -82,6 +82,10 @@ type Profiles interface {
 // Indexers is the indexers host.
 type Indexers interface {
 	Search(ctx context.Context, q indexers.Query) indexers.Result
+	// SearchGroup is Search over the indexers of one Indexer Priority, and Priorities are those priorities,
+	// lowest first: the groups an automatic search asks in turn.
+	SearchGroup(ctx context.Context, q indexers.Query, priority int) indexers.Result
+	Priorities(ctx context.Context) []int
 	RSS(ctx context.Context) indexers.Result
 	Fetch(ctx context.Context, indexerID int64, downloadURL string) ([]byte, error)
 	// GrabsPaused says whether the indexer's Grabs are paused: Decide skips its Releases.
@@ -161,12 +165,13 @@ func New(d Deps) (*Service, error) {
 	}
 	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
-		snap: d.Scoring, cache: &cache{m: map[string]*entry{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
+		snap: d.Scoring, cache: &cache{m: map[string]*entry{}, asked: map[int64]map[group]time.Time{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
 		pause: d.Pause, searches: newBackground(2),
 	}
 	d.Scoring.OnSwap(func() {
 		svc.cache.mu.Lock()
 		svc.cache.m = map[string]*entry{}
+		svc.cache.asked = map[int64]map[group]time.Time{}
 		svc.cache.mu.Unlock()
 	})
 	return svc, nil
@@ -287,9 +292,13 @@ type entry struct {
 type cache struct {
 	mu sync.Mutex
 	m  map[string]*entry
+	// asked is when each group of indexers was last searched for a Title, so a retry from the cache knows which
+	// groups' answers it holds even when a group found nothing.
+	asked map[int64]map[group]time.Time
 }
 
-func (c *cache) put(now time.Time, es []*entry) {
+// put caches the Releases a search of the group g found for a Title.
+func (c *cache) put(now time.Time, titleID int64, g group, es []*entry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for id, e := range c.m {
@@ -297,9 +306,23 @@ func (c *cache) put(now time.Time, es []*entry) {
 			delete(c.m, id)
 		}
 	}
+	for id, groups := range c.asked {
+		for g, at := range groups {
+			if now.Sub(at) >= CacheTTL {
+				delete(groups, g)
+			}
+		}
+		if len(groups) == 0 {
+			delete(c.asked, id)
+		}
+	}
 	for _, e := range es {
 		c.m[e.id] = e
 	}
+	if c.asked[titleID] == nil {
+		c.asked[titleID] = map[group]time.Time{}
+	}
+	c.asked[titleID][g] = now
 }
 
 func (c *cache) get(now time.Time, id string) (*entry, bool) {
@@ -312,18 +335,30 @@ func (c *cache) get(now time.Time, id string) (*entry, bool) {
 	return e, true
 }
 
-// cachedFor returns the Title's Releases in the cache that are still fresh and
-// not on the Blocklist now, and whether the cache holds any for it at all.
-func (s *Service) cachedFor(ctx context.Context, titleID int64) ([]*entry, bool, error) {
+// cachedFor returns the Releases the group g found for the Title that are still
+// fresh in the cache and not on the Blocklist now, and whether the cache holds
+// g's answer: it holds some Release of the Title, and one from g or a record
+// that g (or every indexer) was asked. A Title with nothing cached is searched
+// again whichever groups were asked.
+func (s *Service) cachedFor(ctx context.Context, titleID int64, g group) ([]*entry, bool, error) {
 	now := s.clock()
 	c := s.cache
 	c.mu.Lock()
 	var all []*entry
+	some := false
 	for _, e := range c.m {
 		if e.titleID == titleID && now.Sub(e.at) < CacheTTL {
-			all = append(all, e)
+			some = true
+			if g.holds(e) {
+				all = append(all, e)
+			}
 		}
 	}
+	fresh := func(g group) bool {
+		at, ok := c.asked[titleID][g]
+		return ok && now.Sub(at) < CacheTTL
+	}
+	held := some && (g.all || len(all) > 0 || fresh(g) || fresh(everyIndexer))
 	c.mu.Unlock()
 	slices.SortFunc(all, func(a, b *entry) int { return a.at.Compare(b.at) })
 	var out []*entry
@@ -336,19 +371,19 @@ func (s *Service) cachedFor(ctx context.Context, titleID int64) ([]*entry, bool,
 			out = append(out, e)
 		}
 	}
-	return out, len(all) > 0, nil
+	return out, held, nil
 }
 
-// candidates is gather that, when fromCache is set and the Title has fresh
-// Releases cached, answers from the cache instead of searching again.
-func (s *Service) candidates(ctx context.Context, sub subject, scope library.Scope, fromCache bool) ([]*entry, []indexers.Failure, error) {
+// candidates is gather that, when fromCache is set and the cache holds the
+// group's answer for the Title, answers from the cache instead of searching again.
+func (s *Service) candidates(ctx context.Context, sub subject, scope library.Scope, g group, fromCache bool) ([]*entry, []indexers.Failure, error) {
 	if fromCache {
-		es, held, err := s.cachedFor(ctx, sub.detail.ID)
+		es, held, err := s.cachedFor(ctx, sub.detail.ID, g)
 		if err != nil || held {
 			return es, nil, err
 		}
 	}
-	return s.gather(ctx, sub, scope)
+	return s.gather(ctx, sub, scope, g)
 }
 
 func newID() string {
@@ -396,15 +431,15 @@ func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error)
 	return sub, nil
 }
 
-// gather searches every indexer for the Title and scores each Release under
-// the Profile of every Version the Title has. The entries go into the
-// candidate cache. Search on add, sweeps and retries reuse it.
-func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope) ([]*entry, []indexers.Failure, error) {
+// gather searches the indexers of the group g for the Title and scores each
+// Release under the Profile of every Version the Title has. The entries go
+// into the candidate cache. Search on add, sweeps and retries reuse it.
+func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope, g group) ([]*entry, []indexers.Failure, error) {
 	d := sub.detail
 	if d.Kind == library.Series {
-		return s.gatherSeries(ctx, sub, scope)
+		return s.gatherSeries(ctx, sub, scope, g)
 	}
-	res := s.idx.Search(ctx, indexers.Query{
+	res := s.search(ctx, g, indexers.Query{
 		Media: indexer.MediaMovie, IMDBID: d.IMDbID, TMDBID: d.TMDBID, Year: d.Year,
 		Titles: searchTitles(d.Title, d.OriginalTitle, d.PrimaryTitle),
 	})
@@ -437,7 +472,7 @@ func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope) 
 		return nil, nil, err
 	}
 	s.markFit(ctx, sub, res, out)
-	s.cache.put(now, out)
+	s.cache.put(now, d.ID, g, out)
 	return out, res.Failures, nil
 }
 
@@ -520,7 +555,7 @@ func (e *entry) fits(slot Slot) Fit {
 }
 
 // Search is a manual search for a Version: every enabled indexer is asked in
-// parallel, each Release is parsed and evaluated against the Version's Profile
+// parallel, whatever its Indexer Priority, each Release is parsed and evaluated against the Version's Profile
 // and the lot is cached for CacheTTL. It returns library.ErrNotFound for an
 // unknown Version.
 func (s *Service) Search(ctx context.Context, versionID int64) (SearchResult, error) {
@@ -543,7 +578,7 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 	if !ok {
 		return SearchResult{}, library.ErrNotFound
 	}
-	entries, failures, err := s.gather(ctx, sub, scope)
+	entries, failures, err := s.gather(ctx, sub, scope, everyIndexer)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -841,11 +876,24 @@ func (s *Service) FetchingEpisodes(ctx context.Context, titleID int64) (map[int6
 // began or ended since the search counts. With Pause Grabs on it plans
 // nothing: every automatic Grab goes through here, a hand-started one does not.
 func (s *Service) decide(ctx context.Context, in Input) ([]GrabPlan, error) {
-	if s.pause != nil {
-		if paused, err := s.pause.Paused(ctx); err != nil || paused {
-			return nil, err
-		}
+	if paused, err := s.grabsPaused(ctx); err != nil || paused {
+		return nil, err
 	}
+	return s.plan(in), nil
+}
+
+// grabsPaused says whether Pause Grabs is on.
+func (s *Service) grabsPaused(ctx context.Context) (bool, error) {
+	if s.pause == nil {
+		return false, nil
+	}
+	return s.pause.Paused(ctx)
+}
+
+// plan is decide whatever Pause Grabs says: what would be grabbed. A search
+// that asks the indexers by priority uses it to know what one group left for
+// the next, and checks Pause Grabs once before it grabs.
+func (s *Service) plan(in Input) []GrabPlan {
 	cands := slices.Clone(in.Candidates)
 	for i := range cands {
 		if id, err := strconv.ParseInt(cands[i].IndexerID, 10, 64); err == nil {
@@ -853,7 +901,7 @@ func (s *Service) decide(ctx context.Context, in Input) ([]GrabPlan, error) {
 		}
 	}
 	in.Candidates = cands
-	return Decide(in), nil
+	return Decide(in)
 }
 
 // grabSentData is the `grab` event's payload: who chose the Release. Grabs from before it was recorded have none.

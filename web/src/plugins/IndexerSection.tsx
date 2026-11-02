@@ -39,7 +39,8 @@ function IndexerStatus({ instance, failing, latency }: { instance: PluginInstanc
 }
 
 /**
- * Settings' indexers: a list in the order Kestrel asks them (the top one first), each with its health, its Grabs of the
+ * Settings' indexers: a list in the order Kestrel asks them (the top one first; an automatic search asks the next priority
+ * only for what the earlier ones left), each with its health, its Grabs of the
  * last 30 days, an on/off switch and a menu. A row's drag handle (or the arrow keys on it) changes the order, which is saved
  * as the instances' priorities. Edit and Add open the full form in a side sheet.
  */
@@ -232,6 +233,7 @@ export function IndexerSection() {
                 manifest={formManifest}
                 instance={editingRow}
                 managed
+                priorityHint="Indexers with the same priority are asked together, lowest first, and the next priority only for what the earlier ones left."
                 label={editingRow ? editingRow.name : 'New indexer'}
                 onSaved={close}
                 onCancel={close}

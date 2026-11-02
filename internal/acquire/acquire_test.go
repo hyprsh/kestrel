@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/hyprsh/kestrel/internal/slot"
 	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,6 +36,7 @@ type rig struct {
 	lib      *library.Service
 	idx      *ixfake.Indexer
 	idx2     *ixfake.Indexer
+	asked2   *atomic.Int64 // the searches idx2 answered
 	inst     *instances.Service
 	idxID    int64
 	sab      *dcfake.Client
@@ -45,7 +47,15 @@ type rig struct {
 	deps acquire.Deps
 }
 
-type secondIndexer struct{ *ixfake.Indexer }
+type secondIndexer struct {
+	*ixfake.Indexer
+	asked *atomic.Int64
+}
+
+func (i secondIndexer) Search(ctx context.Context, conn plugin.Connection, q indexer.SearchQuery) (indexer.SearchResult, error) {
+	i.asked.Add(1)
+	return i.Indexer.Search(ctx, conn, q)
+}
 
 func (secondIndexer) Describe() plugin.Manifest {
 	m := ixfake.New("").Describe()
@@ -84,10 +94,11 @@ func newRigOf(t *testing.T, details metadata.MovieDetails, specs ...library.Vers
 	clk := &clock{now: time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)}
 
 	idx, idx2, sab := ixfake.New("k"), ixfake.New("k"), dcfake.New("k")
+	asked2 := &atomic.Int64{}
 	reg := plugin.NewRegistry()
 	for _, err := range []error{
 		reg.Register(indexer.Contract, idx),
-		reg.Register(indexer.Contract, secondIndexer{idx2}),
+		reg.Register(indexer.Contract, secondIndexer{idx2, asked2}),
 		reg.Register(downloadclient.Contract, sab),
 	} {
 		if err != nil {
@@ -126,7 +137,7 @@ func newRigOf(t *testing.T, details metadata.MovieDetails, specs ...library.Vers
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &rig{svc: svc, lib: lib, idx: idx, idx2: idx2, inst: inst, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions, deps: deps}
+	return &rig{svc: svc, lib: lib, idx: idx, idx2: idx2, asked2: asked2, inst: inst, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions, deps: deps}
 }
 
 func paddington() metadata.MovieDetails {

@@ -56,10 +56,10 @@ func scopeWants(sc library.Scope, p release.ParsedRelease, eps []library.Episode
 	return false
 }
 
-// gatherSeries is gather for a Series: it asks the indexers by TheTVDB id
+// gatherSeries is gather for a Series: it asks the group's indexers by TheTVDB id
 // (then by title), keeps the Releases that name this Series (and the scoped
 // season or episodes) and scores each under every Version's Profile.
-func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.Scope) ([]*entry, []indexers.Failure, error) {
+func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.Scope, g group) ([]*entry, []indexers.Failure, error) {
 	d := sub.detail
 	now := s.clock()
 	episodes, err := s.lib.Episodes(ctx, d.ID, library.View{Now: now})
@@ -67,7 +67,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		return nil, nil, err
 	}
 	season, episode := scopeQuery(scope, episodes)
-	res := s.idx.Search(ctx, indexers.Query{
+	res := s.search(ctx, g, indexers.Query{
 		Media: indexer.MediaTV, IMDBID: d.IMDbID, TVDBID: d.TVDBID,
 		Titles: searchTitles(d.Title, d.OriginalTitle, d.PrimaryTitle), Season: season, Episode: episode,
 	})
@@ -103,7 +103,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		out = append(out, e)
 	}
 	s.markFit(ctx, sub, res, out)
-	s.cache.put(now, out)
+	s.cache.put(now, d.ID, g, out)
 	return out, res.Failures, nil
 }
 
@@ -221,7 +221,9 @@ func inSeason(sc library.Scope, season int, eps []library.Episode) library.Scope
 // Wanted episode in a requested Version (Specials are never searched on their
 // own unless the scope names them), then one Decide over everything found, so
 // a finished season takes its pack and a running one its episodes. Only the
-// episodes within scope count.
+// episodes within scope count. The indexers are asked by Indexer Priority
+// (ADR 0025): each group only for the seasons of the episodes the earlier
+// groups left with nothing to grab, and its Releases count only for those.
 //
 // With upgrade it is the Upgrade sweep: the Filled Versions, with their files as
 // the bar to clear, season by season.
@@ -246,7 +248,6 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	in.SeasonsFinished = seasonsFinished(episodes, now)
 	versionOf := map[Slot]int64{}
 	searchedEpisodes := map[int64][]int64{}
-	wantedSeasons := map[int]bool{}
 	for _, v := range d.Versions {
 		if !slices.Contains(versionIDs, v.ID) || v.State != want {
 			continue
@@ -266,9 +267,6 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			}
 			ver.Units = append(ver.Units, u)
 			searchedEpisodes[v.ID] = append(searchedEpisodes[v.ID], ep.ID)
-			if ep.Season != 0 || scope.Narrow() {
-				wantedSeasons[ep.Season] = true
-			}
 		}
 		out.Searched = append(out.Searched, v.ID)
 		if len(ver.Units) > 0 {
@@ -281,57 +279,64 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		return out, nil
 	}
 
-	seasons := make([]int, 0, len(wantedSeasons))
-	for n := range wantedSeasons {
-		seasons = append(seasons, n)
-	}
-	slices.Sort(seasons)
 	obs := ObserverOf(ctx)
 	obs.Searching(targetOf(d, in))
 	out.asked = true
 	entries := map[string]*entry{}
-	add := func(found []*entry) {
-		for _, e := range found {
-			if _, seen := entries[entryKey(e.cand)]; !seen {
-				entries[entryKey(e.cand)] = e
-				in.Candidates = append(in.Candidates, e.cand)
+	var all []*entry
+	var plans []GrabPlan
+	left := in.Versions
+	for _, g := range s.groupsOf(ctx) {
+		round := Input{Versions: cloneVersions(left), SeasonsFinished: in.SeasonsFinished}
+		add := func(found []*entry) {
+			for _, e := range found {
+				if _, seen := entries[entryKey(e.cand)]; !seen {
+					entries[entryKey(e.cand)] = e
+					all = append(all, e)
+					in.Candidates = append(in.Candidates, e.cand)
+					round.Candidates = append(round.Candidates, e.cand)
+				}
 			}
 		}
-	}
-	cached, usable := []*entry(nil), false
-	if fromCache {
-		var err error
-		if cached, usable, err = s.cachedFor(ctx, d.ID); err != nil {
-			return out, err
-		}
-	}
-	if usable {
-		add(cached)
-		obs.Releases(len(cached))
-	} else {
-		for _, n := range seasons {
-			n := n
-			found, failures, err := s.gather(ctx, sub, inSeason(scope, n, episodes))
-			if err != nil {
+		cached, usable := []*entry(nil), false
+		if fromCache {
+			var err error
+			if cached, usable, err = s.cachedFor(ctx, d.ID, g); err != nil {
 				return out, err
 			}
-			out.Failures = append(out.Failures, failures...)
-			obs.Releases(len(found))
-			add(found)
 		}
-	}
-
-	all := make([]*entry, 0, len(entries))
-	for _, e := range entries {
-		all = append(all, e)
+		if usable {
+			add(cached)
+			obs.Releases(len(cached))
+		} else {
+			for _, n := range seasonsOf(left, scope) {
+				found, failures, err := s.gather(ctx, sub, inSeason(scope, n, episodes), g)
+				if err != nil {
+					return out, err
+				}
+				out.Failures = append(out.Failures, failures...)
+				obs.Releases(len(found))
+				add(found)
+			}
+		}
+		if !upgrade {
+			planUnlisted(&round, d, episodes, now, scope)
+			round.Versions = dropPlanned(round.Versions, plans)
+		}
+		got := s.plan(round)
+		plans = append(plans, got...)
+		if left = leftover(left, got); len(left) == 0 {
+			break
+		}
 	}
 	out.found(all)
 	if !upgrade {
 		planUnlisted(&in, d, episodes, now, scope)
 	}
-	plans, err := s.decide(ctx, in)
-	if err != nil {
+	if paused, err := s.grabsPaused(ctx); err != nil {
 		return out, err
+	} else if paused {
+		plans = nil
 	}
 	var errs []error
 	for _, plan := range plans {
@@ -356,6 +361,43 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	}
 	errs = append(errs, s.noteOffers(ctx, d, versionOf, in, entries, episodes))
 	return out, errors.Join(errs...)
+}
+
+// seasonsOf are the seasons a search asks the indexers for: those of the
+// Versions' units, in order, Specials only when the scope names them.
+func seasonsOf(vs []Version, scope library.Scope) []int {
+	var out []int
+	for _, v := range vs {
+		for _, u := range v.Units {
+			if (u.Ref.Season != 0 || scope.Narrow()) && !slices.Contains(out, u.Ref.Season) {
+				out = append(out, u.Ref.Season)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// cloneVersions copies the Versions and their units, for an Input to add units to.
+func cloneVersions(vs []Version) []Version {
+	out := make([]Version, len(vs))
+	for i, v := range vs {
+		out[i] = Version{Slot: v.Slot, Units: slices.Clone(v.Units)}
+	}
+	return out
+}
+
+// dropPlanned takes out of the Versions, in place, the unlisted units an
+// earlier group's plans already cover, so a later group does not plan them again.
+func dropPlanned(vs []Version, plans []GrabPlan) []Version {
+	for i, v := range vs {
+		vs[i].Units = slices.DeleteFunc(v.Units, func(u Unit) bool {
+			return u.Unlisted && slices.ContainsFunc(plans, func(p GrabPlan) bool {
+				return p.Slot == v.Slot && slices.Contains(p.Covers, u.Ref)
+			})
+		})
+	}
+	return vs
 }
 
 // onlyPlanned keeps, of the episodes a Release holds, those Decide planned it for.
