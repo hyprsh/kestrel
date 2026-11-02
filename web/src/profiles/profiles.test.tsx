@@ -21,6 +21,8 @@ type Settings = components['schemas']['Settings']
 type Sent = { path: string; body: unknown }
 type Details = components['schemas']['ProfileDetail']
 type Slot = components['schemas']['Slot']
+type Suggestion = components['schemas']['ProfileSuggestion']
+type SuggestionGroup = components['schemas']['ProfileSuggestionGroup']
 
 const profile = (key: string, name: string, rule: Profile['language_rule'], over: Partial<Profile> = {}): Profile => ({
   key,
@@ -51,11 +53,12 @@ const seeded = (): Profile[] => [
 ]
 
 /** The Profile and settings API with real behaviour for the rules the UI leans on. */
-function fakeProfiles(opts: { fresh?: boolean } = {}) {
+function fakeProfiles(opts: { fresh?: boolean; groups?: SuggestionGroup[]; warnings?: Settings['warnings'] } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
   let profiles = seeded()
   let slots = seededSlots()
+  let groups = opts.groups ?? []
   let settings: Settings = {
     language_region: { primary_language: 'en', release_date_country: 'US' },
     check_github_updates: true,
@@ -65,6 +68,7 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
     trash: { auto_update: true },
     metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
     root_folders: { movies: ['/data/media/movies'], series: ['/data/media/tv'] },
+    ...(opts.warnings ? { warnings: opts.warnings } : {}),
   }
   if (opts.fresh) fakeSetup()
   server.use(
@@ -91,6 +95,16 @@ function fakeProfiles(opts: { fresh?: boolean } = {}) {
       return response(200).json(settings)
     }),
     http.get('/profiles', ({ response }) => response(200).json({ items: profiles })),
+    http.get('/profiles/suggestions', ({ response }) => response(200).json({ groups })),
+    http.post('/profiles', async ({ request, response }) => {
+      const body = (await request.json()) as Partial<Suggestion>
+      sent.push({ path: 'import', body })
+      const hit = groups.flatMap((g) => g.items).find((i) => i.release_family === body.release_family && i.resolution === body.resolution && i.language_rule === body.language_rule)!
+      const made = profile(`made-${profiles.length}`, hit.name, hit.language_rule, { release_family: hit.release_family, kinds: hit.kinds, custom: true })
+      profiles = [...profiles, made]
+      groups = groups.map((g) => ({ ...g, items: g.items.filter((i) => i !== hit) })).filter((g) => g.items.length > 0)
+      return response(201).json(made)
+    }),
     http.get('/slots', ({ response }) => response(200).json({ items: slots })),
     http.patch('/slots/{id}', async ({ request, params, response }) => {
       const body = (await request.json()) as Partial<Slot>
@@ -431,6 +445,75 @@ describe('Settings', () => {
     expect(screen.getByRole('button', { name: 'Change…' })).toBeEnabled()
     expect(screen.getByText(/The Config File sets the Profiles/)).toBeInTheDocument()
     expect(screen.queryByText(/The Config File sets the Slots/)).not.toBeInTheDocument()
+  })
+
+  const remux4k: Suggestion = { name: '4K Remux', release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary', kinds: ['movie', 'series'] }
+  const suggested: SuggestionGroup[] = [
+    { release_family: 'remux-web', name: 'Remux + WEB', items: [remux4k, { name: '4K Remux German', release_family: 'remux-web', resolution: 'uhd', language_rule: 'de', kinds: ['movie'] }] },
+    { release_family: 'sqp', name: 'SQP', items: [{ name: 'SQP 1080p', release_family: 'sqp', resolution: 'hd', language_rule: 'primary', kinds: ['movie'] }] },
+  ]
+
+  it('lists Suggested Profiles by Release Family with their kinds and language', async () => {
+    fakeProfiles({ groups: suggested })
+    serveDetails()
+    await open('Profiles')
+    const section = await screen.findByRole('region', { name: 'Suggested' })
+    const remux = within(within(section).getByRole('group', { name: 'Remux + WEB' }))
+    expect(remux.getByText('4K Remux')).toBeInTheDocument()
+    expect(remux.getByText('Movies and Series · Primary Language')).toBeInTheDocument()
+    expect(remux.getByText('Movies · German')).toBeInTheDocument()
+    expect(within(section).getByRole('group', { name: 'SQP' })).toBeInTheDocument()
+  })
+
+  it('moves an added Suggested Profile into the Profiles list, enabled, without a reload', async () => {
+    const sent = fakeProfiles({ groups: suggested })
+    serveDetails()
+    await open('Profiles')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add 4K Remux' }))
+    await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'import', body: { release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary' } }))
+    expect(await screen.findByRole('button', { name: 'Edit 4K Remux' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add 4K Remux' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add 4K Remux German' })).toBeInTheDocument()
+  })
+
+  it('hides Suggested when there are no suggestions', async () => {
+    fakeProfiles()
+    serveDetails()
+    await open('Profiles')
+    await screen.findByRole('button', { name: 'Edit HD' })
+    expect(screen.queryByRole('region', { name: 'Suggested' })).not.toBeInTheDocument()
+  })
+
+  it('makes Suggested read-only when the Config File declares the Profiles', async () => {
+    fakeProfiles({ groups: suggested })
+    server.use(http.get('/profiles', ({ response }) => response(200).json({ items: seeded().map((p) => ({ ...p, from_config_file: true })) })))
+    serveDetails()
+    await open('Profiles')
+    expect(await screen.findByRole('button', { name: 'Add 4K Remux' })).toBeDisabled()
+    expect(screen.getAllByText(/The Config File sets the Profiles/)).toHaveLength(1)
+  })
+
+  it('shows each Profile’s Release Family, language and kinds', async () => {
+    fakeProfiles()
+    server.use(
+      http.get('/profiles', ({ response }) => response(200).json({ items: [profile('r', '4K Remux German', 'de', { release_family: 'remux-web', kinds: ['movie'] }), ...seeded().slice(0, 1)] })),
+    )
+    serveDetails()
+    await open('Profiles')
+    const card = await screen.findByRole('region', { name: '4K Remux German' })
+    expect(within(card).getByText('Remux + WEB')).toBeInTheDocument()
+    expect(within(card).getByText('German audio')).toBeInTheDocument()
+    expect(within(card).getByText('Movies')).toBeInTheDocument()
+    const hd = screen.getByRole('region', { name: 'HD' })
+    expect(within(hd).getByText('Bluray + WEB')).toBeInTheDocument()
+    expect(within(hd).getByText('Movies and Series')).toBeInTheDocument()
+  })
+
+  it('warns when two Profiles are the same recipe', async () => {
+    fakeProfiles({ warnings: [{ code: 'duplicate_profile', profiles: ['hd-primary', 'hd-original'], message: 'HD and HD English are the same recipe' }] })
+    serveDetails()
+    await open('Profiles')
+    expect(await screen.findByText('HD and HD English are the same recipe')).toBeInTheDocument()
   })
 
   it('says No Upgrades past the cutoff for a cutoff with no Upgrade-until Score', async () => {
