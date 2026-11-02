@@ -93,6 +93,23 @@ describe('adding a Slot', () => {
     expect(screen.queryByRole('dialog', { name: 'Add Slot' })).not.toBeInTheDocument()
   })
 
+  it('takes the preview’s sample quality from the resolution of the default Profile', async () => {
+    fakeSlots()
+    renderApp()
+    await userEvent.click(await within(await section()).findByRole('button', { name: 'Add Slot…' }))
+    const form = within(await screen.findByRole('dialog', { name: 'Add Slot' }))
+    await userEvent.type(form.getByLabelText('Label'), 'Original')
+
+    await userEvent.selectOptions(form.getByLabelText('Default for Movies'), '4k-primary')
+    expect(form.getByText('… {tmdb-693134} - [Original][Bluray-2160p]…')).toBeInTheDocument()
+    await userEvent.selectOptions(form.getByLabelText('Default for Movies'), 'hd-primary')
+    expect(form.getByText('… {tmdb-693134} - [Original][Bluray-1080p]…')).toBeInTheDocument()
+    // With no default for Movies, the Series default speaks.
+    await userEvent.selectOptions(form.getByLabelText('Default for Movies'), '')
+    await userEvent.selectOptions(form.getByLabelText('Default for Series'), '4k-primary')
+    expect(form.getByText('… {tmdb-693134} - [Original][Bluray-2160p]…')).toBeInTheDocument()
+  })
+
   it('shows a broken rule inline on the label, with the form kept open', async () => {
     fakeSlots()
     renderApp()

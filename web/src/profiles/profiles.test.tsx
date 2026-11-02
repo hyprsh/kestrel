@@ -408,6 +408,29 @@ describe('Settings', () => {
     expect(screen.queryByText(/Any Slot|Standard of/)).not.toBeInTheDocument()
   })
 
+  it('judges the defaults by the Slots and the Profiles by the Profiles: a file that declares only one locks only that', async () => {
+    fakeProfiles()
+    server.use(http.get('/slots', ({ response }) => response(200).json({ items: seededSlots().map((s) => ({ ...s, from_config_file: true })) })))
+    serveDetails()
+    await open('Profiles')
+    // The Slots are declared and the Profiles are not: a Profile can be made, the defaults cannot be changed.
+    expect(await screen.findByRole('button', { name: 'New Profile…' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Change…' })).toBeDisabled()
+    expect(screen.getByText(/The Config File sets the Slots, so their defaults cannot be changed here/)).toBeInTheDocument()
+    expect(screen.queryByText(/The Config File sets the Profiles/)).not.toBeInTheDocument()
+  })
+
+  it('does not lock the defaults when only the Profiles are declared', async () => {
+    fakeProfiles()
+    server.use(http.get('/profiles', ({ response }) => response(200).json({ items: seeded().map((p) => ({ ...p, from_config_file: true })) })))
+    serveDetails()
+    await open('Profiles')
+    expect(await screen.findByRole('button', { name: 'New Profile…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Change…' })).toBeEnabled()
+    expect(screen.getByText(/The Config File sets the Profiles/)).toBeInTheDocument()
+    expect(screen.queryByText(/The Config File sets the Slots/)).not.toBeInTheDocument()
+  })
+
   it('says No Upgrades past the cutoff for a cutoff with no Upgrade-until Score', async () => {
     fakeProfiles()
     const hd = configuredHd()

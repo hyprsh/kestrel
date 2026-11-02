@@ -2,7 +2,7 @@
 // A Title's page takes its Slots from its Versions, in that order. No Slot is special: nothing here knows an id.
 import { useMemo } from 'react'
 import type { Episode, TitleDetail } from '../api/queries'
-import { useSlots, type SlotRecord } from '../api/slots'
+import { useSlots, type Slot } from '../api/slots'
 
 export type SlotInfo = { key: string; name: string; short: string }
 
@@ -25,7 +25,7 @@ const shorten = (label: string, n: number): string => {
  */
 export type SlotNames = {
   /** The records, in Slot order. */
-  list: readonly SlotRecord[]
+  list: readonly Slot[]
   /** The Slot's label. */
   name: (key: string) => string
   /** The Slot's short label for a chip: its label when it is four characters or fewer (STD for Standard), else its first three letters (more where two Slots would read alike). */
@@ -36,7 +36,7 @@ export type SlotNames = {
   several: boolean
 }
 
-export function slotNamesOf(records: readonly SlotRecord[] = []): SlotNames {
+export function slotNamesOf(records: readonly Slot[] = []): SlotNames {
   const list = [...records].sort((a, b) => a.position - b.position)
   const label = (key: string) => list.find((r) => r.id === key)?.label ?? capitalised(key)
   const rank = (key: string) => {
@@ -72,7 +72,7 @@ export function slotsOf(title: Pick<TitleDetail, 'versions'>, names: SlotNames):
 }
 
 /** The key of the Profile a Slot gives a new Title of `kind`, if it names one: its default, from the stored Slot record. */
-export const slotDefault = (rec: SlotRecord | undefined, kind: 'movie' | 'series'): string | undefined => (kind === 'series' ? rec?.default_series : rec?.default_movies) ?? undefined
+export const slotDefault = (rec: Slot | undefined, kind: 'movie' | 'series'): string | undefined => (kind === 'series' ? rec?.default_series : rec?.default_movies) ?? undefined
 
 type Cell = NonNullable<Episode['cells'][string]>
 

@@ -7,7 +7,15 @@ import { plural } from '../format'
 import { useReport } from '../toasts'
 
 /** The file name the label shows in: `Title (Year) {tmdb-693134} - [Label][Bluray-1080p]-Group.mkv` (ADR 0003, ADR 0024). */
-const previewName = (label: string) => `… {tmdb-693134} - [${label.trim() || 'Label'}][Bluray-1080p]…`
+const previewName = (label: string, resolution: number) => `… {tmdb-693134} - [${label.trim() || 'Label'}][Bluray-${resolution}p]…`
+
+/** The sample resolution of the preview: that of the Slot's default Profile (Movies, else Series), 1080 while it has none. A Profile that also takes lower resolutions shows at most 1080. */
+const sampleResolution = (profile: Profile | undefined): number => {
+  if (!profile) return 1080
+  if (profile.min_height >= 2160) return 2160
+  const top = Math.min(profile.max_height, 1080)
+  return top >= 1080 ? 1080 : top >= 720 ? 720 : 480
+}
 
 /** `value` once it has stayed the same for `ms`, so a rename is asked about when the typing pauses. */
 function useSettled(value: string, ms: number) {
@@ -108,7 +116,7 @@ export function SlotForm({ slot, profiles, titles, onClose }: { slot?: Slot; pro
         </ModalHeader>
         <div role="group" aria-label={title} className="flex flex-col gap-3">
           <Input size="small" label="Label" value={label} maxLength={24} error={labelError} onChange={(e) => setLabel(e.target.value)} />
-          <p className="label-12-mono text-gray-900">{previewName(label)}</p>
+          <p className="label-12-mono text-gray-900">{previewName(label, sampleResolution(profiles.find((p) => p.key === (movies || series))))}</p>
           {renames !== undefined && <p className="label-12 text-gray-900">Renames {plural(renames, 'file')}</p>}
           <Select size="small" label="Default for Movies" value={movies} error={fieldOf(problem, 'default_movies')} onChange={(e) => setMovies(e.target.value)}>
             {profileOptions}

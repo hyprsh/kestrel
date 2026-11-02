@@ -5,9 +5,11 @@ import { failure } from './queries'
 import type { components } from './schema.gen'
 
 export type Slot = components['schemas']['Slot']
-export type SlotRecord = Slot
 export type SlotCreate = components['schemas']['SlotCreate']
 export type SlotPatch = components['schemas']['SlotPatch']
+
+/** Slots are declared together: the Config File sets all of them or none. */
+export const declaresSlots = (slots: readonly Slot[]) => slots.some((s) => s.from_config_file)
 
 /** The Slots in order. */
 export function useSlots() {

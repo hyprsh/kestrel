@@ -2,14 +2,14 @@ import { Button, Input, Modal, ModalAction, ModalActions, ModalBody, ModalHeader
 import { useState } from 'react'
 import { useProfileDetails, type ProfileDetail, type ProfileScoring } from '../api/downloads'
 import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
-import { useSlots, type Slot } from '../api/slots'
+import { declaresSlots, useSlots, type Slot } from '../api/slots'
 import { SlotWarnings } from '../slots/SlotWarnings'
 import { plural } from '../format'
 import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
 import { SettingsBlock } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { useReport } from '../toasts'
-import { DefaultsPerSlot, declaredNote, declaresProfiles } from './Profiles'
+import { DefaultsPerSlot, declaredNote, declaredSlotsNote, declaresProfiles } from './Profiles'
 import { cardLadder, qualityLabel, sizeFacts, upgradeFact } from './ladder'
 import { ProfileSheet } from './ProfileSheet'
 
@@ -43,6 +43,7 @@ export function ProfilesSection() {
   if (!profiles.data || !slots.data) return <SkeletonRows count={3} />
   const list = profiles.data
   const declared = declaresProfiles(list)
+  const slotsDeclared = declaresSlots(slots.data)
   const detailOf = (key: string) => details.data?.find((d) => d.key === key)
   const nameOf = (key: string | null) => (key ? (list.find((p) => p.key === key)?.name ?? key) : undefined)
 
@@ -64,7 +65,7 @@ export function ProfilesSection() {
       <DefaultsLine
         label="New Titles get"
         action={
-          <Button size="small" variant="tertiary" aria-expanded={defaults} onClick={() => setDefaults((d) => !d)}>
+          <Button size="small" variant="tertiary" aria-expanded={defaults} disabled={slotsDeclared} onClick={() => setDefaults((d) => !d)}>
             {defaults ? 'Done' : 'Change…'}
           </Button>
         }
@@ -75,6 +76,7 @@ export function ProfilesSection() {
           </span>
         ))}
       </DefaultsLine>
+      {slotsDeclared && declaredSlotsNote}
       {!defaults && <SlotWarnings />}
       {defaults && (
         <SettingsBlock>

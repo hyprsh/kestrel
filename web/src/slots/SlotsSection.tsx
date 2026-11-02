@@ -2,7 +2,7 @@ import { Button, DotsMenu, MenuItem, Note, Toggle } from '@hyprsh/design'
 import { GripVertical } from 'lucide-react'
 import { useState, type KeyboardEvent } from 'react'
 import { ApiError, useProfiles, useTitles, type Profile } from '../api/queries'
-import { useDeleteSlot, usePatchSlot, useSlots, type Slot } from '../api/slots'
+import { declaresSlots, useDeleteSlot, usePatchSlot, useSlots, type Slot } from '../api/slots'
 import { plural } from '../format'
 import { SlotHead, SlotLine } from '../layout/SettingsLists'
 import { SettingsCard, SettingsSection } from '../layout/SettingsPage'
@@ -15,7 +15,7 @@ const MAX_SLOTS = 4
 
 const problemText = (e: unknown) => (e instanceof ApiError && (e.status === 422 || e.status === 409) ? e.message : 'Could not save. Try again.')
 
-/** "Movies HD, Series HD", or just "HD" when both kinds share it. */
+/** The Slot's default Profile per kind, always both: "Movies HD, Series HD", "Movies HD, Series none". */
 function defaultsText(slot: Slot, profiles: Profile[]) {
   const name = (key: string | null) => (key ? (profiles.find((p) => p.key === key)?.name ?? key) : 'none')
   const movies = name(slot.default_movies)
@@ -57,7 +57,7 @@ export function SlotsSection() {
 
   const saved = slots.data
   const rows = order ? [...saved].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)) : saved
-  const declared = saved.some((s) => s.from_config_file)
+  const declared = declaresSlots(saved)
   const onCount = saved.filter((s) => s.on_for_new_titles).length
   const held = (id: string) => titles.data?.filter((t) => t.slot_states.some((s) => s.slot === id)).length
   const editingSlot = editing && editing !== 'new' ? saved.find((s) => s.id === editing) : undefined

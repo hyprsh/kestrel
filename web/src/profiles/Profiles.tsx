@@ -1,7 +1,7 @@
 import { Note, Select } from '@hyprsh/design'
 import { SkeletonRows } from '../loading'
 import { ApiError, useProfiles, type Profile } from '../api/queries'
-import { useSlots, usePatchSlot } from '../api/slots'
+import { declaresSlots, useSlots, usePatchSlot } from '../api/slots'
 import { SlotWarnings } from '../slots/SlotWarnings'
 import { useReport } from '../toasts'
 
@@ -10,6 +10,8 @@ const problemText = (e: unknown) => (e instanceof ApiError && e.status === 422 ?
 /** Profiles are declared together: the Config File sets all of them or none. */
 export const declaresProfiles = (profiles: Profile[]) => profiles.some((p) => p.from_config_file)
 export const declaredNote = <Note size="small">The Config File sets the Profiles, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>
+/** The defaults belong to the Slots, so the Slots' declaration locks them, not the Profiles'. */
+export const declaredSlotsNote = <Note size="small">The Config File sets the Slots, so their defaults cannot be changed here. Change the file and restart Kestrel instead.</Note>
 
 /**
  * The default Profile each Slot gives a new Movie and a new Series (ADR 0024). Any enabled Profile can fill any Slot, and a
@@ -27,7 +29,7 @@ export function DefaultsPerSlot() {
       </Note>
     )
   if (!profiles.data || !slots.data) return <SkeletonRows count={3} />
-  const declared = slots.data.some((s) => s.from_config_file)
+  const declared = declaresSlots(slots.data)
   const enabled = profiles.data.filter((p) => p.enabled)
 
   const kinds = [
@@ -72,7 +74,7 @@ export function DefaultsPerSlot() {
         </Note>
       )}
       <SlotWarnings />
-      {declared && <Note size="small">The Config File sets the Slots, so their defaults cannot be changed here. Change the file and restart Kestrel instead.</Note>}
+      {declared && declaredSlotsNote}
     </div>
   )
 }
