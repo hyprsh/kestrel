@@ -92,6 +92,8 @@ type profile struct {
 	Key     string `json:"key"`
 	Name    string `json:"name"`
 	Enabled bool   `json:"enabled"`
+	// Resolution is hd, 4k or any.
+	Resolution string `json:"resolution"`
 }
 
 // The error texts below carry the phrases Silo's options probe looks for

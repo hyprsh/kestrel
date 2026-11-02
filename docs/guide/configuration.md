@@ -398,14 +398,15 @@ Silo asks for a Title in a resolution tier, and Kestrel files each tier in a Slo
 | Key                              | What it does                                                                                                                                                                                               |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `1080p_slot`                     | The Slot Silo's `1080p` tier fills. `standard` by default.                                                                                                                                                 |
-| `2160p_slot`                     | The Slot the `2160p` tier fills, and what Silo's `is_4k` means. `4k` by default.                                                                                                                           |
+| `2160p_slot`                     | The Slot the `2160p` tier fills, and what Silo's `is_4k` means. Left out, the first Slot whose default Profile has the `4k` resolution, else the `1080p` tier's Slot.                                      |
 | `1080p_profile`                  | The Profile a `1080p` request gets. Left out, the Slot's default Profile for the kind.                                                                                                                     |
 | `2160p_profile`                  | The same for `2160p`.                                                                                                                                                                                      |
 | `standard_profile`, `4k_profile` | Aliases, kept so older setups work. Each sets the Profile of whichever tier maps to the `standard` or `4k` Slot. When that tier's own Profile is also set, the tier's wins, and the plugin logs a warning. |
 
 - **One Slot for both tiers** is fine: the Request gets that Slot once, and each tier still has its own status in Silo.
 - **A Slot no tier maps to** can't be requested from Silo and is never reported to it.
-- **A missing Slot** fails the plugin's validation on the field `1080p_slot` or `2160p_slot`. A fresh install has no `4k` Slot until you add one (the Standard + 4K preset does), so point `2160p_slot` at another Slot or add one.
+- **A missing Slot** fails the plugin's validation on the field `1080p_slot` or `2160p_slot`.
+- **The 2160p default** is worked out when a Request arrives, in Slot order, so adding a 4K Slot later just works. A fresh install with only a Standard Slot sends `2160p` to it. The "Default" entry of the `2160p_slot` dropdown names the Slot it resolves to. A `2160p_slot` you set is kept as it is, including on an upgraded install.
 - **Kids and Mobile.** Silo's request routes and per-device caps are the recommended way to serve those audiences. Use a Slot only when you want a separate file.
 
 ## Watch-ahead for Silo

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -71,11 +72,16 @@ var tiers = [...]string{tier1080p, tier2160p}
 // any key per tier; an empty value or defaultOption means Kestrel's default.
 type settings struct {
 	// slotOf and profileOf are the Slot each tier maps to (standard for 1080p
-	// and 4k for 2160p unless the config says otherwise) and the Profile asked
-	// for there, "" for the Slot's default.
+	// unless the config says otherwise) and the Profile asked for there, ""
+	// for the Slot's default. The 2160p tier has no entry in slotOf until
+	// resolve gives it one, unless the config maps it.
 	slotOf     map[string]slot.Slot
 	profileOf  map[string]string
 	rootFolder string
+	// profile is each tier's own profile key and aliases the standard_profile
+	// and 4k_profile keys, which applyProfiles uses once the tiers' Slots are known.
+	profile map[string]string
+	aliases map[slot.Slot]string
 	// watchAhead is nil for Kestrel's default, else the chosen on or off.
 	watchAhead *bool
 	// shadowed lists the tiers whose profile key and alias are both set.
@@ -92,34 +98,19 @@ func settingsOf(c *pluginv1.RouterConnection) settings {
 		return v
 	}
 	out := settings{
-		slotOf:     map[string]slot.Slot{tier1080p: slot.Standard, tier2160p: slot.FourK},
+		slotOf:     map[string]slot.Slot{tier1080p: slot.Standard},
 		profileOf:  map[string]string{},
 		rootFolder: get("root_folder"),
+		profile:    map[string]string{},
+		aliases:    map[slot.Slot]string{slot.Standard: get("standard_profile"), slot.FourK: get("4k_profile")},
 	}
 	for _, t := range tiers {
 		if id := get(t + "_slot"); id != "" {
 			out.slotOf[t] = slot.Slot(id)
 		}
-		// standard_profile and 4k_profile are aliases for the seeded Slots; the
-		// per-tier key wins over them.
-		var alias, aliasKey string
-		switch out.slotOf[t] {
-		case slot.Standard:
-			aliasKey = "standard_profile"
-		case slot.FourK:
-			aliasKey = "4k_profile"
-		}
-		if aliasKey != "" {
-			alias = get(aliasKey)
-		}
-		out.profileOf[t] = get(t + "_profile")
-		switch {
-		case out.profileOf[t] == "":
-			out.profileOf[t] = alias
-		case alias != "":
-			out.shadowed = append(out.shadowed, t)
-		}
+		out.profile[t] = get(t + "_profile")
 	}
+	out.applyProfiles()
 	switch get("watch_ahead") {
 	case "on":
 		out.watchAhead = new(true)
@@ -127,6 +118,78 @@ func settingsOf(c *pluginv1.RouterConnection) settings {
 		out.watchAhead = new(false)
 	}
 	return out
+}
+
+// applyProfiles sets each mapped tier's Profile: standard_profile and
+// 4k_profile are aliases for the seeded Slots, and the per-tier key wins over them.
+func (s *settings) applyProfiles() {
+	s.shadowed = nil
+	for _, t := range tiers {
+		sl, ok := s.slotOf[t]
+		if !ok {
+			continue
+		}
+		alias := s.aliases[sl]
+		s.profileOf[t] = s.profile[t]
+		switch {
+		case s.profileOf[t] == "":
+			s.profileOf[t] = alias
+		case alias != "":
+			s.shadowed = append(s.shadowed, t)
+		}
+	}
+}
+
+// defaultSlot2160p is the Slot the 2160p tier goes to when the connection does
+// not map it: the first Slot, in Slot order, whose default Profile has the 4k
+// resolution, else the 1080p tier's Slot.
+func (s settings) defaultSlot2160p(slots []kestrelSlot, profiles []profile) slot.Slot {
+	is4K := func(key *string) bool {
+		return key != nil && slices.ContainsFunc(profiles, func(p profile) bool { return p.Key == *key && p.Resolution == "4k" })
+	}
+	for _, sl := range slots {
+		if is4K(sl.DefaultMovies) || is4K(sl.DefaultSeries) {
+			return slot.Slot(sl.ID)
+		}
+	}
+	return s.slotOf[tier1080p]
+}
+
+// needsDefault reports whether the 2160p tier still waits for resolve.
+func (s settings) needsDefault() bool {
+	_, ok := s.slotOf[tier2160p]
+	return !ok
+}
+
+// resolve maps the 2160p tier to its default Slot unless the connection maps
+// it, so adding a 4K Slot later just works.
+func (s settings) resolve(slots []kestrelSlot, profiles []profile) settings {
+	if !s.needsDefault() {
+		return s
+	}
+	out := s
+	out.slotOf = maps.Clone(s.slotOf)
+	out.profileOf = maps.Clone(s.profileOf)
+	out.slotOf[tier2160p] = s.defaultSlot2160p(slots, profiles)
+	out.applyProfiles()
+	return out
+}
+
+// resolved is the settings with the 2160p tier resolved against Kestrel's
+// Slots and Profiles, which are read only when the tier needs them.
+func resolved(ctx context.Context, cl *client, s settings) (settings, error) {
+	if !s.needsDefault() {
+		return s, nil
+	}
+	slots, err := cl.slots(ctx)
+	if err != nil {
+		return s, err
+	}
+	profiles, err := cl.profiles(ctx)
+	if err != nil {
+		return s, err
+	}
+	return s.resolve(slots, profiles), nil
 }
 
 // shadowLogged remembers the connections whose alias-versus-key clash was logged.
@@ -202,8 +265,6 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	cfg := settingsOf(conn)
 	d := in.GetRequest()
 
-	logShadowed(conn.GetId(), cfg)
-
 	var asked []string // Silo tiers Kestrel serves, in the order asked
 	var skipped []*pluginv1.FulfillmentTarget
 	for _, q := range in.GetQualities() {
@@ -225,6 +286,14 @@ func (r *Router) Fulfill(ctx context.Context, in *pluginv1.FulfillRequest) (*plu
 	if len(asked) == 0 {
 		return &pluginv1.FulfillResponse{Targets: skipped, Message: "no tier Kestrel can serve"}, nil
 	}
+
+	// An unmapped 2160p tier is resolved now, so a 4K Slot added later is used.
+	if slices.Contains(asked, tier2160p) {
+		if cfg, err = resolved(ctx, cl, cfg); err != nil {
+			return nil, err
+		}
+	}
+	logShadowed(conn.GetId(), cfg)
 
 	// One Kestrel Slot per distinct mapping; two tiers on one Slot share it.
 	var slots []slotCreate
@@ -421,6 +490,11 @@ func (r *Router) CheckStatus(ctx context.Context, in *pluginv1.CheckStatusReques
 			return nil, err
 		}
 		cfg := settingsOf(c)
+		if slices.ContainsFunc(refs, func(t *pluginv1.TargetRef) bool { return t.GetQuality() == tier2160p }) {
+			if cfg, err = resolved(ctx, cl, cfg); err != nil {
+				return nil, err
+			}
+		}
 		for _, t := range refs {
 			n, _ := strconv.ParseInt(t.GetExternalId(), 10, 64)
 			sl, _ := cfg.slotOfTier(t.GetQuality())
@@ -505,9 +579,21 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 		return out
 	}
 	cfg := settingsOf(in.GetConnection())
+	// The 2160p dropdown's default option names the Slot the tier resolves to
+	// when it is left unmapped.
+	slotList2160p := &pluginv1.ConfigOptionList{Options: slices.Clone(slotList.Options)}
+	if cfg.needsDefault() {
+		cfg = cfg.resolve(slots, profiles)
+		id := cfg.slotOf[tier2160p].Key()
+		label := id
+		if i := slices.IndexFunc(slots, func(s kestrelSlot) bool { return s.ID == id }); i >= 0 {
+			label = slots[i].Label
+		}
+		slotList2160p.Options[0] = &pluginv1.ConfigOption{Value: defaultOption, Label: "Default (" + label + ")"}
+	}
 	return &pluginv1.ListConfigOptionsResponse{OptionsByField: map[string]*pluginv1.ConfigOptionList{
 		"standard_profile": list(slot.Standard), "4k_profile": list(slot.FourK),
-		"1080p_slot": slotList, "2160p_slot": slotList,
+		"1080p_slot": slotList, "2160p_slot": slotList2160p,
 		"1080p_profile": list(cfg.slotOf[tier1080p]), "2160p_profile": list(cfg.slotOf[tier2160p]),
 		"root_folder": folders,
 	}}, nil
@@ -554,6 +640,9 @@ func (r *Router) Validate(ctx context.Context, in *pluginv1.ValidateRequest) (*p
 	}
 	cfg := settingsOf(c)
 	for _, t := range tiers {
+		if _, mapped := cfg.slotOf[t]; !mapped {
+			continue // the default resolves to a Slot Kestrel has
+		}
 		id := cfg.slotOf[t].Key()
 		if !slices.ContainsFunc(known, func(sl kestrelSlot) bool { return sl.ID == id }) {
 			if res.FieldErrors == nil {

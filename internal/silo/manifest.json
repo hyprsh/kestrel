@@ -44,7 +44,7 @@
           "admin_form": {
             "fields": [
               {"key": "1080p_slot", "label": "Slot for the 1080p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "The Kestrel Slot a 1080p request fills. Default is the Standard Slot.", "dynamic_options": true},
-              {"key": "2160p_slot", "label": "Slot for the 2160p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "The Kestrel Slot a 2160p (4K) request fills. Default is the 4K Slot.", "dynamic_options": true},
+              {"key": "2160p_slot", "label": "Slot for the 2160p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "The Kestrel Slot a 2160p (4K) request fills. Default is the first Slot whose default Profile is 4K, else the 1080p tier's Slot; the Default option names it.", "dynamic_options": true},
               {"key": "1080p_profile", "label": "Profile for the 1080p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "Wins over Standard Profile when both are set.", "dynamic_options": true},
               {"key": "2160p_profile", "label": "Profile for the 2160p tier", "control": "ADMIN_FORM_CONTROL_SELECT", "description": "Wins over 4K Profile when both are set.", "dynamic_options": true},
               {"key": "standard_profile", "label": "Standard Profile", "control": "ADMIN_FORM_CONTROL_SELECT", "dynamic_options": true},
