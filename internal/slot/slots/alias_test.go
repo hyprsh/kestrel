@@ -113,6 +113,37 @@ func TestARelabelCallsTheHookOnceSaved(t *testing.T) {
 	}
 }
 
+func TestEverySavedChangeToTheSlotsCallsTheChangeHookAndADryRunDoesNot(t *testing.T) {
+	s, _ := newService(t)
+	ctx := context.Background()
+	n := 0
+	s.OnChange(func() { n++ })
+	l := "Original"
+	if _, _, err := s.Change(ctx, "standard", slots.Patch{Label: &l}, true); err != nil || n != 0 {
+		t.Fatalf("a dry run: calls = %d, %v", n, err)
+	}
+	if _, err := s.Create(ctx, slots.Create{Label: "Remux"}); err != nil {
+		t.Fatal(err)
+	}
+	pos := 0
+	if _, err := s.Update(ctx, "remux", slots.Patch{Position: &pos}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Delete(ctx, "remux"); err != nil {
+		t.Fatal(err)
+	}
+	if n != 3 {
+		t.Errorf("create, reorder and delete called the hook %d times, want 3", n)
+	}
+	// A Config File's Slots count too.
+	if err := s.Declare(ctx, []slots.Declared{{ID: "standard", Label: "Everyday", OnForNew: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if n != 4 {
+		t.Errorf("Declare called the hook %d times in all, want 4", n)
+	}
+}
+
 func TestAChangeSaysHowManyFilesANewLabelRenames(t *testing.T) {
 	s, st := newService(t)
 	ctx := context.Background()

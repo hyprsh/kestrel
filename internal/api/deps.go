@@ -87,6 +87,8 @@ type Slots interface {
 	// Change updates a Slot, or with dryRun only checks the rules, and says how many files a new label renames.
 	Change(ctx context.Context, id slot.Slot, p slots.Patch, dryRun bool) (slot.Record, *int, error)
 	Delete(ctx context.Context, id slot.Slot) error
+	// OnChange sets what runs after any change to the Slots is saved, whoever made it.
+	OnChange(f func())
 }
 
 // Profiles is the household's language settings and the Profiles.

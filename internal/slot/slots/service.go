@@ -23,6 +23,7 @@ var ErrNotFound = errors.New("slot not found")
 type Service struct {
 	st        *store.Store
 	onRelabel func(context.Context, slot.Slot)
+	onChange  func()
 }
 
 // New returns a Service over st.
@@ -32,6 +33,17 @@ func New(st *store.Store) *Service { return &Service{st: st} }
 // change is saved: it renames the Slot's files (ADR 0003). The API and a Config
 // File both change labels through this Service, so one hook covers both.
 func (s *Service) OnRelabel(f func(ctx context.Context, id slot.Slot)) { s.onRelabel = f }
+
+// OnChange sets what runs after any change to the Slots is saved (a Slot added,
+// changed, reordered or removed, by the API or a Config File), so the screens
+// that show a Slot can refetch.
+func (s *Service) OnChange(f func()) { s.onChange = f }
+
+func (s *Service) changed() {
+	if s.onChange != nil {
+		s.onChange()
+	}
+}
 
 func (s *Service) relabeled(ctx context.Context, ids []slot.Slot) {
 	if s.onRelabel == nil {
@@ -210,6 +222,9 @@ func (s *Service) Create(ctx context.Context, in Create) (slot.Record, error) {
 		_, err = writeSet(ctx, q, cur, append(slices.Clone(cur), out))
 		return err
 	})
+	if err == nil {
+		s.changed()
+	}
 	return out, err
 }
 
@@ -218,6 +233,7 @@ func (s *Service) Create(ctx context.Context, in Create) (slot.Record, error) {
 func (s *Service) Update(ctx context.Context, id slot.Slot, p Patch) (slot.Record, error) {
 	out, relabeled, err := s.update(ctx, id, p, true)
 	if err == nil {
+		s.changed()
 		s.relabeled(ctx, relabeled)
 	}
 	return out, err
@@ -318,7 +334,7 @@ func (s *Service) update(ctx context.Context, id slot.Slot, p Patch, apply bool)
 // Delete removes a Slot that no Version uses, as long as another Slot is left
 // and one of the others is on for new Titles.
 func (s *Service) Delete(ctx context.Context, id slot.Slot) error {
-	return s.write(ctx, func(q *db.Queries) error {
+	err := s.write(ctx, func(q *db.Queries) error {
 		cur, err := list(ctx, q)
 		if err != nil {
 			return err
@@ -343,6 +359,10 @@ func (s *Service) Delete(ctx context.Context, id slot.Slot) error {
 		_, err = writeSet(ctx, q, slices.Delete(slices.Clone(cur), i, i+1), rest)
 		return err
 	})
+	if err == nil {
+		s.changed()
+	}
+	return err
 }
 
 // notInUse is the rule that a Slot is removed only while no Version uses it.
@@ -453,7 +473,8 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply bool) erro
 		relabeled, err = writeSet(ctx, q, cur, set)
 		return err
 	})
-	if err == nil {
+	if err == nil && apply {
+		s.changed()
 		s.relabeled(ctx, relabeled)
 	}
 	return err

@@ -80,6 +80,8 @@ func New(opts Options, d Deps) http.Handler {
 		health: d.Health, history: d.History, scoring: d.Scoring, trash: d.Trash, keys: d.Keys, meta: d.Meta, tvdb: d.TVDB,
 		bridge: d.Bridge, posters: d.Posters,
 	}
+	// A Slot changed through the API or a Config File: the screens that name it refetch (the hub is the stream's).
+	s.slots.OnChange(func() { s.hub.publish(hintOf(resSlot, 0)) })
 	s.plex = &plexSignIn{settings: s.auth.settings, plugins: d.Plugins, tv: d.PlexTV, write: s.auth.write, clock: opts.Clock, log: opts.Logger}
 	s.auth.plex = s.plex
 	s.health.AddCheck("untrusted proxy header", s.checkUntrustedProxy)

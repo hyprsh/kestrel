@@ -169,6 +169,20 @@ describe('the live stream', () => {
     expect(a.getQueryState(['requests', 'recent'])?.isInvalidated).toBe(true)
   })
 
+  it('refetches the Slots and every screen that names a Slot when a Slot changes', async () => {
+    const deps = fakeBrowser()
+    const a = tab()
+    startLiveStream(a, deps)
+    await flush()
+    const keys = [['slots'], ['titles', 'list'], ['requests', 'recent'], ['grabs', 'finished']]
+    for (const k of keys) a.setQueryData(k, [])
+
+    open()[0].emit('changed', { resource: 'slot', id: null })
+    await flush()
+
+    for (const k of keys) expect(a.getQueryState(k)?.isInvalidated, k.join('/')).toBe(true)
+  })
+
   it('keeps the search status from its frames', async () => {
     const deps = fakeBrowser()
     const a = tab()
