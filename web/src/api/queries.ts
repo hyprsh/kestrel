@@ -297,6 +297,33 @@ export function useUpdateTrash() {
   })
 }
 
+export type ProfileSuggestion = components['schemas']['ProfileSuggestion']
+
+/** The Profiles the household could add (ADR 0026), grouped by Release Family. */
+export function useProfileSuggestions() {
+  return useQuery({
+    queryKey: ['profile-suggestions'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/profiles/suggestions')
+      if (!data) throw failure(error, response)
+      return data.groups
+    },
+  })
+}
+
+/** Adds a suggestion as an enabled Profile. */
+export function useImportProfile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (s: ProfileSuggestion) => {
+      const { data, error, response } = await api.POST('/profiles', { body: { release_family: s.release_family, resolution: s.resolution, language_rule: s.language_rule } })
+      if (!data) throw failure(error, response)
+      return data
+    },
+    onSuccess: () => invalidateProfiles(qc),
+  })
+}
+
 export function useProfiles() {
   return useQuery({
     queryKey: ['profiles'],
@@ -313,7 +340,7 @@ export function usePatchProfile() {
   return useMutation({
     mutationFn: async (v: { key: string; patch: ProfilePatch }) => {
       const { data, error, response } = await api.PATCH('/profiles/{key}', {
-        params: { path: { key: v.key as components['parameters']['ProfileKey'] } },
+        params: { path: { key: v.key } },
         body: v.patch,
       })
       if (!data) throw failure(error, response)
@@ -325,7 +352,13 @@ export function usePatchProfile() {
 
 /** A Profile changed, was made or went: the list, the details with their counts, and the Overview's cutoff count. */
 const invalidateProfiles = (qc: QueryClient) =>
-  Promise.all([qc.invalidateQueries({ queryKey: ['profiles'] }), qc.invalidateQueries({ queryKey: ['profile-details'] }), qc.invalidateQueries({ queryKey: ['stats'] })])
+  Promise.all([
+    qc.invalidateQueries({ queryKey: ['profiles'] }),
+    qc.invalidateQueries({ queryKey: ['profile-details'] }),
+    qc.invalidateQueries({ queryKey: ['profile-suggestions'] }),
+    qc.invalidateQueries({ queryKey: ['settings'] }),
+    qc.invalidateQueries({ queryKey: ['stats'] }),
+  ])
 
 /** Makes a custom Profile as a copy of another. */
 export function useCreateProfile() {
@@ -345,7 +378,7 @@ export function useDeleteProfile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (key: string) => {
-      const { error, response } = await api.DELETE('/profiles/{key}', { params: { path: { key: key as components['parameters']['ProfileKey'] } } })
+      const { error, response } = await api.DELETE('/profiles/{key}', { params: { path: { key } } })
       if (!response.ok) throw failure(error, response)
     },
     onSuccess: () => invalidateProfiles(qc),

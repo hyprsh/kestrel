@@ -133,10 +133,33 @@ func (d declarer) sections() []section {
 	}
 	// A fresh install has none of the six builtin Profiles (ADR 0026), and a Slot's default must name one: a file that
 	// declares the Profiles makes them first, then the Slots and the Profiles' settings apply as before.
+	var wantProfiles map[string]profiles.State
+	var profileKeys []string // non-nil when the file declares the Profiles
 	if f.Profiles != nil {
+		wantProfiles = map[string]profiles.State{}
+		profileKeys = []string{}
+		for key, p := range f.Profiles {
+			st := profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
+			if p.ReleaseFamily != nil {
+				st.Family = *p.ReleaseFamily
+			}
+			if p.LanguageRule != nil {
+				st.Language = *p.LanguageRule
+			}
+			if p.Name != nil {
+				st.Name = *p.Name
+			}
+			if p.Resolution != nil {
+				st.Resolution = profiles.Resolution(*p.Resolution)
+			}
+			wantProfiles[key] = st
+			profileKeys = append(profileKeys, key)
+		}
 		out = append(out, section{
 			check: func(context.Context) error { return nil },
-			apply: func(ctx context.Context) error { return d.profiles.EnsureBuiltin(ctx, declaredPrimary(f)) },
+			apply: func(ctx context.Context) error {
+				return d.profiles.EnsureDeclared(ctx, wantProfiles, declaredPrimary(f))
+			},
 		})
 	}
 	// The Slots go first: a Profile a Slot names as its default can't be disabled, so the file's new
@@ -148,7 +171,7 @@ func (d declarer) sections() []section {
 		}
 		out = append(out, section{
 			check: func(ctx context.Context) error {
-				if err := slotsError(d.slots.CheckDeclared(ctx, want, slices.Collect(maps.Keys(f.Profiles)))); err != nil {
+				if err := slotsError(d.slots.CheckDeclared(ctx, want, profileKeys)); err != nil {
 					return err
 				}
 				// A file that declares the Profiles checks the defaults against them; else against the saved ones.
@@ -161,17 +184,7 @@ func (d declarer) sections() []section {
 		})
 	}
 	if f.Profiles != nil {
-		want := map[string]profiles.State{}
-		for key, p := range f.Profiles {
-			st := profiles.State{Enabled: *p.Enabled, OriginalChoice: p.Choice()}
-			if p.ReleaseFamily != nil {
-				st.Family = *p.ReleaseFamily
-			}
-			if p.LanguageRule != nil {
-				st.Language = *p.LanguageRule
-			}
-			want[key] = st
-		}
+		want := wantProfiles
 		out = append(out, section{
 			check: func(ctx context.Context) error {
 				// The recipes are backed under the Primary Language the file declares, else the stored one.
@@ -185,6 +198,10 @@ func (d declarer) sections() []section {
 				}
 				if err := validation("profiles", deprecatedField(f.Profiles, profiles.CheckAll(want, primary))); err != nil {
 					return err
+				}
+				// A Profile the file leaves out is removed, so no Version may use it (ADR 0014).
+				if err := d.profiles.CheckKept(ctx, want); err != nil {
+					return fmt.Errorf("profiles: %w", err)
 				}
 				// A Slot's default stays enabled: the Slots the file declares, else the stored ones.
 				var recs []slot.Record
@@ -200,6 +217,9 @@ func (d declarer) sections() []section {
 				}
 				for _, r := range recs {
 					for _, key := range []string{r.DefaultMovies, r.DefaultSeries} {
+						if _, ok := want[key]; !ok && key != "" {
+							return fmt.Errorf("profiles: the Profile %q is the default of the Slot %s and the file leaves it out: keep it in the file, or choose another default first", key, r.Label)
+						}
 						if w, ok := want[key]; ok && !w.Enabled {
 							return fmt.Errorf("profiles.%s.enabled: the Profile is the default of the Slot %s: choose another default for it first", key, r.Label)
 						}

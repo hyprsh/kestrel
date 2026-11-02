@@ -1885,36 +1885,6 @@ func (e UpcomingSlotState) Valid() bool {
 	}
 }
 
-// Defines values for ProfileKey.
-const (
-	AnyOriginal ProfileKey = "any-original"
-	AnyPrimary  ProfileKey = "any-primary"
-	HdOriginal  ProfileKey = "hd-original"
-	HdPrimary   ProfileKey = "hd-primary"
-	N4kOriginal ProfileKey = "4k-original"
-	N4kPrimary  ProfileKey = "4k-primary"
-)
-
-// Valid indicates whether the value is a known member of the ProfileKey enum.
-func (e ProfileKey) Valid() bool {
-	switch e {
-	case AnyOriginal:
-		return true
-	case AnyPrimary:
-		return true
-	case HdOriginal:
-		return true
-	case HdPrimary:
-		return true
-	case N4kOriginal:
-		return true
-	case N4kPrimary:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ListAdoptionRowsParamsFilter.
 const (
 	ListAdoptionRowsParamsFilterDuplicate   ListAdoptionRowsParamsFilter = "duplicate"
@@ -6044,7 +6014,7 @@ type InstanceId = int64
 type PluginId = string
 
 // ProfileKey defines model for ProfileKey.
-type ProfileKey string
+type ProfileKey = string
 
 // SlotIdParam The `id` of a Slot (`GET /slots`). A library starts with `standard` and `4k`, and the admin can define more
 // (ADR 0024), so this is a string rather than an enum: a value that names no Slot answers `422 validation`

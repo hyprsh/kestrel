@@ -109,6 +109,19 @@ func (q *Queries) DeleteCustomProfile(ctx context.Context, key string) (int64, e
 	return result.RowsAffected()
 }
 
+const deleteProfile = `-- name: DeleteProfile :execrows
+DELETE FROM profiles WHERE key = ?
+`
+
+// A Profile the Config File leaves out; the caller has checked that no Version or Slot default uses it.
+func (q *Queries) DeleteProfile(ctx context.Context, key string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteProfile, key)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const insertBuiltinProfile = `-- name: InsertBuiltinProfile :exec
 INSERT INTO profiles (key, name, sort, any, release_family, language_rule, min_height, max_height, enabled, original_fallback,
     trash_profile_movies, trash_profile_series, original_language, custom)
@@ -379,6 +392,28 @@ type SetProfileRecipeParams struct {
 // The Release Family and language rule of a Profile (ADR 0026); the caller sets its backing profiles with SetProfileTrash.
 func (q *Queries) SetProfileRecipe(ctx context.Context, arg SetProfileRecipeParams) error {
 	_, err := q.db.ExecContext(ctx, setProfileRecipe, arg.ReleaseFamily, arg.LanguageRule, arg.Key)
+	return err
+}
+
+const setProfileShape = `-- name: SetProfileShape :exec
+UPDATE profiles SET any = ?, min_height = ?, max_height = ? WHERE key = ?
+`
+
+type SetProfileShapeParams struct {
+	Any       int64
+	MinHeight int64
+	MaxHeight int64
+	Key       string
+}
+
+// The resolution range of a Profile (ADR 0026), as a Config File declares it.
+func (q *Queries) SetProfileShape(ctx context.Context, arg SetProfileShapeParams) error {
+	_, err := q.db.ExecContext(ctx, setProfileShape,
+		arg.Any,
+		arg.MinHeight,
+		arg.MaxHeight,
+		arg.Key,
+	)
 	return err
 }
 

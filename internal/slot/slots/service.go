@@ -496,6 +496,10 @@ func (s *Service) declare(ctx context.Context, want []Declared, apply, enabled b
 		stored := func(field string, keys ...string) error {
 			var missing []string
 			for _, k := range keys {
+				// A file that declares the Profiles has all of them: a stored one it leaves out goes.
+				if declaredProfiles != nil && k != "" && !slices.Contains(declaredProfiles, k) {
+					return &slot.RuleError{Field: field, Message: fmt.Sprintf("no such Profile %q: the file's profiles section does not declare it", k)}
+				}
 				if !slices.Contains(declaredProfiles, k) {
 					missing = append(missing, k)
 				}
