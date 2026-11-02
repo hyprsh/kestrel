@@ -118,6 +118,7 @@ export function fakeLibrary(initial: (TitleRow & Partial<Pick<FixtureRow, 'slots
           name,
           slot: key.startsWith('4k') ? '4k' : 'standard',
           release_family: 'bluray-web',
+          resolution: 'hd',
           kinds: ['movie', 'series'],
           language_rule: 'primary',
           original_language: 'reject',

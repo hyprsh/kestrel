@@ -1,4 +1,5 @@
 // chrome: layout
+import { Entity } from '@hyprsh/design'
 import { Check } from 'lucide-react'
 import type { HTMLAttributes, ReactNode } from 'react'
 
@@ -155,12 +156,12 @@ export function DefaultsLine({ label, action, children }: { label: string; actio
   )
 }
 
-/** A titled group of suggestions in Settings: its heading, then a row each (a name, what it holds and a button). */
+/** A titled group of suggestions: its heading, then an `Entity` row each (a name, what it holds and a button). */
 export function SuggestionGroup({ name, children }: { name: string; children: ReactNode }) {
   return (
-    <div role="group" aria-label={name} className="flex flex-col rounded-md shadow-border">
-      <h4 className="label-12 px-4 pt-3 pb-1 font-medium text-gray-900">{name}</h4>
-      <ul className="flex flex-col [&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-gray-alpha-200">{children}</ul>
+    <div role="group" aria-label={name} className="flex flex-col gap-1">
+      <h4 className="label-13 text-gray-900">{name}</h4>
+      <Entity.List>{children}</Entity.List>
     </div>
   )
 }
@@ -168,11 +169,19 @@ export function SuggestionGroup({ name, children }: { name: string; children: Re
 /** One suggestion in a `SuggestionGroup`. */
 export function SuggestionRow({ name, holds, action }: { name: string; holds: ReactNode; action: ReactNode }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5">
-      <span className="label-14 font-semibold">{name}</span>
-      <span className="label-13 min-w-0 flex-1 text-gray-900">{holds}</span>
-      {action}
-    </li>
+    <Entity right={action}>
+      <Entity.Content fill title={name} description={holds} />
+    </Entity>
+  )
+}
+
+/** A closed-by-default disclosure for the rest of a list: its `summary` is the toggle. */
+export function SuggestionMore({ summary, children }: { summary: string; children: ReactNode }) {
+  return (
+    <details className="flex flex-col gap-2.5 [&>summary]:cursor-pointer">
+      <summary className="label-13 text-gray-900">{summary}</summary>
+      <div className="flex flex-col gap-2.5 pt-2.5">{children}</div>
+    </details>
   )
 }
 

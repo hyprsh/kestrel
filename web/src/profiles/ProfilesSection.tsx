@@ -1,18 +1,20 @@
 import { Button, Input, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Note, Select } from '@hyprsh/design'
 import { useState } from 'react'
 import { useProfileDetails, type ProfileDetail, type ProfileScoring } from '../api/downloads'
-import { useCreateProfile, useImportProfile, useProfileSuggestions, useProfiles, type Profile, type ProfileSuggestion } from '../api/queries'
+import { useCreateProfile, useProfiles, type Profile } from '../api/queries'
 import { declaresSlots, useSlots, type Slot } from '../api/slots'
-import { ProfileWarnings, SlotWarnings } from '../slots/SlotWarnings'
+import { SlotWarnings } from '../slots/SlotWarnings'
+import { ProfileWarnings } from './ProfileWarnings'
 import { plural } from '../format'
-import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips, SuggestionGroup, SuggestionRow } from '../layout/SettingsLists'
+import { DefaultsLine, ProfileCard, ProfileFacts, QualityChip, QualityChips } from '../layout/SettingsLists'
 import { SettingsBlock } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { useReport } from '../toasts'
 import { DefaultsPerSlot, declaredNote, declaredSlotsNote, declaresProfiles } from './Profiles'
 import { cardLadder, qualityLabel, sizeFacts, upgradeFact } from './ladder'
 import { ProfileSheet } from './ProfileSheet'
-import { audioText, familyName, kindsText, languageText } from './recipe'
+import { audioText, familyName, kindsText } from './recipe'
+import { Suggested } from './Suggested'
 
 /** The kind whose scoring a card shows: Series, or Movies when the Profile has no Series qualities. */
 const mainScoring = (d?: ProfileDetail): ProfileScoring | undefined => (d && d.series.qualities.length > 0 ? d.series : d?.movies)
@@ -133,37 +135,6 @@ export function ProfilesSection() {
         />
       )}
     </div>
-  )
-}
-
-/** "Suggested": the Profiles the household could add, by Release Family, each one click away. Hidden while there are none, and read-only when the Config File declares the Profiles. */
-function Suggested({ declared }: { declared: boolean }) {
-  const suggestions = useProfileSuggestions()
-  const add = useImportProfile()
-  const report = useReport()
-  const groups = suggestions.data ?? []
-  if (groups.length === 0) return null
-  const run = (s: ProfileSuggestion) => report(add.mutateAsync(s), { done: `Added ${s.name}`, failed: `Could not add ${s.name}` })
-  return (
-    <section aria-label="Suggested" className="flex flex-col gap-2.5 pt-2">
-      <h3 className="label-14 font-medium">Suggested</h3>
-      {groups.map((g) => (
-        <SuggestionGroup key={g.release_family} name={g.name}>
-          {g.items.map((s) => (
-            <SuggestionRow
-              key={`${s.resolution}-${s.language_rule}`}
-              name={s.name}
-              holds={`${kindsText(s.kinds)} · ${languageText(s.language_rule)}`}
-              action={
-                <Button size="small" variant="secondary" aria-label={`Add ${s.name}`} disabled={declared || add.isPending} onClick={() => void run(s)}>
-                  Add
-                </Button>
-              }
-            />
-          ))}
-        </SuggestionGroup>
-      ))}
-    </section>
   )
 }
 

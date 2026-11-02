@@ -118,7 +118,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             title="Slots"
             state={sections.slots}
             summary={<SlotsSummary />}
-            description="A Slot is a copy of each Title, with its own default Profile for a new Movie and a new Series. Start from a preset, then adjust the Slots."
+            description="A Slot is a named place in every Title that holds at most one Version, such as Standard or 4K. Each has a default Profile for a new Movie and a new Series. Start from a preset, then adjust the Slots."
           >
             <div className="flex flex-col gap-4">
               <SlotPresets />
@@ -130,7 +130,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
             id="profiles"
             title="Profiles"
             checked={sections.slots === 'done'}
-            description="Choose which Profiles to enable. The ones your Slots use are on and stay on. Tick a suggestion to add it; Settings, Profiles lists them all."
+            description="Choose which Profiles to enable. The ones your Slots use are on and stay on. Tick a Profile to enable it, or a suggestion to add it; More… lists every suggestion."
           >
             <EnableProfiles />
           </Section>

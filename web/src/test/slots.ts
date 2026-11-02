@@ -49,6 +49,7 @@ const profile = (key: string, name: string, over: Partial<Schemas['Profile']> = 
   key,
   name,
   release_family: 'bluray-web',
+  resolution: 'hd',
   kinds: ['movie', 'series'],
   language_rule: 'primary',
   original_language: 'reject',

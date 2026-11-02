@@ -171,7 +171,7 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
       <span className="label-12 text-gray-900">
         {declared
           ? 'The Config File sets the Slots, so they cannot be changed here. Change the file and restart Kestrel instead.'
-          : 'A Slot is a copy of a Title: its label names the files. Drag to change the order.'}
+          : 'A Slot is a named place in every Title that holds at most one Version: its label names the files. Drag to change the order.'}
       </span>
       {editing === 'new' && <SlotForm profiles={profiles.data} titles={titles.data ?? []} onClose={() => setEditing(null)} />}
       {editingSlot && <SlotForm key={editingSlot.id} slot={editingSlot} profiles={profiles.data} titles={titles.data ?? []} onClose={() => setEditing(null)} />}

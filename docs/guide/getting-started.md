@@ -116,7 +116,7 @@ The root folders are where Kestrel puts your Movies and your Series. They are pr
 
 ### 6. Slots
 
-A fresh Kestrel starts with one Slot, Standard, and no Profiles, so the wizard asks you to set both up. A Slot is a copy of each Title, with its own default Profile for a new Movie and for a new Series. Under **Start from a preset**, choose one and **Use** it:
+A fresh Kestrel starts with one Slot, Standard, and no Profiles, so the wizard asks you to set both up. A Slot is a named place in every Title that holds at most one Version, such as Standard or 4K. Each has a default Profile for a new Movie and for a new Series. Under **Start from a preset**, choose one and **Use** it:
 
 - **One copy:** Standard, HD for Movies and Series.
 - **Standard + 4K:** Standard as above, plus a 4K Slot with 4K as its default (opt-in per Title).

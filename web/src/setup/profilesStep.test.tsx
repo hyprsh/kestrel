@@ -18,6 +18,7 @@ const profile = (key: string, name: string, over: Partial<Profile> = {}): Profil
   key,
   name,
   release_family: 'bluray-web',
+  resolution: 'hd',
   kinds: ['movie', 'series'],
   language_rule: 'primary',
   original_language: 'reject',
@@ -43,9 +44,9 @@ const suggestion = (name: string, resolution: Suggestion['resolution'], language
 })
 
 /** The state after "One copy": HD is Standard's default; the server offers a few Profiles to add. */
-function fakeStep() {
+function fakeStep(extra: Profile[] = []) {
   const sent: { method: string; body: unknown }[] = []
-  let profiles = [profile('hd-primary', 'HD', { default_movies: true, default_series: true })]
+  let profiles = [profile('hd-primary', 'HD', { default_movies: true, default_series: true }), ...extra]
   const offered = [suggestion('HD Original', 'hd', 'original'), suggestion('Any', 'any', 'primary'), suggestion('4K Remux', 'uhd', 'primary', { release_family: 'remux-web' })]
   fakeSetup({ language: 'done', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' })
   server.use(
@@ -60,7 +61,7 @@ function fakeStep() {
       const body = (await request.json()) as Partial<Suggestion>
       sent.push({ method: 'POST', body })
       const hit = offered.find((s) => s.resolution === body.resolution && s.language_rule === body.language_rule)!
-      const made = profile(`made-${profiles.length}`, hit.name, { language_rule: hit.language_rule, custom: true, min_height: hit.resolution === 'any' ? 0 : 720 })
+      const made = profile(`made-${profiles.length}`, hit.name, { language_rule: hit.language_rule, custom: true, min_height: hit.resolution === 'any' ? 0 : 720, resolution: hit.resolution })
       profiles = [...profiles, made]
       return response(201).json(made)
     }),
@@ -113,10 +114,29 @@ describe('the wizard Profiles step', () => {
     await waitFor(() => expect(sent.at(-1)).toEqual({ method: 'PATCH', body: { key: 'made-1', enabled: true } }))
   })
 
-  it('links More… to the full Suggested list in Settings', async () => {
-    fakeStep()
+  it('lists a Profile the household disabled, unticked, and ticking it enables it again', async () => {
+    const sent = fakeStep([profile('hd-original', 'HD Original', { enabled: false, language_rule: 'original' })])
     renderApp()
     const region = await step()
-    expect(within(region).getByRole('link', { name: /More/ })).toHaveAttribute('href', '/settings/profiles')
+
+    const box = within(region).getByRole('checkbox', { name: /HD Original/ })
+    expect(box).not.toBeChecked()
+    expect(within(region).getAllByRole('checkbox', { name: /HD Original/ })).toHaveLength(1) // not also suggested
+    await userEvent.click(box)
+    await waitFor(() => expect(sent).toEqual([{ method: 'PATCH', body: { key: 'hd-original', enabled: true } }]))
+    await waitFor(() => expect(within(region).getByRole('checkbox', { name: /HD Original/ })).toBeChecked())
+  })
+
+  it('opens the full Suggested list inside the wizard instead of linking to Settings', async () => {
+    const sent = fakeStep()
+    renderApp()
+    const region = await step()
+    expect(within(region).queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
+
+    await userEvent.click(within(region).getByText('More…'))
+    const suggested = await within(region).findByRole('region', { name: 'Suggested' })
+    expect(within(suggested).getByText('4K Remux')).toBeInTheDocument() // the one that does not fit the Slots
+    await userEvent.click(within(suggested).getByRole('button', { name: 'Add 4K Remux' }))
+    await waitFor(() => expect(sent).toEqual([{ method: 'POST', body: { release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary' } }]))
   })
 })

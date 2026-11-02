@@ -28,6 +28,7 @@ const profile = (key: string, name: string, rule: Profile['language_rule'], over
   key,
   name,
   release_family: 'bluray-web',
+  resolution: 'hd',
   kinds: ['movie', 'series'],
   language_rule: rule,
   original_language: 'reject',
@@ -53,14 +54,14 @@ const seeded = (): Profile[] => [
 ]
 
 /** The Profile and settings API with real behaviour for the rules the UI leans on. */
-function fakeProfiles(opts: { fresh?: boolean; groups?: SuggestionGroup[]; warnings?: Settings['warnings'] } = {}) {
+function fakeProfiles(opts: { fresh?: boolean; groups?: SuggestionGroup[]; warnings?: Settings['warnings']; primary?: Settings['language_region']['primary_language'] } = {}) {
   const sent: Sent[] = []
   let signedIn = !opts.fresh
   let profiles = seeded()
   let slots = seededSlots()
   let groups = opts.groups ?? []
   let settings: Settings = {
-    language_region: { primary_language: 'en', release_date_country: 'US' },
+    language_region: { primary_language: opts.primary ?? 'en', release_date_country: 'US' },
     check_github_updates: true,
     pause_grabs: false,
     display: displayDefaults,
@@ -456,16 +457,38 @@ describe('Settings', () => {
     { release_family: 'sqp', name: 'SQP', items: [{ name: 'SQP 1080p', release_family: 'sqp', resolution: 'hd', language_rule: 'primary', kinds: ['movie'] }] },
   ]
 
-  it('lists Suggested Profiles by Release Family with their kinds and language', async () => {
+  it('lists Suggested Profiles by Release Family with their kinds and the resolved language', async () => {
     fakeProfiles({ groups: suggested })
     serveDetails()
     await open('Profiles')
     const section = await screen.findByRole('region', { name: 'Suggested' })
-    const remux = within(within(section).getByRole('group', { name: 'Remux + WEB' }))
+    const remux = within(within(section).getAllByRole('group', { name: 'Remux + WEB' })[0])
     expect(remux.getByText('4K Remux')).toBeInTheDocument()
-    expect(remux.getByText('Movies and Series · Primary Language')).toBeInTheDocument()
-    expect(remux.getByText('Movies · German')).toBeInTheDocument()
-    expect(within(section).getByRole('group', { name: 'SQP' })).toBeInTheDocument()
+    expect(remux.getByText('Movies and Series · Primary Language (English)')).toBeInTheDocument()
+    expect(within(section).getAllByRole('group', { name: 'SQP' })).toHaveLength(1)
+  })
+
+  it('puts the named-language recipes under Other languages, closed until opened', async () => {
+    fakeProfiles({ groups: suggested })
+    serveDetails()
+    await open('Profiles')
+    const section = within(await screen.findByRole('region', { name: 'Suggested' }))
+    const toggle = section.getByText('Other languages')
+    const disclosure = toggle.closest('details')!
+    expect(disclosure).not.toHaveAttribute('open')
+    // The Primary and Original recipes are outside it, the named one inside.
+    expect(within(disclosure).queryByText('4K Remux')).not.toBeInTheDocument()
+    expect(within(disclosure).getByText('4K Remux German')).toBeInTheDocument()
+    expect(section.getByText('Movies · German')).toBeInTheDocument()
+    await userEvent.click(toggle)
+    expect(disclosure).toHaveAttribute('open')
+  })
+
+  it('names the Primary Language a Primary recipe resolves to', async () => {
+    fakeProfiles({ groups: suggested, primary: 'de' })
+    serveDetails()
+    await open('Profiles')
+    expect(await screen.findByText('Movies and Series · Primary Language (German)')).toBeInTheDocument()
   })
 
   it('moves an added Suggested Profile into the Profiles list, enabled, without a reload', async () => {
@@ -476,7 +499,7 @@ describe('Settings', () => {
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'import', body: { release_family: 'remux-web', resolution: 'uhd', language_rule: 'primary' } }))
     expect(await screen.findByRole('button', { name: 'Edit 4K Remux' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add 4K Remux' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add 4K Remux German' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add 4K Remux German' })).toBeInTheDocument() // still listed, under Other languages
   })
 
   it('hides Suggested when there are no suggestions', async () => {
