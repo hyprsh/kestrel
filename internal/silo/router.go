@@ -474,25 +474,34 @@ func (r *Router) ListConfigOptions(ctx context.Context, in *pluginv1.ListConfigO
 	for _, sl := range slots {
 		slotList.Options = append(slotList.Options, &pluginv1.ConfigOption{Value: sl.ID, Label: sl.Label})
 	}
-	// The Profiles offered for a Slot are the enabled ones that belong to it, or
-	// every enabled one where none does (a Slot of the admin's own).
+	// Any enabled Profile can fill any Slot. The first option, the preselected
+	// one, is the mapped Slot's own default Profile for each kind.
 	list := func(sl slot.Slot) *pluginv1.ConfigOptionList {
-		out := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: defaultOption, Label: "Kestrel default"}}}
-		var own, all []*pluginv1.ConfigOption
+		name := func(key *string) string {
+			if key == nil {
+				return "none"
+			}
+			for _, p := range profiles {
+				if p.Key == *key {
+					return p.Name
+				}
+			}
+			return *key
+		}
+		label := "Kestrel default"
+		if i := slices.IndexFunc(slots, func(s kestrelSlot) bool { return s.ID == sl.Key() }); i >= 0 {
+			movies, series := name(slots[i].DefaultMovies), name(slots[i].DefaultSeries)
+			label = "Slot default (" + movies + ")"
+			if movies != series {
+				label = "Slot default (Movies " + movies + ", Series " + series + ")"
+			}
+		}
+		out := &pluginv1.ConfigOptionList{Options: []*pluginv1.ConfigOption{{Value: defaultOption, Label: label}}}
 		for _, p := range profiles {
-			if !p.Enabled {
-				continue
-			}
-			o := &pluginv1.ConfigOption{Value: p.Key, Label: p.Name}
-			all = append(all, o)
-			if p.Slot == sl.Key() {
-				own = append(own, o)
+			if p.Enabled {
+				out.Options = append(out.Options, &pluginv1.ConfigOption{Value: p.Key, Label: p.Name})
 			}
 		}
-		if len(own) == 0 {
-			own = all
-		}
-		out.Options = append(out.Options, own...)
 		return out
 	}
 	cfg := settingsOf(in.GetConnection())

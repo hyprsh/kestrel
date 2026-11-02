@@ -178,8 +178,8 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	}
 	std := opts.OptionsByField["standard_profile"].GetOptions()
 	uhd := opts.OptionsByField["4k_profile"].GetOptions()
-	if len(std) < 2 || std[0].Value != "default" || std[0].Label != "Kestrel default" || uhd[0].Value != "default" || len(uhd) < 2 {
-		t.Fatalf("standard = %v, 4k = %v, want Kestrel default first and the Slot's Profiles after", std, uhd)
+	if len(std) < 2 || std[0].Value != "default" || !strings.Contains(std[0].Label, "HD") || uhd[0].Value != "default" || len(uhd) < 2 {
+		t.Fatalf("standard = %v, 4k = %v, want the Slot default first and every enabled Profile after", std, uhd)
 	}
 	roots := opts.OptionsByField["root_folder"].GetOptions()
 	var paths []string
@@ -189,8 +189,8 @@ func TestConfiguredProfilesAreRequestedPerSlotAndListedAsOptions(t *testing.T) {
 	if len(roots) < 2 || roots[0].Value != "default" || roots[0].Label != "Kestrel default" || !slices.Contains(paths, more) {
 		t.Errorf("root folders = %v, want Kestrel default first and the folders Kestrel has, including %s", paths, more)
 	}
-	pick := std[len(std)-1].Value
-	uhdPick := uhd[len(uhd)-1].Value
+	pick := "hd-original"
+	uhdPick := "4k-original"
 
 	res := fulfil(t, r, conn(t, k.URL(), k.Key, map[string]any{"standard_profile": pick, "4k_profile": uhdPick}), movie(7), "1080p", "2160p")
 	got := map[string]string{}

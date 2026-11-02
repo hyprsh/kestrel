@@ -42,7 +42,8 @@ func newSlotStub(t *testing.T, slotIDs ...string) *slotStub {
 		case r.URL.Path == "/api/v1/slots":
 			var items []string
 			for _, id := range slotIDs {
-				items = append(items, fmt.Sprintf(`{"id":%q,"label":%q}`, id, strings.ToUpper(id)))
+				key := map[bool]string{true: "remux-1", false: "hd"}[id == "remux"]
+				items = append(items, fmt.Sprintf(`{"id":%q,"label":%q,"default_movies":%q,"default_series":%q}`, id, strings.ToUpper(id), key, key))
 			}
 			fmt.Fprintf(w, `{"items":[%s]}`, strings.Join(items, ","))
 		case r.URL.Path == "/api/v1/profiles":
@@ -205,7 +206,14 @@ func TestTheSlotAndTierProfileFieldsAreListedFromKestrel(t *testing.T) {
 	for _, o := range opts.OptionsByField["2160p_profile"].GetOptions() {
 		profiles = append(profiles, o.Value)
 	}
-	if strings.Join(profiles, ",") != "default,remux-1" {
-		t.Errorf("2160p_profile options = %v, want the Profiles of the mapped Slot", profiles)
+	if strings.Join(profiles, ",") != "default,hd,remux-1" {
+		t.Errorf("2160p_profile options = %v, want every enabled Profile", profiles)
+	}
+	// The preselected "default" names the mapped Slot's default Profile; the 1080p tier maps to Standard.
+	if got := opts.OptionsByField["2160p_profile"].GetOptions()[0].Label; !strings.Contains(got, "Remux") {
+		t.Errorf("2160p default option = %q, want the mapped Slot's default Profile named", got)
+	}
+	if got := opts.OptionsByField["1080p_profile"].GetOptions()[0].Label; !strings.Contains(got, "HD") {
+		t.Errorf("1080p default option = %q, want Standard's default Profile named", got)
 	}
 }

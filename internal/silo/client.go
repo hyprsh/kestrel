@@ -91,7 +91,6 @@ func (r kestrelRequest) slot(name string) (requestSlot, bool) {
 type profile struct {
 	Key     string `json:"key"`
 	Name    string `json:"name"`
-	Slot    string `json:"slot"`
 	Enabled bool   `json:"enabled"`
 }
 
@@ -230,8 +229,10 @@ func (c *client) requests(ctx context.Context, ids []int64) (map[int64]kestrelRe
 }
 
 type kestrelSlot struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
+	ID            string  `json:"id"`
+	Label         string  `json:"label"`
+	DefaultMovies *string `json:"default_movies"`
+	DefaultSeries *string `json:"default_series"`
 }
 
 // slots reads the Slots Kestrel has, in its order.
