@@ -698,7 +698,13 @@ func (s *Service) Releases(ctx context.Context, versionID int64, scope library.S
 		ctx, rec = withReuse(ctx)
 		rec.listing = true
 	}
-	entries, failures, err := s.gather(ctx, sub, scope, everyIndexer)
+	var entries []*entry
+	var failures []indexers.Failure
+	if sub.detail.Kind == library.Series && scope.Season == nil {
+		entries, failures, err = s.gatherAllSeasons(ctx, sub, everyIndexer)
+	} else {
+		entries, failures, err = s.gather(ctx, sub, scope, everyIndexer)
+	}
 	if err != nil {
 		return SearchResult{}, err
 	}

@@ -9,6 +9,7 @@ import (
 func TestAnAnswerCoversTheSameOrANarrowerScopeOnly(t *testing.T) {
 	one, two := 1, 2
 	whole := askedOf(library.Scope{})
+	spread := asked{whole: true, spread: true}
 	s1 := askedOf(library.Scope{Season: &one})
 	s2 := askedOf(library.Scope{Season: &two})
 	e1 := askedOf(library.Scope{Season: &one, EpisodeIDs: []int64{10}})
@@ -19,8 +20,12 @@ func TestAnAnswerCoversTheSameOrANarrowerScopeOnly(t *testing.T) {
 		want        bool
 	}{
 		{"whole serves whole", whole, whole, true},
-		{"whole serves a season", whole, s1, true},
-		{"whole serves episodes", whole, e1, true},
+		{"a plain whole answer never serves a season", whole, s1, false},
+		{"a plain whole answer never serves episodes", whole, e1, false},
+		{"a spread whole answer serves a season", spread, s1, true},
+		{"a spread whole answer serves episodes", spread, e1, true},
+		{"a spread whole answer serves a plain whole one", spread, whole, true},
+		{"a plain whole answer never serves a spread one", whole, spread, false},
 		{"a season never serves the whole", s1, whole, false},
 		{"a season serves itself", s1, s1, true},
 		{"a season never serves another", s1, s2, false},

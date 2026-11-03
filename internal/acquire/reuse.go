@@ -18,7 +18,10 @@ const ReuseWindow = 30 * time.Minute
 
 // asked is what a search asked the indexers of one group for: the whole Title, a season or episodes of it.
 type asked struct {
-	whole  bool
+	whole bool
+	// spread marks a whole-Series answer that was also asked for every aired season (a Manual search of the whole
+	// Series). A plain whole answer is only what an indexer ranks first, and holds few season packs beyond Season 1.
+	spread bool
 	season int
 	// episodes are the episode ids of a search narrowed to some; empty for a whole season.
 	episodes []int64
@@ -36,11 +39,13 @@ func askedOf(sc library.Scope) asked {
 }
 
 // covers says whether an answer to a asks for everything b asks for: a wider answer may serve a narrower search, a
-// narrower one never serves a wider one.
+// narrower one never serves a wider one. A whole-Series answer serves a season only when it was spread over the seasons.
 func (a asked) covers(b asked) bool {
 	switch {
+	case a.whole && b.whole:
+		return a.spread || !b.spread
 	case a.whole:
-		return true
+		return a.spread
 	case b.whole, a.season != b.season:
 		return false
 	case len(a.episodes) == 0:
@@ -139,6 +144,12 @@ func (r *reuse) hit(at time.Time) {
 	}
 }
 
+func (r *reuse) hitCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.hits
+}
+
 func (r *reuse) miss() {
 	r.mu.Lock()
 	r.misses++
@@ -173,21 +184,29 @@ func ago(d time.Duration) string {
 // every indexer) has an answer for the Title that covers the scope. The Releases are those of the Title in the cache
 // that the scope takes in, Blocklist applied now. It reports false when the indexers have to be asked.
 func (s *Service) reused(ctx context.Context, sub subject, scope library.Scope, g group) ([]*entry, bool, error) {
+	if sub.detail.Kind != library.Series || scope.Season == nil {
+		scope = library.Scope{} // a Movie has no scope; episode ids alone ask for the whole Series
+	}
+	return s.reusedAs(ctx, sub, scope, g, askedOf(scope), false)
+}
+
+// reusedAs is reused for the answers that cover a, which is askedOf(scope) or the spread of the whole Series. quiet
+// leaves a miss out of the record, for a probe that a plain request follows.
+func (s *Service) reusedAs(ctx context.Context, sub subject, scope library.Scope, g group, a asked, quiet bool) ([]*entry, bool, error) {
 	r := reuseOf(ctx)
 	if r == nil {
 		return nil, false, nil
 	}
 	now := s.clock()
-	if sub.detail.Kind != library.Series || scope.Season == nil {
-		scope = library.Scope{} // a Movie has no scope; episode ids alone ask for the whole Series
-	}
 	gs := []group{g}
 	if g.all {
 		gs = s.groupsOf(ctx)
 	}
-	at, ok := s.cache.answerFor(now, sub.detail.ID, gs, askedOf(scope))
+	at, ok := s.cache.answerFor(now, sub.detail.ID, gs, a)
 	if !ok {
-		r.miss()
+		if !quiet {
+			r.miss()
+		}
 		return nil, false, nil
 	}
 	var eps []library.Episode

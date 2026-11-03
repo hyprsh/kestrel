@@ -6,6 +6,7 @@ import (
 	"maps"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/downloads"
 	"github.com/hyprsh/kestrel/internal/indexers"
@@ -311,15 +312,19 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	heldBack := map[Slot]bool{}
 	for _, g := range s.groupsOf(ctx) {
 		round := Input{Versions: cloneVersions(left), SeasonsFinished: in.SeasonsFinished}
-		add := func(found []*entry) {
+		// add takes in the Releases not seen before in this search and says how many they are: the whole-Series
+		// request and a season's overlap, and the status counts each Release once.
+		add := func(found []*entry) (fresh int) {
 			for _, e := range found {
 				if _, seen := entries[entryKey(e.cand)]; !seen {
 					entries[entryKey(e.cand)] = e
 					all = append(all, e)
 					in.Candidates = append(in.Candidates, e.cand)
 					round.Candidates = append(round.Candidates, e.cand)
+					fresh++
 				}
 			}
+			return fresh
 		}
 		cached, usable := []*entry(nil), false
 		if fromCache {
@@ -329,14 +334,12 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			}
 		}
 		if usable {
-			add(cached)
-			obs.Releases(len(cached))
+			obs.Releases(add(cached))
 		} else {
 			failures, err := s.gatherSeasons(ctx, sub, scope, episodes, left, g, func(found []*entry) {
-				obs.Releases(len(found))
-				add(found)
+				obs.Releases(add(found))
 			})
-			out.Failures = append(out.Failures, failures...)
+			out.Failures = mergeFailures(out.Failures, failures)
 			if err != nil {
 				return out, err
 			}
@@ -430,11 +433,13 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 }
 
 // gatherSeasons asks the group g for what the Versions in left are missing:
-// once for the whole Series, then per season only for the seasons whose
-// episodes that answer has no candidate for (an indexer that ignores the
-// season answers the later ones from the first). A search narrowed to a season
-// or episodes, or with one season left, asks that season alone. each hears the
-// Releases of every request.
+// once for the whole Series, then for every season with a Wanted episode on
+// its own, so its season pack competes with what the whole answer holds. A
+// season is skipped only when the whole answer already holds its pack (see
+// packFor); a single episode or another season's pack is no reason. An
+// indexer that ignores the season answers the later ones from the first. A
+// search narrowed to a season or episodes, or with one season left, asks that
+// season alone. each hears the Releases of every request.
 func (s *Service) gatherSeasons(ctx context.Context, sub subject, scope library.Scope, episodes []library.Episode, left []Version, g group, each func([]*entry)) ([]indexers.Failure, error) {
 	seasons := seasonsOf(left, scope)
 	var failures []indexers.Failure
@@ -444,50 +449,116 @@ func (s *Service) gatherSeasons(ctx context.Context, sub subject, scope library.
 		if err != nil {
 			return failures, err
 		}
-		failures = append(failures, f...)
+		failures = mergeFailures(failures, f)
 		each(found)
 		whole = found
 	}
 	for _, n := range seasons {
-		if whole != nil && candidateFor(whole, left, n) {
+		if whole != nil && packFor(whole, n) {
 			continue
 		}
 		found, f, err := s.gather(ctx, sub, inSeason(scope, n, episodes), g)
 		if err != nil {
 			return failures, err
 		}
-		failures = append(failures, f...)
+		failures = mergeFailures(failures, f)
 		each(found)
 	}
 	return failures, nil
 }
 
-// candidateFor says whether some Release among es that a Version's Profile
-// accepts holds an episode left to find in the season.
-func candidateFor(es []*entry, left []Version, season int) bool {
-	var refs []EpisodeRef
-	for _, v := range left {
-		for _, u := range v.Units {
-			if u.Ref.Season == season {
-				refs = append(refs, u.Ref)
-			}
-		}
-	}
+// packFor says whether some Release among es that a Version's Profile accepts is
+// the pack of the season: its full-season pack, or a multi-season pack that
+// takes it in. A single episode, a part of the season or another season's pack
+// leaves the season to be asked for.
+func packFor(es []*entry, season int) bool {
 	return slices.ContainsFunc(es, func(e *entry) bool {
 		sr := e.cand.Parsed.Series
 		if sr == nil || !slices.ContainsFunc(slices.Collect(maps.Values(e.cand.Verdicts)), func(v scoring.Verdict) bool { return v.Accepted }) {
 			return false
 		}
-		return slices.ContainsFunc(refs, func(r EpisodeRef) bool {
-			switch {
-			case sr.MultiSeason:
-				return r.Season >= sr.Season
-			case r.Season != sr.Season:
-				return false
-			}
-			return sr.FullSeason || slices.Contains(sr.Episodes, r.Episode)
-		})
+		if sr.MultiSeason {
+			return season >= sr.Season
+		}
+		return sr.FullSeason && sr.Season == season
 	})
+}
+
+// mergeFailures adds the failures in more to those in have, leaving out one an indexer already gave: with several
+// requests to a Version, an indexer that is down fails each of them the same way.
+func mergeFailures(have, more []indexers.Failure) []indexers.Failure {
+	for _, f := range more {
+		if !slices.ContainsFunc(have, func(x indexers.Failure) bool {
+			return x.IndexerID == f.IndexerID && x.Code == f.Code && x.Message == f.Message
+		}) {
+			have = append(have, f)
+		}
+	}
+	return have
+}
+
+// airedSeasons are the regular seasons that have an episode out; Specials are never among them.
+func airedSeasons(eps []library.Episode, now time.Time) []int {
+	var out []int
+	for _, ep := range eps {
+		if ep.Season != 0 && ep.Released != nil && !ep.Released.After(now) && !slices.Contains(out, ep.Season) {
+			out = append(out, ep.Season)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// gatherAllSeasons is gather for a Manual search of a whole Series: the indexers rank what they answer a season-less
+// search with, in practice Season 1 and complete-series packs, so it also asks for each aired season on its own and
+// lists the Releases of all the answers once each. Every request goes through answer reuse: one that a recent answer
+// serves is not asked again, and a recent spread of the whole Series serves all of them.
+func (s *Service) gatherAllSeasons(ctx context.Context, sub subject, g group) ([]*entry, []indexers.Failure, error) {
+	d := sub.detail
+	now := s.clock()
+	spread := asked{whole: true, spread: true}
+	if es, ok, err := s.reusedAs(ctx, sub, library.Scope{}, g, spread, true); err != nil || ok {
+		return es, nil, err
+	}
+	episodes, err := s.lib.Episodes(ctx, d.ID, library.View{Now: now})
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = indexers.WithSeasonSpread(ctx)
+	hits := 0
+	if r := reuseOf(ctx); r != nil {
+		hits = r.hitCount()
+	}
+	var out []*entry
+	var failures []indexers.Failure
+	seen := map[string]bool{}
+	ask := func(sc library.Scope) error {
+		found, f, err := s.gather(ctx, sub, sc, g)
+		if err != nil {
+			return err
+		}
+		failures = mergeFailures(failures, f)
+		for _, e := range found {
+			if k := entryKey(e.cand); !seen[k] {
+				seen[k] = true
+				out = append(out, e)
+			}
+		}
+		return nil
+	}
+	if err := ask(library.Scope{}); err != nil {
+		return nil, nil, err
+	}
+	for _, n := range airedSeasons(episodes, now) {
+		if err := ask(library.Scope{Season: &n}); err != nil {
+			return nil, nil, err
+		}
+	}
+	// Part of it from an older answer makes it no fresher than that answer, so only an all-new spread is recorded.
+	if r := reuseOf(ctx); len(failures) == 0 && (r == nil || r.hitCount() == hits) {
+		s.cache.answered(now, d.ID, g, spread)
+	}
+	return out, failures, nil
 }
 
 // seasonsOf are the seasons a search asks the indexers for: those of the

@@ -38,6 +38,7 @@ type rig struct {
 	idx      *ixfake.Indexer
 	idx2     *ixfake.Indexer
 	asked2   *atomic.Int64 // the searches idx2 answered
+	tap      *tap          // the searches idx answered
 	inst     *instances.Service
 	idxID    int64
 	sab      *dcfake.Client
@@ -95,10 +96,10 @@ func newRigOf(t *testing.T, details metadata.MovieDetails, specs ...library.Vers
 	clk := &clock{now: time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)}
 
 	idx, idx2, sab := ixfake.New("k"), ixfake.New("k"), dcfake.New("k")
-	asked2 := &atomic.Int64{}
+	asked2, tp := &atomic.Int64{}, &tap{}
 	reg := plugin.NewRegistry()
 	for _, err := range []error{
-		reg.Register(indexer.Contract, idx),
+		reg.Register(indexer.Contract, tapped{idx, tp}),
 		reg.Register(indexer.Contract, secondIndexer{idx2, asked2}),
 		reg.Register(downloadclient.Contract, sab),
 	} {
@@ -138,7 +139,7 @@ func newRigOf(t *testing.T, details metadata.MovieDetails, specs ...library.Vers
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &rig{svc: svc, lib: lib, idx: idx, idx2: idx2, asked2: asked2, inst: inst, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions, deps: deps}
+	return &rig{svc: svc, lib: lib, idx: idx, idx2: idx2, asked2: asked2, tap: tp, inst: inst, idxID: ix.ID, sab: sab, clock: clk, titleID: id, versions: versions, deps: deps}
 }
 
 func paddington() metadata.MovieDetails {
