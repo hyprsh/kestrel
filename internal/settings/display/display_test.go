@@ -29,7 +29,7 @@ func TestUnsavedSettingsReportTodaysBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := display.Display{
-		SeasonOrder: "oldest_first", SeasonsOpen: "latest_and_wanted", ManualSearchSort: "best_first", UpcomingDisplay: "agenda",
+		SeasonOrder: "oldest_first", SeasonsOpen: "none", ManualSearchSort: "best_first", UpcomingDisplay: "agenda",
 		UpcomingFilters: display.UpcomingFilters{Kind: "all"},
 	}
 	if got != want {
@@ -48,7 +48,7 @@ func TestSetChangesOnlyWhatIsNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := display.Display{
-		SeasonOrder: "newest_first", SeasonsOpen: "latest_and_wanted", ManualSearchSort: "size_desc", UpcomingDisplay: "month",
+		SeasonOrder: "newest_first", SeasonsOpen: "none", ManualSearchSort: "size_desc", UpcomingDisplay: "month",
 		UpcomingFilters: display.UpcomingFilters{Kind: "series", WantedOnly: true},
 	}
 	if got != want {

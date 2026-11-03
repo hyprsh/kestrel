@@ -64,8 +64,8 @@ type UpcomingFilters struct {
 // Display is the household's view defaults.
 type Display struct {
 	SeasonOrder string `json:"season_order"`
-	// SeasonsOpen decides where a Series page starts: LatestAndWanted opens the newest season and every season with something Wanted, the other two the first season with something Wanted, else the first.
-	// Only the first is offered in Settings (a switch); the Config File and API still accept all three.
+	// SeasonsOpen decides where a Series page starts: NoneOpen (the default) opens no season, LatestAndWanted the newest season and every season with something Wanted, AllOpen the first season with something Wanted, else the first.
+	// Only LatestAndWanted and NoneOpen are offered in Settings (a switch); the Config File and API accept all three.
 	SeasonsOpen      string          `json:"seasons_open"`
 	ManualSearchSort string          `json:"manual_search_sort"`
 	UpcomingDisplay  string          `json:"upcoming_display"`
@@ -76,7 +76,7 @@ type Display struct {
 func Defaults() Display {
 	return Display{
 		SeasonOrder:      OldestFirst,
-		SeasonsOpen:      LatestAndWanted,
+		SeasonsOpen:      NoneOpen,
 		ManualSearchSort: BestFirst,
 		UpcomingDisplay:  UpcomingAgenda,
 		UpcomingFilters:  UpcomingFilters{Kind: KindAll},

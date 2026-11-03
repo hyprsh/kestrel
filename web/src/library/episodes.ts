@@ -62,10 +62,11 @@ export function bySeason(episodes: Episode[]): Map<number, Episode[]> {
 /**
  * The seasons a Series' Title page opens on, given the seasons with something Wanted. With `latest_and_wanted` (Settings' "Open the
  * newest season") that is the newest season (Specials when that is all it has) and every Wanted one. Otherwise it is the first season
- * with something Wanted, or the first season when nothing is: the lowest numbered one, Specials only when that is all.
+ * with something Wanted, or the first season when nothing is: the lowest numbered one, Specials only when that is all. `none` opens nothing.
  */
 export function defaultSeasons(seasons: number[], wanted: number[], open: Display['seasons_open'] = 'latest_and_wanted'): number[] {
   if (open === 'latest_and_wanted') return [...new Set([Math.max(0, ...seasons), ...wanted])]
+  if (open === 'none') return []
   if (wanted.length > 0) return [wanted[0]]
   const regular = seasons.filter((s) => s !== 0)
   return [regular.length > 0 ? Math.min(...regular) : 0]

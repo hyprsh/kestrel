@@ -2789,7 +2789,10 @@ export interface components {
         };
         /** @enum {string} */
         SeasonOrder: "oldest_first" | "newest_first";
-        /** @enum {string} */
+        /**
+         * @description Where a Series page starts. `none` (the default) opens no season; `latest_and_wanted` opens its newest season and every season with something Wanted (Settings shows this as "Open the newest season"); `all` opens the first season with something Wanted, else the first season. A link to a season or episode wins.
+         * @enum {string}
+         */
         SeasonsOpen: "latest_and_wanted" | "all" | "none";
         /**
          * @description Best first, or a Manual search column with `_asc` or `_desc`. Score descending is best first, so

@@ -4,6 +4,7 @@ import type { components } from '../api/schema.gen'
 import { http } from './handlers'
 import { detail, fakeLibrary, row, type Sent, type TitleRow } from './library'
 import { server } from './server'
+import { serveDisplay } from './serveDisplay'
 
 type Episode = components['schemas']['Episode']
 type Mode = components['schemas']['SeriesMonitor']
@@ -54,7 +55,9 @@ export const seriesRow = (id: number, title: string): TitleRow =>
  * A Library holding one Series with a Special and two aired episodes of season 1,
  * served with the monitoring endpoints. `sent` records every monitoring call.
  */
-export function fakeSeries() {
+export function fakeSeries(serveOpenSeasons = true) {
+  // Most Series tests are about what is in an open season, so the newest one opens; a test of Display serves its own settings and passes false.
+  if (serveOpenSeasons) serveDisplay({ seasons_open: 'latest_and_wanted' })
   const r = seriesRow(5, 'Breaking Bad')
   const lib = fakeLibrary([r])
   const state = {

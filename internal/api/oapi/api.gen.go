@@ -4822,7 +4822,7 @@ type SeasonPatch struct {
 	Monitored bool `json:"monitored"`
 }
 
-// SeasonsOpen defines model for SeasonsOpen.
+// SeasonsOpen Where a Series page starts. `none` (the default) opens no season; `latest_and_wanted` opens its newest season and every season with something Wanted (Settings shows this as "Open the newest season"); `all` opens the first season with something Wanted, else the first season. A link to a season or episode wins.
 type SeasonsOpen string
 
 // SeriesMonitor `all` monitors every episode, future ones and new seasons included; `future` the episodes airing
@@ -4946,9 +4946,11 @@ type SettingsPatch struct {
 		// `score_desc` is not a value.
 		ManualSearchSort *ManualSearchSort `json:"manual_search_sort,omitempty"`
 		SeasonOrder      *SeasonOrder      `json:"season_order,omitempty"`
-		SeasonsOpen      *SeasonsOpen      `json:"seasons_open,omitempty"`
-		UpcomingDisplay  *UpcomingDisplay  `json:"upcoming_display,omitempty"`
-		UpcomingFilters  *struct {
+
+		// SeasonsOpen Where a Series page starts. `none` (the default) opens no season; `latest_and_wanted` opens its newest season and every season with something Wanted (Settings shows this as "Open the newest season"); `all` opens the first season with something Wanted, else the first season. A link to a season or episode wins.
+		SeasonsOpen     *SeasonsOpen     `json:"seasons_open,omitempty"`
+		UpcomingDisplay *UpcomingDisplay `json:"upcoming_display,omitempty"`
+		UpcomingFilters *struct {
 			HideImported *bool `json:"hide_imported,omitempty"`
 
 			// Kind One of `all`, `movie` or `series`; anything else is `422`.

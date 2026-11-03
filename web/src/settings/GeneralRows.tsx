@@ -202,7 +202,7 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
         <SettingRow
           label="Open the newest season"
           dirty={dirty('open_newest')}
-          help="A Series page opens its newest season and every season with something Wanted, instead of the first. A link to a season or an episode still opens that one."
+          help="A Series page opens its newest season and every season with something Wanted, instead of starting with every season closed. A link to a season or an episode still opens that one."
         >
           <Toggle aria-label="Open the newest season" checked={draft.open_newest} disabled={off('seasons_open')} onChange={(open_newest) => set({ open_newest })} />
         </SettingRow>
