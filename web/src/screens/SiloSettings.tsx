@@ -1,6 +1,6 @@
-import { Note, Select, Toggle } from '@hyprsh/design'
+import { Note, Select, SettingRow, Toggle } from '@hyprsh/design'
 import { ApiError, usePluginInstances } from '../api/queries'
-import { SettingRow, SettingsCard } from '../layout/SettingsPage'
+import { SettingsCard } from '../layout/SettingsPage'
 import { useDraftForm } from '../settings/draft'
 import { useSaveSiloSettings, useSiloSettings, type Silo } from '../api/silo'
 import { SkeletonForm } from '../loading'
@@ -43,15 +43,14 @@ function Form({ saved, instances }: { saved: Silo; instances: string[] }) {
       <SettingsCard>
         <SettingRow
           label="Watch-ahead"
-          dirty={dirty('watchAhead')}
+          changed={dirty('watchAhead')}
           help="Series requested whole in Silo start with season 1, and Kestrel adds the next season once 2 episodes of the newest one have been watched in Plex or Silo. The Kestrel plugin in Silo can override this per request route."
         >
           <Toggle aria-label="Watch-ahead for Series requested in Silo" checked={draft.watchAhead} disabled={declared} onChange={(watchAhead) => set({ watchAhead })} />
         </SettingRow>
-        <SettingRow label="Silo instance" dirty={dirty('instance')} help="The Silo server whose playback history Watch-ahead reads.">
+        <SettingRow label="Silo instance" changed={dirty('instance')} help="The Silo server whose playback history Watch-ahead reads.">
           <Select
             size="small"
-            aria-label="Silo instance"
             value={draft.instance}
             disabled={declared}
             onChange={(e) => set({ instance: e.target.value })}

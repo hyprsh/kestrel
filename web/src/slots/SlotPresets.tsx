@@ -1,7 +1,7 @@
-import { Button, Note } from '@hyprsh/design'
+import { Button, Note, SettingRow } from '@hyprsh/design'
 import { ApiError } from '../api/queries'
 import { useApplySlotPreset, useSlotPresets, type SlotPreset } from '../api/slots'
-import { SettingRow, SettingsCard } from '../layout/SettingsPage'
+import { SettingsCard } from '../layout/SettingsPage'
 
 /** "Standard: Movies HD, Series HD · Remux: Movies 4K Remux, Series none (off for new Titles)". */
 const describe = (p: SlotPreset) =>
