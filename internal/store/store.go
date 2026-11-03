@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/pressly/goose/v3"
-	_ "modernc.org/sqlite" // registers the "sqlite" driver; pure Go, so CGO_ENABLED=0 works
+	"modernc.org/sqlite" // registers the "sqlite" driver; pure Go, so CGO_ENABLED=0 works
 )
 
 const (
@@ -54,7 +54,9 @@ type Store struct {
 	read  *sql.DB
 	// version is the one connection DataVersion asks.
 	version *sql.DB
-	dir     string
+	// gen counts the commits per table; see Generation.
+	gen *generations
+	dir string
 }
 
 // Open creates the config dir if needed, migrates the database (backing it up
@@ -65,10 +67,12 @@ func Open(ctx context.Context, opts Options) (*Store, error) {
 	}
 	path := filepath.Join(opts.Dir, dbFile)
 
-	write, err := sql.Open("sqlite", dsn(path, false))
+	gen := newGenerations()
+	base, err := sqlite.NewConnector(dsn(path, false))
 	if err != nil {
 		return nil, fmt.Errorf("store: open write connection: %w", err)
 	}
+	write := sql.OpenDB(hooked{base, gen})
 	write.SetMaxOpenConns(1)
 
 	migrations := opts.Migrations
@@ -96,7 +100,7 @@ func Open(ctx context.Context, opts Options) (*Store, error) {
 		return nil, fmt.Errorf("store: open version connection: %w", err)
 	}
 	version.SetMaxOpenConns(1)
-	return &Store{write: write, read: read, version: version, dir: opts.Dir}, nil
+	return &Store{write: write, read: read, version: version, gen: gen, dir: opts.Dir}, nil
 }
 
 // Write is the single write connection.
