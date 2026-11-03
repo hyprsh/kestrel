@@ -92,7 +92,7 @@ func seedScale(b *testing.B, db *sql.DB, titles int) {
 }
 
 // scaleServer is the real handler over a Library of scaleTitles, called without the network.
-func scaleServer(b *testing.B) http.Handler {
+func scaleServer(b *testing.B) (http.Handler, *store.Store) {
 	b.Helper()
 	st, err := store.Open(context.Background(), store.Options{Dir: storetest.Dir(b)})
 	if err != nil {
@@ -104,11 +104,15 @@ func scaleServer(b *testing.B) http.Handler {
 	b.Cleanup(func() { a.Close(context.Background()) })
 	time.Sleep(time.Second) // the start-up jobs finish on the empty Library; seeding after them keeps their rescoring out of the numbers
 	seedScale(b, st.Write(), scaleTitles)
-	return a.Handler
+	return a.Handler, st
 }
 
-func benchGET(b *testing.B, path string) {
-	h := scaleServer(b)
+func benchGET(b *testing.B, path string) { benchGETBetween(b, path, nil) }
+
+// benchGETBetween times the GET like benchGET and runs between before every request. The writes' cost is part of the
+// number, so compare runs of the same between.
+func benchGETBetween(b *testing.B, path string, between func(st *store.Store, i int)) {
+	h, st := scaleServer(b)
 	setup := httptest.NewRequest(http.MethodPost, "/api/v1/setup/account", strings.NewReader(`{"username":"bench","password":"bench-password-123"}`))
 	setup.Header.Set("Content-Type", "application/json")
 	setup.Header.Set("Origin", "http://"+setup.Host)
@@ -133,13 +137,38 @@ func benchGET(b *testing.B, path string) {
 	b.ResetTimer()
 	var size int
 	for i := 0; i < b.N; i++ {
+		if between != nil {
+			between(st, i)
+		}
 		size = get().Body.Len()
 	}
 	b.ReportMetric(float64(size), "bytes/response")
 }
 
 func BenchmarkScaleListTitles(b *testing.B) { benchGET(b, "/api/v1/titles?limit=10000") }
-func BenchmarkScaleStats(b *testing.B)      { benchGET(b, "/api/v1/stats") }
+
+// BenchmarkScaleListTitlesBusy reads the list between writes to tables it does not show: Log entries, Health issues and
+// job runs, as a busy install does. Before the list cache was kept per table, each write made the next read a miss.
+func BenchmarkScaleListTitlesBusy(b *testing.B) {
+	at := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	benchGETBetween(b, "/api/v1/titles?limit=10000", func(st *store.Store, i int) {
+		var err error
+		switch i % 3 {
+		case 0:
+			_, err = st.Write().Exec(`INSERT INTO events (at, kind, routine, message) VALUES (?, 'bench', 1, 'tick')`, at)
+		case 1:
+			_, err = st.Write().Exec(`INSERT INTO health_issues (key, kind, severity, message, first_at, last_at) VALUES ('bench', 'bench', 'warning', 'm', ?, ?)
+				ON CONFLICT (key) DO UPDATE SET count = count + 1, last_at = excluded.last_at`, at, at)
+		default:
+			_, err = st.Write().Exec(`INSERT INTO job_runs (name, started_at, finished_at, took_ms) VALUES ('bench', ?, ?, 1)`, at, at)
+		}
+		if err != nil {
+			b.Fatal(err)
+		}
+	})
+}
+
+func BenchmarkScaleStats(b *testing.B) { benchGET(b, "/api/v1/stats") }
 func BenchmarkScaleUpcoming(b *testing.B) {
 	benchGET(b, "/api/v1/upcoming?from="+time.Now().AddDate(0, 0, -14).Format("2006-01-02")+"&to="+time.Now().AddDate(0, 0, 60).Format("2006-01-02"))
 }

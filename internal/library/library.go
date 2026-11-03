@@ -319,10 +319,11 @@ type Service struct {
 	listed listCache
 }
 
-// listCache keeps the Library list as built for one database state, moment and country.
+// listCache keeps the Library list as built for one state of the tables it reads, moment and country.
 type listCache struct {
 	mu      sync.Mutex
-	version int64
+	version uint64 // store.Generation of listTables when the rows were built
+	builds  int
 	built   time.Time // the view's Now the rows were built for
 	country string
 	rows    []Row
@@ -487,9 +488,13 @@ func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, seen sql.NullSt
 // turns Long Missing) by days, so a minute of lag is not seen.
 const listFreshness = time.Minute
 
+// listTables are the tables buildList reads, so the only ones whose commits drop the kept list. A test holds this to the
+// queries buildList runs: add a table here when a query starts reading it.
+var listTables = []string{"titles", "episodes", "versions", "files", "title_release_dates", "file_episodes", "file_misfits", "search_state"}
+
 // List returns the Library's Titles, newest first, as compact rows. Building every row reads the Library's tables, which
-// costs most of a second at thousands of Titles, so the unfiltered list is kept until something is committed to the
-// database or a minute passes; the filter then runs over the kept rows, which callers must not change.
+// costs most of a second at thousands of Titles, so the unfiltered list is kept until something is committed to one of
+// the tables it reads or a minute passes; the filter then runs over the kept rows, which callers must not change.
 func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) {
 	all, err := s.listAll(ctx, view)
 	if err != nil {
@@ -542,7 +547,7 @@ func (s *Service) List(ctx context.Context, view View, f Filter) ([]Row, error) 
 
 // listAll is the whole Library's rows, from the cache while it is good.
 func (s *Service) listAll(ctx context.Context, view View) ([]Row, error) {
-	version, err := s.st.DataVersion(ctx)
+	version, err := s.st.Generation(ctx, listTables...)
 	if err != nil {
 		return nil, err
 	}
@@ -552,18 +557,19 @@ func (s *Service) listAll(ctx context.Context, view View) ([]Row, error) {
 	if age := view.Now.Sub(c.built); c.valid && c.version == version && c.country == view.Country && age >= 0 && age < listFreshness {
 		return c.rows, nil
 	}
-	rows, err := s.buildList(ctx, view)
+	rows, err := s.buildList(ctx, view, s.st.Read())
 	if err != nil {
 		return nil, err
 	}
+	c.builds++
 	// The version read before the build: a commit during it makes the next call build again.
 	c.version, c.built, c.country, c.rows, c.valid = version, view.Now, view.Country, rows, true
 	return rows, nil
 }
 
 // buildList reads the tables and makes every Title's row.
-func (s *Service) buildList(ctx context.Context, view View) ([]Row, error) {
-	q := db.New(s.st.Read())
+func (s *Service) buildList(ctx context.Context, view View, conn db.DBTX) ([]Row, error) {
+	q := db.New(conn)
 	titleRows, err := q.ListTitlesForList(ctx)
 	if err != nil {
 		return nil, err
