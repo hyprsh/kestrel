@@ -126,6 +126,26 @@ describe('healthOf', () => {
     expect(healthOf(s, now).warnings).toBe(1)
   })
 
+  it('shows folders on one filesystem as one disk line, and leaves a disk the server cannot name alone', () => {
+    const disk = (path: string, filesystem?: string, free = 6 * GB) => ({ path, filesystem, free_bytes: free, total_bytes: 228 * GB, low_free_bytes: 50 * GB })
+    const s = status({
+      disks: [
+        disk('/data', '7'),
+        disk('/data/media/movies', '7'),
+        disk('/data/media/movies-family', '7'),
+        disk('/data/media/tv', '7'),
+        disk('/mnt/backup', '9', 100 * GB),
+        disk('/mnt/a'),
+        disk('/mnt/b'),
+      ],
+    })
+    const tiles = tilesOf(s, 'Storage')
+    expect(tiles.map((t) => t.paths)).toEqual([['/data', '/data/media/movies', '/data/media/movies-family', '/data/media/tv'], ['/mnt/backup'], ['/mnt/a'], ['/mnt/b']])
+    expect(tiles[0]).toMatchObject({ tone: 'low', detail: '6 GB free · 97% used · low' })
+    expect(tiles[1]).toMatchObject({ tone: 'ok', detail: '100 GB free · 56% used' })
+    expect(healthOf(s, now).warnings).toBe(3)
+  })
+
   it('lists the metadata providers and media servers, failing by their rows', () => {
     const s = status({
       services: [

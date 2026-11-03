@@ -2691,7 +2691,9 @@ type DeletedFiles struct {
 
 // DiskStatus defines model for DiskStatus.
 type DiskStatus struct {
-	FreeBytes int64 `json:"free_bytes"`
+	// Filesystem Names the filesystem the path is on (its device id), so paths on one disk share it. Absent when the server cannot tell.
+	Filesystem *string `json:"filesystem,omitempty"`
+	FreeBytes  int64   `json:"free_bytes"`
 
 	// LowFreeBytes Free space under which the low disk space warning fires (the larger of 5 % of the total and 50 GiB).
 	LowFreeBytes int64  `json:"low_free_bytes"`

@@ -364,7 +364,7 @@ func (s *server) GetSystemStatus(ctx context.Context, _ oapi.GetSystemStatusRequ
 		return nil, err
 	}
 	for _, d := range disks {
-		out.Disks = append(out.Disks, oapi.DiskStatus{Path: d.Path, FreeBytes: int64(d.Free), TotalBytes: int64(d.Total), LowFreeBytes: int64(d.Low)})
+		out.Disks = append(out.Disks, oapi.DiskStatus{Path: d.Path, FreeBytes: int64(d.Free), TotalBytes: int64(d.Total), LowFreeBytes: int64(d.Low), Filesystem: filesystemOf(d.Filesystem)})
 	}
 	services, err := s.health.Services(ctx)
 	if err != nil {
@@ -507,4 +507,12 @@ func (s *server) SearchAllWanted(ctx context.Context, _ oapi.SearchAllWantedRequ
 func (s *server) UpdateTrash(_ context.Context, _ oapi.UpdateTrashRequestObject) (oapi.UpdateTrashResponseObject, error) {
 	s.trash.RequestUpdate()
 	return oapi.UpdateTrash202Response{}, nil
+}
+
+// filesystemOf is a disk's filesystem name for the status, nil when unknown.
+func filesystemOf(id string) *string {
+	if id == "" {
+		return nil
+	}
+	return &id
 }

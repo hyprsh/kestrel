@@ -5453,6 +5453,8 @@ export interface components {
              * @description Free space under which the low disk space warning fires (the larger of 5 % of the total and 50 GiB).
              */
             low_free_bytes: number;
+            /** @description Names the filesystem the path is on (its device id), so paths on one disk share it. Absent when the server cannot tell. */
+            filesystem?: string;
         };
         EventList: {
             items: components["schemas"]["Event"][];

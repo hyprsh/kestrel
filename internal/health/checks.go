@@ -56,12 +56,16 @@ type Failure struct {
 // Space is the room on a mount.
 type Space struct {
 	Free, Total uint64
+	// Filesystem names the filesystem the path is on (the device id on Unix), so two paths on one disk share it. Empty when unknown.
+	Filesystem string
 }
 
 // Disk is one line of the health strip.
 type Disk struct {
 	Path        string
 	Free, Total uint64
+	// Filesystem is Space.Filesystem of the path: equal and non-empty for paths on one disk.
+	Filesystem string
 	// Low is the free space under which the low disk space check fires.
 	Low uint64
 }
@@ -639,7 +643,7 @@ func (s *Service) Disks(ctx context.Context) ([]Disk, error) {
 		if err != nil {
 			continue
 		}
-		out = append(out, Disk{Path: p, Free: sp.Free, Total: sp.Total, Low: lowDiskFloor(sp.Total)})
+		out = append(out, Disk{Path: p, Free: sp.Free, Total: sp.Total, Filesystem: sp.Filesystem, Low: lowDiskFloor(sp.Total)})
 	}
 	return out, nil
 }
