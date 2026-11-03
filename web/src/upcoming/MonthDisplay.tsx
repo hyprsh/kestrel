@@ -68,7 +68,7 @@ export function MonthDisplay({
   const here = items.filter((i) => localDay(i).slice(0, 7) === month.slice(0, 7))
   const searching = here.filter((i) => statusOf(i).kind === 'searching').length
   return (
-    <section aria-label="Month" className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-auto px-8 py-6">
+    <section aria-label="Month" className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-auto tab-clear px-8 py-6">
       <span className="label-14 text-gray-900">
         {plural(here.length, 'release')} · {searching} searched when out
       </span>

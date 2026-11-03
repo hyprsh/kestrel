@@ -118,7 +118,7 @@ export function TitleRows({
   const startPad = items && items.length > 0 ? items[0].start - topOffset : 0
   const endPad = items && items.length > 0 ? Math.max(0, total - items[items.length - 1].end) : 0
   return (
-    <div ref={listRef} className="min-h-0 flex-1 overflow-auto p-1.5">
+    <div ref={listRef} className="min-h-0 flex-1 overflow-auto p-1.5 tab-clear">
       <Entity.List
         // chrome-ok: a cursor listbox (aria-activedescendant) over Entity rows; no design component is one, Select and Combobox are pickers
         role="listbox"

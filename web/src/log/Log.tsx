@@ -393,7 +393,7 @@ function Events({ query, onQuery, onOpenTitle, onBlocklist }: { query: string; o
     <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
       {panel}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div id="log-events" className="min-h-0 flex-1 overflow-auto">
+        <div id="log-events" className="min-h-0 flex-1 overflow-auto tab-clear">
           <div className="flex flex-col gap-4 p-4 sm:px-8 sm:py-6">
             {!phone && strip.histogram.data && strip.histogram.data.buckets.length > 0 && (
               <Strip buckets={strip.histogram.data.buckets} days={strip.days} now={strip.now} onJump={(from, to) => setJump({ from: from.getTime(), to: to.getTime() })} />
@@ -450,7 +450,7 @@ function Blocklist({ query, onQuery, onBack, onView }: { query: string; onQuery:
   return (
     <div className={phone ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1'}>
       <LogPanel query={query} onQuery={onQuery} onView={onView} qualifiers={qualifiers} filtered={false} blocklist={{ showing: true, onBack }} />
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto tab-clear">
         {list.data && items.length === 0 && (
           <div className="p-4">
             <EmptyState description="The Blocklist is empty." />

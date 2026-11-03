@@ -545,7 +545,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
           <WeekHeader title={weekTitle(today, week)} range={weekRange(week)} stats={stats} onPrev={() => goToDay(addDays(week, -7))} onToday={jumpToday} onNext={() => goToDay(addDays(week, 7))} />
         )}
         {agenda && (
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto tab-clear">
             <div className="flex flex-col gap-5 p-4 sm:px-8 sm:py-3">
               {timeline.failed && <Note variant="error">Upcoming could not be loaded.</Note>}
               {settled && loadsUp && !nothing && <AgendaEdge edgeRef={topEdge} loading={timeline.pending[0]} end={topEnd} loadingText="Loading earlier days…" endText="Nothing earlier" />}
