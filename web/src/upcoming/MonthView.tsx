@@ -5,13 +5,12 @@
 import { Button } from '@hyprsh/design'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { localDay, type UpcomingItem } from '../api/upcoming'
-import type { QueueItem } from '../api/queue'
 import { plural } from '../format'
 import { cx } from '../ui'
 import { gridDays, shiftMonth } from './MonthCalendar'
 import { SlotLegend } from '../ui/slotState'
 import { StatusDot } from './StatusMark'
-import { addDays, entryStatus, episodeCode, releaseName, upcomingKey, weekdayShort, type EntryStatus } from './state'
+import { addDays, episodeCode, releaseName, upcomingKey, weekdayShort, type EntryStatus } from './state'
 
 const PILLS = 3
 
@@ -30,7 +29,7 @@ export function MonthView({
   month,
   today,
   items,
-  queue,
+  statusOf,
   onMonth,
   onToday,
   onDay,
@@ -39,7 +38,7 @@ export function MonthView({
   month: string
   today: string
   items: readonly UpcomingItem[]
-  queue: readonly QueueItem[]
+  statusOf: (item: UpcomingItem) => EntryStatus
   onMonth: (month: string) => void
   onToday: () => void
   onDay: (day: string) => void
@@ -54,7 +53,7 @@ export function MonthView({
   }
   const inMonth = (day: string) => day.slice(0, 7) === month.slice(0, 7)
   const here = items.filter((i) => inMonth(localDay(i)))
-  const searching = here.filter((i) => entryStatus(i, queue).kind === 'searching').length
+  const searching = here.filter((i) => statusOf(i).kind === 'searching').length
   const title = new Date(`${month}T12:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   return (
     <section aria-label="Month" className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-auto px-8 py-6">
@@ -105,7 +104,7 @@ export function MonthView({
                 {n}
               </button>
               {all.slice(0, PILLS).map((item) => {
-                const status = entryStatus(item, queue)
+                const status = statusOf(item)
                 const { label, tip } = pillText(item, status)
                 return (
                   <button

@@ -1097,3 +1097,69 @@ describe('Overview: Coming this week and Recently added', () => {
     expect(await screen.findByText(/nothing has been imported yet/i)).toBeInTheDocument()
   })
 })
+
+describe('Upcoming: a big agenda is drawn in a window', () => {
+  // jsdom has no layout: the scroller is given a height, and scrolling it is a scrollTop that fires `scroll`.
+  const tall = () => {
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(800)
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1000)
+    // A day takes 58px for each of its rows, as the windowing estimates; everything else takes none.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.index ? 58 * Math.max(1, this.querySelectorAll('[data-nav]').length) : 0
+    })
+    // The list starts 100px down the scroller, wherever it is scrolled to.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const top = this.getAttribute('aria-label') === 'Agenda' ? 100 - (this.closest('.overflow-auto')?.scrollTop ?? 0) : 0
+      return { top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top, toJSON: () => ({}) }
+    })
+    const scrolled: number[] = []
+    Element.prototype.scrollTo = function (this: Element, opts?: ScrollToOptions | number) {
+      const top = typeof opts === 'object' ? (opts.top ?? 0) : 0
+      scrolled.push(top)
+      this.scrollTop = top
+      queueMicrotask(() => this.dispatchEvent(new Event('scroll'))) // a browser's scroll event is not synchronous either
+    } as typeof Element.prototype.scrollTo
+    return scrolled
+  }
+  afterEach(() => {
+    vi.restoreAllMocks()
+    // @ts-expect-error -- jsdom has no Element.scrollTo; the test gave it one
+    delete Element.prototype.scrollTo
+  })
+  // 2,000 entries, 27 on each of the 75 days from 14 back to 60 ahead.
+  const many = () => Array.from({ length: 2000 }, (_, k) => episode({ date: day((k % 75) - 14), title_id: 100 + k, title: `Show ${k}`, episode: 1 + (k % 9) }))
+  const mounted = () => document.querySelectorAll('[data-nav^="up-"]').length
+
+  it('draws well under every row of a 2,000-entry agenda on open', async () => {
+    tall()
+    fakeAgenda(many())
+    await openUpcoming()
+    await waitFor(() => expect(mounted()).toBeGreaterThan(0))
+    expect(mounted()).toBeLessThan(500)
+  })
+
+  it('scrolls to a day that is not drawn, and draws it', async () => {
+    const scrolled = tall()
+    fakeAgenda(many())
+    await openUpcoming()
+    await waitFor(() => expect(mounted()).toBeGreaterThan(0))
+    const far = day(8)
+    expect(timeline().querySelector(`[data-day="${far}"]`)).toBeNull()
+    const label = new Date(`${far}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    const calendar = within(await screen.findByRole('region', { name: 'Calendar' }))
+    await userEvent.click(calendar.getByRole('button', { name: new RegExp(`^${label}`) }))
+    await waitFor(() => expect(timeline().querySelector(`[data-day="${far}"]`)).not.toBeNull())
+    expect(scrolled.at(-1)).toBeGreaterThan(0)
+    expect(mounted()).toBeLessThan(500)
+  })
+
+  it('keeps the cursor on its row as j moves it past the days that are drawn', async () => {
+    tall()
+    fakeAgenda(many())
+    await openUpcoming()
+    await waitFor(() => expect(mounted()).toBeGreaterThan(0))
+    for (let i = 0; i < 60; i++) await userEvent.keyboard('j')
+    await waitFor(() => expect(current()).not.toBeNull())
+    expect(mounted()).toBeLessThan(500)
+  })
+})

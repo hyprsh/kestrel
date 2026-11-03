@@ -9,11 +9,13 @@ import { TitlePoster } from '../poster'
 import { cx } from '../ui'
 import { Markers } from './bits'
 import { useSlotNames } from '../library/slots'
-import { airTime, entryChips, entryStatus, episodeCode, movieWhen, releaseName } from './state'
+import { airTime, entryChips, episodeCode, movieWhen, releaseName, type EntryStatus } from './state'
 
 type RowProps = {
   item: UpcomingItem
   queue: readonly QueueItem[]
+  /** Where the entry stands, worked out once for this queue. */
+  status: EntryStatus
   today: string
   now: number
   /** The j/k cursor is on this row. */
@@ -32,8 +34,7 @@ function whenLine(item: UpcomingItem, today: string, now: number): string {
   return [at ? `${aired ? 'Aired ' : ''}${at}` : null, item.network].filter(Boolean).join(' · ')
 }
 
-export function AgendaRow({ item, queue, today, now, current, index, onOpen, onSearch, compact }: RowProps) {
-  const status = entryStatus(item, queue)
+export function AgendaRow({ item, queue, status, today, now, current, index, onOpen, onSearch, compact }: RowProps) {
   const names = useSlotNames()
   const code = item.kind === 'series' ? episodeCode(item.season!, item.episode!) : null
   const what = item.kind === 'series' ? [code, item.episode_name].filter(Boolean).join(' · ') : item.release_type ? releaseName[item.release_type] : ''

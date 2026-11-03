@@ -25,8 +25,12 @@ export function dayString(plusDays = 0, now = new Date()): string {
  */
 export function localDay(item: Pick<UpcomingItem, 'date' | 'air_at'>): string {
   if (!item.air_at) return item.date
-  return dayString(0, new Date(item.air_at))
+  // Asked for in sorts and groupings of thousands of entries, and an entry does not change: worked out once.
+  let day = localDays.get(item)
+  if (day === undefined) localDays.set(item, (day = dayString(0, new Date(item.air_at))))
+  return day
 }
+const localDays = new WeakMap<object, string>()
 
 // The added fields are optional in the spec, so an older answer still reads: with nothing known.
 const filled = (i: RawItem): UpcomingItem => ({
