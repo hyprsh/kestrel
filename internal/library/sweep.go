@@ -102,38 +102,106 @@ func optTime(n sql.NullString) *time.Time {
 // sweepRows reads every search_state row of a monitored Title and works out, at
 // now, whether it is Wanted and since when. Unmonitored Titles get no rows.
 func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, error) {
+	return s.sweepRowsOf(ctx, now, nil)
+}
+
+// sweepData is what sweepRowsOf works from: the rows of the tables, of every Title or only of some.
+type sweepData struct {
+	states     []db.SearchState
+	titles     []db.Title
+	versions   []db.Version
+	files      []db.File
+	dates      []db.TitleReleaseDate
+	eps        []db.Episode
+	fileEps    []fileEp
+	firstFiled []db.ListFirstFiledRow
+}
+
+// readSweepData reads the tables for the Titles `only` (every Title when nil), so a Title page or a list of Wanted rows does
+// not read the whole Library. The scoped queries have the unscoped ones' columns and order.
+func readSweepData(ctx context.Context, q *db.Queries, only []int64) (d sweepData, err error) {
+	if only != nil {
+		if len(only) == 0 {
+			return d, nil
+		}
+		if d.states, err = q.ListSearchStatesOfTitles(ctx, only); err != nil || len(d.states) == 0 {
+			return d, err
+		}
+		if d.titles, err = q.ListTitlesByIDs(ctx, only); err != nil {
+			return d, err
+		}
+		if d.versions, err = q.ListVersionsOfTitles(ctx, only); err != nil {
+			return d, err
+		}
+		fs, err := q.ListFilesOfTitles(ctx, only)
+		if err != nil {
+			return d, err
+		}
+		for _, f := range fs {
+			d.files = append(d.files, db.File(f))
+		}
+		if d.dates, err = q.ListReleaseDatesOfTitles(ctx, only); err != nil {
+			return d, err
+		}
+		if d.eps, err = q.ListEpisodesOfTitles(ctx, only); err != nil {
+			return d, err
+		}
+		fe, err := q.ListFileEpisodesOfTitles(ctx, only)
+		if err != nil {
+			return d, err
+		}
+		for _, r := range fe {
+			d.fileEps = append(d.fileEps, fileEp{r.VersionID, r.EpisodeID, r.Score})
+		}
+		ff, err := q.ListFirstFiledOfTitles(ctx, only)
+		if err != nil {
+			return d, err
+		}
+		for _, r := range ff {
+			d.firstFiled = append(d.firstFiled, db.ListFirstFiledRow(r))
+		}
+		return d, nil
+	}
+	if d.states, err = q.ListSearchStates(ctx); err != nil || len(d.states) == 0 {
+		return d, err
+	}
+	if d.titles, err = q.ListTitles(ctx); err != nil {
+		return d, err
+	}
+	if d.versions, err = q.ListVersions(ctx); err != nil {
+		return d, err
+	}
+	if d.files, err = q.ListFiles(ctx); err != nil {
+		return d, err
+	}
+	if d.dates, err = q.ListAllReleaseDates(ctx); err != nil {
+		return d, err
+	}
+	if d.eps, err = q.ListEpisodes(ctx); err != nil {
+		return d, err
+	}
+	fe, err := q.ListFileEpisodes(ctx)
+	if err != nil {
+		return d, err
+	}
+	for _, r := range fe {
+		d.fileEps = append(d.fileEps, fileEp{r.VersionID, r.EpisodeID, r.Score})
+	}
+	d.firstFiled, err = q.ListFirstFiled(ctx)
+	return d, err
+}
+
+// sweepRowsOf is sweepRows for the monitored Titles among `only`, or for every Title when `only` is nil.
+func (s *Service) sweepRowsOf(ctx context.Context, now time.Time, only []int64) ([]sweepRow, error) {
 	q := db.New(s.st.Read())
-	states, err := q.ListSearchStates(ctx)
+	d, err := readSweepData(ctx, q, only)
 	if err != nil {
 		return nil, err
 	}
-	if len(states) == 0 {
+	if len(d.states) == 0 {
 		return nil, nil
 	}
-	titles, err := q.ListTitles(ctx)
-	if err != nil {
-		return nil, err
-	}
-	versions, err := q.ListVersions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	files, err := q.ListFiles(ctx)
-	if err != nil {
-		return nil, err
-	}
-	dates, err := q.ListAllReleaseDates(ctx)
-	if err != nil {
-		return nil, err
-	}
-	allEps, err := q.ListEpisodes(ctx)
-	if err != nil {
-		return nil, err
-	}
-	fileEps, err := q.ListFileEpisodes(ctx)
-	if err != nil {
-		return nil, err
-	}
+	states, titles, versions, files, dates, allEps := d.states, d.titles, d.versions, d.files, d.dates, d.eps
 	misfits, err := misfitSet(ctx, q)
 	if err != nil {
 		return nil, err
@@ -163,16 +231,8 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 	for _, e := range allEps {
 		epsOf[e.TitleID] = append(epsOf[e.TitleID], e)
 	}
-	var fe []fileEp
-	for _, r := range fileEps {
-		fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
-	}
-	heldBy := heldOf(fe)
-	firstFiled, err := q.ListFirstFiled(ctx)
-	if err != nil {
-		return nil, err
-	}
-	filed := filedOf(firstFiled)
+	heldBy := heldOf(d.fileEps)
+	filed := filedOf(d.firstFiled)
 	releasedBy := map[int64]map[int64]*time.Time{} // per Title: releasedOf over all its episodes
 
 	var out []sweepRow
