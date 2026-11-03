@@ -34,6 +34,10 @@ SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title
   air_time, air_timezone, monitor_new_seasons, monitor_specials
 FROM titles ORDER BY added_at DESC, id DESC;
 
+-- The Titles with a monitored season: a Series counts as monitored by that too.
+-- name: ListTitlesWithMonitoredSeason :many
+SELECT DISTINCT title_id FROM seasons WHERE monitored = 1;
+
 -- name: ListEpisodesForList :many
 SELECT id, title_id, season, number, tvdb_id, '' AS name, air_date, monitored, '' AS primary_name, placeholder_at, '' AS overview
 FROM episodes ORDER BY title_id, season, number;

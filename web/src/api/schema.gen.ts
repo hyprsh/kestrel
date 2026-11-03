@@ -3806,7 +3806,7 @@ export interface components {
             year: number | null;
             /** @description Whether `GET /titles/{id}/poster` has an image. */
             has_poster: boolean;
-            /** @description A Movie's flag; a Series is monitored unless its `series_monitor` is `none`. */
+            /** @description A Movie's flag; a Series is monitored when its `series_monitor` is not `none` or any of its seasons is monitored. */
             monitored: boolean;
             /** @description The Slots the Title has a Version in, in Slot order, each with its Version's state. A Movie's file is on its `GET /titles/{id}`, not here. */
             slot_states: components["schemas"]["SlotStateEntry"][];

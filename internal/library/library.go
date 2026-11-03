@@ -142,7 +142,7 @@ type Row struct {
 	SearchedAt *time.Time
 	// WantedEpisodes counts a Series' Wanted episodes; nil for a Movie.
 	WantedEpisodes *WantedEpisodes
-	// Monitored is a Movie's flag, or for a Series whether its mode is not none.
+	// Monitored is a Movie's flag, or for a Series whether its mode is not none or any season is monitored.
 	Monitored bool
 
 	originalTitle string // for the filter's text
@@ -490,7 +490,7 @@ const listFreshness = time.Minute
 
 // listTables are the tables buildList reads, so the only ones whose commits drop the kept list. A test holds this to the
 // queries buildList runs: add a table here when a query starts reading it.
-var listTables = []string{"titles", "episodes", "versions", "files", "title_release_dates", "file_episodes", "file_misfits", "search_state"}
+var listTables = []string{"titles", "episodes", "versions", "files", "title_release_dates", "file_episodes", "file_misfits", "search_state", "seasons"}
 
 // List returns the Library's Titles, newest first, as compact rows. Building every row reads the Library's tables, which
 // costs most of a second at thousands of Titles, so the unfiltered list is kept until something is committed to one of
@@ -590,6 +590,14 @@ func (s *Service) buildList(ctx context.Context, view View, conn db.DBTX) ([]Row
 	if err != nil {
 		return nil, err
 	}
+	seasonTitles, err := q.ListTitlesWithMonitoredSeason(ctx)
+	if err != nil {
+		return nil, err
+	}
+	monitoredSeason := map[int64]bool{}
+	for _, id := range seasonTitles {
+		monitoredSeason[id] = true
+	}
 	episodeRows, err := q.ListEpisodesForList(ctx)
 	if err != nil {
 		return nil, err
@@ -646,7 +654,7 @@ func (s *Service) buildList(ctx context.Context, view View, conn db.DBTX) ([]Row
 	for _, t := range titles {
 		rel := releaseDatesOf(datesOf[t.ID])
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt),
-			Monitored: titleMonitored(t), originalTitle: t.OriginalTitle}
+			Monitored: titleMonitored(t, monitoredSeason[t.ID]), originalTitle: t.OriginalTitle}
 		var released map[int64]*time.Time
 		var wantedEps map[int64]bool // Wanted episodes, true when Long Missing in any Version
 		if row.Kind == Series {
@@ -796,9 +804,12 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		if err != nil {
 			return Detail{}, err
 		}
+		seasonMonitored := false
 		for _, se := range seasons {
 			d.Seasons = append(d.Seasons, Season{Number: int(se.Number), Monitored: se.Monitored == 1})
+			seasonMonitored = seasonMonitored || se.Monitored == 1
 		}
+		d.Monitored = titleMonitored(t, seasonMonitored)
 		if epsOf, err = q.ListEpisodesOfTitle(ctx, id); err != nil {
 			return Detail{}, err
 		}
@@ -851,10 +862,11 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 	return d, nil
 }
 
-// titleMonitored is whether a Title is monitored: a Movie by its flag, a Series by its mode not being none.
-func titleMonitored(t db.Title) bool {
+// titleMonitored is whether a Title is monitored: a Movie by its flag, a Series by its mode not being none or by any of
+// its seasons being monitored (seasonMonitored), as a Request leaves it.
+func titleMonitored(t db.Title, seasonMonitored bool) bool {
 	if Kind(t.Kind) == Series {
-		return Monitor(t.SeriesMonitor.String) != MonitorNone
+		return Monitor(t.SeriesMonitor.String) != MonitorNone || seasonMonitored
 	}
 	return t.Monitored == 1
 }

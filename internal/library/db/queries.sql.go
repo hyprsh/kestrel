@@ -1944,6 +1944,34 @@ func (q *Queries) ListTitlesForList(ctx context.Context) ([]ListTitlesForListRow
 	return items, nil
 }
 
+const listTitlesWithMonitoredSeason = `-- name: ListTitlesWithMonitoredSeason :many
+SELECT DISTINCT title_id FROM seasons WHERE monitored = 1
+`
+
+// The Titles with a monitored season: a Series counts as monitored by that too.
+func (q *Queries) ListTitlesWithMonitoredSeason(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesWithMonitoredSeason)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var title_id int64
+		if err := rows.Scan(&title_id); err != nil {
+			return nil, err
+		}
+		items = append(items, title_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVersions = `-- name: ListVersions :many
 SELECT id, title_id, slot, profile_key, added_at FROM versions ORDER BY title_id, id
 `
