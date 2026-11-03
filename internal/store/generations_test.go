@@ -109,6 +109,34 @@ func TestGenerationMovesOnCommitOfTransaction(t *testing.T) {
 	}
 }
 
+// SQLite runs the commit hook before the commit is visible. A reader that takes the generation in that gap and then
+// reads the old data must not be able to keep it: the generation after the commit has to differ from the one it took.
+func TestGenerationTakenBeforeACommitIsVisibleIsNotTheOneAfter(t *testing.T) {
+	s := mustOpen(t, t.TempDir(), 1)
+	ctx := context.Background()
+	stamp(t, s, "t1") // a first observation, as any running server has made
+
+	var during uint64
+	var seen int
+	s.BetweenHookAndVisible(func() {
+		during = stamp(t, s, "t1")
+		if err := s.Read().QueryRowContext(ctx, "SELECT count(*) FROM t1").Scan(&seen); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := s.Write().ExecContext(ctx, "INSERT INTO t1 (id) VALUES (1)"); err != nil {
+		t.Fatal(err)
+	}
+	s.BetweenHookAndVisible(nil)
+
+	if seen != 0 {
+		t.Fatalf("the reader saw %d rows inside the commit; the test no longer reproduces the gap", seen)
+	}
+	if after := stamp(t, s, "t1"); after == during {
+		t.Errorf("generation %d taken before the commit was visible is still current after it", during)
+	}
+}
+
 // A write the hooks never saw (another process) moves every generation.
 func TestGenerationMovesOnWriteFromOutside(t *testing.T) {
 	dir := t.TempDir()

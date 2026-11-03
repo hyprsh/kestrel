@@ -21,6 +21,9 @@ type generations struct {
 	epoch   uint64              // writes from outside, which touch every table
 	noted   uint64              // commits the hooks have seen
 
+	// betweenHookAndVisible runs in the commit hook, after the bump and before the commit is visible. Tests only.
+	betweenHookAndVisible func()
+
 	seen      bool
 	seenData  int64  // data_version at the last observation
 	seenNoted uint64 // noted at the last observation
@@ -38,8 +41,8 @@ func (g *generations) preUpdate(d sqlite.SQLitePreUpdateData) {
 
 func (g *generations) commit() int32 {
 	g.mu.Lock()
-	defer g.mu.Unlock()
 	if len(g.touched) == 0 { // a transaction that wrote nothing
+		g.mu.Unlock()
 		return 0
 	}
 	for t := range g.touched {
@@ -47,6 +50,14 @@ func (g *generations) commit() int32 {
 	}
 	clear(g.touched)
 	g.noted++
+	between := g.betweenHookAndVisible
+	g.mu.Unlock()
+	// SQLite runs this hook before the commit is visible to other connections. A reader that stamps its read with
+	// the bumped counters now builds on the old data; observe catches that, because data_version then moves later
+	// with no hooked commit to explain it, and the next stamp differs.
+	if between != nil {
+		between()
+	}
 	return 0 // let the commit go ahead
 }
 
