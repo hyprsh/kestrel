@@ -37,19 +37,19 @@ const grab = (over: Partial<QueueItem> = {}): QueueItem => ({
 describe('the state line of a Library row', () => {
   it('says how long a Long Missing Movie has been Wanted, in red', () => {
     const r = row(1, 'Shore', 'Shore', { slots: { standard: slot('wanted', true), '4k': null }, wanted_since: '2026-07-13T12:00:00Z' })
-    expect(stateLine(r, [], now)).toEqual({ text: 'Long Missing · Wanted for 96 days', tone: 'error' })
+    expect(stateLine(r, [], now)).toEqual({ text: 'Long Missing · Wanted for 96 days', tone: 'error', short: 'Long Missing · 96 d' })
     expect(posterBadge(r, [])).toEqual({ label: 'Long Missing', tone: 'error' })
   })
 
   it('says how long a Movie has been Wanted and when Kestrel last looked', () => {
     const r = row(1, 'Cranes', 'Cranes', { wanted_since: '2026-10-05T12:00:00Z', searched_at: '2026-10-01T12:00:00Z' })
-    expect(stateLine(r, [], now)).toEqual({ text: 'Wanted for 12 days · last searched 16 d ago', tone: 'warning' })
+    expect(stateLine(r, [], now)).toEqual({ text: 'Wanted for 12 days · last searched 16 d ago', tone: 'warning', short: 'Wanted · 12 d' })
   })
 
   it("follows a Movie's Grab with its Slot, progress and time left, and shows its dot downloading", () => {
     const r = row(1, 'Orbit', 'Orbit', { slots: { standard: slot('filled'), '4k': slot('wanted') } })
     const g = [grab({ slot: '4k' })]
-    expect(stateLine(r, g, now)).toEqual({ text: '4K downloading · 64% · 6 min left', tone: 'info' })
+    expect(stateLine(r, g, now)).toEqual({ text: '4K downloading · 64% · 6 min left', tone: 'info', short: '4K downloading · 64%' })
     expect(shownSlots(r, g).find((v) => v.slot === '4k')?.state).toBe('downloading')
     expect(posterBadge(r, g)).toEqual({ label: '64%', tone: 'info' })
     // An Upgrade leaves a filled dot filled.
@@ -59,17 +59,17 @@ describe('the state line of a Library row', () => {
   it("counts a Series' Wanted episodes by season, with those downloading", () => {
     const r = row(1, 'Harbour', 'Harbour', { kind: 'series', wanted_episodes: { wanted: 3, long_missing: 0, seasons: [2] } })
     const g = [grab({ kind: 'series', episodes: ['S02E04'] })]
-    expect(stateLine(r, g, now)).toEqual({ text: 'S02: 3 Wanted, 1 downloading', tone: 'warning' })
+    expect(stateLine(r, g, now)).toEqual({ text: 'S02: 3 Wanted, 1 downloading', tone: 'warning', short: 'S02: 3 Wanted · 1 \u2193' })
     const long = row(2, 'Lantern', 'Lantern', { kind: 'series', wanted_episodes: { wanted: 6, long_missing: 2, seasons: [1, 2, 3, 4] } })
-    expect(stateLine(long, [], now)).toEqual({ text: 'Long Missing · 4 seasons: 6 Wanted', tone: 'error' })
+    expect(stateLine(long, [], now)).toEqual({ text: 'Long Missing · 4 seasons: 6 Wanted', tone: 'error', short: 'Long Missing · 6 Wanted' })
   })
 
   it("counts the episodes of a season pack's run as downloading, but never more than are Wanted", () => {
     const r = row(1, 'Harbour', 'Harbour', { kind: 'series', wanted_episodes: { wanted: 6, long_missing: 0, seasons: [5] } })
     const pack = [grab({ kind: 'series', episodes: ['S05E01-E16'], is_upgrade: true })]
-    expect(stateLine(r, pack, now)).toEqual({ text: 'S05: 6 Wanted, 6 downloading', tone: 'warning' })
+    expect(stateLine(r, pack, now)).toEqual({ text: 'S05: 6 Wanted, 6 downloading', tone: 'warning', short: 'S05: 6 Wanted · 6 \u2193' })
     const run = [grab({ kind: 'series', episodes: ['S05E09-E10'] })]
-    expect(stateLine(r, run, now)).toEqual({ text: 'S05: 6 Wanted, 2 downloading', tone: 'warning' })
+    expect(stateLine(r, run, now)).toEqual({ text: 'S05: 6 Wanted, 2 downloading', tone: 'warning', short: 'S05: 6 Wanted · 2 \u2193' })
   })
 
   it('names the episodes a Series Grab brings when nothing else is Wanted', () => {
@@ -94,5 +94,15 @@ describe('the state line of a Library row', () => {
     const on = row(2, 'Glass', 'Glass', { monitored: true, slots, wanted_since: null })
     expect(stateLine(on, [], now).text).toBe('Not out yet')
     expect(shownSlots(on, []).map((v) => v.state)).toEqual(['unreleased'])
+  })
+
+  it('has a short form for the width a row may lack, and the full text to fall back on', () => {
+    const up = row(1, 'Heat', 'Heat', { slots: { standard: slot('filled'), '4k': slot('filled') }, wanted_since: null })
+    up.slot_states[1] = { ...up.slot_states[1], upgrade_wanted: true }
+    expect(stateLine(up, [], now)).toMatchObject({ text: '4K Upgrade wanted · below cutoff', short: '4K Upgrade wanted' })
+    const w = row(2, 'Cranes', 'Cranes', { wanted_since: null })
+    expect(stateLine(w, [], now).short).toBe('Wanted')
+    // Holding lines have no short form: they are what the Title is, not a count to shorten.
+    expect(stateLine(row(3, 'Static', 'Static', { slots: { standard: slot('filled'), '4k': null }, wanted_since: null }), [], now).short).toBeUndefined()
   })
 })

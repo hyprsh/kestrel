@@ -66,6 +66,17 @@ describe('the Library list', () => {
     expect(screen.getByText('4 of 4 · 8 GB')).toBeInTheDocument()
   })
 
+  it('cuts a long name before its year, so the year always shows', async () => {
+    fakeLibrary([row(1, 'Summer Lantern Awakens Beyond The Quiet Harbour', 'Summer Lantern Awakens Beyond The Quiet Harbour', { year: 2024 })])
+    const list = await openLibrary()
+    const option = await within(list).findByRole('option', { name: /summer lantern/i })
+    const name = option.querySelector('[data-title]')!
+    const year = within(option as HTMLElement).getByText('2024')
+    // The year is its own element beside the name (the one the row cuts), never inside it.
+    expect(name.contains(year)).toBe(false)
+    expect(name.parentElement).toBe(year.parentElement)
+  })
+
   it('shows a tick box on every row, out of the Tab order', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
