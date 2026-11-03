@@ -80,16 +80,12 @@ describe('the Search button on the Title page', () => {
     const sent = recordSearches()
     const pane = await openPane(/paddington/i)
 
-    await userEvent.click(await within(pane).findByRole('button', { name: 'Search Now' }))
-    await waitFor(() => expect(sent).toHaveLength(1))
-    await openVersionMenu(pane, 'Standard')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Search Now' }))
-    await waitFor(() =>
-      expect(sent).toEqual([
-        { path: 'search', version: 11, body: null },
-        { path: 'search', version: 11, body: null },
-      ]),
-    )
+    // The row's main action, on its closed header; the menu below it holds the rest.
+    const versions = within(await within(pane).findByRole('region', { name: 'Versions' }))
+    await userEvent.click(await versions.findByRole('button', { name: 'Search Now' }))
+    await waitFor(() => expect(sent).toEqual([{ path: 'search', version: 11, body: null }]))
+    const menu = await openVersionMenu(pane, 'Standard')
+    expect(within(menu).queryByRole('menuitem', { name: 'Search Now' })).not.toBeInTheDocument()
   })
 
   it('cannot search a Title that wants nothing, but still offers a manual search', async () => {

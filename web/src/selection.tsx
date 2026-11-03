@@ -19,6 +19,8 @@ export type Selection = {
   toggle: (id: number, opts?: { range?: boolean }) => void
   /** Checks every id the list shows. */
   checkAll: () => void
+  /** Checks exactly these ids (ones the list shows) and nothing else. */
+  checkIds: (ids: number[]) => void
   /** Checks every row of the filter, the pages not loaded included (a list that pages passes `total`). */
   checkMatching: () => void
   clear: () => void
@@ -84,6 +86,11 @@ export function useSelection(ids: number[], total?: number): Selection {
     setNarrowed(false)
     setStored(new Set(latest.current.ids))
   }, [])
+  const checkIds = useCallback((checkedIds: number[]) => {
+    setEvery(false)
+    setNarrowed(false)
+    setStored(new Set(checkedIds))
+  }, [])
   const checkMatching = useCallback(() => {
     setEvery(true)
     setNarrowed(false)
@@ -109,6 +116,7 @@ export function useSelection(ids: number[], total?: number): Selection {
     has: (id) => all || stored.has(id),
     toggle,
     checkAll,
+    checkIds,
     checkMatching,
     clear,
     active: on || checked.length > 0,

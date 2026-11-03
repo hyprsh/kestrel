@@ -2,14 +2,14 @@
 // season (its ⋯ menu) or the ticked episodes (the bar); monitoring by the bookmark toggles and the bar's Monitor and Stop
 // Monitoring; Manual search, Show in Log and Delete files (DeleteFiles.tsx) in the ⋯ menus of an opened row, the season and the bar.
 import { ActionBar, Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem, termText } from '@hyprsh/design'
-import { ArrowUpCircle, ListChecks, ListFilter, ScrollText, Search, type LucideIcon } from 'lucide-react'
+import { ArrowUpCircle, Bookmark, BookmarkCheck, ListChecks, ListFilter, ScrollText, Search, type LucideIcon } from 'lucide-react'
 import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useMonitorEpisodes, usePatchSeason, useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
 import { placePath, useOpenPlace } from '../place'
-import { usePhone } from '../responsive'
 import { useSelection, type Selection } from '../selection'
 import { useReport } from '../toasts'
+import { RowActions } from './accordion'
 import { DeleteMenuItems, EpisodeDeleteConfirm, useEpisodeDeletes, type EpisodeDeletes } from './DeleteFiles'
 import { episodeCode, episodeRow, seasonName, seasonRow, type EpisodeVersion } from './episodes'
 import { IconAction } from './IconAction'
@@ -317,63 +317,41 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
   )
 }
 
-/** Search season: the button of an open season's tools, Search now for what is Wanted in it. */
-export function SeasonSearchButton({ actions, season, episodes }: { actions: Pick<EpisodeActions, 'versions' | 'search'>; season: number; episodes: Episode[] }) {
-  const wanted = wantedIn(episodes, actions.versions)
-  return (
-    <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, seasonName(season), () => ({ season }))}>
-      Search Season
-    </Button>
-  )
-}
-
 /**
- * The ⋯ menu of a season row: Search Season (its Wanted episodes), Manual Search Season… and Delete the season's files
- * (monitoring is the season's bookmark). `onOpenChange` tells the row when the menu opens and closes, so the row can show whose menu it is.
+ * A season row's actions: Search Season (its Wanted episodes) as the main action, and in the ⋯ menu Manual Search Season… per Slot,
+ * Select All of the season (it opens the season, `onSelectAll`), Monitor or Stop Monitoring it and the delete items of its files.
  */
-export function SeasonMenu({
+export function SeasonActions({
   actions,
   season,
   episodes,
-  onOpenChange,
-  label,
+  monitored,
+  phone,
+  onSelectAll,
 }: {
   actions: EpisodeActions
   season: number
   episodes: Episode[]
-  onOpenChange?: (open: boolean) => void
-  /** The open season's header names the menu "Season actions" and draws it at the toolbar's size, not the row's. */
-  label?: string
+  monitored: boolean
+  phone: boolean
+  onSelectAll: () => void
 }) {
-  const { versions } = actions
+  const { versions, selection } = actions
   const name = seasonName(season)
   const wanted = wantedIn(episodes, versions)
-  const phone = usePhone()
-  const { selection } = actions
   const all = episodes.length > 0 && episodes.every((e) => selection.has(e.id))
   return (
-    <DotsMenu aria-label={label ?? `Actions for ${name}`} size={label ? 'small' : 'tiny'} iconSize={label ? undefined : 12} onOpenChange={onOpenChange} width={260}>
-      <MenuItem
-        prefix={<Search aria-hidden className="size-4" />}
-        disabled={!wanted}
-        description={wanted ? undefined : nothingWanted}
-        onSelect={() => actions.search(episodes, name, () => ({ season }))}
-      >
-        Search Season
-      </MenuItem>
+    <RowActions name={name} phone={phone} action={{ label: 'Search Season', onSelect: () => actions.search(episodes, name, () => ({ season })), disabled: !wanted, reason: nothingWanted }}>
       <ManualItems versions={versions} text="Manual Search Season" onPick={(v) => actions.manual(v, { season }, name)} />
-      {/* A phone's episode table has no header row for the tick-all box: it is here. */}
-      {phone && label && (
-        <>
-          <MenuDivider />
-          <MenuItem prefix={<ListChecks aria-hidden className="size-4" />} disabled={episodes.length === 0} onSelect={() => (all ? selection.clear() : selection.checkAll())}>
-            {all ? `Deselect All of ${name}` : `Select All of ${name}`}
-          </MenuItem>
-        </>
-      )}
+      <MenuItem prefix={<ListChecks aria-hidden className="size-4" />} disabled={episodes.length === 0} onSelect={() => (all ? selection.clear() : onSelectAll())}>
+        {all ? `Deselect All of ${name}` : `Select All of ${name}`}
+      </MenuItem>
+      <MenuItem prefix={monitored ? <Bookmark aria-hidden className="size-4" /> : <BookmarkCheck aria-hidden className="size-4" />} onSelect={() => actions.monitorSeason(season, !monitored)}>
+        {monitored ? `Stop Monitoring ${name}` : `Monitor ${name}`}
+      </MenuItem>
       <MenuDivider />
       <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={episodes} label={name} scope={{ season }} text="Season's Files" at={seasonRow(season)} />
-    </DotsMenu>
+    </RowActions>
   )
 }
 

@@ -2,7 +2,9 @@
 // The accordion the Title page uses for a Series' seasons and a Movie's Slots: a bordered list of rows, each a row that opens
 // its body in place. A closed or open row is one 48 px line (`lineRow`; a phone gets the two-line `phoneRow`) with a click
 // overlay (the whole row toggles) under its own controls, so a bookmark or a chip inside it stays a real button of its own.
-// The cells the three accordions share sit here: the name with its tag, the state text, the fixed 120 px bar, the count and the size.
+// The cells the three accordions share sit here: the name with its tag, the state text, the fixed 120 px bar, the count and the size,
+// and the row's actions (`RowActions`): a text Button with the row's main action and a ⋯ menu, or on a phone the menu alone.
+import { Button, DotsMenu, MenuDivider, MenuItem } from '@hyprsh/design'
 import { ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { plural } from '../format'
@@ -33,6 +35,7 @@ export function AccordionRow({
   open,
   onToggle,
   header,
+  below,
   body,
   rowClass,
   marked,
@@ -44,6 +47,8 @@ export function AccordionRow({
   open: boolean
   onToggle: () => void
   header: ReactNode
+  /** What shows right under the header whether the row is open or not (an inline confirmation of an action from the header). */
+  below?: ReactNode
   body?: ReactNode
   /** The header's layout: `lineRow` on a wide screen, `phoneRow` on a phone. */
   rowClass: string
@@ -72,6 +77,7 @@ export function AccordionRow({
         />
         {header}
       </div>
+      {below}
       {open && body}
     </div>
   )
@@ -81,6 +87,43 @@ export function AccordionRow({
 export const lineRow = 'flex h-12'
 /** A row on a phone: the name and size on a line, the state text, bar and count under it. */
 export const phoneRow = 'grid min-h-14 grid-cols-[16px_minmax(0,1fr)_auto] py-2.5'
+
+/** A row's main action: the text of its Button on a wide screen, and the first item of its menu on a phone. */
+export type RowAction = { label: string; onSelect: () => void; disabled?: boolean; /** Why it is disabled. */ reason?: string }
+
+/**
+ * A row's actions at the end of its header, siblings of the toggle button (`relative` lifts them above its overlay): on a wide
+ * screen a small secondary Button with `action` in a fixed column, then the ⋯ menu ('<name> Actions') holding `children`; on
+ * a phone only the menu, whose first item is `action`.
+ */
+export function RowActions({ name, phone, action, children }: { name: string; phone: boolean; action?: RowAction; children?: ReactNode }) {
+  const menu = (
+    <DotsMenu aria-label={`${name} Actions`} size="small" width={260}>
+      {phone && action && (
+        <>
+          <MenuItem disabled={action.disabled} description={action.disabled ? action.reason : undefined} onSelect={action.onSelect}>
+            {action.label}
+          </MenuItem>
+          <MenuDivider />
+        </>
+      )}
+      {children}
+    </DotsMenu>
+  )
+  if (phone) return <span className="relative flex">{menu}</span>
+  return (
+    <span className="relative flex shrink-0 items-center gap-1">
+      <span className="flex w-40 justify-end">
+        {action && (
+          <Button variant="secondary" size="small" disabled={action.disabled} title={action.disabled ? action.reason : undefined} onClick={action.onSelect}>
+            {action.label}
+          </Button>
+        )}
+      </span>
+      {menu}
+    </span>
+  )
+}
 
 /** A row's name with what goes beside it: a Profile as a small mono tag, or a season's meta as plain text. */
 export function RowName({ name, tag, meta, dim }: { name: string; tag?: string; meta?: string; dim?: boolean }) {

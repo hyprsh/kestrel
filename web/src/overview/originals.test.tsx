@@ -184,7 +184,8 @@ describe('the Original Offer indicator on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    await within(pane).findByRole('listitem', { name: 'Standard' })
+    const item = await within(pane).findByRole('listitem', { name: 'Standard' })
+    await userEvent.click(within(item).getByRole('button', { name: /^Standard:/ })) // every row starts closed
     return pane
   }
 

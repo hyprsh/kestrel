@@ -175,7 +175,7 @@ describe('the episode list', () => {
   it('is operated from the keyboard: j/k and the arrows move rows, left and right move between chips, Space ticks, Enter opens a chip', async () => {
     const { grid } = await openSeries()
     // The controls above the list have their own tab stops: start at the last one before it.
-    await act(async () => screen.getByRole('button', { name: 'Season 1 actions' }).focus())
+    await act(async () => screen.getByRole('button', { name: 'Season 1 Actions' }).focus())
     await userEvent.tab() // the list's one tab stop: its first row
     const pilot = within(grid).getByRole('row', { name: /Pilot/ })
     expect(pilot).toHaveFocus()

@@ -1,8 +1,9 @@
 // chrome: domain-visual
 // A Series' Versions as an accordion of Slots above its Seasons, the Movie's accordion (MovieSection.tsx) with a Series' facts: a
-// row is one line saying the Slot and its Profile, its state, a bar of its episodes, their count and the size on disk; an open
-// one adds the Version's facts and its actions. VersionMenu, at the foot of this file, is the "More…" menu both accordions share.
-import { Button, DotsMenu, Menu, MenuDivider, MenuItem, Progress } from '@hyprsh/design'
+// row is one line saying the Slot and its Profile, its state, a bar of its episodes, their count and the size on disk, then its
+// actions (VersionRowActions, at the foot of this file, which both accordions share); an open one adds the Version's facts.
+import { Button, MenuDivider, MenuItem, Progress, termText } from '@hyprsh/design'
+import { ScrollText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
 import { useRemoveVersion, useSwitchProfile } from '../api/versions'
@@ -14,9 +15,26 @@ import { ago, span, useNow } from '../time'
 import { useReport } from '../toasts'
 import { barColor, chipColumn, StateBar } from './StateBar'
 import { size } from './bits'
-import { AccordionList, AccordionRow, BarCell, bodyWrap, Chevron, Count, CountCell, days, Fact, factsGrid, lineRow, phoneRow, RowName, SizeCell, StandingText } from './accordion'
+import {
+  AccordionList,
+  AccordionRow,
+  BarCell,
+  RowActions,
+  type RowAction,
+  bodyWrap,
+  Chevron,
+  Count,
+  CountCell,
+  days,
+  Fact,
+  factsGrid,
+  lineRow,
+  phoneRow,
+  RowName,
+  SizeCell,
+  StandingText,
+} from './accordion'
 import { codeRuns, expandCodes } from './cellDetail'
-import { DeleteFile } from './DeleteFiles'
 import { useEpisodeView } from './episodeView'
 import { importedOn } from './EpisodeFilePopover'
 import { AddVersion, ProfilePicker, RemoveConfirm } from './ManageVersion'
@@ -24,7 +42,6 @@ import { OriginalOfferNote } from './OriginalOfferNote'
 import { slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
-import { VersionActions } from './VersionActions'
 import { useSearchVersion } from './VersionSearch'
 import { WantedLine } from './WantedLine'
 
@@ -91,8 +108,7 @@ function GrabLine({ grab: g, slotName, now, onActivity }: { grab: QueueItem; slo
 
 /**
  * A Series' Versions block: an accordion of its Slots (Slots with no Version are not drawn; "Add a Slot" adds one while one is
- * free). All rows are closed so the Seasons stay near the top, except that a lone Slot with something Wanted or downloading opens
- * itself; `?slot=` opens and rings a row.
+ * free). All rows start closed so the Seasons stay near the top; `?slot=` opens and rings a row.
  */
 export function VersionRows({ title, profiles, profileName, onManualSearch }: Props) {
   const downloads = useTitleDownloads(title.id)
@@ -100,11 +116,7 @@ export function VersionRows({ title, profiles, profileName, onManualSearch }: Pr
   const slots = useSlotNames()
   const versions = title.kind === 'series' ? slotsOf(title, slots).flatMap((s) => title.versions.filter((v) => v.slot === s.key)) : []
   const at = useEpisodeView(title.id).slot
-  const [open, setOpen] = useState<Set<string>>(() => {
-    if (at) return new Set([at])
-    const only = versions.length === 1 ? versions[0] : null
-    return new Set(only && (downloads.slot(only.slot) || only.state === 'wanted') ? [only.slot] : [])
-  })
+  const [open, setOpen] = useState<Set<string>>(() => new Set(at ? [at] : []))
   useEffect(() => {
     if (!at) return
     setOpen((o) => (o.has(at) ? o : new Set(o).add(at)))
@@ -164,6 +176,7 @@ function SlotRow({
   // is mono text (the Slot's name and state are already on the row), so a Version has no chip; the facts below add the detail.
   const count = c && released > 0 ? `${c.filled}/${released}` : ''
   const bar = <CoverageBar v={v} />
+  const actions = <VersionRowActions {...rest} version={v} downloads={downloads} phone={phone} />
   return (
     <AccordionRow
       id={`version-${v.slot}`}
@@ -179,7 +192,10 @@ function SlotRow({
           {phone ? (
             <>
               <RowName name={name} tag={rest.profileName(v.profile)} />
-              <SizeCell text={sizeText} />
+              <span className="flex items-center gap-1">
+                <SizeCell text={sizeText} />
+                {actions}
+              </span>
               <span className="pointer-events-none col-start-2 col-end-4 mt-1 flex min-w-0 items-center gap-2">
                 <StandingText text={line.text} tone={line.tone} className="flex-1" />
                 <BarCell className="w-24">{bar}</BarCell>
@@ -193,6 +209,7 @@ function SlotRow({
               <BarCell>{bar}</BarCell>
               <CountCell>{count && <Count text={count} tip={said} />}</CountCell>
               <SizeCell text={sizeText} />
+              {actions}
             </>
           )}
         </>
@@ -202,7 +219,7 @@ function SlotRow({
   )
 }
 
-function SlotBody({ title, profiles, profileName, onManualSearch, version: v, downloads, now }: Props & { version: Version; downloads: SlotDownloads | null; now: number }) {
+function SlotBody({ title, profileName, onManualSearch, version: v, downloads, now }: Props & { version: Version; downloads: SlotDownloads | null; now: number }) {
   const openPlace = useOpenPlace()
   const slotName = useSlotNames().name(v.slot)
   const search = useSearchVersion(title, v.id)
@@ -239,96 +256,97 @@ function SlotBody({ title, profiles, profileName, onManualSearch, version: v, do
           </Fact>
         )}
       </div>
-      <VersionActions
-        primary={
-          <Button variant="default" size="small" disabled={unmonitored(title) || search.pending || !(c ? c.wanted > 0 : wanted)} onClick={search.run}>
-            Search Wanted
-          </Button>
-        }
-        secondary={
-          <Button variant="tertiary" size="small" onClick={manual}>
-            Manual Search
-          </Button>
-        }
-        more={<VersionMenu {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads} onWhy={() => setWhyOpen(true)} more />}
-      />
     </div>
   )
 }
 
 /**
- * A Version's "…" menu and what its items open: Search now, Manual search, Change Profile, Why Is It Wanted? while it is Wanted,
- * Cancel Download while it downloads, Delete files (a Movie's file) and Remove Version. Nothing here is the Version's one next action; that sits beside it.
+ * A Version's main action, the one text Button of its row (the first item of the menu on a phone): Open in Activity while a Movie
+ * downloads, or a Series with nothing else to search; Search Now while something is Wanted; else Search for Upgrade where there is a
+ * file, and Search Now where there is not (disabled while the Title is not monitored).
  */
-export function VersionMenu({
+function useVersionAction(title: TitleDetail, v: Version, downloads: SlotDownloads | null): RowAction {
+  const openPlace = useOpenPlace()
+  const search = useSearchVersion(title, v.id)
+  const off = unmonitored(title)
+  const c = v.coverage
+  const movie = title.kind === 'movie'
+  const left = c ? c.wanted - (downloads ? c.downloading : 0) > 0 : v.state === 'wanted'
+  const activity = downloads && (movie || !left)
+  const upgrade = !activity && !left && (movie ? !!v.file || v.state === 'filled' : !!c && c.filled > 0)
+  if (activity) return { label: 'Open in Activity', onSelect: () => openPlace(placePath('activity')) }
+  return {
+    label: upgrade ? 'Search for Upgrade' : 'Search Now',
+    onSelect: search.run,
+    disabled: off || search.pending,
+    reason: off ? 'Not monitored: turn monitoring on to search' : undefined,
+  }
+}
+
+/**
+ * A Version row's actions, at the end of its header: its main action as a text Button (the menu's first item on a phone) and the
+ * ⋯ menu "<Slot> Actions" with Manual Search…, Switch Profile…, Show in Log, Cancel Download while it downloads, Delete Files…
+ * (a Movie's file) and Remove Version…, and what each opens.
+ */
+export function VersionRowActions({
   title,
   version: v,
   profiles,
   profileName,
   onManualSearch,
   downloads,
-  onWhy,
-  more,
-}: Props & { version: Version; downloads: SlotDownloads | null; onWhy?: () => void; /** Draws the menu's button as "More…" (a Movie's open Slot) instead of the ⋯ icon. */ more?: boolean }) {
+  phone,
+  onDeleteFiles,
+}: Props & {
+  version: Version
+  downloads: SlotDownloads | null
+  phone: boolean
+  /** A Movie's: asks to delete the file, whose confirmation the row shows under its header (DeleteFile). */ onDeleteFiles?: () => void
+}) {
   const sw = useSwitchProfile(v.id)
   const report = useReport()
   const rm = useRemoveVersion(v.id)
-  const search = useSearchVersion(title, v.id)
   const cancel = useCancelDownloads()
-  const [mode, setMode] = useState<'switch' | 'remove' | 'delete' | null>(null)
-  const movie = title.kind === 'movie'
+  const openPlace = useOpenPlace()
+  const action = useVersionAction(title, v, downloads)
+  const [mode, setMode] = useState<'switch' | 'remove' | null>(null)
   const name = useSlotNames().name(v.slot)
-  const items = (
-    <>
-      <MenuItem disabled={unmonitored(title) || search.pending} description={unmonitored(title) ? 'Not monitored: turn monitoring on to search' : undefined} onSelect={search.run}>
-        Search Now
-      </MenuItem>
-      <MenuItem onSelect={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}>Manual Search…</MenuItem>
-      <MenuItem suffix={<span className="label-12-mono text-gray-900">{profileName(v.profile)}</span>} onSelect={() => setMode('switch')}>
-        Change Profile…
-      </MenuItem>
-      {v.state === 'wanted' && onWhy && <MenuItem onSelect={onWhy}>Why Is It Wanted?</MenuItem>}
-      {downloads && (
-        <>
-          <MenuDivider />
-          <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, false)}>
-            {downloads.items.length === 1 ? 'Cancel Download' : 'Cancel Downloads'}
-          </MenuItem>
-          <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, true)}>
-            Cancel and Blocklist
-          </MenuItem>
-        </>
-      )}
-      <MenuDivider />
-      {movie && (
-        <MenuItem type="error" disabled={!v.file} description={v.file ? undefined : 'No file to delete'} onSelect={() => setMode('delete')}>
-          Delete Files…
-        </MenuItem>
-      )}
-      <MenuItem type="error" onSelect={() => setMode('remove')}>
-        Remove Version…
-      </MenuItem>
-    </>
-  )
   return (
     <>
-      {more ? (
-        <Menu.Container position="bottom-end">
-          <Menu.Button variant="tertiary" size="small" aria-label={`${name} Version actions`}>
-            More…
-          </Menu.Button>
-          <Menu width={260} aria-label={`${name} Version actions`}>
-            {items}
-          </Menu>
-        </Menu.Container>
-      ) : (
-        <DotsMenu aria-label={`${name} Version actions`}>{items}</DotsMenu>
-      )}
+      <RowActions name={name} phone={phone} action={action}>
+        <MenuItem onSelect={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}>Manual Search…</MenuItem>
+        <MenuItem suffix={<span className="label-12-mono text-gray-900">{profileName(v.profile)}</span>} onSelect={() => setMode('switch')}>
+          Switch Profile…
+        </MenuItem>
+        <MenuItem prefix={<ScrollText aria-hidden className="size-4" />} onSelect={() => openPlace(placePath('log', termText({ name: 'title', values: [title.title], excluded: false })))}>
+          Show in Log
+        </MenuItem>
+        {downloads && (
+          <>
+            <MenuDivider />
+            <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, false)}>
+              {downloads.items.length === 1 ? 'Cancel Download' : 'Cancel Downloads'}
+            </MenuItem>
+            <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, true)}>
+              Cancel and Blocklist
+            </MenuItem>
+          </>
+        )}
+        <MenuDivider />
+        {onDeleteFiles && (
+          <MenuItem type="error" disabled={!v.file} description={v.file ? undefined : 'No file to delete'} onSelect={onDeleteFiles}>
+            Delete Files…
+          </MenuItem>
+        )}
+        <MenuItem type="error" onSelect={() => setMode('remove')}>
+          Remove Version…
+        </MenuItem>
+      </RowActions>
       {mode === 'switch' && (
         <ProfilePicker
           profiles={profiles}
           initial={v.profile}
-          label="Change Profile"
+          label="Switch Profile"
           busy={sw.isPending}
           error={sw.error?.message}
           onCancel={() => setMode(null)}
@@ -345,7 +363,6 @@ export function VersionMenu({
           }}
         />
       )}
-      <DeleteFile versionId={v.id} file={v.file} asking={mode === 'delete'} onClose={() => setMode(null)} />
     </>
   )
 }

@@ -33,7 +33,6 @@ describe('the Title page header', () => {
     expect(menu.compareDocumentPosition(versions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(pane).getByRole('button', { name: 'Search Wanted' })).toBeInTheDocument()
     expect(within(pane).queryByRole('group', { name: 'Title actions' })).not.toBeInTheDocument()
-    expect(within(pane).queryByRole('button', { name: 'Search Now' })).not.toBeInTheDocument()
   })
 
   it('shows what is Wanted, downloading and next as badges, and the year and seasons on one line, and monitoring in its own button', async () => {
@@ -153,7 +152,9 @@ describe('the Version rows', () => {
     expect(Array.from(hd.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'wanted', 'long_missing', 'unmonitored'])
     expect(hd.querySelector('[data-bar="wanted"]')).toHaveStyle({ flex: '6 0 0' })
     expect(hd.querySelector('[data-bar="long_missing"]')).toHaveStyle({ flex: '2 0 0' })
-    // Opened (a lone Slot with something Wanted opens itself), each fact shows once: the facts say the coverage and size, the header does not.
+    // Every row starts closed; opened, each fact shows once: the facts say the coverage and size, the header does not.
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(row)
     expect(row).toHaveAttribute('aria-expanded', 'true')
     expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('228 of 240 episodes · 8 Wanted · 2 Long Missing · 4 not monitored')
     // The row is one line open or closed: the state text, the count and the size stay in the header, the facts add Profile, Coverage and Size on disk.
@@ -194,6 +195,7 @@ describe('the Version rows', () => {
     const pane = await openTitle(/breaking bad/i)
 
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
+    await userEvent.click(within(hd).getByRole('button', { name: /^Standard:/ }))
     expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('2 of 2 episodes · 1 Wanted')
     expect(within(hd).getByRole('img', { name: /^Standard: 2 of 2 episodes/ })).toHaveTextContent(/2\/2/)
   })
@@ -267,6 +269,7 @@ describe('the Version rows', () => {
     const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
+    await userEvent.click(within(hd).getByRole('button', { name: /^Standard:/ }))
     // The row's chip also says "Imported"; a fact is the label with its value after it.
     const fact = async (k: string) => (await within(hd).findAllByText(k)).find((e) => e.nextElementSibling)!.nextElementSibling
     expect(await fact('Quality')).toHaveTextContent('BluRay 1080p')
@@ -292,37 +295,37 @@ describe('the Version rows', () => {
     )
     const pane = await openTitle(/paddington/i)
 
-    const hd = within(pane).getByRole('listitem', { name: 'Standard' })
-    expect((await within(hd).findByText('Wanted since')).nextElementSibling).toHaveTextContent('12 days')
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
     expect(within(hd).getByRole('button', { name: 'Search Now' })).toBeEnabled()
+    await userEvent.click(within(hd).getByRole('button', { name: /^Standard:/ }))
+    expect((await within(hd).findByText('Wanted since')).nextElementSibling).toHaveTextContent('12 days')
     expect(hd).toHaveTextContent('No file yet')
   })
 
-  it('keep Search Now, Manual search, Change Profile, Delete files and Remove Version in a Movie row’s "…" menu, Delete files disabled without a file', async () => {
+  it('keep Manual search, Switch Profile, Show in Log, Delete files and Remove Version in a Movie row’s "⋯" menu, Delete files disabled without a file', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const pane = await openTitle(/paddington/i)
 
-    await userEvent.click(await within(pane).findByRole('button', { name: 'Standard Version actions' }))
-    const menu = screen.getByRole('menu', { name: 'Standard Version actions' })
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Standard Actions' }))
+    const menu = screen.getByRole('menu', { name: 'Standard Actions' })
     expect(
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Search Now', 'Manual Search…', 'Change Profile…HD', 'Delete Files…No file to delete', 'Remove Version…'])
+    ).toEqual(['Manual Search…', 'Switch Profile…HD', 'Show in Log', 'Delete Files…No file to delete', 'Remove Version…'])
     expect(within(menu).getByRole('menuitem', { name: /Delete Files/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('keep a Series Version’s menu to Search Now, Manual search, Change Profile and Remove Version', async () => {
+  it('keep a Series Version’s menu to Manual search, Switch Profile, Show in Log and Remove Version', async () => {
     fakeSeries()
     const pane = await openTitle(/breaking bad/i)
 
-    await userEvent.click(within(await within(pane).findByRole('listitem', { name: 'Standard' })).getByRole('button', { name: /^Standard:/ })) // the rows start closed
-    await userEvent.click(await within(pane).findByRole('button', { name: 'Standard Version actions' }))
-    const menu = screen.getByRole('menu', { name: 'Standard Version actions' })
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Standard Actions' })) // on the closed row's header
+    const menu = screen.getByRole('menu', { name: 'Standard Actions' })
     expect(
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Search Now', 'Manual Search…', 'Change Profile…HD', 'Why Is It Wanted?', 'Remove Version…'])
+    ).toEqual(['Manual Search…', 'Switch Profile…HD', 'Show in Log', 'Remove Version…'])
   })
 })

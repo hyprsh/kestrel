@@ -3,9 +3,11 @@ import type { ReactNode } from 'react'
 import type { Episode } from '../api/queries'
 import type { EpisodeActions } from './EpisodeActions'
 import { AccordionList, AccordionRow, BarCell, Chevron, Count, CountCell, lineRow, phoneRow, RowName, SizeCell, StandingText } from './accordion'
+import { EpisodeDeleteConfirm } from './DeleteFiles'
 import { MonitorToggle } from './MonitorToggle'
+import { SeasonActions } from './EpisodeActions'
 import { SlotPills, type ChipData } from './SlotPills'
-import { seasonName, slotTally, tallyCount, type SlotTally } from './episodes'
+import { seasonName, seasonRow, slotTally, tallyCount, type SlotTally } from './episodes'
 import { combinedState, type Combined, type SlotInfo } from './slots'
 import { barColor, chipsShown, StateBar, type BarPart } from './StateBar'
 import { usePhone } from '../responsive'
@@ -70,8 +72,9 @@ const firstYear = (eps: Episode[]): string | null => {
 /**
  * The seasons as an accordion: a row per season on one line (its monitoring bookmark, its name with "19 episodes · 2024", its
  * state in words, a bar of its episodes by state, their have/aired count, or a chip per Slot with its count when there are
- * several), and opens its episodes in place. The size column is kept empty so the bars line up with the Versions' above.
- * `body` draws an open season's tools and episodes. A season that is not monitored is dimmed.
+ * several), and opens its episodes in place. The size column is kept empty so the bars line up with the Versions' above. At the
+ * row's end sit its actions (Search Season and a ⋯ menu; a phone has the menu alone), the same open or closed.
+ * `body` draws an open season's episodes. A season that is not monitored is dimmed.
  */
 export function SeasonAccordion({
   seasons,
@@ -80,6 +83,7 @@ export function SeasonAccordion({
   open,
   onToggle,
   actions,
+  onSelectAll,
   body,
 }: {
   seasons: number[]
@@ -88,6 +92,8 @@ export function SeasonAccordion({
   open: ReadonlySet<number>
   onToggle: (season: number) => void
   actions: EpisodeActions
+  /** Ticks every episode of a season (opening it first when it is closed). */
+  onSelectAll: (season: number) => void
   body: (season: number) => ReactNode
 }) {
   const phone = usePhone()
@@ -118,6 +124,7 @@ export function SeasonAccordion({
             <SlotPills chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i]))} max={chipsShown} />
           ) : null
         ) : null
+        const rowActions = <SeasonActions actions={actions} season={n} episodes={eps} monitored={monitored} phone={phone} onSelectAll={() => onSelectAll(n)} />
         return (
           <div key={n} data-monitored={monitored ? 'on' : 'off'} data-season={n}>
             <AccordionRow
@@ -130,7 +137,7 @@ export function SeasonAccordion({
                   <>
                     <Chevron open={isOpen} />
                     <RowName name={name} meta={meta} dim={!monitored} />
-                    <span />
+                    {rowActions}
                     <span className="pointer-events-none col-start-2 col-end-4 mt-1 flex min-w-0 items-center gap-2">
                       <StandingText text={line.text} tone={line.tone} className="flex-1" />
                       <BarCell className="w-24">
@@ -152,9 +159,11 @@ export function SeasonAccordion({
                     </BarCell>
                     <CountCell>{count}</CountCell>
                     <SizeCell text="" />
+                    {rowActions}
                   </>
                 )
               }
+              below={<EpisodeDeleteConfirm deletes={actions.deletes} at={seasonRow(n)} />}
               body={<div className="border-t border-gray-alpha-200 bg-background-100">{body(n)}</div>}
             />
           </div>

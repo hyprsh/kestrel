@@ -217,9 +217,8 @@ describe('a Movie with four Slots', () => {
     expect(within(wanted).getByRole('button', { name: 'Search' })).toBeInTheDocument()
     expect(within(wanted).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    // The Slots that are Wanted open by themselves; the filled one is closed.
-    expect(within(cards).getByRole('button', { name: /^Standard:/ })).toHaveAttribute('aria-expanded', 'false')
-    for (const n of ['4K', 'German', 'Remux']) expect(within(cards).getByRole('button', { name: new RegExp(`^${n}:`) })).toHaveAttribute('aria-expanded', 'true')
+    // Every row starts closed, the Wanted ones too.
+    for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('button', { name: new RegExp(`^${n}:`) })).toHaveAttribute('aria-expanded', 'false')
   })
 })
 
@@ -275,11 +274,11 @@ describe('the episode table on a phone', () => {
     expect(within(pilot).getByText('Pilot').closest('div')).toContainElement(pilot.querySelector('[data-slot]') as HTMLElement)
 
     // Select-all is in the season's menu.
-    await userEvent.click(screen.getByRole('button', { name: 'Season 1 actions' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Season 1 Actions' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Select All of Season 1' }))
     expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' })).toBeChecked()
     expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 2' })).toBeChecked()
-    await userEvent.click(screen.getByRole('button', { name: 'Season 1 actions' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Season 1 Actions' }))
     expect(await screen.findByRole('menuitem', { name: 'Deselect All of Season 1' })).toBeInTheDocument()
   })
 })

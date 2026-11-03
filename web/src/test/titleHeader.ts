@@ -36,8 +36,8 @@ export async function chooseSearchItem(pane: HTMLElement, name: string | RegExp)
   await userEvent.click(within(menu).getByRole('menuitem', { name }))
 }
 
-/** Opens a Version's "…" menu: `slot` is its name ("Standard", "4K"). */
+/** Opens a Version row's "⋯" menu: `slot` is its name ("Standard", "4K"). */
 export async function openVersionMenu(pane: HTMLElement, slot: string) {
-  await userEvent.click(await within(pane).findByRole('button', { name: `${slot} Version actions` }))
-  return screen.findByRole('menu', { name: `${slot} Version actions` })
+  await userEvent.click(await within(pane).findByRole('button', { name: `${slot} Actions` }))
+  return screen.findByRole('menu', { name: `${slot} Actions` })
 }
