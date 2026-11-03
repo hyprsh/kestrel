@@ -25,6 +25,7 @@ function pillText(item: UpcomingItem, status: EntryStatus) {
   return { label, tip: `${label}${what ? ` · ${what}` : ''} — ${status.label}` }
 }
 
+// chrome-ok: adopting the design MonthView is a separate ticket
 export function MonthView({
   month,
   today,

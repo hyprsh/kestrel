@@ -516,6 +516,7 @@ function RailButton({
   )
 }
 
+// chrome-ok: adopting the design Rail is a separate ticket
 function Rail({
   screen,
   onSelect,

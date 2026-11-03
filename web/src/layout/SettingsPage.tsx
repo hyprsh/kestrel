@@ -50,6 +50,7 @@ export function SettingsBlock({ children }: { children: ReactNode }) {
  * One setting: its name and explanation at the left, its control at the right. `dirty` draws the blue edge of an
  * unsaved change. `stacked` puts the control under the text across the card, for a form of several fields.
  */
+// chrome-ok: adopting the design SettingRow is a separate ticket
 export function SettingRow({ label, help, dirty = false, stacked = false, children }: { label: string; help?: ReactNode; dirty?: boolean; stacked?: boolean; children?: ReactNode }) {
   return (
     <div className={`grid gap-x-6 gap-y-3 px-4 py-3.5 ${stacked ? '' : 'sm:grid-cols-[minmax(0,1fr)_minmax(0,300px)] sm:items-center'} ${dirty ? 'shadow-[inset_2px_0_0_var(--blue-700)]' : ''}`}>
