@@ -5,7 +5,9 @@ import { useState } from 'react'
 import type { Stats } from '../api/stats'
 import { plural } from '../format'
 import { StatCard } from '../layout/StatCard'
+import { placePath } from '../place'
 import { span } from '../time'
+import { Drill } from './Drill'
 import { firstFive, ViewAllHere } from './Section'
 import { rangeOf } from './statsText'
 
@@ -25,10 +27,12 @@ export function GroupsCard({ stats }: { stats: Stats }) {
   )
 }
 
-function Figure({ value, label, warn }: { value: string; label: string; warn?: boolean }) {
+function Figure({ value, label, warn, to, open }: { value: string; label: string; warn?: boolean; to: string; open: string }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <span className={`heading-20 ${warn ? 'text-amber-900' : ''}`}>{value}</span>
+      <Drill to={to} label={open} className={`heading-20 ${warn ? 'text-amber-900' : ''}`}>
+        {value}
+      </Drill>
       <span className="label-12 text-gray-900">{label}</span>
     </div>
   )
@@ -39,9 +43,14 @@ export function RequestsCard({ stats }: { stats: Stats }) {
   return (
     <StatCard title="Requests">
       <div className="grid grid-cols-3 gap-3">
-        <Figure value={String(r.total)} label={stats.range === '30d' ? 'this month' : `in the last ${rangeOf(stats.range).short}`} />
-        <Figure value={r.median_fulfil_seconds === null ? '—' : span(r.median_fulfil_seconds * 1000)} label="median to fulfil" />
-        <Figure value={String(r.searching)} label="still searching" warn={r.searching > 0} />
+        <Figure value={String(r.total)} label={stats.range === '30d' ? 'this month' : `in the last ${rangeOf(stats.range).short}`} to={placePath('requests')} open="Open every Request" />
+        <Figure
+          value={r.median_fulfil_seconds === null ? '—' : span(r.median_fulfil_seconds * 1000)}
+          label="median to fulfil"
+          to={placePath('requests', 'status:completed')}
+          open="Open completed Requests"
+        />
+        <Figure value={String(r.searching)} label="still searching" warn={r.searching > 0} to={placePath('requests', 'status:open')} open="Open the open Requests" />
       </div>
       {r.requesters.length === 0 ? (
         <p className="label-13 m-0 text-gray-900">Nobody asked for anything in this range.</p>
@@ -49,7 +58,9 @@ export function RequestsCard({ stats }: { stats: Stats }) {
         <div className="label-13 flex flex-col gap-1.5">
           {r.requesters.map((q) => (
             <div key={`${q.source}-${q.name}`} className="flex justify-between gap-2">
-              <span className="truncate">{`${q.name} (${q.source})`}</span>
+              <Drill to={placePath('requests', `requester:${/\s/.test(q.name) ? `"${q.name}"` : q.name}`)} label={`Open ${q.name}'s Requests`} className="block truncate">
+                {`${q.name} (${q.source})`}
+              </Drill>
               <span className="whitespace-nowrap text-gray-900 tabular-nums">{`${plural(q.requests, 'request')} · ${q.done} done`}</span>
             </div>
           ))}
