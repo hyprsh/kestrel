@@ -170,7 +170,11 @@ function SlotRow({
                 <span className="label-12-mono pointer-events-none min-w-0 flex-1 truncate">{summary}</span>
                 <span className="relative">{chip}</span>
               </span>
-              <span title={f?.path ?? grab?.release_name} className="label-12-mono pointer-events-none col-start-2 col-end-4 mt-1 min-w-0 truncate text-gray-900">
+              {/* A file or release name is one long word: it is cut. A last-search line is a sentence: it wraps to two lines, so its outcome shows. */}
+              <span
+                title={f?.path ?? grab?.release_name ?? fileName}
+                className={`label-12-mono pointer-events-none col-start-2 col-end-4 mt-1 min-w-0 text-gray-900 ${f || grab ? 'truncate' : 'line-clamp-2'}`}
+              >
                 {fileName}
               </span>
             </>
@@ -178,7 +182,9 @@ function SlotRow({
             <>
               <span title={f?.path ?? grab?.release_name} className="pointer-events-none flex min-w-0 flex-1 flex-col items-end">
                 <span className="label-12-mono max-w-full truncate">{summary}</span>
-                <span className="label-12-mono max-w-full truncate text-gray-900">{fileName}</span>
+                <span title={f || grab ? undefined : fileName} className="label-12-mono max-w-full truncate text-gray-900">
+                  {fileName}
+                </span>
               </span>
               <span className="relative flex shrink-0 justify-end">{chip}</span>
               <SizeCell text={sizeText} />

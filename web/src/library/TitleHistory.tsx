@@ -24,8 +24,16 @@ export function TitleHistory({ title }: { title: TitleDetail }) {
   const Chevron = open ? ChevronDown : ChevronRight
   return (
     <section aria-label="History" className="mt-6">
-      <Button variant="tertiary" size="small" aria-expanded={open} prefix={<Chevron aria-hidden className="size-4" />} onClick={() => setOpen(!open)}>
-        {`History · ${plural(items.length, 'event')}, last: ${sentence(last).verb} ${ago(last.at, now)}`}
+      {/* On a phone the line wraps to two lines rather than cutting its last clause. */}
+      <Button
+        variant="tertiary"
+        size="small"
+        aria-expanded={open}
+        prefix={<Chevron aria-hidden className="size-4" />}
+        onClick={() => setOpen(!open)}
+        className="h-auto min-h-8 whitespace-normal py-1 text-left"
+      >
+        <span className="line-clamp-2">{`History · ${plural(items.length, 'event')}, last: ${sentence(last).verb} ${ago(last.at, now)}`}</span>
       </Button>
       {open && (
         <ul className="mt-2 flex list-none flex-col gap-1.5 p-0">

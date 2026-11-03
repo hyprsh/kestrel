@@ -52,6 +52,15 @@ describe("a Title's History", () => {
     expect(within(history).getByRole('button', { name: 'Show in Log' })).toBeInTheDocument()
   })
 
+  it('names the whole age of the last event, minutes included', async () => {
+    server.use(
+      http.get('/events', ({ response }) => response(200).json({ items: [event(2, 'import', 'Imported Paddington.2014.1080p-GRP', 238), event(1, 'request', 'Ellie asked for Paddington', 600)] })),
+    )
+    const pane = await openPaddington()
+
+    expect(await within(pane).findByRole('button', { name: 'History · 2 events, last: Imported 3 h 58 min ago' })).toBeInTheDocument()
+  })
+
   it("shows each entry's trigger and reason, and leaves out what an old entry lacks", async () => {
     server.use(
       http.get('/events', ({ response }) =>
