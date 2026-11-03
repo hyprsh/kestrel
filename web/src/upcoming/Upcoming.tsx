@@ -25,7 +25,7 @@ import { upcomingFilter, upcomingQualifiers } from './filter'
 import { useSlotNames } from '../library/slots'
 import { useSeededQuery } from './filters'
 import { gridDays, MonthCalendar, monthEnd, monthOf, monthsBetween, shiftMonth } from './MonthCalendar'
-import { MonthView } from './MonthView'
+import { MonthDisplay } from './MonthDisplay'
 import {
   addDays,
   buildSegments,
@@ -418,7 +418,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
     if (item.start < box.scrollTop) scrollToTop(item.start, 'instant')
     else if (item.end > box.scrollTop + box.clientHeight) scrollToTop(Math.min(item.start, item.end - box.clientHeight), 'instant')
   })
-  useListNav('up', rows.length, sel, select, openRow)
+  useListNav('up', rows.length, sel, select, openRow, agenda)
   const jumpToday = () => {
     setSelKey(rows[start]?.key ?? null)
     setMonth(monthOf(today))
@@ -540,9 +540,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
         }
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {display === 'month' && (
-          <MonthView month={month} today={today} items={items} statusOf={statusOf} onMonth={showMonth} onToday={() => showMonth(monthOf(today))} onDay={agendaAt} onOpenTitle={onOpenTitle} />
-        )}
+        {display === 'month' && <MonthDisplay month={month} items={items} statusOf={statusOf} onMonth={showMonth} onDay={agendaAt} onOpenTitle={onOpenTitle} />}
         {agenda && !phone && (
           <WeekHeader title={weekTitle(today, week)} range={weekRange(week)} stats={stats} onPrev={() => goToDay(addDays(week, -7))} onToday={jumpToday} onNext={() => goToDay(addDays(week, 7))} />
         )}

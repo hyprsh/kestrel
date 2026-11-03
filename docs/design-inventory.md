@@ -19,6 +19,7 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `FactStrip`, `Fact` (download client card) | `Description` | Four `Description`s in `layout/DescriptionGrid`, which only places them. The accordion's separate `Fact` stays (see below). |
 | The Title's ⋯ menu | `Menu.Sub`, `Menu.SubTrigger` | Metadata (refresh, freeze), Open in (the links), Files (move, clean up). Add Version, Show in Log and Remove Title stay at the top. |
 | The filter field's clear "x" | `QueryInput`/`QueryBar` `clearable` (v0.19) | The design draws the × and names it `clearLabel="Clear filter"`; `layout/FieldEnd` is gone. |
+| Upcoming's Month grid (`upcoming/MonthView.tsx`: day cells, entry pills, "+N more", the header with ‹ Today ›) and its `StatusDot` (`StatusMark.tsx`) | `MonthView` (v0.20) | `upcoming/MonthDisplay.tsx` is a thin wrapper that maps entries onto it and keeps what it has no place for: the "N releases · N searched when out" line above, the Slot legend below, and the entry's full tooltip and name (`Title S01E01 · Name — Out · not found yet`, as the label's `title` and `aria-label`). An entry's status is a `tone`: Wanted `warning`, Long Missing `error`, Downloading `info`, Have `success`, Not out yet and Not monitored `neutral` (they share a grey; the legend still names both). The day is a grid cell named "Friday, October 23, 5 entries" (it was a button), and the buttons are named "Previous Month" and "Next Month". Under 640px of container width the design shows dots and the selected day's list below, and a day selects instead of opening the Agenda. |
 
 ## Layout module pieces (`web/src/layout/`)
 
@@ -60,7 +61,6 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `activity/History.tsx:136` | `<button>` that is the whole row, toggling its detail | `Collapse` | Kept | A full-width row with j/k navigation and a detail; `Collapse` has its own header and spacing. |
 | `library/SlotChip.tsx:100` | `<button>` per Slot chip | `Pill`, `Badge` | Kept | A `Badge` or `Pill` is not clickable. A clickable pill with a state dot is missing. |
 | `upcoming/AgendaRow.tsx:50` | `<button>` that opens the entry | `Entity as="button"` | Kept | Carries `data-nav`, `aria-current` and a composed `aria-label` for the j/k list; the row is custom. |
-| `upcoming/MonthView.tsx:89, 105, 119` | `<button>` for the day, an entry and "+N more" | `Calendar` | Kept | `Calendar` picks a date; the Month view lists entries per day cell. A month grid with entries is missing. |
 | `overview/charts.tsx` | `<table>` (screen-reader twin, kept for Grabs, Indexers, Library quality) | `ColumnChart`'s own table | Partly | Gone from the two cards that switched; stays for the cards that kept local marks. |
 | `overview/charts.tsx` | `<button>` per column and mark of `Columns`, per row of `BarRow` | `ColumnChart`, `BarList` | Kept | See "Overview charts" below. |
 | `layout/NowCard.tsx:83` | `<button>` that opens a row | `Entity as="button"` | Kept | The lead and children are one button with the j/k `navIndex` and `current` marker. |
@@ -90,6 +90,6 @@ The chart tokens (`chart-seq-*`, `chart-series`) are used through `ColumnChart` 
 3. A clickable `Pill`/`Badge` with a state dot (Slot chips).
 4. A split-view pane layout, phone title bar, desktop icon rail and a floating action bar.
 6. A settings row (label/help on the left, control on the right) with a dirty mark, and a floating "unsaved changes" bar.
-7. A month grid that lists entries per day.
+7. ~~A month grid that lists entries per day~~ (shipped as `MonthView` in v0.20).
 8. A disclosure row (a whole-row button with `aria-expanded`) for Activity's rows.
 9. Drag-to-reorder rows in a list.

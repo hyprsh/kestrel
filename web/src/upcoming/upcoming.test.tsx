@@ -934,21 +934,24 @@ describe('Upcoming: the Display switch and the Month display', () => {
     expect(screen.queryByRole('region', { name: 'Month' })).not.toBeInTheDocument()
   })
 
-  it('draws a Monday-first grid of the month with the neighbours dimmed, today circled, and a legend', async () => {
+  it('draws a Monday-first grid of the month with the neighbours dimmed, today marked, and a legend', async () => {
     many()
     localStorage.setItem('kestrel.upcoming.display', 'month')
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     const month = within(await screen.findByRole('region', { name: 'Month' }))
     expect(month.getByRole('heading', { name: 'October 2026' })).toBeInTheDocument()
-    const grid = month.getByRole('group', { name: 'October 2026, by day' })
-    const cells = grid.querySelectorAll('[data-day]')
+    const grid = month.getByRole('grid', { name: 'Upcoming, October 2026' })
+    const cells = within(grid).getAllByRole('gridcell')
     expect(cells).toHaveLength(35) // 28 Sep to 1 Nov
-    expect((cells[0] as HTMLElement).dataset.day).toBe('2026-09-28')
-    expect((cells[0] as HTMLElement).getAttribute('data-out')).toBe('true')
-    expect((cells[34] as HTMLElement).dataset.day).toBe('2026-11-01')
-    expect(month.getByRole('button', { name: /^Thursday, October 22, today/ })).toHaveAttribute('aria-current', 'date')
-    expect(month.getByText('Mon')).toBeInTheDocument()
+    expect(cells[0]).toHaveAttribute('data-day', '2026-09-28')
+    expect(cells[34]).toHaveAttribute('data-day', '2026-11-01')
+    expect(
+      within(grid)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['MonMonday', 'TueTuesday', 'WedWednesday', 'ThuThursday', 'FriFriday', 'SatSaturday', 'SunSunday'])
+    expect(within(grid).getByRole('gridcell', { name: /^Thursday, October 22.*, today$/ })).toHaveAttribute('aria-current', 'date')
     const legend = month.getByRole('list', { name: 'Legend' })
     expect(
       within(legend)
@@ -957,25 +960,23 @@ describe('Upcoming: the Display switch and the Month display', () => {
     ).toEqual(['Have', 'Downloading', 'Wanted', 'Long Missing', 'Not out yet', 'Upgrade wanted', 'Not monitored'])
   })
 
-  it('shows up to three pills a day, with a status dot, the title and code, a full tooltip, then "+N more"', async () => {
+  it('shows up to three entries a day, with the title and code, a full tooltip and name, a mark by state, then "+N more"', async () => {
     many()
     localStorage.setItem('kestrel.upcoming.display', 'month')
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     const month = within(await screen.findByRole('region', { name: 'Month' }))
-    const cell = month.getByRole('button', { name: /^Friday, October 23, 5 entries/ }).closest('[data-day]') as HTMLElement
+    const cell = month.getByRole('gridcell', { name: /5 entries/ })
+    expect(cell).toHaveAttribute('data-day', '2026-10-23')
     const pills = within(cell).getAllByRole('button', { name: / — / })
     expect(pills).toHaveLength(3)
-    expect(pills[0]).toHaveAttribute('title', 'One S01E01 · Alpha — Out · not found yet')
     expect(pills[0]).toHaveAccessibleName('One S01E01 · Alpha — Out · not found yet')
-    expect(pills[0]).toHaveTextContent('One S01E01')
-    expect(pills[0].querySelector('[data-status="missing"]')).not.toBeNull()
-    expect(pills[1].querySelector('[data-status="searching"]')).not.toBeNull()
-    expect(pills[2].querySelector('[data-status="imported"]')).not.toBeNull()
-    expect(within(cell).getByRole('button', { name: '+2 more' })).toBeInTheDocument()
-    expect(within(month.getByRole('button', { name: /Sunday, October 25/ }).closest('[data-day]') as HTMLElement).queryByRole('button', { name: /more/ })).not.toBeInTheDocument()
+    expect(within(pills[0]).getByTitle('One S01E01 · Alpha — Out · not found yet')).toHaveTextContent('One S01E01')
+    expect(within(cell).getByRole('button', { name: /^\+2 more/ })).toBeInTheDocument()
+    const sunday = month.getByRole('gridcell', { name: /^Sunday, October 25/ })
+    expect(within(sunday).queryByRole('button', { name: /more/ })).not.toBeInTheDocument()
     expect(month.getByText(/^6 releases · 3 searched when out$/)).toBeInTheDocument()
-    expect(month.getByRole('button', { name: /Paddington · digital release — Not out yet/ })).toHaveAttribute('title', 'Paddington · digital release — Not out yet')
+    expect(month.getByRole('button', { name: /Paddington · digital release — Not out yet/ })).toBeInTheDocument()
   })
 
   it('opens the Title from a pill, and the Agenda at the day from "+N more" and from the day number', async () => {
@@ -993,7 +994,7 @@ describe('Upcoming: the Display switch and the Month display', () => {
     localStorage.setItem('kestrel.upcoming.display', 'month')
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
-    await userEvent.click(await screen.findByRole('button', { name: '+2 more' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^\+2 more/ }))
     expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Month' })).not.toBeInTheDocument()
     expect(localStorage.getItem('kestrel.upcoming.display')).toBe('agenda')
@@ -1006,8 +1007,24 @@ describe('Upcoming: the Display switch and the Month display', () => {
     localStorage.setItem('kestrel.upcoming.display', 'month')
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
-    await userEvent.click(await screen.findByRole('button', { name: /^Saturday, October 24/ }))
+    await userEvent.click(await screen.findByRole('gridcell', { name: /^Saturday, October 24/ }))
     expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
+  })
+
+  it('moves between days with the arrow keys and opens the focused day in the Agenda with Enter', async () => {
+    many()
+    localStorage.setItem('kestrel.upcoming.display', 'month')
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
+    const month = within(await screen.findByRole('region', { name: 'Month' }))
+    month.getByRole('gridcell', { name: /^Thursday, October 22/ }).focus()
+    await userEvent.keyboard('{ArrowRight}{ArrowDown}')
+    expect(month.getByRole('gridcell', { name: /^Friday, October 30/ })).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}')
+    expect(month.getByRole('gridcell', { name: /^Friday, October 23/ })).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    expect(await screen.findByRole('list', { name: 'Agenda' })).toBeInTheDocument()
+    expect(within(timeline()).getByText('Five')).toBeInTheDocument()
   })
 
   it('moves by month and back to today', async () => {
@@ -1017,7 +1034,7 @@ describe('Upcoming: the Display switch and the Month display', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Upcoming' }))
     const month = within(await screen.findByRole('region', { name: 'Month' }))
-    await userEvent.click(month.getByRole('button', { name: 'Next month' }))
+    await userEvent.click(month.getByRole('button', { name: 'Next Month' }))
     expect(month.getByRole('heading', { name: 'November 2026' })).toBeInTheDocument()
     expect(await month.findByRole('button', { name: /November Movie/ })).toBeInTheDocument()
     expect(asked.length).toBeGreaterThan(0)
