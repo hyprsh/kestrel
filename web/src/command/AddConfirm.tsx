@@ -1,10 +1,9 @@
-import { Button, Checkbox, KeyboardInput, Note, Select, Skeleton } from '@hyprsh/design'
+import { Button, Checkbox, KeyboardInput, Note, Pane, Select, Skeleton } from '@hyprsh/design'
 import { CornerDownLeft } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ApiError, useCreateTitle, useLookupDetail, useProfiles, useSeriesOverview, useSettings, type LookupResult, type Profile } from '../api/queries'
 import { slotDefault, useSlotNames } from '../library/slots'
 import { Ratings } from '../library/Ratings'
-import { PaneFooter, PaneHeader } from '../layout/Pane'
 import { LoadingRegion } from '../loading'
 import { LookupSummary } from './LookupSummary'
 import { allEpisodes, seasonBody, SeasonPresets, type SeasonChoice } from './SeasonPresets'
@@ -93,134 +92,139 @@ export function AddConfirm({ result, onBack, onAdded }: { result: LookupResult; 
   const reasons = (suggestion.data?.slots ?? []).map((s) => `${slots.name(s.slot)} · ${s.label} (default)`)
 
   return (
-    <div ref={panel} tabIndex={-1} onKeyDown={onKeyDown} className="flex min-h-0 flex-col outline-none">
-      <PaneHeader>
-        <div>
-          <div className="heading-16">
-            Add {result.title}
-            {result.year ? <span className="label-14 ml-1.5 text-gray-900">{result.year}</span> : null}
-          </div>
-          <div className="label-13 text-gray-900">
-            {result.kind === 'series' ? 'Series' : 'Movie'}
-            <Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead />
-          </div>
-        </div>
-      </PaneHeader>
-
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
-        {suggestion.isError ? (
-          <Note variant="error" size="small">
-            {suggestion.error instanceof ApiError ? suggestion.error.message : 'Could not load this title.'}
-          </Note>
-        ) : !suggestion.data ? (
-          <LoadingRegion>
-            <div aria-hidden className="flex flex-col gap-3">
-              <Skeleton height={16} width="80%" />
-              <Skeleton height={16} width="60%" />
-              <Skeleton height={32} width="50%" />
-              <Skeleton height={32} width="50%" />
+    <div ref={panel} tabIndex={-1} onKeyDown={onKeyDown} className="flex h-[min(32rem,calc(100dvh-8rem))] min-h-0 flex-col outline-none">
+      <Pane
+        className="min-h-0 flex-1"
+        label={`Add ${result.title}`}
+        header={
+          <div>
+            <div className="heading-16">
+              Add {result.title}
+              {result.year ? <span className="label-14 ml-1.5 text-gray-900">{result.year}</span> : null}
             </div>
-          </LoadingRegion>
-        ) : (
-          <>
-            <LookupSummary detail={suggestion.data} series={result.kind === 'series' && <SeriesOverviewLine overview={overview} />} />
-            {reasons.length > 0 && (
-              <Note variant="secondary" size="small" fill>
-                Preselected: {reasons.join('; ')}
-              </Note>
-            )}
-            <div className="mt-3 flex flex-col gap-2">
-              {slotIds.map((k) => {
-                const on = !!profileOf(k)
-                const options = all.filter((p) => p.enabled) // any Profile can fill any Slot
-                return (
-                  <div key={k} className="flex h-8 items-center gap-3">
-                    {!single && (
-                      <div className="w-20">
-                        <Checkbox
-                          checked={on}
-                          onChange={(e) =>
-                            setPicked((p) => {
-                              const next = { ...p }
-                              // A Title's Versions use different Profiles: skip the ones already picked.
-                              const fallback = fallbackProfile(
-                                all,
-                                slotDefault(
-                                  slots.list.find((r) => r.id === k),
-                                  result.kind,
-                                ),
-                                Object.values(p),
-                              )
-                              if (e.target.checked && fallback) next[k] = fallback
-                              else delete next[k]
-                              return next
-                            })
-                          }
-                        >
-                          {slots.name(k)}
-                        </Checkbox>
-                      </div>
-                    )}
-                    {on && (
-                      <Select
-                        size="small"
-                        aria-label={`${slots.name(k)} Profile`}
-                        value={profileOf(k)}
-                        error={profileError(k)}
-                        onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.value }))}
-                        className="max-w-56"
-                      >
-                        {options.map((p) => (
-                          <option key={p.key} value={p.key}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </div>
-                )
-              })}
+            <div className="label-13 text-gray-900">
+              {result.kind === 'series' ? 'Series' : 'Movie'}
+              <Ratings ratings={suggestion.data?.ratings ?? result.ratings} lead />
             </div>
-            {result.kind === 'series' && <SeasonPresets choice={seasons} onChange={setSeasons} overview={overview} />}
-            {roots.length > 1 && (
-              <div className="mt-3">
-                <Select size="small" label="Root folder" labelPosition="inline" value={root ?? defaultRoot} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
-                  {roots.map((r) => (
-                    <option key={r}>{r}</option>
-                  ))}
-                </Select>
+          </div>
+        }
+        footer={
+          <div className="flex w-full items-center gap-3">
+            <Button size="small" onClick={onBack} suffix={<KeyboardInput small>Esc</KeyboardInput>}>
+              Back
+            </Button>
+            <div className="flex-1" />
+            <Button
+              size="small"
+              variant="primary"
+              onClick={add}
+              disabled={!ready}
+              suffix={
+                <KeyboardInput small>
+                  <CornerDownLeft aria-hidden className="size-3" />
+                </KeyboardInput>
+              }
+            >
+              Add
+            </Button>
+          </div>
+        }
+      >
+        <div className="px-4 py-3">
+          {suggestion.isError ? (
+            <Note variant="error" size="small">
+              {suggestion.error instanceof ApiError ? suggestion.error.message : 'Could not load this title.'}
+            </Note>
+          ) : !suggestion.data ? (
+            <LoadingRegion>
+              <div aria-hidden className="flex flex-col gap-3">
+                <Skeleton height={16} width="80%" />
+                <Skeleton height={16} width="60%" />
+                <Skeleton height={32} width="50%" />
+                <Skeleton height={32} width="50%" />
               </div>
-            )}
-            {create.isError && (
-              <div className="mt-3">
-                <Note variant="error" size="small">
-                  {create.error instanceof ApiError ? create.error.message : 'Could not add this title.'}
+            </LoadingRegion>
+          ) : (
+            <>
+              <LookupSummary detail={suggestion.data} series={result.kind === 'series' && <SeriesOverviewLine overview={overview} />} />
+              {reasons.length > 0 && (
+                <Note variant="secondary" size="small" fill>
+                  Preselected: {reasons.join('; ')}
                 </Note>
+              )}
+              <div className="mt-3 flex flex-col gap-2">
+                {slotIds.map((k) => {
+                  const on = !!profileOf(k)
+                  const options = all.filter((p) => p.enabled) // any Profile can fill any Slot
+                  return (
+                    <div key={k} className="flex h-8 items-center gap-3">
+                      {!single && (
+                        <div className="w-20">
+                          <Checkbox
+                            checked={on}
+                            onChange={(e) =>
+                              setPicked((p) => {
+                                const next = { ...p }
+                                // A Title's Versions use different Profiles: skip the ones already picked.
+                                const fallback = fallbackProfile(
+                                  all,
+                                  slotDefault(
+                                    slots.list.find((r) => r.id === k),
+                                    result.kind,
+                                  ),
+                                  Object.values(p),
+                                )
+                                if (e.target.checked && fallback) next[k] = fallback
+                                else delete next[k]
+                                return next
+                              })
+                            }
+                          >
+                            {slots.name(k)}
+                          </Checkbox>
+                        </div>
+                      )}
+                      {on && (
+                        <Select
+                          size="small"
+                          aria-label={`${slots.name(k)} Profile`}
+                          value={profileOf(k)}
+                          error={profileError(k)}
+                          onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.value }))}
+                          className="max-w-56"
+                        >
+                          {options.map((p) => (
+                            <option key={p.key} value={p.key}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-            )}
-          </>
-        )}
-      </div>
-
-      <PaneFooter>
-        <Button size="small" onClick={onBack} suffix={<KeyboardInput small>Esc</KeyboardInput>}>
-          Back
-        </Button>
-        <div className="flex-1" />
-        <Button
-          size="small"
-          variant="primary"
-          onClick={add}
-          disabled={!ready}
-          suffix={
-            <KeyboardInput small>
-              <CornerDownLeft aria-hidden className="size-3" />
-            </KeyboardInput>
-          }
-        >
-          Add
-        </Button>
-      </PaneFooter>
+              {result.kind === 'series' && <SeasonPresets choice={seasons} onChange={setSeasons} overview={overview} />}
+              {roots.length > 1 && (
+                <div className="mt-3">
+                  <Select size="small" label="Root folder" labelPosition="inline" value={root ?? defaultRoot} onChange={(e) => setRoot(e.target.value)} className="max-w-72">
+                    {roots.map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+              {create.isError && (
+                <div className="mt-3">
+                  <Note variant="error" size="small">
+                    {create.error instanceof ApiError ? create.error.message : 'Could not add this title.'}
+                  </Note>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Pane>
     </div>
   )
 }

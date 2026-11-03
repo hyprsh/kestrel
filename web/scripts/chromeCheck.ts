@@ -76,6 +76,10 @@ const ALIASES: Record<string, string> = {
   SuggestionRow: 'Entity',
   SuggestionMore: 'Collapse or ShowMore',
   FactStrip: 'Description',
+  ListPane: 'Pane with SplitView',
+  WideListPane: 'Pane with SplitView',
+  PaneHeader: 'Pane (header)',
+  PaneFooter: 'Pane (footer)',
 }
 
 type Hit = { line: number; message: string; class?: string }

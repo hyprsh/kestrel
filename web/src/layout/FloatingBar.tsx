@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
  * The bar that floats while rows are ticked: the count, the actions for the ticked rows and Clear. `label` names
  * the toolbar for a screen reader ("2 episodes ticked").
  *
- * - `overlay` (the default) floats over the foot of a list, in the nearest positioned ancestor (a WideListPane, or a
+ * - `overlay` (the default) floats over the foot of a list, in the nearest positioned ancestor (a
  *   `relative` column), so the list keeps its place under it; give the list room at its end while the bar shows.
  * - `sticky` sits last in a scrolling pane's content and sticks to its bottom edge, clear of the phone's tab bar,
  *   which the pane already stops above (the episode table on a Title page).

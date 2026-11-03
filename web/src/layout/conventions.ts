@@ -17,12 +17,9 @@
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
 //   FloatingBar.tsx       toolbar for ticked rows: over a list's foot, or sticky in a pane    <FloatingBar label="2 ticked">{actions}</FloatingBar>
-//   ListPane.tsx          list column beside a detail pane       <ListPane>{list}</ListPane>
 //   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
 //                         NowEmpty: the Overview's Downloading and Searching cards
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
-//   Pane.tsx              PaneHeader and PaneFooter: top and     <PaneHeader>{title, controls}</PaneHeader>
-//                         bottom of a pane                       <PaneFooter>{status, actions}</PaneFooter>
 //   PhoneBackHeader.tsx   Back button and title over a phone     <PhoneBackHeader onBack={...}>{title}</PhoneBackHeader>
 //                         screen
 //   RowList.tsx           RowList, stackedRow, stackedRight: a    <RowList>{<Entity className={stackedRow} rightClassName={stackedRight} />}</RowList>
@@ -39,7 +36,6 @@
 //                         body and footer. A phone's top header
 //   TopBar.tsx            PhoneTopBar: the header of a phone      <PhoneTopBar title>{actions}</PhoneTopBar>
 //                         screen that has no SidePanel
-//   WideListPane.tsx      440px list column for rich rows        <WideListPane>{list}</WideListPane>
 //   WidePage.tsx          wide, long page of cards (setup)       <WidePage>{cards}</WidePage>
 //
 // THE SIDE PANEL (ADR 0017; the full-width top bar is gone)
