@@ -14,7 +14,7 @@ import (
 
 const hours = time.Hour
 
-func TestNextMissingFollowsTheCadenceFromWantedSince(t *testing.T) {
+func TestNextMissingOfARecentReleaseFollowsTheCadenceFromWantedSince(t *testing.T) {
 	since := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	at := func(d time.Duration) time.Time { return since.Add(d) }
 	cases := []struct {
@@ -34,7 +34,7 @@ func TestNextMissingFollowsTheCadenceFromWantedSince(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got, want := library.NextMissing(since, at(c.searched)), at(c.next); !got.Equal(want) {
+			if got, want := library.NextMissing(since, since, at(c.searched)), at(c.next); !got.Equal(want) {
 				t.Fatalf("NextMissing = %v, want %v", got, want)
 			}
 		})
@@ -63,10 +63,26 @@ func due(t *testing.T, lib *library.Service, at time.Time) []library.Due {
 	return d
 }
 
-func TestAWantedMovieIsSearchedAtOneThreeAndSevenDaysThenWeeklyThenEveryThirtyDays(t *testing.T) {
+// addMovieReleased adds a Movie that came out `ago` before the test's now (in every country).
+func addMovieReleased(t *testing.T, lib *library.Service, tmdb int, ago time.Duration) int64 {
+	t.Helper()
+	d := paddington()
+	d.TMDBID = tmdb
+	released := now.Add(-ago).Truncate(24 * hours)
+	d.ReleaseDates = metadata.ReleaseDates{{Country: "US", Type: metadata.Digital, Date: released}}
+	id, err := lib.AddMovie(context.Background(), library.AddMovie{
+		Details: d, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestARecentlyReleasedMovieIsSearchedAtOneThreeAndSevenDaysThenWeeklyThenEveryThirtyDays(t *testing.T) {
 	ctx := context.Background()
 	lib, _, _ := clocked(t)
-	id := addPaddington(t, lib)
+	id := addMovieReleased(t, lib, 1, 2*24*hours) // out two days, added today: Wanted since the add
 	vid := mustVersion(t, lib, id)
 
 	// The add makes it due at once (search on add); Wanted since is the add.
@@ -112,7 +128,7 @@ func TestASeasonCountsFromItsLatestWantedEpisodeAndANewlyAiredEpisodeRestartsThe
 	v := metadata.TVDBSeries{ID: 81189, Name: "Breaking Bad", Episodes: []metadata.Episode{
 		{ID: 2, Season: 1, Number: 1, Name: "Pilot", Aired: aired(2008, 1, 20)},
 		{ID: 3, Season: 1, Number: 2, Name: "Fresh", Aired: aired(2026, 10, 19)}, // airs two days after the add
-		{ID: 4, Season: 2, Number: 1, Name: "Seven", Aired: aired(2009, 3, 8)},
+		{ID: 4, Season: 2, Number: 1, Name: "Seven", Aired: aired(2026, 10, 10)}, // a week before the add
 	}}
 	id, err := lib.AddSeries(ctx, library.AddSeries{
 		TMDB: d, TVDB: v, PrimaryLanguage: "en", Monitor: library.MonitorAll, RootFolder: "/tv",
@@ -132,11 +148,11 @@ func TestASeasonCountsFromItsLatestWantedEpisodeAndANewlyAiredEpisodeRestartsThe
 	}
 	isDue := func(when time.Time) bool { return len(due(t, lib, when)) == 1 }
 
-	mark(at(17, 12)) // the add: both seasons count from it, so they are due a day later
+	mark(at(17, 12)) // the add: both seasons are due a day later (season 1 is Old, season 2 Recent)
 	if isDue(at(18, 11)) || !isDue(at(18, 12)) {
 		t.Fatal("the seasons are not due a day after the add")
 	}
-	mark(at(18, 12)) // both are scheduled for day three, the 20th at noon
+	mark(at(18, 12)) // season 2 is scheduled for day three, the 20th at noon; season 1 (Old) for 30 days on
 
 	// The episode of season 1 aired on the 19th, after the last search: season 1
 	// restarts the early cadence and is due a day after it aired, ahead of day three.
@@ -275,10 +291,8 @@ func TestLongMissingListsTheVersionsWantedForMoreThanNinetyDaysMostRecentFirst(t
 		Details: other, PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.FourK, Profile: "4k-primary"}},
 	})
 
-	if got, _ := lib.LongMissing(ctx, library.View{Country: "US", Now: now.Add(89 * 24 * hours)}); len(got) != 0 {
-		t.Fatalf("long missing after 89 days: %+v", got)
-	}
-	got, err := lib.LongMissing(ctx, library.View{Country: "US", Now: now.Add(101 * 24 * hours)})
+	// Long Missing counts from the 2015 release: both Titles were added long after it.
+	got, err := lib.LongMissing(ctx, library.View{Country: "US", Now: now.Add(10 * 24 * hours)})
 	if err != nil || len(got) != 2 {
 		t.Fatalf("LongMissing = %+v, %v", got, err)
 	}

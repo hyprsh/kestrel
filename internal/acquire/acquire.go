@@ -72,6 +72,13 @@ type Library interface {
 	MarkReleaseSeen(ctx context.Context, titleID int64, at time.Time) error
 	// AddPlaceholders adds Placeholder Episodes for a Grab to cover.
 	AddPlaceholders(ctx context.Context, titleID int64, refs []library.EpisodeRef) error
+	// MarkMissingSearchedIn counts a completed search that was not the sweep's as the Version's search for
+	// its cadence (the rows of the seasons given, else all).
+	MarkMissingSearchedIn(ctx context.Context, versionID int64, at time.Time, failed bool, seasons []int) error
+	// NoteRejection and ClearRejections keep the cooldown of the retries a rejected Import or a Cancel with
+	// blocklist start.
+	NoteRejection(ctx context.Context, versionID int64, at time.Time) (library.Retry, error)
+	ClearRejections(ctx context.Context, versionID int64) error
 }
 
 // Profiles is what acquire reads from the scoring module's settings.

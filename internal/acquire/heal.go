@@ -214,7 +214,7 @@ func (s *Service) healFailed(ctx context.Context, g db.Grab, lost, block bool, r
 			errs = append(errs, err)
 		}
 	}
-	retried, err := s.retry(ctx, g, reason)
+	retried, err := s.retry(ctx, g, reason, false)
 	return retried, errors.Join(append(errs, err)...)
 }
 
@@ -245,23 +245,69 @@ func (s *Service) blockGrab(ctx context.Context, g db.Grab, reason string) error
 // the Version stays Wanted and the sweep finds it again. There is no limit on
 // retries.
 // why says what made the Grab need replacing; the Log shows it as the reason of the search and of the Grab it finds.
-func (s *Service) retry(ctx context.Context, g db.Grab, why string) ([]Grab, error) {
+//
+// The retry searches only what the Grab was for: its season or episodes. With gated (a rejected Import, a Cancel
+// with blocklist) it also obeys the Version's cooldown: each rejection in a row doubles the wait before the next
+// such retry (library.NoteRejection), and a retry that must wait is left to the sweep.
+func (s *Service) retry(ctx context.Context, g db.Grab, why string, gated bool) ([]Grab, error) {
 	also, err := db.New(s.st.Read()).ListGrabVersionsOf(ctx, g.ID)
 	if err != nil {
 		return nil, err
 	}
-	return s.retryVersions(ctx, g, also, why)
+	return s.retryVersions(ctx, g, also, why, gated)
+}
+
+// scopeOfGrab is the season or episodes a Grab was for; the whole Title for a Movie or a Grab with no episodes.
+func (s *Service) scopeOfGrab(ctx context.Context, g db.Grab) library.Scope {
+	ids, err := s.GrabEpisodes(ctx, g.ID)
+	if err != nil || len(ids) == 0 {
+		return library.Scope{}
+	}
+	sc := library.Scope{EpisodeIDs: ids}
+	eps, err := s.lib.Episodes(ctx, g.TitleID.Int64, library.View{Now: s.clock()})
+	if err != nil {
+		return sc
+	}
+	season, one := -1, true
+	for _, ep := range eps {
+		if slices.Contains(ids, ep.ID) {
+			one = one && (season == -1 || season == ep.Season)
+			season = ep.Season
+		}
+	}
+	if one && season >= 0 {
+		sc.Season = &season
+	}
+	return sc
 }
 
 // retryVersions is retry for a Grab that also filled the Versions in also: each looks for its next best Release.
-func (s *Service) retryVersions(ctx context.Context, g db.Grab, also []int64, why string) ([]Grab, error) {
+func (s *Service) retryVersions(ctx context.Context, g db.Grab, also []int64, why string, gated bool) ([]Grab, error) {
 	if !g.TitleID.Valid || !g.VersionID.Valid {
 		return nil, nil // the Title or Version was removed meanwhile
 	}
+	versions := append([]int64{g.VersionID.Int64}, also...)
+	if gated {
+		var ready []int64
+		for _, v := range versions {
+			r, err := s.lib.NoteRejection(ctx, v, s.clock())
+			if err != nil {
+				return nil, err
+			}
+			if r.Now {
+				ready = append(ready, v)
+			}
+		}
+		if versions = ready; len(versions) == 0 {
+			return nil, nil // in its cooldown: the sweep retries when it ends
+		}
+	}
+	scope := s.scopeOfGrab(ctx, g)
 	ctx = history.WithTrigger(withReason(ctx, "retry: "+why), retryTrigger)
 	// A failed Upgrade leaves a Filled Version: its next best Release is the next Upgrade.
 	upgrade := g.IsUpgrade == 1
-	out, coalesced, err := s.searchGuarded(ctx, g.TitleID.Int64, append([]int64{g.VersionID.Int64}, also...), library.Scope{}, true, upgrade, true)
+	// Only whole-Version retries coalesce: one waiting for a turn covers another only if it searches as much.
+	out, coalesced, err := s.searchGuarded(ctx, g.TitleID.Int64, versions, scope, true, upgrade, !scope.Narrow())
 	if coalesced {
 		return nil, nil // another retry of these Versions waits its turn and plans from fresh state
 	}

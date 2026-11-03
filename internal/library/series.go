@@ -405,11 +405,14 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		}
 		for _, v := range versions {
 			score, has := heldBy[v.ID][e.ID]
-			st, since := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.Released, AddedAt: parseTime(v.AddedAt)}, view.Now)
+			u := Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.Released, AddedAt: parseTime(v.AddedAt)}
+			st, _ := StateAt(u, view.Now)
+			long := false
 			if st == Wanted && grabbing[[2]int64{v.ID, e.ID}] {
 				st = Downloading // a Grab in flight is filling it
+			} else {
+				long = IsLongMissing(u, view.Now)
 			}
-			long := IsLongMissing(st, since, view.Now)
 			f := fileOf[[2]int64{v.ID, e.ID}]
 			if ep.Cells == nil {
 				ep.Cells = map[slot.Slot]*EpisodeCell{}

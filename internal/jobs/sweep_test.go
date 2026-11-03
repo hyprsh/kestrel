@@ -59,7 +59,14 @@ func (r *recorder) SearchUpgrades(_ context.Context, _ int64, v []int64) (acquir
 	return acquire.Outcome{Searched: v}, nil
 }
 
+// newSweepRig is a rig whose one Movie came out a day before the add: Recent.
 func newSweepRig(t *testing.T) *sweepRig {
+	t.Helper()
+	return newSweepRigReleased(t, now.AddDate(0, 0, -1))
+}
+
+// newSweepRigReleased is a rig whose one Movie came out on `released`, added now.
+func newSweepRigReleased(t *testing.T, released time.Time) *sweepRig {
 	t.Helper()
 	ctx := context.Background()
 	st, err := store.Open(ctx, store.Options{Dir: storetest.Dir(t)})
@@ -76,7 +83,7 @@ func newSweepRig(t *testing.T) *sweepRig {
 	id, err := rig.lib.AddMovie(ctx, library.AddMovie{
 		Details: metadata.MovieDetails{
 			TMDBID: 1, Title: "Paddington", OriginalTitle: "Paddington", OriginalLanguage: "en", Year: 2014,
-			ReleaseDates: metadata.ReleaseDates{{Country: "US", Type: metadata.Digital, Date: time.Date(2015, 4, 1, 0, 0, 0, 0, time.UTC)}},
+			ReleaseDates: metadata.ReleaseDates{{Country: "US", Type: metadata.Digital, Date: released}},
 		},
 		PrimaryLanguage: "en", RootFolder: "/m", Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
 	})
@@ -181,5 +188,34 @@ func TestSearchAllWantedMakesTheNextPassSearchEveryWantedVersion(t *testing.T) {
 	}
 	if w, _ := rig.passAt(time.Hour); w != 1 {
 		t.Fatalf("the pass after Search all Wanted made %d searches, want 1", w)
+	}
+}
+
+func TestAnOldMovieIsSearchedOnAddOnceADayLaterAndThenOnlyEveryThirtyDays(t *testing.T) {
+	rig := newSweepRigReleased(t, time.Date(2015, 4, 1, 0, 0, 0, 0, time.UTC))
+
+	if w, _ := rig.passAt(0); w != 1 {
+		t.Fatalf("search on add: %d searches, want 1", w)
+	}
+	if w, _ := rig.passAt(24*hour - time.Minute); w != 0 {
+		t.Fatal("searched before the day-one search")
+	}
+	if w, _ := rig.passAt(24 * hour); w != 1 {
+		t.Fatalf("+1d: %d searches, want 1", w)
+	}
+	// Days three and seven of the early cadence do not come; the next search is 30 days after day one.
+	for _, off := range []time.Duration{3 * 24 * hour, 7 * 24 * hour, 14 * 24 * hour, 31*24*hour - time.Minute} {
+		if w, _ := rig.passAt(off); w != 0 {
+			t.Fatalf("at +%v: %d searches, want none", off, w)
+		}
+	}
+	if w, _ := rig.passAt(31 * 24 * hour); w != 1 {
+		t.Fatalf("+31d: %d searches, want 1", w)
+	}
+	if w, _ := rig.passAt(60*24*hour + 23*hour); w != 0 {
+		t.Fatal("searched again within 30 days")
+	}
+	if w, _ := rig.passAt(61 * 24 * hour); w != 1 {
+		t.Fatalf("+61d: %d searches, want 1", w)
 	}
 }

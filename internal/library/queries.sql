@@ -159,14 +159,24 @@ UPDATE seasons SET monitored = EXISTS (
 ) WHERE seasons.title_id = ?;
 
 -- name: ListSearchStates :many
-SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by FROM search_state ORDER BY id;
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by, missing_failures, retry_count, retry_not_before FROM search_state ORDER BY id;
 
 -- A Title's search_state rows.
 -- name: ListSearchStatesOfTitle :many
 SELECT ss.* FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id;
 
+-- A Version's search_state rows.
+-- name: ListSearchStatesOfVersion :many
+SELECT * FROM search_state WHERE version_id = ? ORDER BY id;
+
 -- name: MarkSearchStateMissing :exec
-UPDATE search_state SET last_missing_at = ?, next_missing_at = ?, requested_by = NULL WHERE id = ?;
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ?, missing_failures = ?, requested_by = NULL WHERE id = ?;
+
+-- name: SetSearchStateRetry :exec
+UPDATE search_state SET retry_count = ?, retry_not_before = ? WHERE version_id = ?;
+
+-- name: SetSearchStateNextMissingBefore :exec
+UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND (next_missing_at IS NULL OR next_missing_at > ?);
 
 -- name: SetSearchStateNextUpgrade :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE id = ?;

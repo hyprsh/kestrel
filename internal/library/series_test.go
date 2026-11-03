@@ -313,17 +313,12 @@ func TestTheListCountsASeriesWantedEpisodesOnceWithTheirSeasons(t *testing.T) {
 				t.Errorf("a Movie's WantedEpisodes = %+v, want nil", r.WantedEpisodes)
 			}
 		case library.Series:
-			// Both Versions want S01E01, S01E02 and S02E01: the Special is not monitored, S02E02 has no date and S03E01 is to come.
+			// The episodes aired in 2008 and 2009, so they are Long Missing from their release. Both Versions want S01E01, S01E02 and S02E01: the Special is not monitored, S02E02 has no date and S03E01 is to come.
 			w := r.WantedEpisodes
-			if w == nil || w.Wanted != 3 || w.LongMissing != 0 || !slices.Equal(w.Seasons, []int{1, 2}) {
+			if w == nil || w.Wanted != 3 || w.LongMissing != 3 || !slices.Equal(w.Seasons, []int{1, 2}) {
 				t.Errorf("WantedEpisodes = %+v, want 3 in seasons 1 and 2", w)
 			}
 		}
-	}
-	// 100 days on, the same episodes are Long Missing.
-	rows, _ = lib.List(ctx, library.View{Country: "US", Now: now.Add(100 * 24 * time.Hour)}, library.Filter{Kind: library.Series})
-	if w := rows[0].WantedEpisodes; w == nil || w.LongMissing != 3 {
-		t.Errorf("WantedEpisodes 100 days on = %+v, want 3 Long Missing", w)
 	}
 }
 

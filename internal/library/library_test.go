@@ -205,7 +205,7 @@ func TestAMovieWithOnlyATheatricalDateIsUnreleasedUntil90DaysAfterItInTheCountry
 	}
 }
 
-func TestLongMissingStartsNinetyDaysAfterWantedSince(t *testing.T) {
+func TestLongMissingCountsFromTheReleaseAndAMovieAddedLongAfterItIsLongMissingAtOnce(t *testing.T) {
 	ctx := context.Background()
 	lib, _ := newLibrary(t) // added "now", long after the 2015 release
 	addPaddington(t, lib)
@@ -213,13 +213,10 @@ func TestLongMissingStartsNinetyDaysAfterWantedSince(t *testing.T) {
 		rows, _ := lib.List(ctx, library.View{Country: "US", Now: at}, library.Filter{})
 		return rows[0].Slots[slot.Standard].LongMissing
 	}
-	// Wanted since is the later of release and being added: the add moment.
-	if flag(now.Add(89 * 24 * time.Hour)) {
-		t.Error("long missing after 89 days")
+	if !flag(now) {
+		t.Error("a 2015 Movie added today is not Long Missing at once")
 	}
-	if !flag(now.Add(91 * 24 * time.Hour)) {
-		t.Error("not long missing after 91 days")
-	}
+	// Wanted since is still the later of release and being added: the add moment.
 	rows, _ := lib.List(ctx, library.View{Country: "US", Now: now}, library.Filter{})
 	if rows[0].WantedSince == nil || !rows[0].WantedSince.Equal(now) {
 		t.Errorf("wanted since = %v, want the add moment", rows[0].WantedSince)

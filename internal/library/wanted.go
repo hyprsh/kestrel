@@ -1,6 +1,9 @@
 package library
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // Unit is one thing a Version can hold or lack: a Movie, or one episode of a
 // Series. Released is when it came out, nil when unknown: the release-date
@@ -36,10 +39,18 @@ func StateAt(u Unit, now time.Time) (State, *time.Time) {
 	return Wanted, &since
 }
 
-// IsLongMissing is whether a Wanted Unit has been Wanted for more than
-// LongMissingAfter.
-func IsLongMissing(st State, since *time.Time, now time.Time) bool {
-	return st == Wanted && since != nil && now.Sub(*since) > LongMissingAfter
+// IsLongMissing is whether a Unit is Wanted and its release is more than
+// LongMissingAfter ago. It counts from the release, not from the moment the
+// Version was added: a Title added long after it came out is Long Missing at
+// once.
+func IsLongMissing(u Unit, now time.Time) bool {
+	st, _ := StateAt(u, now)
+	return st == Wanted && now.Sub(*u.Released) > LongMissingAfter
+}
+
+// anyLongMissing is whether any of a Series Version's Units is Long Missing.
+func anyLongMissing(units []Unit, now time.Time) bool {
+	return slices.ContainsFunc(units, func(u Unit) bool { return IsLongMissing(u, now) })
 }
 
 // SeriesState folds the episodes of one Series Version into its state.

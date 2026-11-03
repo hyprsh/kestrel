@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -183,5 +184,15 @@ func TestAManualSearchOfASeriesVersionListsEpisodeAndPackReleases(t *testing.T) 
 		default:
 			t.Errorf("unexpected release %q", it.Name)
 		}
+	}
+}
+
+// airedRecently moves the air date of every episode that has aired to two days ago, so that the Series is Wanted
+// from a recent release: Long Missing counts from the release, not from the add.
+func (s seriesSearch) airedRecently(t *testing.T) {
+	t.Helper()
+	now := s.in.clock.Now().UTC()
+	if _, err := s.in.st.Write().ExecContext(context.Background(), `UPDATE episodes SET air_date = ? WHERE air_date <= ?`, now.AddDate(0, 0, -2).Format("2006-01-02"), now.Format("2006-01-02")); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -47,55 +47,27 @@ func TestStateAt(t *testing.T) {
 	}
 }
 
-func TestIsLongMissing(t *testing.T) {
+func TestIsLongMissingCountsFromTheRelease(t *testing.T) {
 	now := *day("2026-10-18")
+	added := *day("2026-10-18") // added today unless a case says otherwise
 	cases := []struct {
-		name  string
-		st    State
-		since *time.Time
-		want  bool
+		name string
+		u    Unit
+		want bool
 	}{
-		{"wanted 91 days", Wanted, day("2026-07-19"), true},
-		{"wanted exactly 90 days", Wanted, day("2026-07-20"), false},
-		{"wanted yesterday", Wanted, day("2026-10-17"), false},
-		{"filled never", Filled, day("2020-01-01"), false},
-		{"no since", Wanted, nil, false},
+		{"released 91 days ago", Unit{Monitored: true, Released: day("2026-07-19"), AddedAt: *day("2026-07-19")}, true},
+		{"released exactly 90 days ago", Unit{Monitored: true, Released: day("2026-07-20"), AddedAt: *day("2026-07-20")}, false},
+		{"released yesterday", Unit{Monitored: true, Released: day("2026-10-17"), AddedAt: *day("2026-10-17")}, false},
+		{"released years ago and added today is Long Missing at once", Unit{Monitored: true, Released: day("2015-03-01"), AddedAt: added}, true},
+		{"released 60 days ago and added today is not yet", Unit{Monitored: true, Released: day("2026-08-19"), AddedAt: added}, false},
+		{"filled never", Unit{Monitored: true, HasFile: true, Released: day("2020-01-01"), AddedAt: added}, false},
+		{"unmonitored never", Unit{Released: day("2020-01-01"), AddedAt: added}, false},
+		{"unreleased never", Unit{Monitored: true, AddedAt: added}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := IsLongMissing(c.st, c.since, now); got != c.want {
+			if got := IsLongMissing(c.u, now); got != c.want {
 				t.Fatalf("got %v, want %v", got, c.want)
-			}
-		})
-	}
-}
-
-func TestSeriesState(t *testing.T) {
-	now := *day("2026-10-18")
-	added := *day("2026-01-01")
-	past, future := day("2025-01-01"), day("2027-01-01")
-	ep := func(monitored, file bool, aired *time.Time) Unit {
-		return Unit{Monitored: monitored, HasFile: file, Released: aired, AddedAt: added}
-	}
-	cases := []struct {
-		name  string
-		units []Unit
-		state State
-		since *time.Time
-	}{
-		{"no episodes", nil, Unmonitored, nil},
-		{"nothing monitored and nothing held", []Unit{ep(false, false, past)}, Unmonitored, nil},
-		{"a missing aired episode makes it wanted", []Unit{ep(true, true, past), ep(true, false, past)}, Wanted, day("2026-01-01")},
-		{"wanted since is the earliest", []Unit{ep(true, false, day("2026-05-05")), ep(true, false, day("2026-03-03"))}, Wanted, day("2026-03-03")},
-		{"every aired episode held, more to come", []Unit{ep(true, true, past), ep(true, false, future)}, Filled, nil},
-		{"only unaired episodes", []Unit{ep(true, false, future), ep(true, false, nil)}, Unreleased, nil},
-		{"unmonitored missing episodes do not make it wanted", []Unit{ep(true, true, past), ep(false, false, past)}, Filled, nil},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			st, since := SeriesState(c.units, now)
-			if st != c.state || !sameTime(since, c.since) {
-				t.Fatalf("got %s since %v, want %s since %v", st, since, c.state, c.since)
 			}
 		})
 	}

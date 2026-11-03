@@ -220,7 +220,7 @@ type Coverage struct {
 func coverageOf(units []Unit, size int64, now time.Time) *Coverage {
 	c := &Coverage{Size: size}
 	for _, u := range units {
-		st, since := StateAt(u, now)
+		st, _ := StateAt(u, now)
 		switch st {
 		case Filled:
 			if !u.Special {
@@ -232,7 +232,7 @@ func coverageOf(units []Unit, size int64, now time.Time) *Coverage {
 			if !u.Special {
 				c.Episodes++
 			}
-			long := IsLongMissing(st, since, now)
+			long := IsLongMissing(u, now)
 			if long {
 				c.LongMissing++
 			}
@@ -486,9 +486,10 @@ func releaseDatesOf(rows []db.TitleReleaseDate) metadata.ReleaseDates {
 }
 
 // stateOf is a Movie Version's state. wantedSince is set when it is Wanted.
-func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, seen sql.NullString, addedAt time.Time, v View) (State, *time.Time) {
+func stateOf(monitored, hasFile bool, rel metadata.ReleaseDates, seen sql.NullString, addedAt time.Time, v View) (State, *time.Time, bool) {
 	u := Unit{Monitored: monitored, HasFile: hasFile, AddedAt: addedAt, Released: movieReleased(rel, v.Country, seen)}
-	return StateAt(u, v.Now)
+	st, since := StateAt(u, v.Now)
+	return st, since, IsLongMissing(u, v.Now)
 }
 
 // listFreshness is how long a built list serves a later view: states move with the clock (a release date comes, a Title
@@ -675,17 +676,19 @@ func (s *Service) buildList(ctx context.Context, view View, conn db.DBTX) ([]Row
 			}
 			var st State
 			var since *time.Time
+			var long bool
 			var have, aired *int
 			if row.Kind == Series {
 				units := unitsOf(epsOf[t.ID], released, heldBy[v.ID], parseTime(v.AddedAt))
 				st, since = SeriesState(units, view.Now)
+				long = anyLongMissing(units, view.Now)
 				h, a := episodeTotals(units, view.Now)
 				have, aired = &h, &a
 				countWanted(wantedEps, epsOf[t.ID], units, view.Now)
 			} else {
-				st, since = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
+				st, since, long = stateOf(t.Monitored == 1, hasFile[v.ID], rel, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 			}
-			state := &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now), WantedSince: since, EpisodesHave: have, EpisodesAired: aired}
+			state := &SlotState{VersionID: v.ID, Profile: v.ProfileKey, State: st, LongMissing: long, WantedSince: since, EpisodesHave: have, EpisodesAired: aired}
 			if row.Slots == nil {
 				row.Slots = map[slot.Slot]*SlotState{}
 			}
@@ -706,9 +709,8 @@ func (s *Service) buildList(ctx context.Context, view View, conn db.DBTX) ([]Row
 // once Long Missing in it. units are eps' units for that Version, in order.
 func countWanted(wanted map[int64]bool, eps []db.Episode, units []Unit, now time.Time) {
 	for i, u := range units {
-		st, since := StateAt(u, now)
-		if st == Wanted {
-			wanted[eps[i].ID] = wanted[eps[i].ID] || IsLongMissing(st, since, now)
+		if st, _ := StateAt(u, now); st == Wanted {
+			wanted[eps[i].ID] = wanted[eps[i].ID] || IsLongMissing(u, now)
 		}
 	}
 }
@@ -850,6 +852,7 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 		fl := fileOfVersion[v.ID]
 		var st State
 		var since *time.Time
+		var long bool
 		var cov *Coverage
 		if d.Kind == Series {
 			units := unitsOf(epsOf, released, heldBy[v.ID], parseTime(v.AddedAt))
@@ -857,12 +860,13 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 				units[i].Grabbing = grabbing[v.ID][e.ID]
 			}
 			st, since = SeriesState(units, view.Now)
+			long = anyLongMissing(units, view.Now)
 			cov = coverageOf(units, versionSize[v.ID], view.Now)
 		} else {
-			st, since = stateOf(d.Monitored, fl != nil && !fl.Misfit, d.ReleaseDates, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
+			st, since, long = stateOf(d.Monitored, fl != nil && !fl.Misfit, d.ReleaseDates, t.ReleaseSeenAt, parseTime(v.AddedAt), view)
 		}
 		d.Versions = append(d.Versions, Version{
-			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: IsLongMissing(st, since, view.Now),
+			ID: v.ID, Slot: slotOf(v.Slot), Profile: v.ProfileKey, State: st, LongMissing: long,
 			WantedSince: since, File: fl, AddedAt: parseTime(v.AddedAt), Coverage: cov,
 		})
 	}

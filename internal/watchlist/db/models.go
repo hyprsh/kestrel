@@ -328,15 +328,18 @@ type RequestWatchAhead struct {
 }
 
 type SearchState struct {
-	ID            int64
-	VersionID     int64
-	Season        sql.NullInt64
-	NextMissingAt sql.NullString
-	LastMissingAt sql.NullString
-	NextUpgradeAt sql.NullString
-	LastUpgradeAt sql.NullString
-	Fresh         int64
-	RequestedBy   sql.NullString
+	ID              int64
+	VersionID       int64
+	Season          sql.NullInt64
+	NextMissingAt   sql.NullString
+	LastMissingAt   sql.NullString
+	NextUpgradeAt   sql.NullString
+	LastUpgradeAt   sql.NullString
+	Fresh           int64
+	RequestedBy     sql.NullString
+	MissingFailures int64
+	RetryCount      int64
+	RetryNotBefore  sql.NullString
 }
 
 type Season struct {
