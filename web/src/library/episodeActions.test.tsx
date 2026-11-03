@@ -103,7 +103,7 @@ describe('searching from the episode list', () => {
     const { grid } = await openSeries()
     await userEvent.click(within(grid).getByRole('button', { name: 'S01E01 Actions' }))
     const menu = screen.getByRole('menu', { name: 'S01E01 Actions' })
-    const items = ['Search All Versions', 'Stop Monitoring Episode', 'Delete Standard Files…', 'Delete 4K Files…']
+    const items = ['Search All Versions', 'Stop Monitoring Episode', 'Show in Log', 'Delete Standard Files…', 'Delete 4K Files…']
     expect(
       within(menu)
         .getAllByRole('menuitem')

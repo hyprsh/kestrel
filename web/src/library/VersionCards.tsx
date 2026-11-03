@@ -12,6 +12,7 @@ import { OriginalOfferNote } from './OriginalOfferNote'
 import { useSlotNames } from './slots'
 import type { SlotDownloads } from './TitleDownloads'
 import { VersionActions, type Version, type VersionProps } from './VersionActions'
+import { lastSearchText } from './WantedLine'
 
 /** A Series Version's episodes in words: what it is downloading, or "6 Wanted · next search in 1 d". Empty for a Version that has everything. */
 function seriesState(v: Version, dl: SlotDownloads | null, now: number): { text: string; tone: string } {
@@ -94,6 +95,7 @@ export function VersionHead({ version: v, downloads, now, marked, ...rest }: Ver
   const name = slots.name(v.slot)
   const line = seriesState(v, downloads, now)
   const count = coverageCount(v)
+  const why = downloads ? null : lastSearchText(v, now)
   return (
     <div
       role="columnheader"
@@ -107,7 +109,14 @@ export function VersionHead({ version: v, downloads, now, marked, ...rest }: Ver
         <span className="label-12 truncate text-gray-900">{rest.profileName(v.profile)}</span>
         <OriginalOfferTag version={v} />
       </span>
-      <span className={`label-13 min-h-8 ${line.tone}`}>{line.text}</span>
+      <span className="flex min-h-8 flex-col gap-0.5">
+        <span className={`label-13 ${line.tone}`}>{line.text}</span>
+        {why && (
+          <span title={why} className="label-12 text-gray-900">
+            {why}
+          </span>
+        )}
+      </span>
       <span className="flex items-center gap-2">
         <CoverageBar v={v} />
         {count && (
@@ -127,6 +136,7 @@ export function VersionCard({ version: v, downloads, now, marked, ...rest }: Ver
   const name = slots.name(v.slot)
   const line = seriesState(v, downloads, now)
   const count = coverageCount(v)
+  const why = downloads ? null : lastSearchText(v, now)
   return (
     <article
       role="listitem"
@@ -147,6 +157,11 @@ export function VersionCard({ version: v, downloads, now, marked, ...rest }: Ver
         )}
       </span>
       {line.text && <span className={`label-13 ${line.tone}`}>{line.text}</span>}
+      {why && (
+        <span title={why} className="label-12 text-gray-900">
+          {why}
+        </span>
+      )}
       <VersionActions {...rest} version={v} downloads={downloads} phone />
     </article>
   )

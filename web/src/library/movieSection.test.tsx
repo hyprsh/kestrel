@@ -88,7 +88,7 @@ describe("a Movie's Versions on its Title page", () => {
 
     const item = await card(pane)
     expect(item).toHaveTextContent('Wanted 12 days')
-    expect(within(item).getByText('No file yet')).toBeInTheDocument()
+    expect(within(item).getByText('Not searched yet')).toBeInTheDocument()
     expect(within(item).getByRole('button', { name: 'Search Now' })).toBeEnabled()
     expect(within(item).queryByRole('button', { name: 'Search for Upgrade' })).toBeNull()
   })

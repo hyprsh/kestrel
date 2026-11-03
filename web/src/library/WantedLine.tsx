@@ -65,3 +65,12 @@ export function lastSearchLine(ls: LastSearch, now: number): string {
   const found = ls.outcome === 'no_indexer' || ls.outcome === 'error' ? [] : [plural(ls.releases, 'release')]
   return [`Last searched ${ago(ls.at, now)}`, ...found, outcomeText(ls)].join(' · ')
 }
+
+/**
+ * The gray line under a Wanted Version's state on its card: "Last search 2 h ago · 20 releases, none fit the Profile", or that it was
+ * not searched yet. Null for a Version that is not Wanted.
+ */
+export function lastSearchText(v: { state: string; last_search?: LastSearch | null }, now: number): string | null {
+  if (v.state !== 'wanted') return null
+  return v.last_search ? `Last search ${ago(v.last_search.at, now)} \u00b7 ${foundText(v.last_search)}` : 'Not searched yet'
+}

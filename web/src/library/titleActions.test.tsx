@@ -276,7 +276,7 @@ describe('the Version cards', () => {
     const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
     expect(within(hd).getByRole('button', { name: 'Search Now' })).toBeEnabled()
     expect(hd).toHaveTextContent('Wanted 12 days')
-    expect(hd).toHaveTextContent('No file yet')
+    expect(hd).toHaveTextContent('Not searched yet')
   })
 
   it('keep Manual search, Switch Profile, Show in Log, Delete files and Remove Version in a Movie row’s "⋯" menu, Delete files disabled without a file', async () => {

@@ -2,7 +2,7 @@
 // row's ⋯ menu or the bar), monitoring from the ⋯ menus and the bar's Monitor and Stop Monitoring, Manual search in a cell's menu or the
 // bar, and Delete files (DeleteFiles.tsx) in the ⋯ menus of an episode, a season and the bar.
 import { ActionBar, Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem, termText } from '@hyprsh/design'
-import { ArrowUpCircle, Bookmark, BookmarkCheck, ListChecks, ListFilter, Search, type LucideIcon } from 'lucide-react'
+import { ArrowUpCircle, Bookmark, BookmarkCheck, ListChecks, ListFilter, ScrollText, Search, type LucideIcon } from 'lucide-react'
 import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useMonitorEpisodes, usePatchSeason, useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
@@ -291,6 +291,9 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
         onSelect={() => actions.monitor([episode], !episode.monitored)}
       >
         {episode.monitored ? 'Stop Monitoring Episode' : 'Monitor Episode'}
+      </MenuItem>
+      <MenuItem prefix={<ScrollText aria-hidden className="size-4" />} onSelect={actions.showInLog}>
+        Show in Log
       </MenuItem>
       <MenuDivider />
       <DeleteMenuItems

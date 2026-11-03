@@ -88,7 +88,7 @@ describe("a Title's downloads on its page", () => {
     fakeQueue([])
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { row: hd } = await openPaddington(client)
-    await within(hd).findByText('No file yet')
+    await within(hd).findByText('Not searched yet')
 
     // What the stream's `queue` frames do (live/stream.ts).
     act(() => client.setQueryData(['queue'], [queueItem({ title_id: 1, release_name: 'Paddington.2014.720p-GRP' })]))

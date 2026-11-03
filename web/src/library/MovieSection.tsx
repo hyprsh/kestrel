@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Profile, TitleDetail } from '../api/queries'
 import { plural } from '../format'
 import { usePhone } from '../responsive'
-import { ago, span, until, useNow } from '../time'
+import { span, until, useNow } from '../time'
 import { dotState, stateName, type SlotDotState } from '../ui/slotState'
 import { size } from './bits'
 import { baseName } from './cellDetail'
@@ -22,7 +22,7 @@ import type { ManualSearchTarget } from './TitleDetail'
 import { useTitleDownloads, type SlotDownloads } from './TitleDownloads'
 import { OriginalOfferTag } from './VersionCards'
 import { VersionActions, type Version } from './VersionActions'
-import { foundText } from './WantedLine'
+import { lastSearchText } from './WantedLine'
 
 /** Whole days since an instant (0 when there is none). */
 const days = (since: string | null, now: number) => (since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 86_400_000)) : 0)
@@ -116,9 +116,8 @@ function VersionCard({
   const total = grab ? downloads!.items.reduce((n, i) => n + i.bytes_total, 0) : 0
   const sizeText = f ? size(f.size) : total > 0 ? size(total) : '—'
   // What the Version holds: the file's quality and audio (else the state), over the file's name (the release being fetched, or the last search).
-  const ls = v.last_search
   const summary = f ? [qualityLine(f, false), audioFormat(f)].filter(Boolean).join(' · ') || line.text : line.text
-  const fileName = f ? baseName(f.path) : grab ? grab.release_name : ls ? `Last search ${ago(ls.at, now)} · ${foundText(ls)}` : 'No file yet'
+  const fileName = f ? baseName(f.path) : grab ? grab.release_name : (lastSearchText(v, now) ?? 'No file yet')
   const [deleting, setDeleting] = useState(false)
   const [details, setDetails] = useState(false)
   return (

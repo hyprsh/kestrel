@@ -94,6 +94,8 @@ export function VersionActions({
           variant={action.variant}
           size={phone ? 'medium' : 'small'}
           width={phone ? '100%' : undefined}
+          // A narrow column wraps a long label ("Open in Activity") onto a second line rather than cutting it.
+          className={phone ? undefined : 'h-auto min-h-8 max-w-full whitespace-normal py-1 text-left'}
           disabled={action.disabled}
           title={action.disabled ? action.reason : undefined}
           onClick={action.onSelect}
