@@ -64,7 +64,7 @@ describe('selecting Titles in the Library', () => {
     await userEvent.click(box('Heat'))
     expect(actionBar()).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Clear selection' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear Selection' }))
     expect(queryActionBar()).not.toBeInTheDocument()
   })
 
@@ -91,7 +91,7 @@ describe('selecting Titles in the Library', () => {
     await userEvent.type(filter, 'kind:movie')
     await userEvent.click(box('Heat'))
 
-    await runQuiet(actionBar(), 'Select all 3')
+    await runQuiet(actionBar(), 'Select All 3')
 
     expect(actionBar()).toHaveTextContent('3 selected')
     await userEvent.clear(filter)

@@ -22,6 +22,6 @@ export function queryActionBar(): HTMLElement | null {
 export async function runQuiet(bar: HTMLElement, name: string | RegExp) {
   const button = within(bar).queryByRole('button', { name })
   if (button) return userEvent.click(button)
-  await userEvent.click(within(bar).getByRole('button', { name: 'More actions' }))
+  await userEvent.click(within(bar).getByRole('button', { name: 'More Actions' }))
   await userEvent.click(screen.getByRole('menuitem', { name }))
 }

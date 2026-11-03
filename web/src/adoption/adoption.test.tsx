@@ -472,7 +472,7 @@ describe('Adoption review of a large plan', () => {
     const { state, user } = await openPlan(moreRows(120))
 
     await user.click(await screen.findByLabelText('Select Film 0'))
-    await runQuiet(actionBar(), 'Select all 120')
+    await runQuiet(actionBar(), 'Select All 120')
     expect(actionBar()).toHaveTextContent('120 selected')
     await runQuiet(actionBar(), "Don't Adopt Selected")
 
@@ -498,7 +498,7 @@ describe('Adoption review of a large plan', () => {
 
     await screen.findByText('Showing 100 of 120')
     expect(screen.queryByRole('button', { name: "Don't Adopt Selected" })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear selection' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear Selection' })).not.toBeInTheDocument()
     expect(queryActionBar()).not.toBeInTheDocument()
   })
 
@@ -510,9 +510,9 @@ describe('Adoption review of a large plan', () => {
 
     const bar = actionBar()
     expect(bar).toHaveTextContent('99 selected')
-    // The bar offers the whole filter again: "Select all 120" is how it says this is no longer all of it.
-    await user.click(within(bar).getByRole('button', { name: 'More actions' }))
-    expect(screen.getByRole('menuitem', { name: 'Select all 120' })).toBeInTheDocument()
+    // The bar offers the whole filter again: "Select All 120" is how it says this is no longer all of it.
+    await user.click(within(bar).getByRole('button', { name: 'More Actions' }))
+    expect(screen.getByRole('menuitem', { name: 'Select All 120' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await runQuiet(actionBar(), "Don't Adopt Selected")
 

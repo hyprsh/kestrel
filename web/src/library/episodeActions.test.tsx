@@ -275,10 +275,10 @@ describe('searching from the episode list', () => {
       within(bar)
         .getAllByRole('button')
         .map((b) => b.textContent || b.getAttribute('aria-label')),
-    ).toEqual(['Clear selection', 'More actions', 'Search', 'More actions for the selected episodes'])
+    ).toEqual(['Clear Selection', 'More Actions', 'Search', 'More actions for the selected episodes'])
     expect(bar).toHaveTextContent('2 selected')
     // Both are monitored already: Monitor has nothing to do.
-    await userEvent.click(within(bar).getByRole('button', { name: 'More actions' }))
+    await userEvent.click(within(bar).getByRole('button', { name: 'More Actions' }))
     expect(screen.getByRole('menuitem', { name: 'Monitor' })).toHaveAttribute('aria-disabled', 'true')
     await userEvent.keyboard('{Escape}')
 
@@ -293,7 +293,7 @@ describe('searching from the episode list', () => {
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Select All of Season 1' }))
     expect(actionBar()).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Clear selection' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear Selection' }))
     expect(queryActionBar()).not.toBeInTheDocument()
     expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' })).not.toBeChecked()
   })
