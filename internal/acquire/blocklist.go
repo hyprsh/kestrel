@@ -2,6 +2,7 @@ package acquire
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -96,6 +97,15 @@ var ErrBlockNotFound = errors.New("blocklist entry not found")
 
 // Unblock removes an entry, so the Release can be grabbed again.
 func (s *Service) Unblock(ctx context.Context, id int64) error {
+	// The entry is read first: once deleted its Release name is gone, and the Log entry names it.
+	var gone *Blocked
+	if all, err := s.Blocklist(ctx, 0); err == nil {
+		for i := range all {
+			if all[i].ID == id {
+				gone = &all[i]
+			}
+		}
+	}
 	n, err := db.New(s.st.Write()).DeleteBlocklist(ctx, id)
 	if err != nil {
 		return err
@@ -103,6 +113,13 @@ func (s *Service) Unblock(ctx context.Context, id int64) error {
 	if n == 0 {
 		return ErrBlockNotFound
 	}
+	ev := history.Event{Kind: history.BlocklistRemoved, Message: "Took a Release off the Blocklist", Reason: "taken off the Blocklist by hand: it can be grabbed again"}
+	if gone != nil {
+		ev.Message = "Took " + gone.ReleaseName + " off the Blocklist"
+		ev.TitleID, ev.GrabID = gone.TitleID, gone.GrabID
+		ev.Data, _ = json.Marshal(map[string]any{"blocklist_id": id, "release": gone.ReleaseName, "blocked_for": gone.Reason})
+	}
+	s.hist.Record(ctx, ev)
 	return nil
 }
 

@@ -7701,7 +7701,7 @@ components:
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: bulk, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
+          description: "A growing set: bulk, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered, and the configuration kinds profile_created, profile_changed, profile_deleted, slot_created, slot_changed, slot_deleted, slots_preset, settings_changed, grabs_paused, grabs_resumed, blocklist_removed."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }

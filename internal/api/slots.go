@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/configfile"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/slot/slots"
 )
@@ -70,6 +72,8 @@ func (s *server) CreateSlot(ctx context.Context, r oapi.CreateSlotRequestObject)
 	if err != nil {
 		return nil, slotsProblem(err)
 	}
+	s.recordConfig(ctx, history.SlotCreated, fmt.Sprintf("Slot %q created", got.Label), "created by hand on the Slots screen",
+		map[string]any{"slot": got.ID.Key(), "label": got.Label})
 	return oapi.CreateSlot201JSONResponse(s.slotToAPI(got)), nil
 }
 
@@ -85,9 +89,24 @@ func (s *server) PatchSlot(ctx context.Context, r oapi.PatchSlotRequestObject) (
 	patch := slots.Patch{
 		Label: b.Label, DefaultMovies: b.DefaultMovies, DefaultSeries: b.DefaultSeries, OnForNew: b.OnForNewTitles, Position: b.Position,
 	}
-	got, renames, err := s.slots.Change(ctx, id, patch, r.Params.DryRun != nil && *r.Params.DryRun)
+	dry := r.Params.DryRun != nil && *r.Params.DryRun
+	got, renames, err := s.slots.Change(ctx, id, patch, dry)
 	if err != nil {
 		return nil, slotsProblem(err)
+	}
+	if !dry {
+		var fields []string
+		for name, set := range map[string]bool{
+			"label": b.Label != nil, "default_movies": b.DefaultMovies != nil, "default_series": b.DefaultSeries != nil,
+			"on_for_new_titles": b.OnForNewTitles != nil, "position": b.Position != nil,
+		} {
+			if set {
+				fields = append(fields, name)
+			}
+		}
+		sort.Strings(fields)
+		s.recordConfig(ctx, history.SlotChanged, fmt.Sprintf("Slot %q changed: %s", got.Label, said(fields)), "edited by hand on the Slots screen",
+			map[string]any{"slot": got.ID.Key(), "label": got.Label, "fields": fields})
 	}
 	out := s.slotToAPI(got)
 	out.RenamesFiles = renames
@@ -98,9 +117,12 @@ func (s *server) DeleteSlot(ctx context.Context, r oapi.DeleteSlotRequestObject)
 	if err := s.refuseDeclared(configfile.SectionSlots); err != nil {
 		return nil, err
 	}
+	label := s.slotLabel(ctx, slot.Slot(r.Id))
 	if err := s.slots.Delete(ctx, slot.Slot(r.Id)); err != nil {
 		return nil, slotsProblem(err)
 	}
+	s.recordConfig(ctx, history.SlotDeleted, fmt.Sprintf("Slot %q deleted", label), "deleted by hand on the Slots screen",
+		map[string]any{"slot": r.Id, "label": label})
 	return oapi.DeleteSlot204Response{}, nil
 }
 

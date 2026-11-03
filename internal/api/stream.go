@@ -84,8 +84,11 @@ func hintsOf(ev history.Event) []hint {
 	if strings.HasPrefix(string(ev.Kind), "grab") || strings.HasPrefix(string(ev.Kind), "import") {
 		out = append(out, hintOf(resQueue, 0))
 	}
-	if ev.Kind == history.Blocklisted {
+	if ev.Kind == history.Blocklisted || ev.Kind == history.BlocklistRemoved {
 		out = append(out, hintOf(resBlocklist, 0))
+	}
+	if strings.HasPrefix(string(ev.Kind), "slot") {
+		out = append(out, hintOf(resSlot, 0))
 	}
 	if strings.HasPrefix(string(ev.Kind), "adoption") {
 		out = append(out, hintOf(resAdoption, 0))
