@@ -98,17 +98,3 @@ export function StatusLine({ state, tone = 'normal', children }: { state: DotSta
     </span>
   )
 }
-
-/** The facts under a card's name (address, category, queue, free space): a caption over a value, in as many columns as fit. */
-export function FactStrip({ children }: { children: ReactNode }) {
-  return <dl className="label-13 grid grid-cols-2 gap-3 border-t border-gray-alpha-200 pt-3 sm:grid-cols-4">{children}</dl>
-}
-
-export function Fact({ label, mono = false, children }: { label: string; mono?: boolean; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-gray-900">{label}</dt>
-      <dd className={`truncate ${mono ? 'label-13-mono' : ''}`}>{children}</dd>
-    </div>
-  )
-}
