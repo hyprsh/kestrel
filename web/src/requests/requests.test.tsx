@@ -189,6 +189,52 @@ describe('the Requests screen', () => {
       expect(await within(await list()).findAllByRole('listitem')).toHaveLength(1)
     })
 
+    it('selects the addressed Request’s row and scrolls it into view', async () => {
+      const scroll = vi.fn()
+      Element.prototype.scrollIntoView = scroll
+      const items = [request({ id: 3, title: 'Dune' }), request({ id: 2, title: 'Heat' }), request({ id: 1, title: 'Paddington' })]
+      history.replaceState(null, '', '/requests/2')
+      fakeRequests(items)
+      one(items)
+      renderApp()
+
+      const rows = await within(await list()).findAllByRole('listitem')
+      await waitFor(() => expect(document.querySelector('[aria-current="true"]')).toBe(rows[1]))
+      expect(rows[1]).toHaveTextContent('Heat')
+      expect(scroll.mock.contexts).toContain(rows[1])
+    })
+
+    it('loads older pages until the addressed Request is in the list, then selects it', async () => {
+      const scroll = vi.fn()
+      Element.prototype.scrollIntoView = scroll
+      const day = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString()
+      const items = Array.from({ length: 60 }, (_, i) => request({ id: 100 - i, title: `Movie ${i + 1}`, created_at: day(i + 1) }))
+      history.replaceState(null, '', '/requests/45')
+      fakeRequests(items)
+      one(items)
+      renderApp()
+
+      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Requests' })).getAllByRole('listitem')).toHaveLength(60))
+      const row = within(screen.getByRole('list', { name: 'Requests' }))
+        .getByText('Movie 56')
+        .closest('li')!
+      await waitFor(() => expect(document.querySelector('[aria-current="true"]')).toBe(row))
+      expect(scroll.mock.contexts).toContain(row)
+    })
+
+    it('shows the detail without selecting a row when the filter hides the Request', async () => {
+      const items = [request({ id: 2, title: 'Heat' }), request({ id: 1, title: 'Paddington' })]
+      history.replaceState(null, '', '/requests/1?q=heat')
+      fakeRequests(items)
+      one(items)
+      renderApp()
+
+      expect(await screen.findByRole('region', { name: 'Request' })).toHaveTextContent('Paddington')
+      const rows = await within(await list()).findAllByRole('listitem')
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toHaveTextContent('Heat')
+    })
+
     it('keeps the old requester: filter link working', async () => {
       history.replaceState(null, '', '/requests?q=requester%3AAnna')
       const queries = fakeRequests([request()])

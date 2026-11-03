@@ -4,8 +4,8 @@
 import { EmptyState, LoadMoreButton, Note, parseQuery } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
 import { usePhone } from '../responsive'
-import { useMemo, useState } from 'react'
-import { useRequestList } from '../api/requests'
+import { useEffect, useMemo, useState } from 'react'
+import { useRequest, useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
 import { FacetFilterButton } from '../layout/FilterButton'
@@ -53,6 +53,21 @@ export function Requests({
     const id = shown[i]?.title_id
     if (id != null) onOpenTitle(id)
   }
+  // The addressed Request is the selected row, scrolled into view. It may be on a page not loaded yet: the list is newest first, so
+  // older pages are fetched until the loaded ones pass its date (a filtered-out Request stops there too, and only the detail shows).
+  const addressed = useRequest(requestId).data
+  const at = requestId === null ? -1 : shown.findIndex((r) => r.id === requestId)
+  useEffect(() => {
+    if (at < 0) return
+    setSel(at)
+    document.querySelector(`[data-nav="req-${at}"]`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [at, phone])
+  const last = loaded[loaded.length - 1]
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list
+  useEffect(() => {
+    if (requestId === null || !addressed || at >= 0 || !hasNextPage || isFetchingNextPage || !last) return
+    if (new Date(last.created_at) >= new Date(addressed.created_at)) void fetchNextPage()
+  }, [requestId, addressed, at, hasNextPage, isFetchingNextPage, last, fetchNextPage])
   useListNav('req', shown.length, Math.min(sel, Math.max(shown.length - 1, 0)), setSel, open)
   useKey('/', (e) => {
     e.preventDefault()

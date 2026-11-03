@@ -57,7 +57,7 @@ export function RequestDetail({ id, onOpenTitle, onClose }: { id: number; onOpen
         ))}
         <dt className="text-gray-900">Slots</dt>
         <dd>
-          <RequestSlots request={r} />
+          <RequestSlots request={r} align="start" />
         </dd>
       </dl>
     </section>
