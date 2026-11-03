@@ -7,15 +7,12 @@ import { ApiError, useEpisodes, type Episode, type TitleDetail } from '../api/qu
 import { useDisplay } from '../display/useDisplay'
 import { LoadingRegion } from '../loading'
 import { useUrlParam } from '../place'
-import { usePhone } from '../responsive'
-import { EpisodeDeleteConfirm } from './DeleteFiles'
-import { SeasonMenu, SeasonSearchButton, TickedBar, useEpisodeActions } from './EpisodeActions'
+import { TickedBar, useEpisodeActions } from './EpisodeActions'
 import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
 import { EpisodeList } from './EpisodeList'
 import { useEpisodeView } from './episodeView'
-import { bySeason, defaultSeasons, episodeCode, isUnaired, matchesFilter, orderEpisodes, orderSeasons, seasonName, seasonRow, type EpisodeFilter } from './episodes'
+import { bySeason, defaultSeasons, episodeCode, isUnaired, matchesFilter, orderEpisodes, orderSeasons, seasonName, type EpisodeFilter } from './episodes'
 import { grabsByEpisode } from './cellDetail'
-import { MonitorToggle } from './MonitorToggle'
 import { SeasonAccordion } from './SeasonAccordion'
 import { chipColumn } from './StateBar'
 import { cellOf, slotsOf, useSlotNames } from './slots'
@@ -29,8 +26,8 @@ const filterOfParam = (v: string | null): EpisodeFilter => (['missing', 'downloa
 
 /**
  * What a Series adds to its Title page, below its header: the Seasons as an accordion (one row per season with its
- * bookmark, a bar of its episodes, a chip per Slot and the count), each opening in place to the season's tools (its
- * Search season, its menu) and episode list (a chip per Slot), and, while episodes are ticked, their floating bar.
+ * bookmark, a bar of its episodes, a chip per Slot, the count and its actions: Search Season and a menu), each opening in place to
+ * its episode list (a chip per Slot), and, while episodes are ticked, their floating bar.
  * One filter above the rows (All, Wanted, Downloading, Not aired, with whole-Series counts) lists only the seasons with a matching
  * episode and shows only matching episodes in the open ones. What opens by itself is up to Settings' seasons_open (nothing, by default).
  * The open seasons live in the address bar ("?open=5,3", or the old "?season=2"), as does the found episode (episodeView.ts) and the
@@ -41,7 +38,6 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const slotList = useMemo(() => slotsOf(title, slotNames), [title, slotNames])
   const slots = useMemo(() => slotList.map((s) => s.key), [slotList])
   const { display, ready } = useDisplay()
-  const phone = usePhone()
   const query = useEpisodes(title.id)
   const loaded = query.data
   const episodes = useMemo(() => (loaded ? orderEpisodes(loaded, display.season_order) : noEpisodes), [loaded, display.season_order])
@@ -93,6 +89,19 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   const listed = useMemo(() => (filter === 'all' ? seasons : seasons.filter((n) => (grouped.get(n) ?? noEpisodes).some((e) => matchesFilter(e, slots, filter)))), [seasons, grouped, slots, filter])
   const shown = useMemo(() => listed.filter((n) => open.has(n)).flatMap((n) => shownOf(n).shown), [listed, open, shownOf])
   const actions = useEpisodeActions(title, episodes, shown, slots, onManualSearch)
+
+  // A season's "Select All": a closed season opens first (only the open seasons' episodes can be ticked), then its episodes are ticked.
+  const [ticking, setTicking] = useState<number | null>(null)
+  const selectSeason = (n: number) => {
+    if (!open.has(n)) toggle(n)
+    setTicking(n)
+  }
+  const { checkIds } = actions.selection
+  useEffect(() => {
+    if (ticking === null || !open.has(ticking)) return
+    checkIds(shownOf(ticking).shown.map((e) => e.id))
+    setTicking(null)
+  }, [ticking, open, shownOf, checkIds])
 
   // The Find field: a code or part of a name goes to that episode's season (which opens) and highlights it.
   const inFoundSeason = view.season !== null ? (grouped.get(view.season) ?? noEpisodes) : noEpisodes
@@ -154,19 +163,10 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
   ]
   const showField = finding || find.text !== ''
   const body = (n: number) => {
-    const { inSeason, unaired, folds, expanded, shown: rows } = shownOf(n)
+    const { unaired, folds, expanded, shown: rows } = shownOf(n)
     const name = seasonName(n)
-    const monitored = inSeason.some((e) => e.monitored)
     return (
       <section aria-label={`${name} episodes`}>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-gray-alpha-200 px-3.5 py-2">
-          <div className="ml-auto flex items-center gap-1.5">
-            {phone && <MonitorToggle name={name} monitored={monitored} onToggle={() => actions.monitorSeason(n, !monitored)} />}
-            <SeasonSearchButton actions={actions} season={n} episodes={inSeason} />
-            <SeasonMenu actions={actions} season={n} episodes={inSeason} label={`${name} actions`} />
-          </div>
-        </div>
-        <EpisodeDeleteConfirm deletes={actions.deletes} at={seasonRow(n)} />
         {rows.length === 0 && !folds ? (
           <p className="copy-13 px-3.5 py-3 text-gray-900">No episodes match.</p>
         ) : (
@@ -209,7 +209,7 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
       {listed.length === 0 ? (
         <p className="copy-13 py-2 text-gray-900">No episodes match.</p>
       ) : (
-        <SeasonAccordion seasons={listed} episodes={grouped} slots={slotList} open={open} onToggle={toggle} actions={actions} body={body} />
+        <SeasonAccordion seasons={listed} episodes={grouped} slots={slotList} open={open} onToggle={toggle} actions={actions} onSelectAll={selectSeason} body={body} />
       )}
       <TickedBar actions={actions} />
     </section>

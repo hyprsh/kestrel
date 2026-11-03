@@ -313,7 +313,7 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(within(episodeGrid()).getByRole('checkbox', { name: 'Select Season 1 episode 3' }).closest('tr')).toHaveAttribute('aria-current', 'true')
   })
 
-  it('has Find an Episode and Expand All by the heading, and the season’s tools in its open body', async () => {
+  it('has Find an Episode and Expand All by the heading, and the season’s actions on its row, not in its body', async () => {
     const { state } = await openSeries()
     expect(state.get().sent).toEqual([])
     expect(screen.getByRole('button', { name: 'Find an Episode' })).toBeEnabled()
@@ -321,13 +321,19 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(screen.queryByRole('button', { name: 'Table options' })).not.toBeInTheDocument()
 
     const body = screen.getByRole('region', { name: 'Season 1 episodes' })
-    // The tools row: Search Season and the season's menu, none nested in another button; the filter is above the Seasons.
+    // The actions sit on the season's row beside its toggle, none nested in another button, and the body has no tools row.
     expect(within(body).queryByRole('tablist')).not.toBeInTheDocument()
     expect(screen.getByRole('tablist', { name: 'Show episodes' })).toBeInTheDocument()
-    expect(within(body).getByRole('button', { name: 'Search Season' })).toBeEnabled()
-    await userEvent.click(within(body).getByRole('button', { name: 'Season 1 actions' }))
-    const menu = screen.getByRole('menu', { name: 'Season 1 actions' })
-    const items = ['Search Season', 'Manual Search Season Standard…', 'Manual Search Season 4K…', 'Delete Standard Season’s Files…', 'Delete 4K Season’s Files…']
+    expect(within(body).queryByRole('button', { name: 'Search Season' })).not.toBeInTheDocument()
+    expect(within(body).queryByRole('button', { name: 'Season 1 Actions' })).not.toBeInTheDocument()
+    const item = body.closest('[role=listitem]') as HTMLElement
+    const toggle = within(item).getByRole('button', { name: /^Season 1:/ })
+    const search = within(item).getByRole('button', { name: 'Search Season' })
+    expect(search).toBeEnabled()
+    expect(toggle).not.toContainElement(search)
+    await userEvent.click(within(item).getByRole('button', { name: 'Season 1 Actions' }))
+    const menu = screen.getByRole('menu', { name: 'Season 1 Actions' })
+    const items = ['Manual Search Season Standard…', 'Manual Search Season 4K…', 'Select All of Season 1', 'Stop Monitoring Season 1', 'Delete Standard Season’s Files…', 'Delete 4K Season’s Files…']
     expect(
       within(menu)
         .getAllByRole('menuitem')
@@ -345,10 +351,13 @@ describe('the Seasons at a glance on the Title page', () => {
     const region = screen.getByRole('region', { name: 'Seasons' })
 
     // Season 2 has what is Wanted, so it opened; Season 1 is closed.
-    expect(within(screen.getByRole('region', { name: 'Season 2 episodes' })).getByRole('button', { name: 'Search Season' })).toBeEnabled()
-    await userEvent.click(within(region).getByRole('button', { name: /^Season 1:/ }))
-    expect(within(screen.getByRole('region', { name: 'Season 1 episodes' })).getByRole('button', { name: 'Search Season' })).toBeDisabled()
-    await userEvent.click(within(region).getByRole('button', { name: /^Season 1:/ }))
+    const seasonRow = (n: number) =>
+      within(region)
+        .getByRole('button', { name: new RegExp(`^Season ${n}:`) })
+        .closest('[role=listitem]') as HTMLElement
+    expect(within(seasonRow(2)).getByRole('button', { name: 'Search Season' })).toBeEnabled()
+    expect(within(seasonRow(1)).getByRole('button', { name: 'Search Season' })).toBeDisabled() // on the closed row too
+    expect(within(region).getByRole('button', { name: /^Season 1:/ })).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(within(region).getByRole('button', { name: 'Stop Monitoring Season 1' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'seasons/1', body: { monitored: false } }]))
     expect(within(region).getByRole('button', { name: /^Season 1:/ })).toHaveAttribute('aria-expanded', 'false') // acting on a row does not open it

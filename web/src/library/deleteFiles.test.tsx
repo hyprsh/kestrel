@@ -63,7 +63,7 @@ describe("deleting a Movie's file", () => {
     const sent = recordDeletes()
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     const confirm = within(hd).getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Paddington (2014) - [Standard].mkv')
@@ -79,7 +79,7 @@ describe("deleting a Movie's file", () => {
     const sent = recordDeletes({ adopted: true })
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete and Blocklist this Release' }))
 
@@ -91,7 +91,7 @@ describe("deleting a Movie's file", () => {
     recordDeletes({ undeletable: true })
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
 
@@ -105,7 +105,7 @@ describe("deleting a Movie's file", () => {
     )
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
 
@@ -117,7 +117,7 @@ describe("deleting a Movie's file", () => {
     const sent = recordDeletes()
     const hd = await openFilledMovie()
 
-    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Standard Actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Cancel' }))
 
@@ -194,7 +194,7 @@ describe('deleting files from the episode table', () => {
   it("asks under the season's buttons, above the table, for a season's files", async () => {
     const { grid } = await openSeriesWithFiles()
 
-    await choose(null, 'Season 1 actions', "Delete Standard Season's Files…")
+    await choose(null, 'Season 1 Actions', "Delete Standard Season's Files…")
 
     const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(grid.contains(confirm)).toBe(false)
@@ -251,7 +251,7 @@ describe('deleting files from the episode table', () => {
   it("deletes a season's files from the season's menu, blocklisting their Release", async () => {
     const { sent } = await openSeriesWithFiles()
 
-    await choose(null, 'Season 1 actions', "Delete Standard Season's Files…")
+    await choose(null, 'Season 1 Actions', "Delete Standard Season's Files…")
     await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete and Blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'season=1&blocklist=true' }]))

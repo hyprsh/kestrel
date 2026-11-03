@@ -226,10 +226,10 @@ describe('searching from the episode list', () => {
   it('searches the Wanted episodes of the season, and opens Manual search for it from the season menu', async () => {
     const { searched, manual } = await openSeries()
 
-    await choose(null, 'Season 1 actions', 'Search Season')
+    await userEvent.click(within(screen.getByRole('button', { name: /^Season 1:/ }).closest('[role=listitem]') as HTMLElement).getByRole('button', { name: 'Search Season' })) // the season row's own button
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { season: 1 } }]))
 
-    await choose(null, 'Season 1 actions', 'Manual Search Season Standard…')
+    await choose(null, 'Season 1 Actions', 'Manual Search Season Standard…')
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1 } }]))
     expect(within(await screen.findByRole('region', { name: 'Manual search' })).getByText('Season 1')).toBeInTheDocument()
   })

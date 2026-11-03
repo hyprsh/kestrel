@@ -1,21 +1,20 @@
 // chrome: domain-visual
-// What a Movie adds to its Title page: its Versions as an accordion, one row per Slot. A row is one line saying the Slot and its
-// Profile, what it holds over its file name, a status chip and the size, the same open or closed. Opened, a
-// row adds what its state needs: a file's facts, a download's progress, or why nothing was grabbed yet, with that Slot's actions.
+// What a Movie adds to its Title page: its Versions as an accordion, one row per Slot, all closed to start with. A row is one line
+// saying the Slot and its Profile with what it holds, over its file name, a status chip, the size and the row's actions, the same
+// open or closed. Opened, a row adds what its state needs: a file's facts, a download's progress, or why nothing was grabbed yet.
 import { Button, Progress } from '@hyprsh/design'
 import { useEffect, useState } from 'react'
 import { useDownloadClient } from '../api/activity'
 import type { Profile, TitleDetail } from '../api/queries'
 import { plural } from '../format'
 import { usePhone } from '../responsive'
-import { placePath, useOpenPlace } from '../place'
 import { ago, span, until, useNow } from '../time'
 import { dotState, stateName, type SlotDotState } from '../ui/slotState'
 import { size } from './bits'
 import { baseName } from './cellDetail'
-import { VersionActions } from './VersionActions'
 import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid, lastSearchWords, lineRow, phoneRow, RowName, SizeCell } from './accordion'
 import { useEpisodeView } from './episodeView'
+import { DeleteFile } from './DeleteFiles'
 import { importedOn, EndOfPath } from './EpisodeFilePopover'
 import { audioFormat, audioLine, qualityLine, qualityName } from './media'
 import { AddVersion } from './ManageVersion'
@@ -23,9 +22,8 @@ import { OriginalOfferNote } from './OriginalOfferNote'
 import { SlotPills } from './SlotPills'
 import { slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
-import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
-import { VersionMenu } from './VersionRows'
-import { useSearchWanted } from './VersionSearch'
+import { useTitleDownloads, type SlotDownloads } from './TitleDownloads'
+import { VersionRowActions } from './VersionRows'
 import { foundText, whyNoneFit } from './WantedLine'
 
 type Version = TitleDetail['versions'][number]
@@ -69,11 +67,8 @@ export function MovieSection({
   const slots = useSlotNames()
   const versions = slotsOf(title, slots).flatMap((s) => title.versions.filter((v) => v.slot === s.key))
   const at = useEpisodeView(title.id).slot
-  // Open: the Slot the page was opened at, else the Slots that need a look (downloading or Wanted), else the first one.
-  const [open, setOpen] = useState<Set<string>>(() => {
-    const attention = versions.filter((v) => downloads.slot(v.slot) || v.state === 'wanted').map((v) => v.slot)
-    return new Set(at ? [at] : attention.length > 0 ? attention : versions.slice(0, 1).map((v) => v.slot))
-  })
+  // Open: only the Slot the page was opened at.
+  const [open, setOpen] = useState<Set<string>>(() => new Set(at ? [at] : []))
   useEffect(() => {
     if (!at) return
     setOpen((o) => (o.has(at) ? o : new Set(o).add(at)))
@@ -150,7 +145,8 @@ function SlotRow({
   const summary = f ? [qualityLine(f, false), audioFormat(f)].filter(Boolean).join(' \u00b7 ') : line.text
   const fileName = f ? baseName(f.path) : grab ? grab.release_name : ls ? `Last search ${ago(ls.at, now)} \u00b7 ${foundText(ls)}` : 'No file yet'
   const chip = <SlotPills chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: line.chip, tip: `${name}: ${line.text}` }]} max={1} />
-  const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
+  const [deleting, setDeleting] = useState(false)
+  const actions = <VersionRowActions {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads} phone={phone} onDeleteFiles={() => setDeleting(true)} />
   return (
     <AccordionRow
       id={`version-${v.slot}`}
@@ -163,10 +159,13 @@ function SlotRow({
       header={
         <>
           <Chevron open={open} />
-          <RowName name={name} tag={profileName(v.profile)} />
           {phone ? (
             <>
-              <SizeCell text={sizeText} />
+              <RowName name={name} tag={profileName(v.profile)} />
+              <span className="flex items-center gap-1">
+                <SizeCell text={sizeText} />
+                {actions}
+              </span>
               <span className="col-start-2 col-end-4 mt-1 flex min-w-0 items-center gap-2">
                 <span className="label-12-mono pointer-events-none min-w-0 flex-1 truncate">{summary}</span>
                 <span className="relative">{chip}</span>
@@ -181,47 +180,29 @@ function SlotRow({
             </>
           ) : (
             <>
-              <span title={f?.path ?? grab?.release_name} className="pointer-events-none flex min-w-0 flex-1 flex-col items-end">
-                <span className="label-12-mono max-w-full truncate">{summary}</span>
+              <span title={f?.path ?? grab?.release_name} className="pointer-events-none flex min-w-0 flex-1 flex-col">
+                <RowName name={name} tag={profileName(v.profile)} meta={summary} />
                 <span title={f || grab ? undefined : fileName} className="label-12-mono max-w-full truncate text-gray-900">
                   {fileName}
                 </span>
               </span>
               <span className="relative flex shrink-0 justify-end">{chip}</span>
               <SizeCell text={sizeText} />
+              {actions}
             </>
           )}
         </>
       }
-      body={<SlotBody {...{ title, profiles, profileName }} version={v} downloads={downloads} now={now} onManualSearch={manual} />}
+      below={<DeleteFile versionId={v.id} file={v.file} asking={deleting} onClose={() => setDeleting(false)} />}
+      body={<SlotBody version={v} downloads={downloads} now={now} />}
     />
   )
 }
 
-function SlotBody({
-  title,
-  profiles,
-  profileName,
-  version: v,
-  downloads,
-  now,
-  onManualSearch,
-}: {
-  title: TitleDetail
-  profiles: Profile[]
-  profileName: (key: string) => string
-  version: Version
-  downloads: SlotDownloads | null
-  now: number
-  onManualSearch: () => void
-}) {
-  const openPlace = useOpenPlace()
-  const search = useSearchWanted(title)
-  const cancel = useCancelDownloads()
+function SlotBody({ version: v, downloads, now }: { version: Version; downloads: SlotDownloads | null; now: number }) {
   const client = useDownloadClient()
   const slots = useSlotNames()
   const f = v.file
-  const more = <VersionMenu {...{ title, profiles, profileName }} version={v} downloads={downloads} onManualSearch={() => onManualSearch()} more />
   const wrap = bodyWrap
   const grid = factsGrid
   if (downloads) {
@@ -253,19 +234,6 @@ function SlotBody({
           <Fact k="Why">{g.is_upgrade ? `Upgrade${g.score_delta !== null ? ` · +${g.score_delta} points` : ''}` : `Wanted · Score ${g.score.toLocaleString()}`}</Fact>
           <Fact k="Replaces">{g.is_upgrade && f ? baseName(f.path) : 'nothing'}</Fact>
         </div>
-        <VersionActions
-          primary={
-            <Button variant="tertiary" size="small" onClick={() => openPlace(placePath('activity'))}>
-              Open in Activity
-            </Button>
-          }
-          secondary={
-            <Button variant="tertiary" size="small" disabled={cancel.pending} onClick={() => void cancel.run(downloads.items, true)}>
-              Cancel and Block
-            </Button>
-          }
-          more={more}
-        />
       </div>
     )
   }
@@ -296,19 +264,6 @@ function SlotBody({
           </Fact>
         </div>
         {f.misfit && <span className="label-12 text-red-900">No longer fits this Profile</span>}
-        <VersionActions
-          primary={
-            <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
-              Search for an Upgrade
-            </Button>
-          }
-          secondary={
-            <Button variant="tertiary" size="small" onClick={onManualSearch}>
-              Manual Search
-            </Button>
-          }
-          more={more}
-        />
       </div>
     )
   }
@@ -324,19 +279,6 @@ function SlotBody({
           <Fact k="Why none fit">{(ls && whyNoneFit(ls)) || '—'}</Fact>
           <Fact k="Next search">{v.next_search_at ? until(v.next_search_at, now) : '—'}</Fact>
         </div>
-        <VersionActions
-          primary={
-            <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
-              Search Now
-            </Button>
-          }
-          secondary={
-            <Button variant="tertiary" size="small" onClick={onManualSearch}>
-              Manual Search
-            </Button>
-          }
-          more={more}
-        />
       </div>
     )
   }
@@ -350,14 +292,6 @@ function SlotBody({
             ? 'Not monitored: Kestrel searches nothing for it.'
             : stateName[dotState(v.state, false) ?? 'unmonitored']}
       </span>
-      <VersionActions
-        secondary={
-          <Button variant="tertiary" size="small" onClick={onManualSearch}>
-            Manual Search
-          </Button>
-        }
-        more={more}
-      />
     </div>
   )
 }

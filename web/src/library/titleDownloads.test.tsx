@@ -14,7 +14,9 @@ async function openPaddington(client = new QueryClient({ defaultOptions: { queri
   render(<App client={client} />)
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
-  return { pane, row: await within(pane).findByRole('listitem', { name: 'Standard' }) }
+  const item = await within(pane).findByRole('listitem', { name: 'Standard' })
+  await userEvent.click(within(item).getByRole('button', { name: /^Standard:/ })) // every row starts closed
+  return { pane, row: item }
 }
 
 describe("a Title's downloads on its page", () => {
@@ -95,14 +97,13 @@ describe("a Title's downloads on its page", () => {
     await expect.poll(() => within(hd).queryByText('Release')).toBeNull()
   })
 
-  it('cancels and blocks from the open row', async () => {
-    const state = fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
+  it('has Open in Activity as the main action of a downloading row, on its header, not in its body', async () => {
+    fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
     const { row: hd } = await openPaddington()
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'Cancel and Block' }))
-
-    expect(state.cancels).toEqual([{ id: '7', body: { blocklist: true } }])
-    expect(await findToast('Grab cancelled and its Release blocklisted')).toBeInTheDocument()
+    expect(within(hd).getAllByRole('button', { name: 'Open in Activity' })).toHaveLength(1)
+    expect(hd.firstElementChild).toContainElement(within(hd).getByRole('button', { name: 'Open in Activity' }))
+    expect(within(hd).queryByRole('button', { name: 'Cancel and Block' })).not.toBeInTheDocument()
   })
 
   it('cancels and blocklists from the Version menu', async () => {

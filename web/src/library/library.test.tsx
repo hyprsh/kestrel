@@ -338,6 +338,7 @@ describe('the Library detail pane', () => {
     const pane = await screen.findByRole('region', { name: /paddington/i })
     // The open row says what the file is, not the release it was grabbed as.
     const hdRow = await within(pane).findByRole('listitem', { name: 'Standard' })
+    await userEvent.click(within(hdRow).getByRole('button', { name: /^Standard:/ })) // every row starts closed
     expect((await within(hdRow).findByText('Quality')).nextElementSibling).toHaveTextContent('BluRay 1080p')
     expect(within(hdRow).getByText('Audio').nextElementSibling).toHaveTextContent('English, German')
     expect(within(hdRow).getByText('Custom Format Score').nextElementSibling).toHaveTextContent('+1,750')
@@ -362,6 +363,7 @@ describe('the Library detail pane', () => {
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
     const row = await within(pane).findByRole('listitem', { name: 'Standard' })
+    await userEvent.click(within(row).getByRole('button', { name: /^Standard:/ })) // every row starts closed
     expect((await within(row).findByText('Path')).nextElementSibling).toHaveTextContent('/data/media/movies/P/P.mkv')
     expect(within(row).queryByRole('button', { name: 'Upgrade Search' })).not.toBeInTheDocument()
   })

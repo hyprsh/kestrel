@@ -154,8 +154,8 @@ describe('manage Versions', () => {
     await within(pane).findByRole('listitem', { name: 'Standard' })
 
     await openVersionMenu(pane, 'Standard')
-    await userEvent.click(screen.getByRole('menuitem', { name: /Change Profile…/ }))
-    const dialog = screen.getByRole('dialog', { name: 'Change Profile' })
+    await userEvent.click(screen.getByRole('menuitem', { name: /Switch Profile…/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Switch Profile' })
     await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Profile' }), 'Any')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Switch' }))
 
@@ -233,6 +233,7 @@ describe('manage Versions', () => {
     )
     const pane = await openPane()
 
+    await userEvent.click(within(await within(pane).findByRole('listitem', { name: 'Standard' })).getByRole('button', { name: /^Standard:/ })) // every row starts closed
     expect(await within(pane).findByText('A Standard release in the original language only is available · Score 92')).toBeInTheDocument()
     await userEvent.click(within(pane).getByRole('button', { name: 'Dismiss' }))
     await waitFor(() => expect(sent).toEqual(['dismiss 11']))
