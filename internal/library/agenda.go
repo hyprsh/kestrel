@@ -261,7 +261,7 @@ func (s *Service) UpcomingFrom(ctx context.Context, data *AgendaData, view View,
 	}
 
 	// slotOfState turns a Unit's state at now into an entry's.
-	slotOfState := func(v db.Version, st State, since *time.Time, parsed func() string) EntrySlot {
+	slotOfState := func(v db.Version, st State, since *time.Time, long bool, parsed func() string) EntrySlot {
 		es := EntrySlot{Slot: slotOf(v.Slot), VersionID: v.ID, State: EntryNotOut}
 		switch st {
 		case Filled:
@@ -270,7 +270,7 @@ func (s *Service) UpcomingFrom(ctx context.Context, data *AgendaData, view View,
 				es.ParsedRelease = parsed()
 			}
 		case Wanted:
-			es.State, es.WantedSince, es.LongMissing = EntryWanted, since, IsLongMissing(st, since, view.Now)
+			es.State, es.WantedSince, es.LongMissing = EntryWanted, since, long
 		}
 		return es
 	}
@@ -295,8 +295,9 @@ func (s *Service) UpcomingFrom(ctx context.Context, data *AgendaData, view View,
 			movieSlots := func() []EntrySlot {
 				var slots []EntrySlot
 				for _, v := range vs {
-					st, since := StateAt(Unit{Monitored: titleMonitored, HasFile: hasFile[v.ID], AddedAt: parseTime(v.AddedAt), Released: movieReleased(rel, view.Country, t.ReleaseSeenAt)}, view.Now)
-					slots = append(slots, slotOfState(v, st, since, func() string { return movieFile(v.ID) }))
+					u := Unit{Monitored: titleMonitored, HasFile: hasFile[v.ID], AddedAt: parseTime(v.AddedAt), Released: movieReleased(rel, view.Country, t.ReleaseSeenAt)}
+					st, since := StateAt(u, view.Now)
+					slots = append(slots, slotOfState(v, st, since, IsLongMissing(u, view.Now), func() string { return movieFile(v.ID) }))
 				}
 				return slots
 			}
@@ -383,8 +384,9 @@ func (s *Service) UpcomingFrom(ctx context.Context, data *AgendaData, view View,
 			ent.Markers = markers[e.ID]
 			for _, v := range vs {
 				_, held := heldBy[v.ID][e.ID]
-				st, since := StateAt(Unit{Monitored: monitored, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]}, view.Now)
-				ent.Slots = append(ent.Slots, slotOfState(v, st, since, func() string { return parsedOf(v.ID, e.ID) }))
+				u := Unit{Monitored: monitored, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]}
+				st, since := StateAt(u, view.Now)
+				ent.Slots = append(ent.Slots, slotOfState(v, st, since, IsLongMissing(u, view.Now), func() string { return parsedOf(v.ID, e.ID) }))
 			}
 			out.Entries = append(out.Entries, ent)
 		}
@@ -401,13 +403,13 @@ func (s *Service) UpcomingFrom(ctx context.Context, data *AgendaData, view View,
 					units = append(units, Unit{Monitored: true, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]})
 				}
 				st, since := SeriesState(units, view.Now)
-				undated.Slots = append(undated.Slots, slotOfState(v, st, since, nil))
+				undated.Slots = append(undated.Slots, slotOfState(v, st, since, anyLongMissing(units, view.Now), nil))
 			}
 			out.Undated = append(out.Undated, undated)
 		case t.TvdbStatus == "upcoming":
 			undated.Reason = Announced
 			for _, v := range vs {
-				undated.Slots = append(undated.Slots, slotOfState(v, Unreleased, nil, nil))
+				undated.Slots = append(undated.Slots, slotOfState(v, Unreleased, nil, false, nil))
 			}
 			out.Undated = append(out.Undated, undated)
 		}

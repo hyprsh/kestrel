@@ -281,7 +281,7 @@ func (s *Service) cancel(ctx context.Context, id int64, blocklist bool, why stri
 	if blocklist {
 		// The Release is out: take the next best one at once. A retry that finds
 		// nothing, or fails, leaves the Version Wanted for the sweep.
-		_, _ = s.retryVersions(ctx, row, also, g.ReleaseName+" was canceled and blocklisted by "+actorOf(ctx))
+		_, _ = s.retryVersions(ctx, row, also, g.ReleaseName+" was canceled and blocklisted by "+actorOf(ctx), true)
 	}
 	return g, nil
 }
@@ -346,6 +346,7 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 
 // searchAutomatic is searchTitle for the searches Kestrel starts on its own, which also say in the Log what they found.
 func (s *Service) searchAutomatic(ctx context.Context, titleID int64, versionIDs []int64, upgrade bool) (Outcome, error) {
+	ctx = context.WithValue(ctx, sweepMarkKey{}, true)
 	out, err := s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, upgrade)
 	by := "Searched"
 	if upgrade {
@@ -375,9 +376,41 @@ func (s *Service) searchGuarded(ctx context.Context, titleID int64, versionIDs [
 		return Outcome{}, coalesced, err
 	}
 	defer unlock()
+	began := s.clock()
 	out, err := s.runSearch(ctx, titleID, versionIDs, scope, fromCache, upgrade)
 	s.noteSearched(ctx, titleID, upgrade, out, err)
+	if !sweepMarks(ctx) && !upgrade && err == nil && len(out.Failures) == 0 {
+		s.markSearched(ctx, began, out, scope)
+	}
 	return out, false, err
+}
+
+// sweepMarkKey marks a context whose caller, the sweep, schedules the next search of what it searched itself.
+type sweepMarkKey struct{}
+
+func sweepMarks(ctx context.Context) bool { return ctx.Value(sweepMarkKey{}) != nil }
+
+// markSearched counts a completed search that asked the indexers, from any trigger but the sweep (Search now, a retry,
+// a bulk Search), as the Versions' search for the cadence: their next search moves out. A search narrowed to a season
+// or episodes counts for the rows of those seasons only.
+func (s *Service) markSearched(ctx context.Context, at time.Time, out Outcome, scope library.Scope) {
+	if !out.asked || ctx.Err() != nil {
+		return
+	}
+	for _, vid := range out.Searched {
+		var seasons []int
+		if scope.Narrow() {
+			for _, ep := range out.library {
+				if slices.Contains(out.episodes[vid], ep.ID) && !slices.Contains(seasons, ep.Season) {
+					seasons = append(seasons, ep.Season)
+				}
+			}
+			if len(seasons) == 0 {
+				continue
+			}
+		}
+		_ = s.lib.MarkMissingSearchedIn(ctx, vid, at, false, seasons)
+	}
 }
 
 func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {

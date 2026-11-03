@@ -176,6 +176,16 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 			if err := q.SetImportReplaced(ctx, db.SetImportReplacedParams{ImportReplaced: sql.NullInt64{Int64: int64(o.Replaced), Valid: true}, ID: grabID}); err != nil {
 				return err
 			}
+			// An Import ends the run of rejections: the Version's retry cooldown starts over.
+			also, err := q.ListGrabVersionsOf(ctx, grabID)
+			if err != nil {
+				return err
+			}
+			for _, v := range append([]int64{row.VersionID.Int64}, also...) {
+				if err := s.lib.ClearRejections(ctx, v); err != nil {
+					return err
+				}
+			}
 		}
 		s.live.drop(grabID)
 		ev := history.Event{
@@ -208,7 +218,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		}
 		if o.Status == ImportRejected {
 			// The Release was unfit: the Version's next best one replaces it.
-			_, err := s.retry(ctx, row, "import of "+row.ReleaseName+" rejected: "+o.Reason)
+			_, err := s.retry(ctx, row, "import of "+row.ReleaseName+" rejected: "+o.Reason, true)
 			return err
 		}
 	}

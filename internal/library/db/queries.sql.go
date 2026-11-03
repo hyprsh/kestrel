@@ -1667,7 +1667,7 @@ func (q *Queries) ListReleaseDatesOfTitle(ctx context.Context, titleID int64) ([
 }
 
 const listSearchStates = `-- name: ListSearchStates :many
-SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by FROM search_state ORDER BY id
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by, missing_failures, retry_count, retry_not_before FROM search_state ORDER BY id
 `
 
 func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
@@ -1689,6 +1689,9 @@ func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
 			&i.LastUpgradeAt,
 			&i.Fresh,
 			&i.RequestedBy,
+			&i.MissingFailures,
+			&i.RetryCount,
+			&i.RetryNotBefore,
 		); err != nil {
 			return nil, err
 		}
@@ -1704,7 +1707,7 @@ func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
 }
 
 const listSearchStatesOfTitle = `-- name: ListSearchStatesOfTitle :many
-SELECT ss.id, ss.version_id, ss.season, ss.next_missing_at, ss.last_missing_at, ss.next_upgrade_at, ss.last_upgrade_at, ss.fresh, ss.requested_by FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id
+SELECT ss.id, ss.version_id, ss.season, ss.next_missing_at, ss.last_missing_at, ss.next_upgrade_at, ss.last_upgrade_at, ss.fresh, ss.requested_by, ss.missing_failures, ss.retry_count, ss.retry_not_before FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id
 `
 
 // A Title's search_state rows.
@@ -1727,6 +1730,50 @@ func (q *Queries) ListSearchStatesOfTitle(ctx context.Context, titleID int64) ([
 			&i.LastUpgradeAt,
 			&i.Fresh,
 			&i.RequestedBy,
+			&i.MissingFailures,
+			&i.RetryCount,
+			&i.RetryNotBefore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSearchStatesOfVersion = `-- name: ListSearchStatesOfVersion :many
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by, missing_failures, retry_count, retry_not_before FROM search_state WHERE version_id = ? ORDER BY id
+`
+
+// A Version's search_state rows.
+func (q *Queries) ListSearchStatesOfVersion(ctx context.Context, versionID int64) ([]SearchState, error) {
+	rows, err := q.db.QueryContext(ctx, listSearchStatesOfVersion, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchState
+	for rows.Next() {
+		var i SearchState
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Season,
+			&i.NextMissingAt,
+			&i.LastMissingAt,
+			&i.NextUpgradeAt,
+			&i.LastUpgradeAt,
+			&i.Fresh,
+			&i.RequestedBy,
+			&i.MissingFailures,
+			&i.RetryCount,
+			&i.RetryNotBefore,
 		); err != nil {
 			return nil, err
 		}
@@ -2055,17 +2102,23 @@ func (q *Queries) MarkReleaseSeen(ctx context.Context, arg MarkReleaseSeenParams
 }
 
 const markSearchStateMissing = `-- name: MarkSearchStateMissing :exec
-UPDATE search_state SET last_missing_at = ?, next_missing_at = ?, requested_by = NULL WHERE id = ?
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ?, missing_failures = ?, requested_by = NULL WHERE id = ?
 `
 
 type MarkSearchStateMissingParams struct {
-	LastMissingAt sql.NullString
-	NextMissingAt sql.NullString
-	ID            int64
+	LastMissingAt   sql.NullString
+	NextMissingAt   sql.NullString
+	MissingFailures int64
+	ID              int64
 }
 
 func (q *Queries) MarkSearchStateMissing(ctx context.Context, arg MarkSearchStateMissingParams) error {
-	_, err := q.db.ExecContext(ctx, markSearchStateMissing, arg.LastMissingAt, arg.NextMissingAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, markSearchStateMissing,
+		arg.LastMissingAt,
+		arg.NextMissingAt,
+		arg.MissingFailures,
+		arg.ID,
+	)
 	return err
 }
 
@@ -2266,6 +2319,21 @@ func (q *Queries) SetSearchStateNextMissing(ctx context.Context, arg SetSearchSt
 	return err
 }
 
+const setSearchStateNextMissingBefore = `-- name: SetSearchStateNextMissingBefore :exec
+UPDATE search_state SET next_missing_at = ? WHERE version_id = ? AND (next_missing_at IS NULL OR next_missing_at > ?)
+`
+
+type SetSearchStateNextMissingBeforeParams struct {
+	NextMissingAt   sql.NullString
+	VersionID       int64
+	NextMissingAt_2 sql.NullString
+}
+
+func (q *Queries) SetSearchStateNextMissingBefore(ctx context.Context, arg SetSearchStateNextMissingBeforeParams) error {
+	_, err := q.db.ExecContext(ctx, setSearchStateNextMissingBefore, arg.NextMissingAt, arg.VersionID, arg.NextMissingAt_2)
+	return err
+}
+
 const setSearchStateNextUpgrade = `-- name: SetSearchStateNextUpgrade :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE id = ?
 `
@@ -2277,6 +2345,21 @@ type SetSearchStateNextUpgradeParams struct {
 
 func (q *Queries) SetSearchStateNextUpgrade(ctx context.Context, arg SetSearchStateNextUpgradeParams) error {
 	_, err := q.db.ExecContext(ctx, setSearchStateNextUpgrade, arg.NextUpgradeAt, arg.ID)
+	return err
+}
+
+const setSearchStateRetry = `-- name: SetSearchStateRetry :exec
+UPDATE search_state SET retry_count = ?, retry_not_before = ? WHERE version_id = ?
+`
+
+type SetSearchStateRetryParams struct {
+	RetryCount     int64
+	RetryNotBefore sql.NullString
+	VersionID      int64
+}
+
+func (q *Queries) SetSearchStateRetry(ctx context.Context, arg SetSearchStateRetryParams) error {
+	_, err := q.db.ExecContext(ctx, setSearchStateRetry, arg.RetryCount, arg.RetryNotBefore, arg.VersionID)
 	return err
 }
 

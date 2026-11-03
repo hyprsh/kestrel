@@ -54,12 +54,19 @@ func (w wantedRig) titles(t *testing.T, query string) []titleRowJSON {
 	}](t, r).Items
 }
 
-// backdate makes a Title's Versions Wanted since days ago: a session would not
-// survive moving the clock that far.
+// backdate makes a Title's Versions Wanted since days ago, released then too (Long Missing counts from the
+// release): a session would not survive moving the clock that far.
 func (w wantedRig) backdate(t *testing.T, titleID int64, days int) {
 	t.Helper()
 	at := w.in.clock.Now().Add(-time.Duration(days) * 24 * time.Hour).UTC().Format(time.RFC3339)
-	if _, err := w.in.st.Write().ExecContext(context.Background(), `UPDATE versions SET added_at = ? WHERE title_id = ?`, at, titleID); err != nil {
+	ctx := context.Background()
+	if _, err := w.in.st.Write().ExecContext(ctx, `UPDATE versions SET added_at = ? WHERE title_id = ?`, at, titleID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.in.st.Write().ExecContext(ctx, `DELETE FROM title_release_dates WHERE title_id = ?`, titleID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.in.st.Write().ExecContext(ctx, `INSERT INTO title_release_dates (title_id, country, type, date) VALUES (?, 'US', ?, ?)`, titleID, int(metadata.Digital), at); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -105,6 +112,7 @@ func TestLongMissingIsAGroupedRowOutsideTheBadgeCount(t *testing.T) {
 	t.Parallel()
 	w := newWantedRig(t)
 	first := decode[titleJSON](t, w.valid("POST", "/titles", fmt.Sprintf(addHD, 116149)))
+	w.backdate(t, first.ID, 0) // released today
 	if got := w.attention(t).LongMissing.Count; got != 0 {
 		t.Fatalf("long missing on add = %d", got)
 	}

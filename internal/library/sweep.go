@@ -23,21 +23,48 @@ const (
 	RetryAfter = 15 * time.Minute
 )
 
-// NextMissing is when a Version that is Wanted since `since` and was searched at
-// `searched` is searched next: one day, three days and seven days after it
-// became Wanted, then weekly, then every 30 days once it is Long Missing. It
-// never gives up.
-func NextMissing(since, searched time.Time) time.Time {
+// OldAfter is how long after the content came out a Version may become Wanted and
+// still get the early cadence: one that became Wanted later than this (added long
+// after the release) is Old and goes the slow way.
+const OldAfter = 30 * oneDay
+
+// NextMissing is when a Wanted Version, searched at `searched`, is searched next. It
+// follows how recent the content is: `recency` is a Movie's release or a season's
+// latest aired episode, `since` when it became Wanted (the later of the release and
+// the add).
+//
+// Recent (it became Wanted within OldAfter of the recency): one day, three days
+// and seven days after it became Wanted, then weekly, then every 30 days once it is
+// Long Missing (LongMissingAfter after the recency).
+//
+// Old (added more than OldAfter after the recency): at once, once more a day
+// later, then every 30 days.
+//
+// It never gives up.
+func NextMissing(recency, since, searched time.Time) time.Time {
+	if since.Sub(recency) > OldAfter {
+		if searched.Sub(since) < oneDay {
+			return since.Add(oneDay)
+		}
+		return searched.Add(LongMissingEvery)
+	}
 	age := searched.Sub(since)
 	for _, m := range []time.Duration{oneDay, 3 * oneDay, 7 * oneDay} {
 		if age < m {
 			return since.Add(m)
 		}
 	}
-	if age <= LongMissingAfter {
+	if searched.Sub(recency) <= LongMissingAfter {
 		return searched.Add(7 * oneDay)
 	}
 	return searched.Add(LongMissingEvery)
+}
+
+// FailureBackoff is how long a Version waits after its nth search in a row that could not finish:
+// RetryAfter, doubling each time (15 min, 30 min, 1 h, ...). MarkMissingSearched caps it at the
+// row's normal next search.
+func FailureBackoff(n int) time.Duration {
+	return RetryAfter << min(max(n-1, 0), 20)
 }
 
 // WithCountry sets where the household's release-date country comes from;
@@ -58,6 +85,8 @@ type sweepRow struct {
 	dateless                 bool      // a Movie with no release date anywhere not yet counting as released: searched weekly
 	since                    time.Time // when it became Wanted: the latest among a season's Wanted episodes
 	released                 time.Time // when a Movie came out in the household's country; zero if unknown or a Series
+	aired                    time.Time // when a Series season's latest episode aired; zero if none has or a Movie
+	failures                 int       // searches of the row in a row that could not finish
 	versionFilled            bool      // the Version as a whole is Filled: it is up for Upgrades
 	requestedBy              string    // the history.Trigger key of who made the row due now by hand, else ""
 }
@@ -161,6 +190,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 			nextMissing: optTime(st.NextMissingAt), lastMissing: optTime(st.LastMissingAt),
 			nextUpgrade: optTime(st.NextUpgradeAt), lastUpgrade: optTime(st.LastUpgradeAt),
 			fresh: st.Fresh == 1 && !st.LastMissingAt.Valid, requestedBy: st.RequestedBy.String,
+			failures: int(st.MissingFailures),
 		}
 		added := parseTime(v.AddedAt)
 		if Kind(t.Kind) == Movie {
@@ -188,6 +218,9 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 				}
 			}
 			for _, u := range unitsOf(season, released, heldBy[v.ID], added) {
+				if u.Released != nil && !u.Released.After(now) && u.Released.After(r.aired) {
+					r.aired = *u.Released
+				}
 				if state, since := StateAt(u, now); state == Wanted {
 					if !r.wanted || since.After(r.since) {
 						r.since = *since
@@ -204,11 +237,14 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 	return out, nil
 }
 
-// recency is how recently the row's content came out: a Movie's release date,
-// else when it became Wanted (a Series season: its latest aired episode).
+// recency is how recently the row's content came out: a Movie's release date, a
+// Series season's latest aired episode, else when it became Wanted.
 func (r sweepRow) recency() time.Time {
-	if !r.released.IsZero() {
+	switch {
+	case !r.released.IsZero():
 		return r.released
+	case !r.aired.IsZero():
+		return r.aired
 	}
 	return r.since
 }
@@ -314,11 +350,23 @@ func (s *Service) requestAdded(ctx context.Context) (map[int64]bool, error) {
 
 // MarkMissingSearched records that a Version was searched for what it is missing
 // at `at` and schedules each of its Wanted rows (a Series Version has one per
-// season) by the cadence, a dateless Movie's row DatelessEvery later. A search that could not finish (failed) is tried again
-// after RetryAfter. A completed search also counts as the Version's Upgrade
-// search: its next one is UpgradeEvery away.
+// season) by the cadence (NextMissing), a dateless Movie's row DatelessEvery later.
+// A search that could not finish (failed) is tried again after FailureBackoff of the
+// Version's failures in a row, but never later than the row's normal next search;
+// a completed search resets the count. A completed search also counts as the
+// Version's Upgrade search: its next one is UpgradeEvery away.
 func (s *Service) MarkMissingSearched(ctx context.Context, versionID int64, at time.Time, failed bool) error {
+	return s.MarkMissingSearchedIn(ctx, versionID, at, failed, nil)
+}
+
+// MarkMissingSearchedIn is MarkMissingSearched for a search narrowed to some seasons of a Series
+// Version: only their rows count as searched. With no seasons it takes in every row.
+func (s *Service) MarkMissingSearchedIn(ctx context.Context, versionID int64, at time.Time, failed bool, seasons []int) error {
 	rows, err := s.sweepRows(ctx, at)
+	if err != nil {
+		return err
+	}
+	seasonOf, err := s.seasonsOfRows(ctx, versionID)
 	if err != nil {
 		return err
 	}
@@ -327,16 +375,22 @@ func (s *Service) MarkMissingSearched(ctx context.Context, versionID int64, at t
 		if r.versionID != versionID || !(r.wanted || r.dateless) {
 			continue
 		}
-		next := at.Add(RetryAfter)
-		switch {
-		case failed:
-		case r.dateless:
-			next = at.Add(DatelessEvery)
-		default:
-			next = NextMissing(r.since, at)
+		if len(seasons) > 0 {
+			if n, ok := seasonOf[r.id]; !ok || !slices.Contains(seasons, n) {
+				continue
+			}
+		}
+		next, failures := at.Add(DatelessEvery), 0
+		if !r.dateless {
+			next = NextMissing(r.recency(), r.since, at)
+		}
+		if failed {
+			failures = r.failures + 1
+			next = minTime(next, at.Add(FailureBackoff(failures)))
 		}
 		if err := q.MarkSearchStateMissing(ctx, db.MarkSearchStateMissingParams{
-			LastMissingAt: sql.NullString{String: ts(at), Valid: true}, NextMissingAt: sql.NullString{String: ts(next), Valid: true}, ID: r.id,
+			LastMissingAt: sql.NullString{String: ts(at), Valid: true}, NextMissingAt: sql.NullString{String: ts(next), Valid: true},
+			MissingFailures: int64(failures), ID: r.id,
 		}); err != nil {
 			return err
 		}
@@ -349,6 +403,28 @@ func (s *Service) MarkMissingSearched(ctx context.Context, versionID int64, at t
 		}
 	}
 	return nil
+}
+
+func minTime(a, b time.Time) time.Time {
+	if b.Before(a) {
+		return b
+	}
+	return a
+}
+
+// seasonsOfRows maps the search_state row ids of a Series Version to their seasons.
+func (s *Service) seasonsOfRows(ctx context.Context, versionID int64) (map[int64]int, error) {
+	rows, err := db.New(s.st.Read()).ListSearchStatesOfVersion(ctx, versionID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[int64]int{}
+	for _, r := range rows {
+		if r.Season.Valid {
+			out[r.ID] = int(r.Season.Int64)
+		}
+	}
+	return out, nil
 }
 
 // DueUpgrades lists the Filled Versions of monitored Titles whose next Upgrade

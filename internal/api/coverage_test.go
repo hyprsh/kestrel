@@ -42,6 +42,7 @@ func versionCoverage(t *testing.T, s search) (string, *coverageJSON) {
 func TestASeriesVersionCoverageCountsTheEpisodesItHoldsAndWantsAndTheirSize(t *testing.T) {
 	t.Parallel()
 	s := newSeriesSearch(t)
+	s.airedRecently(t)
 
 	// Monitored and aired: S01E01-E03, S02E01-E02. The Special aired but is unmonitored and left out, S02E03 and S03E01 are still to come.
 	state, c := versionCoverage(t, s.search)
@@ -74,6 +75,7 @@ func TestASeriesVersionCoverageCountsTheEpisodesItHoldsAndWantsAndTheirSize(t *t
 func TestASeriesVersionCoverageCountsAWantedEpisodeWithAGrabInFlightAsDownloadingEvenWhenLongMissing(t *testing.T) {
 	t.Parallel()
 	s := newSeriesSearch(t)
+	s.airedRecently(t)
 	s.prober.set(goodProbe(), nil)
 	s.publishEpisode(t, badEp1, "1", "1")
 	s.pass(t, jobs.Search)
@@ -110,6 +112,7 @@ func TestASeriesVersionCoverageCountsAWantedEpisodeWithAGrabInFlightAsDownloadin
 func TestAnEpisodeCellIsLongMissingOnceWantedForNinetyDaysUnlessAGrabCoversIt(t *testing.T) {
 	t.Parallel()
 	s := newSeriesSearch(t)
+	s.airedRecently(t)
 	s.prober.set(goodProbe(), nil)
 	s.publishEpisode(t, badEp1, "1", "1")
 	s.pass(t, jobs.Search) // S01E01 has a Grab in flight
