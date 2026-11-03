@@ -1,7 +1,6 @@
 import { Checkbox, Note } from '@hyprsh/design'
 import { ApiError, useImportProfile, usePatchProfile, useProfileSuggestions, useProfiles, type Profile, type ProfileSuggestion } from '../api/queries'
 import { useSlots, type Slot } from '../api/slots'
-import { SuggestionMore } from '../layout/SettingsLists'
 import { SettingsCard } from '../layout/SettingsPage'
 import { kindsText, languageText, usePrimaryName } from './recipe'
 import { Suggested } from './Suggested'
@@ -31,7 +30,7 @@ const problemText = (e: unknown) => (e instanceof ApiError ? e.message : 'Could 
 /**
  * The wizard's Profiles step: which Profiles to enable. Every Profile the household has is listed, the enabled ones
  * ticked (a Slot's default can't be unticked) and a disabled one unticked, so ticking it enables it again. Then the
- * suggestions that fit the Slots, unticked: ticking one imports it enabled. "More…" opens the whole Suggested list.
+ * suggestions that fit the Slots, unticked: ticking one imports it enabled. The Suggested list below starts open.
  */
 export function EnableProfiles() {
   const profiles = useProfiles()
@@ -82,9 +81,7 @@ export function EnableProfiles() {
           {problemText(failed)}
         </Note>
       )}
-      <SuggestionMore summary="More…">
-        <Suggested />
-      </SuggestionMore>
+      <Suggested startOpen />
     </div>
   )
 }

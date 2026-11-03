@@ -457,14 +457,15 @@ describe('Settings', () => {
     { release_family: 'sqp', name: 'SQP', items: [{ name: 'SQP 1080p', release_family: 'sqp', resolution: 'hd', language_rule: 'primary', kinds: ['movie'] }] },
   ]
 
-  it('lists Suggested Profiles by Release Family with their kinds and the resolved language', async () => {
+  it('lists Suggested Profiles by Release Family with their kinds and a chip naming the language', async () => {
     fakeProfiles({ groups: suggested })
     serveDetails()
     await open('Slots & Profiles')
     const section = await screen.findByRole('region', { name: 'Suggested' })
     const remux = within(within(section).getAllByRole('group', { name: 'Remux + WEB' })[0])
     expect(remux.getByText('4K Remux')).toBeInTheDocument()
-    expect(remux.getByText('Movies and Series · Primary Language (English)')).toBeInTheDocument()
+    expect(remux.getByText('Movies and Series')).toBeInTheDocument()
+    expect(remux.getByTitle('Primary Language: English')).toHaveTextContent('English')
     expect(within(section).getAllByRole('group', { name: 'SQP' })).toHaveLength(1)
   })
 
@@ -479,7 +480,8 @@ describe('Settings', () => {
     // The Primary and Original recipes are outside it, the named one inside.
     expect(within(disclosure).queryByText('4K Remux')).not.toBeInTheDocument()
     expect(within(disclosure).getByText('4K Remux German')).toBeInTheDocument()
-    expect(section.getByText('Movies · German')).toBeInTheDocument()
+    expect(section.getAllByText('Movies')[0]).toBeInTheDocument()
+    expect(section.getByTitle('German audio')).toHaveTextContent('German')
     await userEvent.click(toggle)
     expect(disclosure).toHaveAttribute('open')
   })
@@ -488,7 +490,34 @@ describe('Settings', () => {
     fakeProfiles({ groups: suggested, primary: 'de' })
     serveDetails()
     await open('Slots & Profiles')
-    expect(await screen.findByText('Movies and Series · Primary Language (German)')).toBeInTheDocument()
+    expect((await screen.findAllByTitle('Primary Language: German'))[0]).toHaveTextContent('German')
+  })
+
+  it('says Original on an Original Language recipe, with a hint that it follows each Title', async () => {
+    fakeProfiles({ groups: [{ release_family: 'sqp', name: 'SQP', items: [{ name: 'SQP Original', release_family: 'sqp', resolution: 'hd', language_rule: 'original', kinds: ['movie'] }] }] })
+    serveDetails()
+    await open('Slots & Profiles')
+    expect(await screen.findByTitle('Follows each Title’s Original Language')).toHaveTextContent('Original')
+  })
+
+  it('folds the whole Suggested section: closed once the household has Profiles, opening on a click', async () => {
+    fakeProfiles({ groups: suggested })
+    serveDetails()
+    await open('Slots & Profiles')
+    const section = within(await screen.findByRole('region', { name: 'Suggested' }))
+    const disclosure = section.getByText('Suggested').closest('details')!
+    expect(disclosure).not.toHaveAttribute('open')
+    await userEvent.click(section.getByText('Suggested'))
+    expect(disclosure).toHaveAttribute('open')
+  })
+
+  it('starts the Suggested section open while the household has no Profiles', async () => {
+    fakeProfiles({ groups: suggested })
+    server.use(http.get('/profiles', ({ response }) => response(200).json({ items: [] })))
+    serveDetails()
+    await open('Slots & Profiles')
+    const section = within(await screen.findByRole('region', { name: 'Suggested' }))
+    expect(section.getByText('Suggested').closest('details')).toHaveAttribute('open')
   })
 
   it('moves an added Suggested Profile into the Profiles list, enabled, without a reload', async () => {

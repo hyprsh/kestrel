@@ -1,5 +1,6 @@
 import { Button, Input, Note, Select } from '@hyprsh/design'
-import { useState, type FormEvent } from 'react'
+import { useContext, useEffect, useState, type FormEvent } from 'react'
+import { PrimaryDraft } from './recipe'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
 import { startedInBackground, useReport } from '../toasts'
 import { SkeletonForm } from '../loading'
@@ -39,6 +40,12 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
   const [country, setCountry] = useState(saved.release_date_country)
   const save = usePatchSettings()
   const report = useReport()
+  // The wizard's Profiles step names the language picked here before it is saved.
+  const setDraft = useContext(PrimaryDraft)?.setDraft
+  useEffect(() => {
+    setDraft?.(language)
+    return () => setDraft?.(undefined)
+  }, [language, setDraft])
 
   const pick = (value: Language) => {
     setLanguage(value)

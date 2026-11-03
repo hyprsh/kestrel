@@ -119,7 +119,7 @@ export function ProfilesSection() {
           </ProfileCard>
         )
       })}
-      <Suggested declared={declared} />
+      <Suggested declared={declared} startOpen={list.length === 0} />
       {declared && declaredNote}
       {sheeted && <ProfileSheet key={sheeted.key} profile={sheeted} detail={detailOf(sheeted.key)} declared={declared} onClose={() => setOpen(null)} />}
       {making && (

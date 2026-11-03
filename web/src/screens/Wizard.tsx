@@ -1,6 +1,6 @@
 import { Badge, Button, Fieldset, Input, Link, Note, Separator } from '@hyprsh/design'
 import { Check } from 'lucide-react'
-import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
+import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { ApiError, useCompleteSetup, useCreateAccount, usePluginInstances, usePlugins, useProfiles, useSetup, useSettings } from '../api/queries'
 import { useSlots } from '../api/slots'
 import { Adoption } from '../adoption/Adoption'
@@ -9,6 +9,7 @@ import { DownloadClient } from '../plugins/DownloadClient'
 import { Indexer } from '../plugins/Indexer'
 import { EnableProfiles } from '../profiles/EnableProfiles'
 import { LanguageForm } from '../profiles/Language'
+import { PrimaryDraft } from '../profiles/recipe'
 import { RootFoldersForm } from '../rootfolders/RootFolders'
 import { SlotPresets } from '../slots/SlotPresets'
 import { SlotsSection } from '../slots/SlotsSection'
@@ -30,6 +31,8 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
   const [confirm, setConfirm] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const create = useCreateAccount()
+  const [draft, setDraft] = useState<string>()
+  const primaryDraft = useMemo(() => ({ draft, setDraft }), [draft])
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -44,118 +47,120 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
     create.error instanceof ApiError && create.error.code === 'conflict' ? 'An account already exists. Reload to log in.' : create.isError ? 'Could not create the account. Try again.' : null
 
   return (
-    <WidePage>
-      <div className="heading-24 mb-6 flex items-center gap-2">
-        <KestrelLogo className="size-6" /> Set up Kestrel
-      </div>
-      <Section
-        n={1}
-        id="account"
-        title="Account"
-        need="required"
-        checked={signedIn}
-        description={signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
-      >
-        {!signedIn && (
-          <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
-            <Input size="small" label="Username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
-            <Input size="small" label="Password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <Input size="small" label="Confirm password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-            {(problem ?? serverProblem) && (
-              <Note variant="error" size="small">
-                {problem ?? serverProblem}
-              </Note>
-            )}
-            <Button size="small" variant="primary" typeName="submit" disabled={create.isPending} className="self-start">
-              Create account
-            </Button>
-          </form>
+    <PrimaryDraft.Provider value={primaryDraft}>
+      <WidePage>
+        <div className="heading-24 mb-6 flex items-center gap-2">
+          <KestrelLogo className="size-6" /> Set up Kestrel
+        </div>
+        <Section
+          n={1}
+          id="account"
+          title="Account"
+          need="required"
+          checked={signedIn}
+          description={signedIn ? 'The admin account exists and you are logged in.' : 'Create the admin login. Kestrel is never open without one.'}
+        >
+          {!signedIn && (
+            <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
+              <Input size="small" label="Username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+              <Input size="small" label="Password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input size="small" label="Confirm password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              {(problem ?? serverProblem) && (
+                <Note variant="error" size="small">
+                  {problem ?? serverProblem}
+                </Note>
+              )}
+              <Button size="small" variant="primary" typeName="submit" disabled={create.isPending} className="self-start">
+                Create account
+              </Button>
+            </form>
+          )}
+        </Section>
+        {signedIn && setup.data && (
+          <>
+            <Section
+              n={2}
+              id="language"
+              title="Primary Language"
+              need="required"
+              state={sections.language}
+              summary={<LanguageSummary />}
+              description="Choose the language your household watches in. You can change it later in Settings."
+            >
+              <LanguageForm />
+            </Section>
+            <Section
+              n={3}
+              id="download-client"
+              title="Download client"
+              need="required"
+              state={sections.download_client}
+              summary={<InstanceSummary contract="download_client.v1" />}
+              description="Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history."
+            >
+              <DownloadClient />
+            </Section>
+            <Section
+              n={4}
+              id="indexer"
+              title="Indexer"
+              need="required"
+              state={sections.indexer}
+              summary={<InstanceSummary contract="indexer.v1" />}
+              description="Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings."
+            >
+              <Indexer />
+            </Section>
+            <Section
+              n={5}
+              id="root-folders"
+              title="Root folders"
+              need="required"
+              state={sections.root_folders}
+              summary={<RootFoldersSummary />}
+              description="Choose where Kestrel puts Movies and Series. The paths are prefilled for the standard /data layout."
+            >
+              <RootFoldersForm />
+            </Section>
+            <Section
+              n={6}
+              id="slots"
+              title="Slots"
+              need="required"
+              state={sections.slots}
+              summary={<SlotsSummary />}
+              description="A Slot is a named place in every Title that holds at most one Version, such as Standard or 4K. Each has a default Profile for a new Movie and a new Series. Start from a preset, then adjust the Slots."
+            >
+              <div className="flex flex-col gap-4">
+                <SlotPresets />
+                <SlotsSection embedded />
+              </div>
+            </Section>
+            <Section
+              n={7}
+              id="profiles"
+              title="Profiles"
+              need="optional"
+              checked={sections.slots === 'done'}
+              description="Choose which Profiles to enable. The ones your Slots use are on and stay on, so you can skip this and add more later. Tick a Profile to enable it, or a suggestion to add it."
+            >
+              <div className="flex flex-col gap-3">
+                <EnableProfiles />
+                <p className="copy-13 text-gray-900">
+                  Every Profile also has a <strong>Cutoff</strong> (&ldquo;Good enough at&rdquo;): Kestrel stops upgrading a file once it reaches that quality and the Score you set, and a Profile with
+                  no Cutoff never stops. It has size limits too, the smallest and largest a Release may be per episode and per Movie. Neither needs setting now. Open a Profile in Settings &rsaquo;
+                  Slots &amp; Profiles after setup to set them.
+                </p>
+              </div>
+            </Section>
+            <Section n={8} id="adopt" title="Adopt existing library" need="optional">
+              <Adoption embedded />
+            </Section>
+            <Summary n={9} sections={sections} completed={setup.data.completed} onLeave={onLeave} />
+          </>
         )}
-      </Section>
-      {signedIn && setup.data && (
-        <>
-          <Section
-            n={2}
-            id="language"
-            title="Primary Language"
-            need="required"
-            state={sections.language}
-            summary={<LanguageSummary />}
-            description="Choose the language your household watches in. You can change it later in Settings."
-          >
-            <LanguageForm />
-          </Section>
-          <Section
-            n={3}
-            id="download-client"
-            title="Download client"
-            need="required"
-            state={sections.download_client}
-            summary={<InstanceSummary contract="download_client.v1" />}
-            description="Connect SABnzbd. Kestrel hands it NZBs and reads its queue and history."
-          >
-            <DownloadClient />
-          </Section>
-          <Section
-            n={4}
-            id="indexer"
-            title="Indexer"
-            need="required"
-            state={sections.indexer}
-            summary={<InstanceSummary contract="indexer.v1" />}
-            description="Add a Newznab indexer. Kestrel searches it for releases and fetches their NZBs. You can add more in Settings."
-          >
-            <Indexer />
-          </Section>
-          <Section
-            n={5}
-            id="root-folders"
-            title="Root folders"
-            need="required"
-            state={sections.root_folders}
-            summary={<RootFoldersSummary />}
-            description="Choose where Kestrel puts Movies and Series. The paths are prefilled for the standard /data layout."
-          >
-            <RootFoldersForm />
-          </Section>
-          <Section
-            n={6}
-            id="slots"
-            title="Slots"
-            need="required"
-            state={sections.slots}
-            summary={<SlotsSummary />}
-            description="A Slot is a named place in every Title that holds at most one Version, such as Standard or 4K. Each has a default Profile for a new Movie and a new Series. Start from a preset, then adjust the Slots."
-          >
-            <div className="flex flex-col gap-4">
-              <SlotPresets />
-              <SlotsSection embedded />
-            </div>
-          </Section>
-          <Section
-            n={7}
-            id="profiles"
-            title="Profiles"
-            need="optional"
-            checked={sections.slots === 'done'}
-            description="Choose which Profiles to enable. The ones your Slots use are on and stay on, so you can skip this and add more later. Tick a Profile to enable it, or a suggestion to add it; More… lists every suggestion."
-          >
-            <div className="flex flex-col gap-3">
-              <EnableProfiles />
-              <p className="copy-13 text-gray-900">
-                Every Profile also has a <strong>Cutoff</strong> (&ldquo;Good enough at&rdquo;): Kestrel stops upgrading a file once it reaches that quality and the Score you set, and a Profile with
-                no Cutoff never stops. It has size limits too, the smallest and largest a Release may be per episode and per Movie. Neither needs setting now. Open a Profile in Settings &rsaquo; Slots
-                &amp; Profiles after setup to set them.
-              </p>
-            </div>
-          </Section>
-          <Section n={8} id="adopt" title="Adopt existing library" need="optional">
-            <Adoption embedded />
-          </Section>
-          <Summary n={9} sections={sections} completed={setup.data.completed} onLeave={onLeave} />
-        </>
-      )}
-    </WidePage>
+      </WidePage>
+    </PrimaryDraft.Provider>
   )
 }
 

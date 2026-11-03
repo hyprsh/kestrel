@@ -167,19 +167,28 @@ export function SuggestionGroup({ name, children }: { name: string; children: Re
 }
 
 /** One suggestion in a `SuggestionGroup`. */
-export function SuggestionRow({ name, holds, action }: { name: string; holds: ReactNode; action: ReactNode }) {
+export function SuggestionRow({ name, holds, chip, action }: { name: string; holds: ReactNode; chip?: ReactNode; action: ReactNode }) {
   return (
     <Entity right={action}>
-      <Entity.Content fill title={name} description={<span className="block whitespace-normal">{holds}</span>} />
+      <Entity.Content
+        fill
+        title={name}
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 whitespace-normal">
+            <span>{holds}</span>
+            {chip}
+          </span>
+        }
+      />
     </Entity>
   )
 }
 
-/** A closed-by-default disclosure for the rest of a list: its `summary` is the toggle. */
-export function SuggestionMore({ summary, children }: { summary: string; children: ReactNode }) {
+/** A disclosure for a list or the rest of one, closed unless `open`: its `summary` is the toggle. Pass `open` with `onToggle` to keep the state. */
+export function SuggestionMore({ summary, open, onToggle, strong, children }: { summary: string; open?: boolean; onToggle?: (open: boolean) => void; strong?: boolean; children: ReactNode }) {
   return (
-    <details className="flex flex-col gap-2.5 [&>summary]:cursor-pointer">
-      <summary className="label-13 text-gray-900">{summary}</summary>
+    <details open={open} onToggle={onToggle ? (e) => onToggle(e.currentTarget.open) : undefined} className="flex flex-col gap-2.5 [&>summary]:cursor-pointer">
+      <summary className={strong ? 'label-14 font-medium' : 'label-13 text-gray-900'}>{summary}</summary>
       <div className="flex flex-col gap-2.5 pt-2.5">{children}</div>
     </details>
   )
