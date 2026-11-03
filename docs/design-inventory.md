@@ -24,13 +24,13 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 
 | Piece | Design component that covers it | Switched? | What the design system lacks |
 |---|---|---|---|
-| `ListPane`, `WideListPane` | none (`Scroller` scrolls, but does not give a fixed-width list column with a divider) | Kept | A pane/split-view layout: fixed-width side column with a divider and a containing block for a floating bar. |
+| `ListPane`, `WideListPane` | `Pane` in a `SplitView` (v0.20) | Deleted | Nothing used them (the Library's list column is the `SidePanel`), so they are gone. The chrome check's alias list flags both. A screen that wants a list beside a detail uses `SplitView` and a `Pane`. |
 | `PhoneTopBar` | none (`TabBar` is the bottom bar; `Breadcrumbs` is not a title bar) | Kept | A phone app header: title plus trailing actions. |
 | `PhoneBackHeader` | none (`Button` + heading) | Kept | A back-and-title header for a screen opened over a list. |
 | `FilterStrip` | `QueryBar` holds the field and menus; the strip around it has no match | Kept | A toolbar that wraps its filter, tabs and menus onto rows. |
 | `FilterButton`, `FacetFilterButton`, `SortButton` | `FilterMenu` (checkable rows), `QueryBar.Menu` (a menu per qualifier, single-choice for sort) | Kept | Include/exclude (`-slot:4k`) rows with a count badge on the button, and a phone icon-only form. |
 | `PageSurface`, `WidePage` | none | Kept | A page of its own outside a shell: a centred card (login) and a wide scrolling column (wizard). |
-| `PaneHeader`, `PaneFooter` | none | Kept | Pane header and footer bars with a divider. |
+| `PaneHeader`, `PaneFooter` | `Pane`'s `header` and `footer` (v0.20) | Switched | Manual search's phone header and the Add confirmation (header, footer) are a `Pane`; its body is the scroll container. The aliases are flagged by the chrome check. |
 | `SettingsHeader` | none | Kept | A page title with a one-line summary. |
 | `SettingsSection`, `SettingsCard`, `SettingsBlock` | `Fieldset` (title, subtitle, content, footer) is close | Kept | `Fieldset` has a footer for status and actions but no heading action slot or count. Worth trying; not a drop-in since the cards also hold rows with their own dividers. |
 | `SettingRow`, `SettingRowBody` | none | Kept | A label/help on the left and a control on the right, with a dirty-edge mark and a stacked form. |

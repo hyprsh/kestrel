@@ -8,7 +8,6 @@ import type { Facet } from '../filter/qualifiers'
 import { FacetFilterButton, FilterButton, SortButton } from './FilterButton'
 import { FilterStrip } from './FilterStrip'
 import { PageSurface } from './PageSurface'
-import { PaneFooter, PaneHeader } from './Pane'
 import { PhoneBackHeader } from './PhoneBackHeader'
 import { Rail, RailSpacer } from './Rail'
 import { SectionBlock } from './SectionBlock'
@@ -25,17 +24,6 @@ describe('the layout pieces', () => {
       </FilterStrip>,
     )
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Movies'])
-  })
-
-  it('PaneHeader and PaneFooter hold their children', () => {
-    render(
-      <>
-        <PaneHeader>Header text</PaneHeader>
-        <PaneFooter>Footer text</PaneFooter>
-      </>,
-    )
-    expect(screen.getByText('Header text')).toBeInTheDocument()
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('Footer text')
   })
 
   it('PhoneBackHeader shows the title and calls onBack from its Back button', async () => {

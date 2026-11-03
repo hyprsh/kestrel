@@ -1,4 +1,4 @@
-import { Badge, Button, DotsMenu, Entity, EmptyState, Link, Menu, MenuDivider, MenuItem, Note, Pager, Table, Tabs, useToasts } from '@hyprsh/design'
+import { Badge, Button, DotsMenu, Entity, EmptyState, Link, Menu, MenuDivider, MenuItem, Note, Pager, Pane, Table, Tabs, useToasts } from '@hyprsh/design'
 import { ArrowLeft, ChevronRight, ChevronUp, Download, RefreshCw } from 'lucide-react'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ApiError } from '../api/queries'
@@ -8,7 +8,6 @@ import { useKey, useListNav } from '../keys'
 import { placePath, useOpenPlace, usePageParam, useUrlParam } from '../place'
 import { useDisplay } from '../display/useDisplay'
 import { PagerStrip } from '../layout/PagerStrip'
-import { PaneHeader } from '../layout/Pane'
 import { TableSkeletonRows } from '../loading'
 import { usePhone } from '../responsive'
 import { size } from './bits'
@@ -405,269 +404,283 @@ export function ManualSearch({
 
   return (
     <section ref={ref} tabIndex={-1} aria-label="Manual search" className="flex min-h-0 min-w-0 flex-1 flex-col outline-none">
-      {phone && (
-        <PaneHeader stacked>
-          <div className="flex items-center gap-2">
-            {back}
-            <h1 className="heading-20 flex-1">Manual search</h1>
-            {options}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">{badges}</div>
-        </PaneHeader>
-      )}
-      <div className="min-h-0 flex-1 overflow-auto p-4 sm:px-8 sm:py-6">
-        <div className="flex max-w-5xl flex-col gap-5">
-          {!phone && (
-            <header className="flex flex-col gap-2.5">
-              <div className="flex items-center gap-2.5">
+      <Pane
+        className="min-h-0 flex-1"
+        label="Manual search results"
+        header={
+          phone ? (
+            <div className="flex w-full flex-col items-stretch gap-2 py-1">
+              <div className="flex items-center gap-2">
                 {back}
-                <h1 className="heading-24 flex-1">Manual search</h1>
-                <Button variant="tertiary" size="small" svgOnly aria-label="Search again" loading={search.isFetching} onClick={() => void search.refetch()}>
-                  <RefreshCw />
-                </Button>
+                <h1 className="heading-20 flex-1">Manual search</h1>
                 {options}
               </div>
               <div className="flex flex-wrap items-center gap-2">{badges}</div>
+            </div>
+          ) : undefined
+        }
+      >
+        <div className="p-4 sm:px-8 sm:py-6">
+          <div className="flex max-w-5xl flex-col gap-5">
+            {!phone && (
+              <header className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  {back}
+                  <h1 className="heading-24 flex-1">Manual search</h1>
+                  <Button variant="tertiary" size="small" svgOnly aria-label="Search again" loading={search.isFetching} onClick={() => void search.refetch()}>
+                    <RefreshCw />
+                  </Button>
+                  {options}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">{badges}</div>
+                <span className="label-13 text-gray-900" aria-live="polite">
+                  {status}
+                </span>
+              </header>
+            )}
+            {phone && (
               <span className="label-13 text-gray-900" aria-live="polite">
                 {status}
               </span>
-            </header>
-          )}
-          {phone && (
-            <span className="label-13 text-gray-900" aria-live="polite">
-              {status}
-            </span>
-          )}
+            )}
 
-          {search.isError && (
-            <Note variant="error" size="small">
-              {search.error.message}
-            </Note>
-          )}
+            {search.isError && (
+              <Note variant="error" size="small">
+                {search.error.message}
+              </Note>
+            )}
 
-          {best && <BestFit x={best} wanted={wantedTotal} entry={entries[keyOf(best)]} actions={actions} phone={phone} />}
+            {best && <BestFit x={best} wanted={wantedTotal} entry={entries[keyOf(best)]} actions={actions} phone={phone} />}
 
-          <section aria-label="Releases" className="flex flex-col gap-2.5">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="max-w-full min-w-0 overflow-x-auto">
-                <Tabs variant="secondary" aria-label="Show" tabs={segments} selected={segment} onChange={(v) => toSegment(v as Segment)} />
+            <section aria-label="Releases" className="flex flex-col gap-2.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="max-w-full min-w-0 overflow-x-auto">
+                  <Tabs variant="secondary" aria-label="Show" tabs={segments} selected={segment} onChange={(v) => toSegment(v as Segment)} />
+                </div>
+                <span className="flex-1" />
+                {!phone && sortButton}
               </div>
-              <span className="flex-1" />
-              {!phone && sortButton}
-            </div>
 
-            {phone ? (
-              <Entity.List aria-label="Releases" aria-busy={search.isPending || undefined} onClick={clickRow}>
-                {pageRows.map((x, i) => {
-                  const key = keyOf(x)
-                  const entry = entries[key]
-                  const open = openKey === key && !entry
-                  const g = grabState(x)
-                  return (
-                    <Fragment key={key}>
-                      <Entity
-                        current={i === index}
-                        data-nav={`ms-${i}`}
-                        style={rowTint(entry)}
-                        className="cursor-pointer"
-                        left={<span className="hy-num hy-mono w-11 text-right font-semibold">{score(x.score)}</span>}
-                        right={
-                          entry ? undefined : (
-                            <Button
-                              variant="secondary"
-                              size="medium"
-                              svgOnly
-                              aria-label={`${g.override ? 'Grab anyway' : 'Grab'} ${x.name}`}
-                              disabled={g.disabled}
-                              title={g.reason}
-                              onClick={() => requestGrab(x)}
-                            >
-                              <Download />
-                            </Button>
-                          )
-                        }
-                      >
-                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <span className={open ? 'label-12-mono break-all' : 'label-12-mono truncate'} title={x.name}>
-                            {x.name}
-                          </span>
-                          {entry?.status === 'sent' ? (
-                            <>
-                              <Downloading entry={entry} x={x} actions={actions} part="bar" />
-                              <Downloading entry={entry} x={x} actions={actions} part="text" />
-                            </>
-                          ) : entry?.status === 'failed' ? (
-                            <>
-                              <FailedText message={entry.message} />
-                              <FailedActions x={x} actions={actions} />
-                            </>
-                          ) : entry?.status === 'pending' ? (
-                            <span className="label-12 text-gray-900">Grabbing…</span>
-                          ) : (
-                            <span className="flex min-w-0">
-                              <Facts x={x} />
-                              <span className="label-12 shrink-0 text-gray-900">{` · ${size(x.size)} · ${ageShort(x.published_at)}`}</span>
+              {phone ? (
+                <Entity.List aria-label="Releases" aria-busy={search.isPending || undefined} onClick={clickRow}>
+                  {pageRows.map((x, i) => {
+                    const key = keyOf(x)
+                    const entry = entries[key]
+                    const open = openKey === key && !entry
+                    const g = grabState(x)
+                    return (
+                      <Fragment key={key}>
+                        <Entity
+                          current={i === index}
+                          data-nav={`ms-${i}`}
+                          style={rowTint(entry)}
+                          className="cursor-pointer"
+                          left={<span className="hy-num hy-mono w-11 text-right font-semibold">{score(x.score)}</span>}
+                          right={
+                            entry ? undefined : (
+                              <Button
+                                variant="secondary"
+                                size="medium"
+                                svgOnly
+                                aria-label={`${g.override ? 'Grab anyway' : 'Grab'} ${x.name}`}
+                                disabled={g.disabled}
+                                title={g.reason}
+                                onClick={() => requestGrab(x)}
+                              >
+                                <Download />
+                              </Button>
+                            )
+                          }
+                        >
+                          <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className={open ? 'label-12-mono break-all' : 'label-12-mono truncate'} title={x.name}>
+                              {x.name}
                             </span>
-                          )}
-                        </div>
-                      </Entity>
-                      {open && (
-                        <Entity current>
-                          <div className="min-w-0 flex-1">
-                            <ReleaseDetail x={x} profileName={profileName} bestScore={best?.score} isBest={false} actions={actions} blocklisted={x.rejections.some((r) => r.code === 'blocklisted')} />
+                            {entry?.status === 'sent' ? (
+                              <>
+                                <Downloading entry={entry} x={x} actions={actions} part="bar" />
+                                <Downloading entry={entry} x={x} actions={actions} part="text" />
+                              </>
+                            ) : entry?.status === 'failed' ? (
+                              <>
+                                <FailedText message={entry.message} />
+                                <FailedActions x={x} actions={actions} />
+                              </>
+                            ) : entry?.status === 'pending' ? (
+                              <span className="label-12 text-gray-900">Grabbing…</span>
+                            ) : (
+                              <span className="flex min-w-0">
+                                <Facts x={x} />
+                                <span className="label-12 shrink-0 text-gray-900">{` · ${size(x.size)} · ${ageShort(x.published_at)}`}</span>
+                              </span>
+                            )}
                           </div>
                         </Entity>
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </Entity.List>
-            ) : (
-              <Table.Root>
-                <Table key={search.isPending ? 'loading' : 'ready'} aria-label="Releases" aria-busy={search.isPending || undefined}>
-                  <Table.Header>
-                    <Table.Row>
-                      <Table.Head align="right" className="w-20">
-                        Score
-                      </Table.Head>
-                      <Table.Head>Release</Table.Head>
-                      <Table.Head align="right" className="w-24">
-                        Size
-                      </Table.Head>
-                      <Table.Head align="right" className="w-16">
-                        Age
-                      </Table.Head>
-                      <Table.Head className="w-24">
-                        <span className="sr-only">Actions</span>
-                      </Table.Head>
-                    </Table.Row>
-                  </Table.Header>
-                  <Table.Body interactive bordered>
-                    {search.isPending && <TableSkeletonRows columns={skeletonColumns} />}
-                    {pageRows.map((x, i) => {
-                      const key = keyOf(x)
-                      const entry = entries[key]
-                      const open = openKey === key && !entry
-                      const rejected = !fitsProfile(x)
-                      const g = grabState(x)
-                      const dim = rejected && !open ? 'text-gray-900' : ''
-                      return (
-                        <Fragment key={key}>
-                          <Table.Row selected={i === index} current={open} data-nav={`ms-${i}`} onClick={clickRow} className="group cursor-pointer align-top" style={rowTint(entry)}>
-                            <Table.Cell align="right" className={`hy-num hy-mono font-semibold ${dim}`}>
-                              {score(x.score)}
-                            </Table.Cell>
-                            <Table.Cell truncate={!open} wrap={open}>
-                              <div className="flex min-w-0 flex-col gap-1">
-                                <span className={open ? 'label-13-mono break-all' : 'label-13-mono truncate'} title={x.name}>
-                                  {x.name}
-                                </span>
-                                {entry?.status === 'sent' ? (
-                                  <Downloading entry={entry} x={x} actions={actions} part="bar" />
-                                ) : entry?.status === 'failed' ? (
-                                  <FailedText message={entry.message} />
-                                ) : entry?.status === 'pending' ? (
-                                  <span className="label-12 text-gray-900">Grabbing…</span>
-                                ) : (
-                                  !open && <Facts x={x} />
-                                )}
-                              </div>
-                            </Table.Cell>
-                            {entry?.status === 'sent' || entry?.status === 'failed' ? (
-                              <Table.Cell colSpan={3} align="right" wrap>
-                                {entry.status === 'sent' ? <Downloading entry={entry} x={x} actions={actions} part="text" /> : <FailedActions x={x} actions={actions} />}
+                        {open && (
+                          <Entity current>
+                            <div className="min-w-0 flex-1">
+                              <ReleaseDetail
+                                x={x}
+                                profileName={profileName}
+                                bestScore={best?.score}
+                                isBest={false}
+                                actions={actions}
+                                blocklisted={x.rejections.some((r) => r.code === 'blocklisted')}
+                              />
+                            </div>
+                          </Entity>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </Entity.List>
+              ) : (
+                <Table.Root>
+                  <Table key={search.isPending ? 'loading' : 'ready'} aria-label="Releases" aria-busy={search.isPending || undefined}>
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.Head align="right" className="w-20">
+                          Score
+                        </Table.Head>
+                        <Table.Head>Release</Table.Head>
+                        <Table.Head align="right" className="w-24">
+                          Size
+                        </Table.Head>
+                        <Table.Head align="right" className="w-16">
+                          Age
+                        </Table.Head>
+                        <Table.Head className="w-24">
+                          <span className="sr-only">Actions</span>
+                        </Table.Head>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body interactive bordered>
+                      {search.isPending && <TableSkeletonRows columns={skeletonColumns} />}
+                      {pageRows.map((x, i) => {
+                        const key = keyOf(x)
+                        const entry = entries[key]
+                        const open = openKey === key && !entry
+                        const rejected = !fitsProfile(x)
+                        const g = grabState(x)
+                        const dim = rejected && !open ? 'text-gray-900' : ''
+                        return (
+                          <Fragment key={key}>
+                            <Table.Row selected={i === index} current={open} data-nav={`ms-${i}`} onClick={clickRow} className="group cursor-pointer align-top" style={rowTint(entry)}>
+                              <Table.Cell align="right" className={`hy-num hy-mono font-semibold ${dim}`}>
+                                {score(x.score)}
                               </Table.Cell>
-                            ) : (
-                              <>
-                                <Table.Cell align="right" className={`hy-num hy-mono ${dim}`}>
-                                  {size(x.size)}
+                              <Table.Cell truncate={!open} wrap={open}>
+                                <div className="flex min-w-0 flex-col gap-1">
+                                  <span className={open ? 'label-13-mono break-all' : 'label-13-mono truncate'} title={x.name}>
+                                    {x.name}
+                                  </span>
+                                  {entry?.status === 'sent' ? (
+                                    <Downloading entry={entry} x={x} actions={actions} part="bar" />
+                                  ) : entry?.status === 'failed' ? (
+                                    <FailedText message={entry.message} />
+                                  ) : entry?.status === 'pending' ? (
+                                    <span className="label-12 text-gray-900">Grabbing…</span>
+                                  ) : (
+                                    !open && <Facts x={x} />
+                                  )}
+                                </div>
+                              </Table.Cell>
+                              {entry?.status === 'sent' || entry?.status === 'failed' ? (
+                                <Table.Cell colSpan={3} align="right" wrap>
+                                  {entry.status === 'sent' ? <Downloading entry={entry} x={x} actions={actions} part="text" /> : <FailedActions x={x} actions={actions} />}
                                 </Table.Cell>
-                                <Table.Cell align="right" className="hy-num hy-mono text-gray-900">
-                                  {ageShort(x.published_at)}
-                                </Table.Cell>
-                                <Table.Cell align="right">
-                                  <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                    {open ? (
-                                      <Button variant="tertiary" size="tiny" svgOnly aria-label="Close" onClick={() => setOpenKey(null)}>
-                                        <ChevronUp />
-                                      </Button>
-                                    ) : (
-                                      <span className={`flex gap-1 ${i === index ? '' : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}`}>
-                                        <Button
-                                          variant="tertiary"
-                                          size="tiny"
-                                          svgOnly
-                                          aria-label={`${g.override ? 'Grab anyway' : 'Grab'} ${x.name}`}
-                                          disabled={g.disabled || entry?.status === 'pending'}
-                                          title={g.reason}
-                                          onClick={() => requestGrab(x)}
-                                        >
-                                          <Download />
+                              ) : (
+                                <>
+                                  <Table.Cell align="right" className={`hy-num hy-mono ${dim}`}>
+                                    {size(x.size)}
+                                  </Table.Cell>
+                                  <Table.Cell align="right" className="hy-num hy-mono text-gray-900">
+                                    {ageShort(x.published_at)}
+                                  </Table.Cell>
+                                  <Table.Cell align="right">
+                                    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                      {open ? (
+                                        <Button variant="tertiary" size="tiny" svgOnly aria-label="Close" onClick={() => setOpenKey(null)}>
+                                          <ChevronUp />
                                         </Button>
-                                        <DotsMenu aria-label={`More for ${x.name}`} size="tiny">
-                                          <MenuItem onSelect={() => toggleOpen(x)}>Details</MenuItem>
-                                          <MenuItem disabled={g.disabled} onSelect={() => requestGrab(x)}>
-                                            {g.override ? 'Grab Anyway…' : 'Grab'}
-                                          </MenuItem>
-                                          <MenuItem disabled={x.rejections.some((r) => r.code === 'blocklisted')} onSelect={() => blocklist(x)}>
-                                            Blocklist
-                                          </MenuItem>
-                                          <MenuItem disabled={!x.info_url} onSelect={() => copyLink(x)}>
-                                            Copy Link
-                                          </MenuItem>
-                                        </DotsMenu>
-                                      </span>
-                                    )}
-                                  </div>
-                                </Table.Cell>
-                              </>
-                            )}
-                          </Table.Row>
-                          {open && (
-                            <Table.Row current>
-                              <Table.Cell colSpan={5} wrap className="pt-0 pb-4 pl-24">
-                                <ReleaseDetail
-                                  x={x}
-                                  profileName={profileName}
-                                  bestScore={best?.score}
-                                  isBest={false}
-                                  actions={actions}
-                                  blocklisted={x.rejections.some((r) => r.code === 'blocklisted')}
-                                />
-                              </Table.Cell>
+                                      ) : (
+                                        <span className={`flex gap-1 ${i === index ? '' : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}`}>
+                                          <Button
+                                            variant="tertiary"
+                                            size="tiny"
+                                            svgOnly
+                                            aria-label={`${g.override ? 'Grab anyway' : 'Grab'} ${x.name}`}
+                                            disabled={g.disabled || entry?.status === 'pending'}
+                                            title={g.reason}
+                                            onClick={() => requestGrab(x)}
+                                          >
+                                            <Download />
+                                          </Button>
+                                          <DotsMenu aria-label={`More for ${x.name}`} size="tiny">
+                                            <MenuItem onSelect={() => toggleOpen(x)}>Details</MenuItem>
+                                            <MenuItem disabled={g.disabled} onSelect={() => requestGrab(x)}>
+                                              {g.override ? 'Grab Anyway…' : 'Grab'}
+                                            </MenuItem>
+                                            <MenuItem disabled={x.rejections.some((r) => r.code === 'blocklisted')} onSelect={() => blocklist(x)}>
+                                              Blocklist
+                                            </MenuItem>
+                                            <MenuItem disabled={!x.info_url} onSelect={() => copyLink(x)}>
+                                              Copy Link
+                                            </MenuItem>
+                                          </DotsMenu>
+                                        </span>
+                                      )}
+                                    </div>
+                                  </Table.Cell>
+                                </>
+                              )}
                             </Table.Row>
-                          )}
-                        </Fragment>
-                      )
-                    })}
-                    {summaryRow}
-                  </Table.Body>
-                </Table>
-              </Table.Root>
-            )}
-            {phone && hasRejectedRow && (
-              <Link as="button" className="label-13 text-left text-gray-900" onClick={() => setRejectedShown((v) => !v)} aria-expanded={rejectedShown}>
-                {`${summary.total} rejected${summary.groups.map((g) => ` · ${g}`).join('')} · ${rejectedShown ? 'Hide' : 'Show'}`}
-              </Link>
-            )}
+                            {open && (
+                              <Table.Row current>
+                                <Table.Cell colSpan={5} wrap className="pt-0 pb-4 pl-24">
+                                  <ReleaseDetail
+                                    x={x}
+                                    profileName={profileName}
+                                    bestScore={best?.score}
+                                    isBest={false}
+                                    actions={actions}
+                                    blocklisted={x.rejections.some((r) => r.code === 'blocklisted')}
+                                  />
+                                </Table.Cell>
+                              </Table.Row>
+                            )}
+                          </Fragment>
+                        )
+                      })}
+                      {summaryRow}
+                    </Table.Body>
+                  </Table>
+                </Table.Root>
+              )}
+              {phone && hasRejectedRow && (
+                <Link as="button" className="label-13 text-left text-gray-900" onClick={() => setRejectedShown((v) => !v)} aria-expanded={rejectedShown}>
+                  {`${summary.total} rejected${summary.groups.map((g) => ` · ${g}`).join('')} · ${rejectedShown ? 'Hide' : 'Show'}`}
+                </Link>
+              )}
 
-            {search.isSuccess &&
-              pageRows.length === 0 &&
-              (all.length === 0 ? (
-                <EmptyState title="No Releases found." />
-              ) : segment === 'fits' && counts.fits === 0 ? (
-                <EmptyState title="No Release fits the Profile." description={`${counts.rejected} rejected ${counts.rejected === 1 ? 'Release is' : 'Releases are'} hidden.`}>
-                  <Button variant="secondary" size="small" onClick={() => toSegment('rejected')}>
-                    Show rejected
-                  </Button>
-                </EmptyState>
-              ) : best && rows.length === 0 && segment === 'fits' ? null : (
-                <EmptyState title="No Releases here." />
-              ))}
-            {!phone && <span className="label-12 text-gray-900">j k move · ↵ open · g grab · esc back</span>}
-          </section>
+              {search.isSuccess &&
+                pageRows.length === 0 &&
+                (all.length === 0 ? (
+                  <EmptyState title="No Releases found." />
+                ) : segment === 'fits' && counts.fits === 0 ? (
+                  <EmptyState title="No Release fits the Profile." description={`${counts.rejected} rejected ${counts.rejected === 1 ? 'Release is' : 'Releases are'} hidden.`}>
+                    <Button variant="secondary" size="small" onClick={() => toSegment('rejected')}>
+                      Show rejected
+                    </Button>
+                  </EmptyState>
+                ) : best && rows.length === 0 && segment === 'fits' ? null : (
+                  <EmptyState title="No Releases here." />
+                ))}
+              {!phone && <span className="label-12 text-gray-900">j k move · ↵ open · g grab · esc back</span>}
+            </section>
+          </div>
         </div>
-      </div>
+      </Pane>
       {rows.length > PAGE_SIZE && (
         <PagerStrip>
           <Pager aria-label="Release pages" page={shownPage} pageSize={PAGE_SIZE} total={rows.length} onPageChange={toPage} />
