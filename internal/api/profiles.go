@@ -3,10 +3,14 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"slices"
+	"sort"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/configfile"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
@@ -151,7 +155,8 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 	b := r.Body
 	var p profiles.Profile
 	var err error
-	switch recipe := b.ReleaseFamily != nil || b.Resolution != nil || b.LanguageRule != nil; {
+	recipe := b.ReleaseFamily != nil || b.Resolution != nil || b.LanguageRule != nil
+	switch {
 	case recipe && b.CopyFrom != nil:
 		return nil, invalid("copy_from", "invalid", "Send copy_from to copy a Profile, or a recipe to import one, not both")
 	case recipe:
@@ -183,6 +188,14 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 	if err != nil {
 		return nil, err
 	}
+	how := "created by hand on the Profiles screen"
+	switch {
+	case b.CopyFrom != nil:
+		how = "copied from Profile " + *b.CopyFrom + " by hand on the Profiles screen"
+	case recipe:
+		how = "added from a suggested recipe by hand on the Profiles screen"
+	}
+	s.recordConfig(ctx, history.ProfileCreated, fmt.Sprintf("Profile %q created", p.Name), how, map[string]any{"profile": p.Key, "name": p.Name})
 	return oapi.CreateProfile201JSONResponse(s.profileToAPI(p, slots)), nil
 }
 
@@ -211,10 +224,24 @@ func (s *server) DeleteProfile(ctx context.Context, r oapi.DeleteProfileRequestO
 	if err := s.refuseDeclared(configfile.SectionProfiles); err != nil {
 		return nil, err
 	}
+	name := s.profileName(ctx, string(r.Key))
 	if err := s.profiles.Delete(ctx, string(r.Key)); err != nil {
 		return nil, profilesProblem(err)
 	}
+	s.recordConfig(ctx, history.ProfileDeleted, fmt.Sprintf("Profile %q deleted", name), "deleted by hand on the Profiles screen",
+		map[string]any{"profile": string(r.Key), "name": name})
 	return oapi.DeleteProfile204Response{}, nil
+}
+
+// profileName is the name of the Profile with the key, else the key.
+func (s *server) profileName(ctx context.Context, key string) string {
+	all, _ := s.profiles.List(ctx)
+	for _, p := range all {
+		if p.Key == key {
+			return p.Name
+		}
+	}
+	return key
 }
 
 func (s *server) ListProfiles(ctx context.Context, _ oapi.ListProfilesRequestObject) (oapi.ListProfilesResponseObject, error) {
@@ -265,6 +292,15 @@ func (s *server) PatchProfile(ctx context.Context, r oapi.PatchProfileRequestObj
 	if err != nil {
 		return nil, profilesProblem(err)
 	}
+	var fields []string
+	for name, set := range map[string]bool{"enabled": b.Enabled != nil, "name": b.Name != nil, "original_language": b.OriginalLanguage != nil || b.OriginalFallback != nil, "overlay": b.Overlay != nil} {
+		if set {
+			fields = append(fields, name)
+		}
+	}
+	sort.Strings(fields)
+	s.recordConfig(ctx, history.ProfileChanged, fmt.Sprintf("Profile %q changed: %s", p.Name, said(fields)), "edited by hand on the Profiles screen",
+		map[string]any{"profile": p.Key, "name": p.Name, "fields": fields})
 	if b.Overlay != nil {
 		// What the Profile does has changed: work out the stored files again from what Import kept.
 		if err := s.rescoreProfile(ctx, p.Key); err != nil {
@@ -402,10 +438,37 @@ func (s *server) PatchSettings(ctx context.Context, r oapi.PatchSettingsRequestO
 	if err := s.refuseDeclaredDisplay(r.Body); err != nil {
 		return nil, err
 	}
-	if l := r.Body.LanguageRegion; l != nil && l.PrimaryLanguage != nil {
-		return s.queueLanguage(ctx, r)
+	before, err := s.settingsBody(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return s.patchSettings(ctx, r)
+	var resp oapi.PatchSettingsResponseObject
+	if l := r.Body.LanguageRegion; l != nil && l.PrimaryLanguage != nil {
+		resp, err = s.queueLanguage(ctx, r)
+	} else {
+		resp, err = s.patchSettings(ctx, r)
+	}
+	if err != nil {
+		return resp, err
+	}
+	s.recordSettings(ctx, before, r.Body)
+	return resp, nil
+}
+
+// recordSettings writes the one entry for a settings save: the keys it changed. Pause Grabs has its own entries.
+// The entry names keys and never values, so a secret (an API key) cannot reach it.
+func (s *server) recordSettings(ctx context.Context, before oapi.Settings, body *oapi.PatchSettingsJSONRequestBody) {
+	if p := body.PauseGrabs; p != nil && *p != before.PauseGrabs {
+		kind, msg, why := history.GrabsPaused, "Pause Grabs turned on", "turned on by hand in Settings: new Grabs wait until it is turned off"
+		if !*p {
+			kind, msg, why = history.GrabsResumed, "Pause Grabs turned off", "turned off by hand in Settings: searches that waited are due again"
+		}
+		s.recordConfig(ctx, kind, msg, why, nil)
+	}
+	keys := slices.DeleteFunc(changedSettings(before, body), func(k string) bool { return k == "pause_grabs" })
+	if len(keys) > 0 {
+		s.recordConfig(ctx, history.SettingsChanged, "Settings changed: "+said(keys), "saved by hand in Settings", map[string]any{"keys": keys})
+	}
 }
 
 // queueLanguage answers a patch that names a Primary Language. A new Language

@@ -3,10 +3,12 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
 	"github.com/hyprsh/kestrel/internal/configfile"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/scoring/profiles"
 	"github.com/hyprsh/kestrel/internal/slot"
 	"github.com/hyprsh/kestrel/internal/slot/presets"
@@ -48,9 +50,13 @@ func (s *server) ApplySlotPreset(ctx context.Context, r oapi.ApplySlotPresetRequ
 		return nil, presetProblem(err)
 	}
 	out := oapi.SlotList{Items: make([]oapi.Slot, len(got))}
+	labels := make([]string, len(got))
 	for i, r := range got {
 		out.Items[i] = s.slotToAPI(r)
+		labels[i] = r.Label
 	}
+	s.recordConfig(ctx, history.SlotsPreset, fmt.Sprintf("Slot preset %s applied: %s", r.Id, said(labels)), "chosen by hand on the Slots screen",
+		map[string]any{"preset": r.Id, "slots": labels})
 	return oapi.ApplySlotPreset200JSONResponse(out), nil
 }
 

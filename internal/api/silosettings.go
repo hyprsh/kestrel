@@ -101,10 +101,12 @@ func (s *server) PutSiloSettings(ctx context.Context, req oapi.PutSiloSettingsRe
 	if perr := validateSilo(in, instanceKinds(list)); perr != nil {
 		return nil, perr
 	}
+	before, _ := loadSilo(ctx, s.plex.settings)
 	raw, _ := json.Marshal(in)
 	if err := s.plex.settings.Put(ctx, siloKey, raw); err != nil {
 		return nil, err
 	}
+	s.recordSettingsPut(ctx, "silo", before, in)
 	body, err := s.siloBody(ctx)
 	if err != nil {
 		return nil, err

@@ -87,6 +87,33 @@ const (
 	OriginalOffered Kind = "original_offered"
 )
 
+// Kinds for changes to the configuration: Profiles, Slots, settings and the Blocklist (#399). They are kept
+// together so a block of Kinds for another area merges next to them. None is routine, and none carries a secret.
+const (
+	// ProfileCreated: a Profile was made, by copy or from a recipe. Data carries its key and name.
+	ProfileCreated Kind = "profile_created"
+	// ProfileChanged: a Profile was edited. Data carries its key and the fields that changed.
+	ProfileChanged Kind = "profile_changed"
+	// ProfileDeleted: a Profile was deleted. Data carries its key and name.
+	ProfileDeleted Kind = "profile_deleted"
+	// SlotCreated: a Slot was made. Data carries its id and label.
+	SlotCreated Kind = "slot_created"
+	// SlotChanged: a Slot was edited. Data carries its id and the fields that changed.
+	SlotChanged Kind = "slot_changed"
+	// SlotDeleted: a Slot was deleted. Data carries its id and label.
+	SlotDeleted Kind = "slot_deleted"
+	// SlotsPreset: a Slot preset replaced the Slots (and the Profiles it brings). Data carries the preset id.
+	SlotsPreset Kind = "slots_preset"
+	// SettingsChanged: settings were saved. Data carries the keys that changed ("keys"), never their values.
+	SettingsChanged Kind = "settings_changed"
+	// GrabsPaused: Pause Grabs was turned on.
+	GrabsPaused Kind = "grabs_paused"
+	// GrabsResumed: Pause Grabs was turned off.
+	GrabsResumed Kind = "grabs_resumed"
+	// BlocklistRemoved: a Release came off the Blocklist and can be grabbed again.
+	BlocklistRemoved Kind = "blocklist_removed"
+)
+
 var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true, OriginalOffered: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.

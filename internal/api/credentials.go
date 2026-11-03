@@ -244,10 +244,12 @@ func (s *server) PutReverseProxy(ctx context.Context, req oapi.PutReverseProxyRe
 	if perr := cfg.validate(); perr != nil {
 		return nil, perr
 	}
+	before, _ := loadProxyConfig(ctx, s.auth.settings)
 	raw, _ := json.Marshal(cfg)
 	if err := s.auth.settings.Put(ctx, reverseProxyKey, raw); err != nil {
 		return nil, err
 	}
+	s.recordSettingsPut(ctx, "reverse_proxy", before, cfg)
 	body, err := s.reverseProxyBody(ctx)
 	if err != nil {
 		return nil, err

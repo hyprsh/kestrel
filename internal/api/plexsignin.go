@@ -511,10 +511,12 @@ func (s *server) PutPlexSignInSettings(ctx context.Context, req oapi.PutPlexSign
 	if perr := validatePlexSignIn(in, instanceKinds(list), roots); perr != nil {
 		return nil, perr
 	}
+	before, _ := loadPlexSignIn(ctx, s.plex.settings)
 	raw, _ := json.Marshal(in)
 	if err := s.plex.settings.Put(ctx, plexSignInKey, raw); err != nil {
 		return nil, err
 	}
+	s.recordSettingsPut(ctx, "plex_sign_in", before, in)
 	body, err := s.plexSignInBody(ctx)
 	if err != nil {
 		return nil, err
