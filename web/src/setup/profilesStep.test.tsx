@@ -127,16 +127,30 @@ describe('the wizard Profiles step', () => {
     await waitFor(() => expect(within(region).getByRole('checkbox', { name: /HD Original/ })).toBeChecked())
   })
 
-  it('opens the full Suggested list inside the wizard instead of linking to Settings', async () => {
+  it('starts the full Suggested list open inside the wizard instead of linking to Settings', async () => {
     const sent = fakeStep()
     renderApp()
     const region = await step()
     expect(within(region).queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
 
-    await userEvent.click(within(region).getByText('More…'))
     const suggested = await within(region).findByRole('region', { name: 'Suggested' })
+    expect(suggested.querySelector('details')).toHaveAttribute('open')
     expect(within(suggested).getByText('4K Remux')).toBeInTheDocument() // the one that does not fit the Slots
     await userEvent.click(within(suggested).getByRole('button', { name: 'Add 4K Remux' }))
     await waitFor(() => expect(sent).toEqual([{ method: 'POST', body: { release_family: 'remux-web', resolution: '4k', language_rule: 'primary' } }]))
+  })
+
+  it('names the Primary Language picked in the Language step, before it is saved, on the Primary recipes', async () => {
+    fakeStep()
+    fakeSetup({ language: 'todo', download_client: 'done', indexer: 'done', root_folders: 'done', slots: 'done' })
+    renderApp()
+    const region = await step()
+    const suggested = within(await within(region).findByRole('region', { name: 'Suggested' }))
+    expect(suggested.getAllByTitle('Primary Language: English')[0]).toHaveTextContent('English')
+    expect(suggested.getByTitle('Follows each Title’s Original Language')).toHaveTextContent('Original')
+
+    await userEvent.selectOptions(await screen.findByLabelText('Primary Language'), 'de')
+    expect(suggested.getAllByTitle('Primary Language: German')).toHaveLength(2)
+    expect(suggested.queryByTitle('Primary Language: English')).not.toBeInTheDocument()
   })
 })

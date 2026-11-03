@@ -1,7 +1,6 @@
 import { Checkbox, Note } from '@hyprsh/design'
 import { ApiError, useImportProfile, usePatchProfile, useProfileSuggestions, useProfiles, type Profile, type ProfileSuggestion } from '../api/queries'
 import { useSlots, type Slot } from '../api/slots'
-import { SuggestionMore } from '../layout/SettingsLists'
 import { SettingsCard } from '../layout/SettingsPage'
 import { kindsText, languageText, usePrimaryName } from './recipe'
 import { Suggested } from './Suggested'
@@ -82,9 +81,7 @@ export function EnableProfiles() {
           {problemText(failed)}
         </Note>
       )}
-      <SuggestionMore summary="More…">
-        <Suggested />
-      </SuggestionMore>
+      <Suggested startOpen />
     </div>
   )
 }
