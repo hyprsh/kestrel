@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -40,7 +39,7 @@ func TestTheSystemStatusSaysTheVersionWhenItStartedAndEachMediaServer(t *testing
 	}
 
 	id := *st.Services[2].InstanceID
-	if err := s.in.app.Health.Raise(context.Background(), health.Issue{
+	if err := s.in.app.Health.Raise(jobCtx(), health.Issue{
 		Key: fmt.Sprintf("media_server:%d", id), Kind: health.KindMediaServer, Severity: health.Warning,
 		Subject: health.Subject{PluginInstanceID: id}, Message: "Plex is unreachable: connection refused",
 	}); err != nil {

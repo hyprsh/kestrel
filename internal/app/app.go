@@ -207,7 +207,7 @@ func New(opts Options) *App {
 	probes := metadataProbes(keys, func() metadata.Provider { return meta }, func() metadata.TVDBProvider { return tvdb })
 	healthSvc := health.New(healthDeps(opts, appSettings, roots, pluginInstances, downloadHost, hist, probes))
 	observeClock = func(reference, local time.Time) {
-		healthSvc.ObserveClock(context.Background(), providerTMDB, reference, local)
+		healthSvc.ObserveClock(history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "clock check")), providerTMDB, reference, local)
 	}
 	watchHealth(healthSvc, downloadHost, indexerHost, pluginInstances)
 	meta = observedMeta{Provider: meta, h: healthSvc}
@@ -254,7 +254,7 @@ func New(opts Options) *App {
 			opts.Logger.Warn("queueing the rename of a Slot's files after its label changed failed", "slot", string(id), "err", err)
 		}
 	})
-	if err := slotRenamer.Resume(context.Background()); err != nil {
+	if err := slotRenamer.Resume(history.WithTrigger(context.Background(), history.Job(history.TriggerStartup, ""))); err != nil {
 		opts.Logger.Warn("resuming the Slot file renames failed", "err", err)
 	}
 	adoption, err := imports.NewAdoption(imports.AdoptionDeps{
@@ -282,7 +282,7 @@ func New(opts Options) *App {
 		// for a Primary Language change's re-score.
 		Enabled: func(ctx context.Context) bool { return opts.TrashSource != nil && upd.Enabled(ctx) },
 	})
-	if err := trashUpdates.Start(context.Background()); err != nil {
+	if err := trashUpdates.Start(history.WithTrigger(context.Background(), history.Job(history.TriggerStartup, ""))); err != nil {
 		panic("app: loading the stored TRaSH snapshot: " + err.Error())
 	}
 	reqs := requests.New(requests.Deps{

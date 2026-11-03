@@ -898,7 +898,8 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 	g.VersionIDs = append(g.VersionIDs, o.also...)
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
-		Data: grabSentData(o.by),
+		Reason: grabReason(ctx, o.by),
+		Data:   grabSentData(o.by),
 	})
 	return g, nil
 }
@@ -1006,6 +1007,31 @@ func (s *Service) plan(in Input) []GrabPlan {
 	}
 	in.Candidates = cands
 	return Decide(in)
+}
+
+// grabReason is why a Grab was made: the search's reason when a search chose the Release ("retry: import of X
+// rejected: language", "new: the first search of a Version just added"), else who else chose it.
+func grabReason(ctx context.Context, by string) string {
+	switch by {
+	case GrabbedByHand:
+		return "chosen by hand"
+	case GrabbedByRSS:
+		return "RSS: a new Release matched what the Version is missing"
+	}
+	if r := reasonOf(ctx); r != "" {
+		return "chosen by a search (" + r + ")"
+	}
+	return "chosen by a search"
+}
+
+// grabCanceledData is the `grab_canceled` event's payload: the Grab as it was before its row went, and whether its
+// Release was blocklisted.
+func grabCanceledData(g Grab, blocklisted bool) json.RawMessage {
+	b, _ := json.Marshal(map[string]any{
+		"grab_id": g.ID, "release": g.ReleaseName, "title_id": g.TitleID, "version_id": g.VersionID, "version_ids": g.VersionIDs,
+		"blocklisted": blocklisted,
+	})
+	return b
 }
 
 // grabSentData is the `grab` event's payload: who chose the Release. Grabs from before it was recorded have none.

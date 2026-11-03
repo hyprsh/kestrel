@@ -13,6 +13,8 @@ const ev = (id: number, at: string, routine: boolean): LogEvent => ({
   grab_id: null,
   request_id: null,
   message: 'x',
+  trigger: null,
+  reason: '',
   data: null,
 })
 

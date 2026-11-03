@@ -159,20 +159,20 @@ UPDATE seasons SET monitored = EXISTS (
 ) WHERE seasons.title_id = ?;
 
 -- name: ListSearchStates :many
-SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh FROM search_state ORDER BY id;
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by FROM search_state ORDER BY id;
 
 -- A Title's search_state rows.
 -- name: ListSearchStatesOfTitle :many
 SELECT ss.* FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id;
 
 -- name: MarkSearchStateMissing :exec
-UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE id = ?;
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ?, requested_by = NULL WHERE id = ?;
 
 -- name: SetSearchStateNextUpgrade :exec
 UPDATE search_state SET next_upgrade_at = ? WHERE id = ?;
 
 -- name: SetSearchStateNextMissing :exec
-UPDATE search_state SET next_missing_at = ? WHERE id = ?;
+UPDATE search_state SET next_missing_at = ?, requested_by = ? WHERE id = ?;
 
 -- name: MarkUpgradeSearched :exec
 UPDATE search_state SET last_upgrade_at = ?, next_upgrade_at = ? WHERE version_id = ?;

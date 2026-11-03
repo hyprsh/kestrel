@@ -154,6 +154,7 @@ func (s *Service) noteOffers(ctx context.Context, d library.Detail, versionOf ma
 		s.hist.Record(ctx, history.Event{
 			Kind: history.OriginalOffered, TitleID: d.ID, VersionID: n.versionID,
 			Message: n.name + " has the Original Language only: accept or dismiss it in Needs attention",
+			Reason:  "offered: it has the Original Language only, which the Version's Profile does not accept on its own",
 		})
 	}
 	return nil

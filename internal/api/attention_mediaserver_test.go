@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -11,7 +10,7 @@ import (
 func TestAnUnreachableMediaServerIsAWarningWithTestAndOpenMediaServers(t *testing.T) {
 	t.Parallel()
 	s := newSearchBare(t)
-	if err := s.in.app.Health.Raise(context.Background(), health.Issue{
+	if err := s.in.app.Health.Raise(jobCtx(), health.Issue{
 		Key: "media_server:5", Kind: health.KindMediaServer, Severity: health.Warning,
 		Subject: health.Subject{PluginInstanceID: 5}, Message: "Plex is unreachable: connection refused",
 	}); err != nil {

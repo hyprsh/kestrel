@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 )
@@ -376,9 +377,9 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 		}
 	}
 	// A new Version is searched at once, whatever the budget; the sweep after it obeys the 80 % stop.
-	err = sweep(ctx, r, fresh, d.Acquire.SearchNew, d.Library.MarkMissingSearched, now, false, &grabbed)
+	err = sweep(ctx, r, fresh, d.Acquire.SearchNew, d.Library.MarkMissingSearched, d.Clock, false, &grabbed)
 	if err == nil {
-		err = sweep(ctx, r, due, d.Acquire.SearchWanted, d.Library.MarkMissingSearched, now, false, &grabbed)
+		err = sweep(ctx, r, due, d.Acquire.SearchWanted, d.Library.MarkMissingSearched, d.Clock, false, &grabbed)
 	}
 	if err == nil {
 		// All of them, to count what waits; the pass searches the first few.
@@ -386,7 +387,7 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 		if upgrades, err = d.Library.DueUpgrades(ctx, now, 0); err == nil {
 			t.upgradesDue(upgrades)
 			t.upgradesPlanned(min(len(upgrades), UpgradesPerPass))
-			err = sweep(ctx, r, upgrades[:min(len(upgrades), UpgradesPerPass)], d.Acquire.SearchUpgrades, d.Library.MarkUpgradeSearched, now, true, &grabbed)
+			err = sweep(ctx, r, upgrades[:min(len(upgrades), UpgradesPerPass)], d.Acquire.SearchUpgrades, d.Library.MarkUpgradeSearched, d.Clock, true, &grabbed)
 		}
 	}
 	if grabbed {
@@ -396,23 +397,34 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 }
 
 // sweep searches each Title of due once, with the Versions of it that are due.
-// upgrade says these are Upgrade searches, for the SearchStatus.
+// upgrade says these are Upgrade searches, for the SearchStatus. A Version is marked searched at the time its Title's
+// search began (clock), not when the pass did: a pass of many Titles runs for minutes.
 func sweep(
 	ctx context.Context, r *Runner, due []library.Due,
 	search func(ctx context.Context, titleID int64, versionIDs []int64) (acquire.Outcome, error),
 	mark func(ctx context.Context, versionID int64, at time.Time, failed bool) error,
-	now time.Time, upgrade bool, grabbed *bool,
+	clock func() time.Time, upgrade bool, grabbed *bool,
 ) error {
 	var titles []int64
 	byTitle := map[int64][]int64{}
+	askedBy := map[int64]string{}
 	for _, x := range due {
 		if _, seen := byTitle[x.TitleID]; !seen {
 			titles = append(titles, x.TitleID)
 		}
 		byTitle[x.TitleID] = append(byTitle[x.TitleID], x.VersionID)
+		if askedBy[x.TitleID] == "" {
+			askedBy[x.TitleID] = x.RequestedBy
+		}
 	}
 	for _, id := range titles {
-		out, err := search(ctx, id, byTitle[id])
+		ran := clock()
+		searchCtx := ctx
+		if by := askedBy[id]; by != "" {
+			// A Version a person made due now (a bulk Search) is still searched by the sweep, which names them.
+			searchCtx = history.WithTrigger(ctx, history.TriggerFromKey(by, "search from the Library"))
+		}
+		out, err := search(searchCtx, id, byTitle[id])
 		if err != nil {
 			r.log.Warn("search for a Title failed", "title", id, "err", err)
 		}
@@ -420,7 +432,7 @@ func sweep(
 		*grabbed = *grabbed || len(out.Grabbed) > 0
 		failed := err != nil || len(out.Failures) > 0
 		for _, v := range out.Searched {
-			if err := mark(ctx, v, now, failed); err != nil {
+			if err := mark(ctx, v, ran, failed); err != nil {
 				return err
 			}
 		}

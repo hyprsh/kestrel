@@ -84,7 +84,7 @@ func (q *Queries) EventKindCounts(ctx context.Context) ([]EventKindCountsRow, er
 }
 
 const eventsAfter = `-- name: EventsAfter :many
-SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data FROM events WHERE id > ? ORDER BY id LIMIT ?
+SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data, trigger_kind, trigger_actor, trigger_via, reason FROM events WHERE id > ? ORDER BY id LIMIT ?
 `
 
 type EventsAfterParams struct {
@@ -113,6 +113,10 @@ func (q *Queries) EventsAfter(ctx context.Context, arg EventsAfterParams) ([]Eve
 			&i.RequestID,
 			&i.Message,
 			&i.Data,
+			&i.TriggerKind,
+			&i.TriggerActor,
+			&i.TriggerVia,
+			&i.Reason,
 		); err != nil {
 			return nil, err
 		}
@@ -128,22 +132,26 @@ func (q *Queries) EventsAfter(ctx context.Context, arg EventsAfterParams) ([]Eve
 }
 
 const insertEvent = `-- name: InsertEvent :one
-INSERT INTO events (at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO events (at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data, trigger_kind, trigger_actor, trigger_via, reason)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
 type InsertEventParams struct {
-	At        string
-	Kind      string
-	Routine   int64
-	TitleID   sql.NullInt64
-	VersionID sql.NullInt64
-	EpisodeID sql.NullInt64
-	GrabID    sql.NullInt64
-	RequestID sql.NullInt64
-	Message   string
-	Data      sql.NullString
+	At           string
+	Kind         string
+	Routine      int64
+	TitleID      sql.NullInt64
+	VersionID    sql.NullInt64
+	EpisodeID    sql.NullInt64
+	GrabID       sql.NullInt64
+	RequestID    sql.NullInt64
+	Message      string
+	Data         sql.NullString
+	TriggerKind  string
+	TriggerActor string
+	TriggerVia   string
+	Reason       string
 }
 
 func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (int64, error) {
@@ -158,6 +166,10 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (int64
 		arg.RequestID,
 		arg.Message,
 		arg.Data,
+		arg.TriggerKind,
+		arg.TriggerActor,
+		arg.TriggerVia,
+		arg.Reason,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -176,7 +188,7 @@ func (q *Queries) LastEventID(ctx context.Context) (int64, error) {
 }
 
 const listEvents = `-- name: ListEvents :many
-SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data FROM events
+SELECT id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data, trigger_kind, trigger_actor, trigger_via, reason FROM events
 WHERE (?1 IS NULL OR kind IN (SELECT value FROM json_each(?1)))
   AND (?2 IS NULL OR kind NOT IN (SELECT value FROM json_each(?2)))
   AND (?3 IS NULL OR title_id IN (SELECT value FROM json_each(?3)))
@@ -237,6 +249,10 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event
 			&i.RequestID,
 			&i.Message,
 			&i.Data,
+			&i.TriggerKind,
+			&i.TriggerActor,
+			&i.TriggerVia,
+			&i.Reason,
 		); err != nil {
 			return nil, err
 		}

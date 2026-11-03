@@ -21,16 +21,16 @@ func newService(t *testing.T, now *time.Time) *history.Service {
 }
 
 func TestRecordedEventsComeBackInOrderAfterAGivenID(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
 	h := newService(t, &now)
 
 	if last, err := h.Last(ctx); err != nil || last != 0 {
 		t.Fatalf("Last on an empty log = %d, %v", last, err)
 	}
-	h.Record(ctx, history.Event{Kind: history.GrabSent, Message: "first", Data: []byte(`{"score":7}`)})
-	h.Record(ctx, history.Event{Kind: history.GrabCompleted, Message: "second"})
-	h.Record(ctx, history.Event{Kind: history.GrabFailed, Message: "third"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabSent, Message: "first", Data: []byte(`{"score":7}`)})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabCompleted, Message: "second"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabFailed, Message: "third"})
 
 	all, err := h.After(ctx, 0, 100)
 	if err != nil || len(all) != 3 {
@@ -55,14 +55,14 @@ func TestRecordedEventsComeBackInOrderAfterAGivenID(t *testing.T) {
 }
 
 func TestPruneDropsOnlyRoutineEventsOlderThanThirtyDays(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
 	h := newService(t, &now)
 
-	h.Record(ctx, history.Event{Kind: history.GrabCompleted, Message: "old routine"})
-	h.Record(ctx, history.Event{Kind: history.GrabFailed, Message: "old kept"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabCompleted, Message: "old routine"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabFailed, Message: "old kept"})
 	now = now.Add(31 * 24 * time.Hour)
-	h.Record(ctx, history.Event{Kind: history.GrabCompleted, Message: "new routine"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabCompleted, Message: "new routine"})
 
 	n, err := h.Prune(ctx)
 	if err != nil || n != 1 {
@@ -76,21 +76,21 @@ func TestPruneDropsOnlyRoutineEventsOlderThanThirtyDays(t *testing.T) {
 
 func TestRecordingOnANilServiceDoesNothing(t *testing.T) {
 	var h *history.Service
-	h.Record(context.Background(), history.Event{Kind: history.GrabSent})
+	h.Record(context.Background(), history.Event{Reason: "test", Kind: history.GrabSent})
 }
 
 func TestSummaryCountsEventsByKindAndFindsTheOldest(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
 	h := newService(t, &now)
 
 	if s, err := h.Summary(ctx); err != nil || len(s.Counts) != 0 || !s.Oldest.IsZero() {
 		t.Fatalf("Summary of an empty log = %+v, %v", s, err)
 	}
-	h.Record(ctx, history.Event{Kind: history.GrabFailed, Message: "a"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabFailed, Message: "a"})
 	now = now.Add(time.Hour)
-	h.Record(ctx, history.Event{Kind: history.GrabFailed, Message: "b"})
-	h.Record(ctx, history.Event{Kind: history.Searched, Message: "c"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.GrabFailed, Message: "b"})
+	h.Record(ctx, history.Event{Reason: "test", Kind: history.Searched, Message: "c"})
 
 	s, err := h.Summary(ctx)
 	if err != nil {
@@ -105,14 +105,14 @@ func TestSummaryCountsEventsByKindAndFindsTheOldest(t *testing.T) {
 }
 
 func TestHistogramCountsEventsPerBucketBySeverityAndFillsEmptyBuckets(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	now := time.Date(2026, 10, 17, 13, 30, 0, 0, time.UTC)
 	h := newService(t, &now)
 
 	at := func(d time.Duration, kinds ...history.Kind) {
 		now = time.Date(2026, 10, 17, 13, 30, 0, 0, time.UTC).Add(d)
 		for _, k := range kinds {
-			h.Record(ctx, history.Event{Kind: k, Message: "x"})
+			h.Record(ctx, history.Event{Reason: "test", Kind: k, Message: "x"})
 		}
 	}
 	at(-10*24*time.Hour, history.GrabSent)                                      // before the window

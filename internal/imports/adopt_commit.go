@@ -412,6 +412,7 @@ func (a *Adoption) runRetry(ctx context.Context, failed []Row) {
 	}
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionScanned, Message: fmt.Sprintf("Adoption Try again: %d planned again, %d gone", len(planned), len(gone)),
+		Trigger: history.TriggerOr(ctx, adoptionJob), Reason: "adoption: Try again planned the failed entries again",
 	})
 }
 
@@ -478,6 +479,7 @@ func (a *Adoption) Reopen(ctx context.Context) error {
 	}
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionScanned, Message: fmt.Sprintf("Adoption reopened %d entries without a choice", len(open)),
+		Trigger: history.TriggerOr(ctx, adoptionJob), Reason: "adoption: entries without a choice were reopened for review",
 	})
 	return nil
 }
@@ -601,6 +603,7 @@ func (a *Adoption) adoptRow(ctx context.Context, e *env, row Row) (err error) {
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionDone, TitleID: id,
 		Message: fmt.Sprintf("Adopted %s (%d) in %s", m.Title, m.Year, strings.Join(slots, ", ")),
+		Trigger: history.TriggerOr(ctx, adoptionJob), Reason: "adoption: the folder's files were matched to the Title and the plan was committed",
 	})
 	a.folderChanged(ctx, dir)
 	return nil

@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"context"
 	"time"
 
 	"fmt"
@@ -93,7 +92,7 @@ func TestAPassingTestClearsAnUnreachableDownloadClientAtOnceAndAFailingOneLeaves
 
 func TestAPassingTestClearsOnlyThatMediaServersRefreshRow(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := jobCtx()
 	s, _ := newMediaSearch(t)
 	one := s.instanceID(t, "fake_media_server")
 	if r := s.valid("POST", "/plugin-instances", `{"plugin_id":"fake_media_server","name":"Other","config":{"token":"mk"}}`); r.Status != 201 {

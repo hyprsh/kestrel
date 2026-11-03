@@ -438,7 +438,7 @@ func TestAnUntrustedProxyHeaderThatKeepsComingIsAWarningUntilTheAddressIsTrusted
 
 func TestOnlyOneOffHealthWarningsCanBeDismissedAndTheyReturnWhenTheyRecur(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := jobCtx()
 	s := newSearchBare(t)
 	h := s.in.app.Health
 	exdev := health.Issue{
@@ -485,7 +485,7 @@ func TestOnlyOneOffHealthWarningsCanBeDismissedAndTheyReturnWhenTheyRecur(t *tes
 
 func TestWarningsSortNewestFirstAfterEveryBlockingRow(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := jobCtx()
 	s := newSearchBare(t)
 	h := s.in.app.Health
 	raise := func(key string, sev health.Severity) {
@@ -510,7 +510,7 @@ func TestWarningsSortNewestFirstAfterEveryBlockingRow(t *testing.T) {
 
 func TestTheStreamCarriesTheAttentionCountAndSeverityAsRowsComeAndGo(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := jobCtx()
 	s := newSearchBare(t, fastStream)
 	st := s.stream(t)
 	attentionFrame := func(name string, ok func(count int, severity *string) bool) {

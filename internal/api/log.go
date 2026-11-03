@@ -54,7 +54,7 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 		item := oapi.Event{
 			Id: e.ID, At: e.At, Kind: string(e.Kind), Routine: e.Routine, Message: e.Message,
 			TitleId: idPtr(e.TitleID), VersionId: idPtr(e.VersionID), EpisodeId: idPtr(e.EpisodeID),
-			GrabId: idPtr(e.GrabID), RequestId: idPtr(e.RequestID),
+			GrabId: idPtr(e.GrabID), RequestId: idPtr(e.RequestID), Reason: e.Reason, Trigger: triggerOf(e.Trigger),
 		}
 		if len(e.Data) > 0 {
 			var data map[string]any
@@ -65,6 +65,21 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 		out.Items = append(out.Items, item)
 	}
 	return oapi.ListEvents200JSONResponse(out), nil
+}
+
+// triggerOf is an event's trigger as the API words it, nil for an entry from before triggers were recorded.
+func triggerOf(t history.Trigger) *oapi.EventTrigger {
+	if t.IsZero() {
+		return nil
+	}
+	out := oapi.EventTrigger{Kind: string(t.Kind)}
+	if t.Actor != "" {
+		out.Actor = &t.Actor
+	}
+	if t.Via != "" {
+		out.Via = &t.Via
+	}
+	return &out
 }
 
 // GetEventsSummary is what the Log holds, for its views' counts and its footer.

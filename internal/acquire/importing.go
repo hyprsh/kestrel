@@ -150,6 +150,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 			s.hist.Record(ctx, history.Event{
 				Kind: history.ImportStalled, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
 				Message: "Import of " + row.ReleaseName + " stalled: " + o.Reason,
+				Reason:  "stalled: " + o.Reason + "; the Import tries again on a backoff until the environment is fixed",
 			})
 		}
 		return q.StallImport(ctx, db.StallImportParams{
@@ -180,6 +181,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		ev := history.Event{
 			Kind: history.ImportDone, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
 			Message: "Imported " + row.ReleaseName + " as " + o.Path,
+			Reason:  "imported: the download finished and the Release passed the Import's checks",
 		}
 		if o.Status == ImportDone {
 			data := map[string]any{"path": o.Path}
@@ -195,6 +197,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		}
 		if o.Status == ImportRejected {
 			ev.Kind, ev.Message = history.ImportRejected, "Import of "+row.ReleaseName+" rejected: "+o.Reason
+			ev.Reason = "rejected: " + o.Reason
 		}
 		s.hist.Record(ctx, ev)
 		s.recordEpisodes(ctx, row, o.Episodes)
@@ -205,7 +208,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		}
 		if o.Status == ImportRejected {
 			// The Release was unfit: the Version's next best one replaces it.
-			_, err := s.retry(ctx, row)
+			_, err := s.retry(ctx, row, "import of "+row.ReleaseName+" rejected: "+o.Reason)
 			return err
 		}
 	}
@@ -220,9 +223,9 @@ func (s *Service) recordEpisodes(ctx context.Context, row db.Grab, eps []Episode
 		if e.EpisodeID == 0 && e.Number == 0 {
 			code = e.File
 		}
-		msg := code + ": imported as " + e.Path
+		msg, reason := code+": imported as "+e.Path, "imported: part of the pack, which passed the Import's checks"
 		if e.Status != ImportDone {
-			msg = code + ": left alone (" + e.Reason + ")"
+			msg, reason = code+": left alone ("+e.Reason+")", "left alone: "+e.Reason
 		}
 		data, _ := json.Marshal(map[string]any{
 			"season": e.Season, "episode": e.Number, "status": e.Status, "reason": e.Reason, "file": e.File, "path": e.Path,
@@ -233,7 +236,7 @@ func (s *Service) recordEpisodes(ctx context.Context, row db.Grab, eps []Episode
 		}
 		s.hist.Record(ctx, history.Event{
 			Kind: history.ImportEpisode, TitleID: row.TitleID.Int64, VersionID: versionID, EpisodeID: e.EpisodeID, GrabID: row.ID,
-			Message: msg, Data: data,
+			Message: msg, Data: data, Reason: reason,
 		})
 	}
 }

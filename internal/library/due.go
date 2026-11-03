@@ -18,6 +18,9 @@ type Due struct {
 	// Episodes is how many Wanted episodes a Series Version's search covers
 	// (0 for a Movie), for the search status's "12 Versions · 340 episodes".
 	Episodes int
+	// RequestedBy is the history.Trigger key of the person who made the Version due now by hand (a bulk Search),
+	// "" for one that came due by the schedule.
+	RequestedBy string
 }
 
 // RequestSearch makes a Version due a missing search now; the caller

@@ -23,7 +23,7 @@ func (e env) kindsShowing(t *testing.T) map[health.Kind]health.Row {
 var sab = health.Ref{ID: 3, Name: "SABnzbd"}
 
 func TestDownloadClientRowAppearsAfterTwoMinutesOfFailedPollsAndClearsOnTheNextGoodOne(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 
 	e.h.ObserveDownloadClient(ctx, sab, &health.Failure{Message: "connection refused"})
@@ -56,7 +56,7 @@ func TestDownloadClientRowAppearsAfterTwoMinutesOfFailedPollsAndClearsOnTheNextG
 }
 
 func TestRepeatedFailedPollsDoNotBumpTheRowEveryTime(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	e.h.ObserveDownloadClient(ctx, sab, &health.Failure{Message: "down"})
 	*e.now = e.now.Add(3 * time.Minute)
@@ -77,7 +77,7 @@ func enabledIndexers(refs ...health.Ref) func(*health.Deps) {
 }
 
 func TestIndexerFailingIsAWarningAtOnceForAuthAndAfterSixHoursForOtherErrors(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t, enabledIndexers(alpha, health.Ref{ID: 12, Name: "Beta"}))
 
 	e.h.ObserveIndexer(ctx, alpha, &health.Failure{Message: "timeout"})
@@ -106,7 +106,7 @@ func TestIndexerFailingIsAWarningAtOnceForAuthAndAfterSixHoursForOtherErrors(t *
 }
 
 func TestNoIndexerCanSearchWhenNoneIsEnabledOrEveryOneFails(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	enabled := []health.Ref{}
 	e := newEnv(t, func(d *health.Deps) {
 		d.Checks.EnabledIndexers = func(context.Context) ([]health.Ref, error) { return enabled, nil }
@@ -144,19 +144,19 @@ func TestNoIndexerRowWaitsForSetupToFinish(t *testing.T) {
 	e := newEnv(t, enabledIndexers(), func(d *health.Deps) {
 		d.Checks.SetupDone = func(context.Context) bool { return setupDone }
 	})
-	_ = e.h.RunChecks(context.Background())
+	_ = e.h.RunChecks(testCtx())
 	if len(e.rows(t)) != 0 {
 		t.Fatalf("the wizard has not finished: %+v", e.rows(t))
 	}
 	setupDone = true
-	_ = e.h.RunChecks(context.Background())
+	_ = e.h.RunChecks(testCtx())
 	if len(e.rows(t)) != 1 {
 		t.Errorf("rows = %+v", e.rows(t))
 	}
 }
 
 func TestIndexerStatesReportWhoIsFailing(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t, enabledIndexers(alpha))
 	e.h.ObserveIndexer(ctx, alpha, &health.Failure{Auth: true, Message: "bad key"})
 	st := e.h.IndexerStates()
@@ -170,7 +170,7 @@ func TestIndexerStatesReportWhoIsFailing(t *testing.T) {
 }
 
 func TestMetadataProviderFailureIsBlockingOnAuthAndAWarningAfterADay(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 
 	e.h.ObserveMetadata(ctx, "TMDB", &health.Failure{Message: "502"})
@@ -204,7 +204,7 @@ func rootsOf(paths *[]string) func(*health.Deps) {
 }
 
 func TestRootFolderUnavailableIsRaisedForMissingNonDirectoryAndUnwritableFolders(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	base := t.TempDir()
 	missing := filepath.Join(base, "missing")
 	file := filepath.Join(base, "file")
@@ -266,19 +266,19 @@ func TestRootFoldersTheWizardPrefilledAreNotCheckedBeforeSetupIsDone(t *testing.
 	e := newEnv(t, rootsOf(&paths), func(d *health.Deps) {
 		d.Checks.SetupDone = func(context.Context) bool { return setupDone }
 	})
-	_ = e.h.RunChecks(context.Background())
+	_ = e.h.RunChecks(testCtx())
 	if len(e.rows(t)) != 0 {
 		t.Fatalf("rows = %+v", e.rows(t))
 	}
 	setupDone = true
-	_ = e.h.RunChecks(context.Background())
+	_ = e.h.RunChecks(testCtx())
 	if len(e.rows(t)) != 1 {
 		t.Errorf("rows = %+v", e.rows(t))
 	}
 }
 
 func TestCheckRootFolderBlocksAnImportUntilTheFolderIsBack(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	dir := filepath.Join(t.TempDir(), "movies")
 	e := newEnv(t)
 
@@ -311,7 +311,7 @@ func diskOf(free, total *uint64) func(*health.Deps) {
 }
 
 func TestLowDiskSpaceFiresBelowTheLargerOfFivePercentAndFiftyGigabytes(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	cases := []struct {
 		name        string
 		free, total uint64
@@ -340,19 +340,19 @@ func TestLowDiskSpaceFiresBelowTheLargerOfFivePercentAndFiftyGigabytes(t *testin
 func TestLowDiskSpaceClearsOnceThereIsRoom(t *testing.T) {
 	free, total := uint64(10*gb), uint64(1000*gb)
 	e := newEnv(t, diskOf(&free, &total))
-	_ = e.h.RunChecks(context.Background())
+	_ = e.h.RunChecks(testCtx())
 	if r := e.kindsShowing(t)[health.KindLowDisk]; r.Severity != health.Warning {
 		t.Fatalf("rows = %+v", e.rows(t))
 	}
 	free = 400 * gb
-	_ = e.h.RunChecks(context.Background())
+	_ = e.h.RunChecks(testCtx())
 	if len(e.rows(t)) != 0 {
 		t.Errorf("rows = %+v", e.rows(t))
 	}
 }
 
 func TestRegisteredChecksRunWithTheRest(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	e.h.AddCheck("proxy", func(ctx context.Context, h *health.Service) error {
 		return h.Raise(ctx, health.Issue{Key: "p", Kind: health.KindProxyHeader, Severity: health.Warning, Message: "Proxy header received from an untrusted address"})
@@ -369,7 +369,7 @@ func TestDisksListsTheDataMountAndEveryRootFolder(t *testing.T) {
 	free, total := uint64(10*gb), uint64(1000*gb)
 	paths := []string{"/data/media/movies"}
 	e := newEnv(t, diskOf(&free, &total), rootsOf(&paths))
-	disks, err := e.h.Disks(context.Background())
+	disks, err := e.h.Disks(testCtx())
 	if err != nil || len(disks) != 2 {
 		t.Fatalf("Disks = %+v, %v", disks, err)
 	}
@@ -380,7 +380,7 @@ func TestDisksListsTheDataMountAndEveryRootFolder(t *testing.T) {
 
 // A plugin's message that already names the instance is the whole row.
 func TestDownloadClientAndIndexerRowsDoNotNameTheInstanceTwice(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t, enabledIndexers(alpha))
 
 	e.h.ObserveDownloadClient(ctx, sab, &health.Failure{Auth: true, Message: "SABnzbd rejected the API key"})
@@ -398,7 +398,7 @@ func TestDownloadClientAndIndexerRowsDoNotNameTheInstanceTwice(t *testing.T) {
 
 func TestAGoodCallClearsAStoredRowThatNoWatchBacks(t *testing.T) {
 	// After a restart the row is stored and the in-memory watch is gone.
-	ctx := context.Background()
+	ctx := testCtx()
 	for name, tc := range map[string]struct {
 		issue   health.Issue
 		observe func(h *health.Service)

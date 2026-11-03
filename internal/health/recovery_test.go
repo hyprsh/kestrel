@@ -35,7 +35,7 @@ func (e env) cleared(t *testing.T) cleared {
 }
 
 func TestARecoveredDownloadClientRecordsItsRetriesWhenItCameBackAndWhichGrabsWaited(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	var sinceAsked time.Time
 	e.h.WithHeldUp(func(_ context.Context, kind health.Kind, instanceID int64, since time.Time) (int, int, error) {
@@ -66,7 +66,7 @@ func TestARecoveredDownloadClientRecordsItsRetriesWhenItCameBackAndWhichGrabsWai
 }
 
 func TestARecoveredIndexerRecordsItsRetriesToo(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t, enabledIndexers(alpha))
 	e.h.WithHeldUp(func(_ context.Context, kind health.Kind, instanceID int64, _ time.Time) (int, int, error) {
 		if kind != health.KindIndexer || instanceID != alpha.ID {
@@ -88,7 +88,7 @@ func TestARecoveredIndexerRecordsItsRetriesToo(t *testing.T) {
 }
 
 func TestAClearedRowThatWasNotAConnectionOutageCarriesNoRetries(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	_ = e.h.Raise(ctx, exdev)
 	_ = e.h.Clear(ctx, exdev.Key)

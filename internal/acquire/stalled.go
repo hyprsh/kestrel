@@ -101,6 +101,7 @@ func (s *Service) Discard(ctx context.Context, grabID int64) error {
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabFailed, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
 		Message: "Discarded the stalled Import of " + row.ReleaseName + left,
+		Reason:  "discarded: the Import was stalled (" + row.StalledReason.String + ") and was given up on by hand",
 	})
 	return nil
 }

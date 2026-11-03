@@ -17,6 +17,11 @@ import (
 	"github.com/hyprsh/kestrel/internal/updates"
 )
 
+// testCtx is a context for a check run, as the loop's pass supplies it in Kestrel.
+func testCtx() context.Context {
+	return history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "updates"))
+}
+
 // fakeGitHub answers the two endpoints the check uses.
 type fakeGitHub struct {
 	release    string // JSON body, or "" for 404
@@ -70,7 +75,7 @@ func newEnv(t *testing.T, version string, gh *fakeGitHub) env {
 
 func (e env) rows(t *testing.T) []health.Row {
 	t.Helper()
-	rows, err := e.h.List(context.Background())
+	rows, err := e.h.List(testCtx())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +84,7 @@ func (e env) rows(t *testing.T) []health.Row {
 
 func TestSecurityFixWarningWhenAdvisoryCoversRunningVersion(t *testing.T) {
 	e := newEnv(t, "0.2.0", &fakeGitHub{release: `{"tag_name":"v0.3.2","html_url":"https://example/r"}`, advisories: advisory})
-	if err := e.svc.Check(context.Background()); err != nil {
+	if err := e.svc.Check(testCtx()); err != nil {
 		t.Fatal(err)
 	}
 	rows := e.rows(t)
@@ -91,7 +96,7 @@ func TestSecurityFixWarningWhenAdvisoryCoversRunningVersion(t *testing.T) {
 			t.Errorf("message %q lacks %q", rows[0].Message, want)
 		}
 	}
-	info := e.svc.Info(context.Background())
+	info := e.svc.Info(testCtx())
 	if !info.UpdateAvailable || info.Latest != "0.3.2" || info.URL != "https://example/r" || e.gh.userAgent == "" {
 		t.Fatalf("info = %+v ua=%q", info, e.gh.userAgent)
 	}
@@ -100,7 +105,7 @@ func TestSecurityFixWarningWhenAdvisoryCoversRunningVersion(t *testing.T) {
 func TestNoWarningOutsideTheRangeAndWarningClearsAfterUpdate(t *testing.T) {
 	gh := &fakeGitHub{release: `{"tag_name":"v0.3.2"}`, advisories: advisory}
 	e := newEnv(t, "0.3.2", gh)
-	ctx := context.Background()
+	ctx := testCtx()
 	if err := e.svc.Check(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +127,7 @@ func TestNoWarningOutsideTheRangeAndWarningClearsAfterUpdate(t *testing.T) {
 
 func TestDisabledSwitchMakesNoRequestsAndClearsRows(t *testing.T) {
 	e := newEnv(t, "0.2.0", &fakeGitHub{release: `{"tag_name":"v0.3.2"}`, advisories: advisory})
-	ctx := context.Background()
+	ctx := testCtx()
 	if err := e.svc.Check(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -143,10 +148,10 @@ func TestDisabledSwitchMakesNoRequestsAndClearsRows(t *testing.T) {
 
 func TestEdgeBuildsSkipComparisonAndNoReleaseIsNotAnError(t *testing.T) {
 	e := newEnv(t, "edge", &fakeGitHub{advisories: "[]"})
-	if err := e.svc.Check(context.Background()); err != nil {
+	if err := e.svc.Check(testCtx()); err != nil {
 		t.Fatal(err)
 	}
-	if e.svc.Info(context.Background()).UpdateAvailable {
+	if e.svc.Info(testCtx()).UpdateAvailable {
 		t.Fatal("edge never has an update")
 	}
 }

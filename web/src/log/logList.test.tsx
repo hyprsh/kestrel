@@ -24,6 +24,8 @@ const event = (id: number, kind: string, message: string, over: Partial<Event> =
   grab_id: null,
   request_id: null,
   message,
+  trigger: null,
+  reason: '',
   data: null,
   ...over,
 })

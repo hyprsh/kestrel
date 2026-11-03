@@ -28,7 +28,7 @@ func (r *rig) lastSearch(t *testing.T, ver int64) acquire.LastSearch {
 }
 
 func TestASearchRecordsWhatItFoundAndThatItGrabbed(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.publish(t, hd1080, time.Hour)
 	r.publish(t, german, 2*time.Hour)
@@ -44,7 +44,7 @@ func TestASearchRecordsWhatItFoundAndThatItGrabbed(t *testing.T) {
 }
 
 func TestASearchThatFindsNothingFitCountsTheRejectionReasons(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.publish(t, german, time.Hour)
 	r.publish(t, uhd, 2*time.Hour)
@@ -78,7 +78,7 @@ func TestASearchThatFindsNothingFitCountsTheRejectionReasons(t *testing.T) {
 }
 
 func TestASearchWithNoIndexerEnabledSaysSo(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	if err := r.inst.Delete(ctx, r.idxID); err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ func TestASearchWithNoIndexerEnabledSaysSo(t *testing.T) {
 }
 
 func TestTheNextSearchReplacesTheLastOne(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	if _, err := r.svc.SearchNew(ctx, r.titleID, r.wanted(t, slot.Standard)); err != nil {
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func TestTheNextSearchReplacesTheLastOne(t *testing.T) {
 }
 
 func TestAnUpgradeSearchIsRecordedAsOne(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.fill(t, 100000)
 	r.publish(t, hd1080, time.Hour)
@@ -130,7 +130,7 @@ func TestAnUpgradeSearchIsRecordedAsOne(t *testing.T) {
 }
 
 func TestASeriesSearchRecordsItsFindingsForTheVersion(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightEp1, "1", "1")
@@ -145,7 +145,7 @@ func TestASeriesSearchRecordsItsFindingsForTheVersion(t *testing.T) {
 }
 
 func TestAGrabRecordsHowManyWantedItCoversAndHowManyFilesItReplaces(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	g := r.grabOne(t)
 	if w := g.Why; w == nil || w.CoversWanted != 1 || w.ReplacesFiles != 0 || w.ScoreDelta != 0 {
@@ -158,7 +158,7 @@ func TestAGrabRecordsHowManyWantedItCoversAndHowManyFilesItReplaces(t *testing.T
 }
 
 func TestAnUpgradeGrabRecordsTheFileItReplacesAndTheScoreGain(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.fill(t, -100000)
 	r.publish(t, hd1080, time.Hour)
@@ -175,7 +175,7 @@ func TestAnUpgradeGrabRecordsTheFileItReplacesAndTheScoreGain(t *testing.T) {
 }
 
 func TestASeriesGrabCountsTheWantedEpisodesItCovers(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	_, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightPack, "1", "")
@@ -193,7 +193,7 @@ func TestASeriesGrabCountsTheWantedEpisodesItCovers(t *testing.T) {
 }
 
 func TestASearchNowEventCarriesWhatItCheckedAndGrabbed(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	hist := history.New(r.deps.Store, r.clock.Now, nil)
 	r.deps.History = hist
@@ -231,7 +231,7 @@ func TestASearchNowEventCarriesWhatItCheckedAndGrabbed(t *testing.T) {
 }
 
 func TestAnImportRecordsTheFilesItChecksAndReplaces(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	g := r.grabOne(t)
 	if g.ImportChecking != nil || g.ImportReplaced != nil {
@@ -256,7 +256,7 @@ func TestAnImportRecordsTheFilesItChecksAndReplaces(t *testing.T) {
 }
 
 func TestAGrabKeepsWhenItsDownloadStartedAndFinished(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	g := r.grabOne(t)
 	_ = r.sab.SetPhase(g.ClientID, downloadclient.PhaseDownloading, 400)
@@ -273,7 +273,7 @@ func TestAGrabKeepsWhenItsDownloadStartedAndFinished(t *testing.T) {
 }
 
 func TestAnOutageCountsTheGrabsItHeldUp(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.grabOne(t)
 
@@ -288,7 +288,7 @@ func TestAnOutageCountsTheGrabsItHeldUp(t *testing.T) {
 }
 
 func TestASeriesSearchRecordsWhatItFoundForEachEpisodeAndASeasonPackCountsForAll(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightEp1, "1", "1")
@@ -322,7 +322,7 @@ func TestASeriesSearchRecordsWhatItFoundForEachEpisodeAndASeasonPackCountsForAll
 }
 
 func TestASearchOfOneEpisodeLeavesTheVersionsOwnRecordAlone(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightEp1, "1", "1")
@@ -347,7 +347,7 @@ func TestASearchOfOneEpisodeLeavesTheVersionsOwnRecordAlone(t *testing.T) {
 }
 
 func TestAnAutomaticSearchWritesARoutineSearchedEvent(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	hist := history.New(r.deps.Store, r.clock.Now, nil)
 	r.deps.History = hist

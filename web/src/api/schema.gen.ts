@@ -5470,7 +5470,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
+            /** @description A growing set: bulk, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered. */
             kind: string;
             routine: boolean;
             /** Format: int64 */
@@ -5484,10 +5484,22 @@ export interface components {
             /** Format: int64 */
             request_id: number | null;
             message: string;
+            /** @description Who or what started it. Null for an entry from before triggers were recorded. */
+            trigger: components["schemas"]["EventTrigger"] | null;
+            /** @description Why it happened, or why something was not done, such as `due: its next search time came`. Empty for an entry from before reasons were recorded. */
+            reason: string;
             /** @description The kind's payload, such as per-episode pack results. */
             data: {
                 [key: string]: unknown;
             } | null;
+        };
+        EventTrigger: {
+            /** @description A growing set. An actor: `person`, `api_key`. A job or rule: `sweep`, `rss`, `import`, `retry`, `request`, `rule`, `startup`, and `job` for any other background loop. */
+            kind: string;
+            /** @description The person's name, for `person`. */
+            actor: string | null;
+            /** @description The API call an actor made (its operation id), the Request's source, or the rule's or loop's name. */
+            via: string | null;
         };
         BlocklistList: {
             items: components["schemas"]["BlocklistEntry"][];

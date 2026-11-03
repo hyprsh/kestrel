@@ -1,7 +1,6 @@
 package health_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -9,7 +8,7 @@ import (
 )
 
 func TestTheClockIsInSyncWithinAMinuteAndAWarningBeyondIt(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	if _, ok := e.h.Clock(); ok {
 		t.Fatal("a sample before any comparison")

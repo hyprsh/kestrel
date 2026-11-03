@@ -210,7 +210,8 @@ func (s *Service) recordDeleted(ctx context.Context, versionID int64, out Delete
 	msg := strings.Join(parts, "; ")
 	s.record(ctx, history.Event{
 		Kind: history.FilesDeleted, TitleID: out.TitleID, VersionID: versionID, Message: msg,
-		Data: jsonOf(map[string]any{"paths": paths, "episode_ids": episodes, "blocklisted": blocked}),
+		Data:   jsonOf(map[string]any{"paths": paths, "episode_ids": episodes, "blocklisted": blocked}),
+		Reason: "deleted by hand",
 	})
 }
 

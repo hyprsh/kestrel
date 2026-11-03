@@ -1,7 +1,6 @@
 package health_test
 
 import (
-	"context"
 	"sync"
 	"testing"
 
@@ -16,7 +15,7 @@ func TestConcurrentRaisesOfOneKeyLeaveOneIssue(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			errs <- e.h.Raise(context.Background(), health.Issue{Key: "refresh_failed:1", Kind: health.KindRefreshFailed, Severity: health.Warning, Message: "x"})
+			errs <- e.h.Raise(testCtx(), health.Issue{Key: "refresh_failed:1", Kind: health.KindRefreshFailed, Severity: health.Warning, Message: "x"})
 		}()
 	}
 	wg.Wait()

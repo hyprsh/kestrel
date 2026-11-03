@@ -68,7 +68,7 @@ func TestAManualSearchOfASeriesVersionListsEpisodeAndPackReleasesWithTheirScores
 }
 
 func TestASeriesSearchCanBeNarrowedToASeasonOrAnEpisode(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightEp1, "1", "1")
@@ -93,7 +93,7 @@ func TestASeriesSearchCanBeNarrowedToASeasonOrAnEpisode(t *testing.T) {
 }
 
 func TestAManualGrabOfASeasonPackCoversTheSeasonsEpisodes(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	_, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightPack, "1", "")
@@ -116,7 +116,7 @@ func TestAManualGrabOfASeasonPackCoversTheSeasonsEpisodes(t *testing.T) {
 }
 
 func TestSearchOnAddGrabsASeriesFinishedSeasonAsOnePackAndLeavesTheUnairedSeasonAlone(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightEp1, "1", "1")
@@ -141,7 +141,7 @@ func TestSearchOnAddGrabsASeriesFinishedSeasonAsOnePackAndLeavesTheUnairedSeason
 }
 
 func TestSearchOnAddGrabsSingleEpisodesWhenNoPackExists(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightEp1, "1", "1")
@@ -156,7 +156,7 @@ func TestSearchOnAddGrabsSingleEpisodesWhenNoPackExists(t *testing.T) {
 }
 
 func TestAPackImportRecordsOneLogEventPerEpisode(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	hist := history.New(r.deps.Store, r.clock.Now, nil)
 	r.deps.History = hist
@@ -203,7 +203,7 @@ func TestAPackImportRecordsOneLogEventPerEpisode(t *testing.T) {
 }
 
 func TestAnInconclusiveProbeIsNotedOnTheImportLogEvent(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	hist := history.New(r.deps.Store, r.clock.Now, nil)
 	r.deps.History = hist
@@ -244,7 +244,7 @@ func (o *recordingObserver) Searching(t acquire.Target) { o.targets = append(o.t
 func (o *recordingObserver) Releases(n int)             { o.releases += n }
 
 func TestASearchTellsItsObserverWhatItSearchesAndHowManyReleasesCameBack(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
 	r.publishShow(t, nightEp1, "1", "1")

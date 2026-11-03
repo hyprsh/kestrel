@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/health"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports/db"
 	"github.com/hyprsh/kestrel/internal/store"
 )
@@ -70,7 +71,7 @@ func NewSlotRenamer(d SlotRenamerDeps) *SlotRenamer {
 	if d.Logger == nil {
 		d.Logger = slog.Default()
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "slot rename")))
 	return &SlotRenamer{d: d, q: db.New(d.Store.Write()), ctx: ctx, cancel: cancel, running: map[Slot]*slotRun{}}
 }
 

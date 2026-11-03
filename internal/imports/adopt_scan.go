@@ -182,8 +182,12 @@ func (a *Adoption) runScan(ctx context.Context, roots scanRoots) {
 	s := summarizeRows(rows)
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionScanned, Message: fmt.Sprintf("Adoption scan: %d matched, %d need a choice, %d skipped", s.Matched, s.NeedsChoice, s.Skipped),
+		Trigger: history.TriggerOr(ctx, adoptionJob), Reason: "adoption: a scan of the library folders finished",
 	})
 }
+
+// adoptionJob is the trigger of an Adoption event whose context carries none: a scan or a commit running in the background.
+var adoptionJob = history.Job(history.TriggerJob, "adoption")
 
 // finishRun ends a background scan or Try again, with a.mu held: it stores the
 // rows it planned with store, or fails the run with the error of planning or

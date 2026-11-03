@@ -12,6 +12,11 @@ import (
 	"github.com/hyprsh/kestrel/internal/store/storetest"
 )
 
+// testCtx is a context for a check run: the events it records need a trigger, which a loop's pass supplies in Kestrel.
+func testCtx() context.Context {
+	return history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "health"))
+}
+
 type env struct {
 	h    *health.Service
 	hist *history.Service
@@ -37,7 +42,7 @@ func newEnv(t *testing.T, mod ...func(*health.Deps)) env {
 
 func (e env) rows(t *testing.T) []health.Row {
 	t.Helper()
-	rows, err := e.h.List(context.Background())
+	rows, err := e.h.List(testCtx())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +51,7 @@ func (e env) rows(t *testing.T) []health.Row {
 
 func (e env) kinds(t *testing.T) []history.Kind {
 	t.Helper()
-	evs, _ := e.hist.After(context.Background(), 0, 100)
+	evs, _ := e.hist.After(testCtx(), 0, 100)
 	var out []history.Kind
 	for _, ev := range evs {
 		out = append(out, ev.Kind)
@@ -60,7 +65,7 @@ var exdev = health.Issue{
 }
 
 func TestRaisingARowShowsItAndClearingItRemovesIt(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 
 	if err := e.h.Raise(ctx, health.Issue{
@@ -92,7 +97,7 @@ func TestRaisingARowShowsItAndClearingItRemovesIt(t *testing.T) {
 }
 
 func TestRaisingAgainBumpsTheCountAndKeepsTheFirstSighting(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	first := *e.now
 	_ = e.h.Raise(ctx, exdev)
@@ -108,7 +113,7 @@ func TestRaisingAgainBumpsTheCountAndKeepsTheFirstSighting(t *testing.T) {
 }
 
 func TestTheLogHearsOfARowOnlyWhenItAppearsAndWhenItGoes(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 
 	_ = e.h.Raise(ctx, exdev)
@@ -127,7 +132,7 @@ func TestTheLogHearsOfARowOnlyWhenItAppearsAndWhenItGoes(t *testing.T) {
 }
 
 func TestDismissHidesAOneOffWarningUntilItRecurs(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	_ = e.h.Raise(ctx, exdev)
 	id := e.rows(t)[0].ID
@@ -146,7 +151,7 @@ func TestDismissHidesAOneOffWarningUntilItRecurs(t *testing.T) {
 }
 
 func TestOnlyDismissibleRowsCanBeDismissed(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	_ = e.h.Raise(ctx, health.Issue{Key: "sabnzbd", Kind: health.KindDownloadClient, Severity: health.Blocking, Message: "down"})
 	id := e.rows(t)[0].ID
@@ -163,7 +168,7 @@ func TestOnlyDismissibleRowsCanBeDismissed(t *testing.T) {
 }
 
 func TestClearExceptRemovesTheRowsOfAKindThatNoLongerHold(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	e := newEnv(t)
 	for _, k := range []string{"indexer:1", "indexer:2", "indexer:3"} {
 		_ = e.h.Raise(ctx, health.Issue{Key: k, Kind: health.KindIndexer, Severity: health.Warning, Message: k})

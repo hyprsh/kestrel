@@ -87,7 +87,7 @@ func TestTheStatusReportsTheDatabaseAndTheDailyBackupTheJobTakes(t *testing.T) {
 func TestTheStatusComparesTheClockWithTMDBAndWarnsPastAMinute(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)
-	ctx := context.Background()
+	ctx := jobCtx()
 	now := s.in.clock.Now()
 
 	if c := s.healthFacts(t).Clock; c.State != "unknown" || c.OffsetSeconds != nil {

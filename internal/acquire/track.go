@@ -180,6 +180,14 @@ func (s *Service) recordMove(ctx context.Context, g db.Grab, state, failure stri
 	ev := history.Event{TitleID: g.TitleID.Int64, VersionID: g.VersionID.Int64, GrabID: g.ID}
 	switch state {
 	case "downloading":
+		ev.Reason = "the download client started on the job"
+	case "completed":
+		ev.Reason = "the download client reported the job finished"
+	case "failed":
+		ev.Reason = "download failed: " + failure
+	}
+	switch state {
+	case "downloading":
 		ev.Kind, ev.Message = history.GrabDownloading, "Download started: "+g.ReleaseName
 	case "completed":
 		ev.Kind, ev.Message = history.GrabCompleted, "Download finished: "+g.ReleaseName
@@ -212,7 +220,7 @@ func (s *Service) CancelVersions(ctx context.Context, versionIDs ...int64) error
 	}
 	for _, a := range active {
 		if slices.ContainsFunc(a.VersionIDs, func(id int64) bool { return slices.Contains(versionIDs, id) }) {
-			if _, err := s.Cancel(ctx, a.ID, false); err != nil {
+			if _, err := s.cancel(ctx, a.ID, false, "its Version was removed"); err != nil {
 				return err
 			}
 		}
@@ -225,6 +233,11 @@ func (s *Service) CancelVersions(ctx context.Context, versionIDs ...int64) error
 // Release also goes on the Blocklist and the next best Release is grabbed. It returns the Grab as it was, or
 // ErrGrabNotFound.
 func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, error) {
+	return s.cancel(ctx, id, blocklist, "canceled by hand")
+}
+
+// cancel is Cancel with the reason the Log gives ("canceled by hand", "its Version was removed").
+func (s *Service) cancel(ctx context.Context, id int64, blocklist bool, why string) (Grab, error) {
 	row, err := db.New(s.st.Read()).GetGrab(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Grab{}, ErrGrabNotFound
@@ -255,13 +268,20 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 		return Grab{}, err
 	}
 	s.live.drop(id)
+	// The row is gone, and an event's grab_id would be nulled with it: the Grab's id and Release ride in the data.
+	msg, why := "Canceled "+g.ReleaseName, why
+	if blocklist {
+		msg += " and blocklisted it"
+		why += " and blocklisted"
+	}
 	s.hist.Record(ctx, history.Event{
-		Kind: history.GrabCanceled, TitleID: g.TitleID, VersionID: g.VersionID, Message: "Canceled " + g.ReleaseName + left,
+		Kind: history.GrabCanceled, TitleID: g.TitleID, VersionID: g.VersionID, Message: msg + left, Reason: why,
+		Data: grabCanceledData(g, blocklist),
 	})
 	if blocklist {
 		// The Release is out: take the next best one at once. A retry that finds
 		// nothing, or fails, leaves the Version Wanted for the sweep.
-		_, _ = s.retryVersions(ctx, row, also)
+		_, _ = s.retryVersions(ctx, row, also, g.ReleaseName+" was canceled and blocklisted by "+actorOf(ctx))
 	}
 	return g, nil
 }
@@ -300,14 +320,14 @@ func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil // nothing was searched: the Versions stay due
 	}
-	return s.searchAutomatic(ctx, titleID, versionIDs, false)
+	return s.searchAutomatic(sweepCause(ctx, reasonDue), titleID, versionIDs, false)
 }
 
 // SearchNew is the search on add: the first search of a new Version (added by
 // hand or by a Request). It does what SearchWanted does but is not a sweep, so
 // the 80 % budget stop does not apply to it.
 func (s *Service) SearchNew(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
-	return s.searchAutomatic(ctx, titleID, versionIDs, false)
+	return s.searchAutomatic(sweepCause(ctx, reasonNew), titleID, versionIDs, false)
 }
 
 // SearchUpgrades is the Upgrade sweep's search: the same as SearchWanted for
@@ -319,13 +339,17 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 	if !s.idx.CanSweep(ctx) {
 		return Outcome{}, nil
 	}
-	return s.searchAutomatic(ctx, titleID, versionIDs, true)
+	return s.searchAutomatic(sweepCause(ctx, reasonUpgrade), titleID, versionIDs, true)
 }
 
 // searchAutomatic is searchTitle for the searches Kestrel starts on its own, which also say in the Log what they found.
 func (s *Service) searchAutomatic(ctx context.Context, titleID int64, versionIDs []int64, upgrade bool) (Outcome, error) {
 	out, err := s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, upgrade)
-	s.noteAutomatic(ctx, titleID, upgrade, out, err)
+	by := "Searched"
+	if upgrade {
+		by = "Searched for Upgrades"
+	}
+	s.noteAutomatic(ctx, titleID, by, out, err)
 	return out, err
 }
 

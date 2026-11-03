@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 )
@@ -213,7 +214,7 @@ func (s *Service) healFailed(ctx context.Context, g db.Grab, lost, block bool, r
 			errs = append(errs, err)
 		}
 	}
-	retried, err := s.retry(ctx, g)
+	retried, err := s.retry(ctx, g, reason)
 	return retried, errors.Join(append(errs, err)...)
 }
 
@@ -243,21 +244,29 @@ func (s *Service) blockGrab(ctx context.Context, g db.Grab, reason string) error
 // candidate cache while it is fresh, else from a new search. With nothing left
 // the Version stays Wanted and the sweep finds it again. There is no limit on
 // retries.
-func (s *Service) retry(ctx context.Context, g db.Grab) ([]Grab, error) {
+// why says what made the Grab need replacing; the Log shows it as the reason of the search and of the Grab it finds.
+func (s *Service) retry(ctx context.Context, g db.Grab, why string) ([]Grab, error) {
 	also, err := db.New(s.st.Read()).ListGrabVersionsOf(ctx, g.ID)
 	if err != nil {
 		return nil, err
 	}
-	return s.retryVersions(ctx, g, also)
+	return s.retryVersions(ctx, g, also, why)
 }
 
 // retryVersions is retry for a Grab that also filled the Versions in also: each looks for its next best Release.
-func (s *Service) retryVersions(ctx context.Context, g db.Grab, also []int64) ([]Grab, error) {
+func (s *Service) retryVersions(ctx context.Context, g db.Grab, also []int64, why string) ([]Grab, error) {
 	if !g.TitleID.Valid || !g.VersionID.Valid {
 		return nil, nil // the Title or Version was removed meanwhile
 	}
+	ctx = history.WithTrigger(withReason(ctx, "retry: "+why), retryTrigger)
 	// A failed Upgrade leaves a Filled Version: its next best Release is the next Upgrade.
-	out, err := s.searchTitle(ctx, g.TitleID.Int64, append([]int64{g.VersionID.Int64}, also...), library.Scope{}, true, g.IsUpgrade == 1)
+	upgrade := g.IsUpgrade == 1
+	out, err := s.searchTitle(ctx, g.TitleID.Int64, append([]int64{g.VersionID.Int64}, also...), library.Scope{}, true, upgrade)
+	by := "Searched to retry"
+	if upgrade {
+		by = "Searched to retry the Upgrade"
+	}
+	s.noteAutomatic(ctx, g.TitleID.Int64, by, out, err)
 	if errors.Is(err, library.ErrNotFound) {
 		return nil, nil
 	}

@@ -193,6 +193,8 @@ func (s *Service) RenameSlotProgress(ctx context.Context, id Slot, progress func
 		s.record(ctx, history.Event{
 			Kind: history.Renamed, TitleID: tid, Data: jsonOf(map[string]any{"from": res.Folder, "to": res.Folder, "files": res.Files, "slot": string(id), "label": label}),
 			Message: fmt.Sprintf("Renamed %d %s for the Slot label %q", res.Files, noun, label),
+			Trigger: history.TriggerOr(ctx, history.Job(history.TriggerJob, "slot rename")),
+			Reason:  fmt.Sprintf("the Slot's label changed to %q", label),
 		})
 	}
 	if progress != nil {

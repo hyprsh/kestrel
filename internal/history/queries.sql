@@ -1,6 +1,6 @@
 -- name: InsertEvent :one
-INSERT INTO events (at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO events (at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data, trigger_kind, trigger_actor, trigger_via, reason)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: EventsAfter :many
