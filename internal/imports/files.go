@@ -27,6 +27,7 @@ var (
 	sampleRx  = regexp.MustCompile(`(?i)(^|[^a-z0-9])samples?([^a-z0-9]|$)`)
 	extraRx   = regexp.MustCompile(`(?i)[-._ ](trailer|featurette|interview|behindthescenes|deleted)([-._ ]|$)`)
 	partRx    = regexp.MustCompile(`(?i)[-._ \[(](cd|dis[ck]|part|pt)[-._ ]?(\d+)([-._ \])]|$)`)
+	archiveRx = regexp.MustCompile(`(?i)(\.(rar|7z|zip|r\d{2,})|-missing\.txt)$`)
 	flagSplit = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 )
 
@@ -51,7 +52,10 @@ type selection struct {
 	// download may hold one per episode.
 	videos    []string
 	multiPart bool
-	subs      []sub
+	// archives says the folder holds archive parts or SABnzbd "-missing.txt" markers: the client's unpack failed, so a
+	// download with no video is a broken one, not a stalled one.
+	archives bool
+	subs     []sub
 }
 
 // selectFiles walks a finished download. The error is the walk's (a missing
@@ -88,6 +92,8 @@ func selectFiles(source string) (selection, error) {
 		ext := strings.ToLower(filepath.Ext(p))
 		base := strings.TrimSuffix(d.Name(), filepath.Ext(p))
 		switch {
+		case archiveRx.MatchString(d.Name()):
+			sel.archives = true
 		case videoExts[ext]:
 			if sampleRx.MatchString(base) || extraRx.MatchString(base) {
 				return nil

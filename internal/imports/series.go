@@ -115,6 +115,9 @@ func (s *Service) importSeries(ctx context.Context, g Grab, d library.Detail, ve
 		return stalledBy(err)
 	}
 	if len(src.videos) == 0 {
+		if src.archives {
+			return rejected(ReasonIncompleteArchive)
+		}
 		return stalled(StalledNoVideo)
 	}
 	if g.Checking != nil {

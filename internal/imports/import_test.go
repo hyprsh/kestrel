@@ -519,10 +519,27 @@ func TestAnUntrackedFileAtTheTargetIsNeverOverwritten(t *testing.T) {
 	}
 }
 
+func TestADownloadWithOnlyArchivePartsIsRejected(t *testing.T) {
+	for name, files := range map[string]map[string]string{
+		"rar parts":      {"paddington.rar": "x", "paddington.r00": "x"},
+		"part rar":       {"sub/paddington.part01.rar": "x"},
+		"7z":             {"paddington.7z": "x"},
+		"missing marker": {"abc-missing.txt": "x", "Sample/paddington-sample.mkv": "x"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newRig(t)
+			g := r.job(t, 1, files)
+			if res := r.svc.Import(context.Background(), g); res.Status != imports.Rejected || res.Reason != imports.ReasonIncompleteArchive {
+				t.Errorf("result = %+v", res)
+			}
+		})
+	}
+}
+
 func TestStalledReasonsLeaveTheGrabForARetry(t *testing.T) {
-	t.Run("only archives", func(t *testing.T) {
+	t.Run("no video and no archives", func(t *testing.T) {
 		r := newRig(t)
-		g := r.job(t, 1, map[string]string{"paddington.rar": "x", "paddington.r00": "x"})
+		g := r.job(t, 1, map[string]string{"readme.nfo": "x"})
 		if res := r.svc.Import(context.Background(), g); res.Status != imports.Stalled || res.Reason != "no video file" {
 			t.Errorf("result = %+v", res)
 		}

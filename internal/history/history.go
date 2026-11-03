@@ -38,7 +38,7 @@ const (
 	GrabCanceled Kind = "grab_canceled"
 	// ImportDone: a completed Grab's file is in the library.
 	ImportDone Kind = "import"
-	// ImportRejected: the Import found the Release unfit (invalid, resolution, language, not_upgrade).
+	// ImportRejected: the Import found the Release unfit (invalid, resolution, language, not_upgrade, incomplete archive).
 	ImportRejected Kind = "import_rejected"
 	// ImportStalled: the Import cannot proceed until the environment is fixed; recorded once per stall.
 	ImportStalled Kind = "import_stalled"

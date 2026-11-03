@@ -365,6 +365,17 @@ func TestAnImportedEpisodeTellsTheMediaServersTheSeriesFolderNotTheSeasonFolder(
 	}
 }
 
+func TestASeriesDownloadWithOnlyArchivePartsIsRejected(t *testing.T) {
+	s := newSeriesRig(t)
+	g := s.download(t, packName, 3, []string{"night.show.s01.rar", "night.show.s01.r00"})
+
+	res := s.svc.Import(context.Background(), g)
+
+	if res.Status != imports.Rejected || res.Reason != imports.ReasonIncompleteArchive {
+		t.Errorf("result = %+v", res)
+	}
+}
+
 func TestASeriesImportIntoAMissingRootFolderStalls(t *testing.T) {
 	s := newSeriesRig(t)
 	g := s.download(t, "Night.Show.S01E01.1080p.WEB-DL.H264-GRP", 1, []string{"night.show.s01e01.1080p.mkv"})
