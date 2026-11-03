@@ -30,6 +30,7 @@ type SearchResult struct {
 	PosterPath    string
 	Overview      string
 	Rating        AudienceRating
+	OriginCountry string // ISO 3166-1 alpha-2; only a Series' search hit carries one
 }
 
 // AudienceRating is TMDB's audience rating: the average of its users' votes

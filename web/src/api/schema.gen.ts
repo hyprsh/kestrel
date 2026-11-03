@@ -654,7 +654,10 @@ export interface paths {
          *     as typed, so a year that is part of a title ("Blade Runner 2049") stays in; when TMDB finds
          *     nothing, it is asked once more without a trailing year, accents and punctuation, with `&` as
          *     "and". A year typed after the title also ranks the results by it. Results already in the
-         *     Library carry their Title id in `in_library`. A Series needs a TheTVDB id (from TMDB's external
+         *     Library carry their Title id in `in_library`. The first eight results also say what tells
+         *     them apart (network or studio, country, seasons, runtime) from a light TMDB details call each,
+         *     cached for a day and given up on after two seconds; the votes behind a TMDB rating are in
+         *     `ratings`. A Series needs a TheTVDB id (from TMDB's external
          *     ids, else a TheTVDB remote-id search by IMDb id); one without is `addable: false` with
          *     `not_addable_reason: not_on_tvdb`, and `POST /titles` refuses it.
          *     `502 upstream_unavailable` means TMDB could not be reached or refused the key.
@@ -3398,6 +3401,18 @@ export interface components {
          */
         SlotState: "wanted" | "filled" | "downloading" | "unmonitored" | "unreleased";
         LookupResult: {
+            /**
+             * @description What tells two results of one name apart: a Series' first network, a Movie's first
+             *     production company. `null` when TMDB names none, and for results past the first eight of
+             *     a search, which are not described further.
+             */
+            network: string | null;
+            /** @description The ISO 3166-1 country it comes from; `null` when unknown or not described (see `network`). */
+            origin_country: string | null;
+            /** @description A Series' number of seasons; `null` for a Movie, when unknown or not described (see `network`). */
+            seasons: number | null;
+            /** @description Minutes; a typical episode's for a Series. `null` when unknown or not described (see `network`). */
+            runtime: number | null;
             kind: components["schemas"]["TitleKind"];
             tmdb_id: number;
             tvdb_id: number | null;

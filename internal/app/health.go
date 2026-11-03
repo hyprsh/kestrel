@@ -191,6 +191,12 @@ func (o observedMeta) SeriesExternalIDs(ctx context.Context, id int) (metadata.E
 	return r, err
 }
 
+func (o observedMeta) Brief(ctx context.Context, kind metadata.Kind, id int) (metadata.Brief, error) {
+	r, err := o.Provider.Brief(ctx, kind, id)
+	observe(ctx, o.h, providerTMDB, err)
+	return r, err
+}
+
 type observedTVDB struct {
 	metadata.TVDBProvider
 	h *health.Service
