@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/release"
@@ -527,6 +528,8 @@ func (s *Service) resolveTitle(ctx context.Context, in Input) (target, Reason, e
 // A new Title goes in the kind's first root folder.
 func (s *Service) apply(ctx context.Context, in Input, t target, specs []library.VersionSpec, region profiles.Region) (titleID int64, searchDue bool, err error) {
 	lib := s.d.Library
+	// The Library's entries for what the Request adds and monitors name the Request, not whoever sent it.
+	ctx = history.WithTrigger(ctx, history.Job(history.TriggerRequest, SourceName(in.Source)))
 	titleID = 0
 	if t.existing != nil {
 		titleID = t.existing.ID

@@ -38,9 +38,18 @@ func (s *search) events(t *testing.T, query string) eventsJSON {
 	return decode[eventsJSON](t, r)
 }
 
+// forgetAdd drops the entry that adding the test's Title wrote, for a test that counts the entries it seeds itself.
+func (s *search) forgetAdd(t *testing.T) {
+	t.Helper()
+	if _, err := s.in.st.Write().Exec(`DELETE FROM events WHERE kind = 'title_added'`); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestTheLogFiltersByKindTitleAndSlotAndHidesRoutineEventsUnlessAsked(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)
+	s.forgetAdd(t)
 	s.publish(t, goodRelease)
 	s.publish(t, uhdRelease)
 	if r := s.grab(s.hd, s.releases(t, s.hd).find(t, goodRelease).ReleaseID, false); r.Status != 201 {
@@ -96,6 +105,7 @@ func TestTheLogFiltersByKindTitleAndSlotAndHidesRoutineEventsUnlessAsked(t *test
 func TestTheLogMatchesAnyOfSeveralKindsTitlesAndSlotsAndLeavesOutExcludedKinds(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)
+	s.forgetAdd(t)
 	s.publish(t, goodRelease)
 	s.publish(t, uhdRelease)
 	if r := s.grab(s.hd, s.releases(t, s.hd).find(t, goodRelease).ReleaseID, false); r.Status != 201 {
@@ -133,6 +143,7 @@ func TestTheLogMatchesAnyOfSeveralKindsTitlesAndSlotsAndLeavesOutExcludedKinds(t
 func TestTheLogLeavesOutExcludedSlotsAndTitles(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)
+	s.forgetAdd(t)
 	s.publish(t, goodRelease)
 	s.publish(t, uhdRelease)
 	if r := s.grab(s.hd, s.releases(t, s.hd).find(t, goodRelease).ReleaseID, false); r.Status != 201 {
@@ -252,6 +263,7 @@ func TestTheLogSummaryCountsEventsByKindIncludingRoutineOnes(t *testing.T) {
 func TestTheLogHistogramCountsRecentEventsPerBucketBySeverity(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)
+	s.forgetAdd(t)
 	// The tests' clock stands at noon on 2026-10-17.
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
 	at := now.Add(-time.Hour).Format(time.RFC3339)

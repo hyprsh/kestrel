@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library/db"
 )
 
@@ -96,7 +97,17 @@ func (s *Service) AddVersion(ctx context.Context, titleID int64, v VersionSpec) 
 	} else if err := q.InsertSearchState(ctx, db.InsertSearchStateParams{VersionID: vid, NextMissingAt: due, NextUpgradeAt: due, Fresh: 1}); err != nil {
 		return 0, err
 	}
-	return vid, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	kind, name := Kind(t.Kind), t.Title
+	s.record(ctx, history.Event{
+		Kind: history.VersionAdded, TitleID: titleID,
+		Message: fmt.Sprintf("Added a %s Version under %s to %s", v.Slot, v.Profile, titleLabel(kind, name)),
+		Data:    dataOf(map[string]any{"version_id": vid, "slot": string(v.Slot), "profile": v.Profile}),
+		Reason:  why(ctx, "a Version was added to the Title"),
+	})
+	return vid, nil
 }
 
 // RequestSeasonSearch makes a Series Version due a missing search now in the

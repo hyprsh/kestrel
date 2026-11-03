@@ -2867,7 +2867,7 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: bulk, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered, and the configuration kinds profile_created, profile_changed, profile_deleted, slot_created, slot_changed, slot_deleted, slots_preset, settings_changed, grabs_paused, grabs_resumed, blocklist_removed.
+	// Kind A growing set: bulk, title_added, title_removed, version_added, version_removed, monitoring, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered, and the configuration kinds profile_created, profile_changed, profile_deleted, slot_created, slot_changed, slot_deleted, slots_preset, settings_changed, grabs_paused, grabs_resumed, blocklist_removed.
 	Kind    string `json:"kind"`
 	Message string `json:"message"`
 

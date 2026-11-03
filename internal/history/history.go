@@ -114,6 +114,22 @@ const (
 	BlocklistRemoved Kind = "blocklist_removed"
 )
 
+// The Library's changes (a Title added by hand or by a Request, removed, a Version added or removed, monitoring
+// changed). The Trigger says who or what; Data carries the ids, since a removed row cannot be the entry's TitleID.
+const (
+	// TitleAdded: a Title went into the Library (by hand, by a Request).
+	TitleAdded Kind = "title_added"
+	// TitleRemoved: a Title was removed from the Library with its Versions; Data carries its id, kind and name.
+	TitleRemoved Kind = "title_removed"
+	// VersionAdded: a Version was added to a Title.
+	VersionAdded Kind = "version_added"
+	// VersionRemoved: a Version was removed from a Title; Data carries its id, Slot and Profile.
+	VersionRemoved Kind = "version_removed"
+	// MonitoringChanged: a Title, season or episodes were monitored or unmonitored, or a Series' mode or options
+	// changed; Data.scope says which ("title", "season", "episodes", "options").
+	MonitoringChanged Kind = "monitoring"
+)
+
 var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true, OriginalOffered: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.
