@@ -37,7 +37,7 @@ export function slotState(s: Slot, queue: QueueItem[]): { text: string; tone: No
 
 export const seasonsText = (seasons: number[]) => (seasons.length === 1 ? `Season ${seasons[0]}` : `Seasons ${seasons.join(', ')}`)
 
-/** A Request's Slot as the shared Slot dot draws it: Completed is Have, a download Downloading, Searching Wanted, one not released yet Not out yet, the rest (failed) off. */
+/** A Request's Slot as the shared Slot dot draws it: Completed is Have, a download Downloading, Searching Wanted, one not out yet Not out yet, the rest (failed) off. */
 export function slotDot(s: Slot, st: { text: string }): SlotDotState {
   if (st.text.startsWith('Downloading')) return 'downloading'
   switch (s.status) {

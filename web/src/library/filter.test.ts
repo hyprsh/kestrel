@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseQuery } from '@hyprsh/design'
 import { row } from '../test/library'
-import { filterLibrary, libraryQualifiers, tabCounts, tabOf, withTab } from './filter'
+import { filterLibrary, libraryQualifiers, stateTabs, tabCounts, tabOf, withTab } from './filter'
 
 const v = (profile: string, state: 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased', long_missing = false) => ({ version_id: 1, profile, state, long_missing })
 
@@ -23,10 +23,18 @@ const kept = (input: string) => filterLibrary(library, parseQuery(input, library
 describe('the Library filter', () => {
   it('keeps Titles with any Slot in a state; commas mean either, - leaves out', () => {
     expect(kept('is:wanted')).toEqual(['Paddington', 'Heat'])
-    expect(kept('is:downloading,unreleased')).toEqual(['Zodiac', 'Breaking Bad'])
+    expect(kept('is:downloading,not_out_yet')).toEqual(['Zodiac', 'Breaking Bad'])
     expect(kept('-is:wanted')).toEqual(['Zodiac', 'Breaking Bad'])
     expect(kept('is:long_missing')).toEqual(['Heat'])
     expect(kept('is:filled is:wanted')).toEqual(['Paddington']) // repeated: both must match
+  })
+
+  it('names the unreleased state Not out yet in the Status options, and still takes the old is:unreleased', () => {
+    expect(stateTabs.map((t) => t.label)).toEqual(['All', 'Wanted', 'Long Missing', 'Downloading', 'Not out yet', 'Not monitored'])
+    const is = libraryQualifiers(profiles).find((f) => f.name === 'is')
+    expect(Object.values(is?.options ?? {}).map((o) => o.label)).toEqual(['Wanted', 'Filled', 'Downloading', 'Not monitored', 'Not out yet', 'Long Missing'])
+    expect(kept('is:unreleased')).toEqual(kept('is:not_out_yet'))
+    expect(kept('is:unreleased')).toEqual(['Breaking Bad'])
   })
 
   it('keeps Titles with a Version in a Slot', () => {
@@ -102,6 +110,7 @@ describe('the state tabs', () => {
   it('read the tab off the one is: term, and none off anything else', () => {
     expect(tabOf(q(''))).toBe('all')
     expect(tabOf(q('pad kind:movie is:long_missing'))).toBe('long_missing')
+    expect(tabOf(q('is:unreleased'))).toBe('not_out_yet') // the old value
     expect(tabOf(q('is:filled'))).toBe('') // a state with no tab
     expect(tabOf(q('is:wanted,downloading'))).toBe('')
     expect(tabOf(q('-is:wanted'))).toBe('')
@@ -115,7 +124,7 @@ describe('the state tabs', () => {
   })
 
   it('count the Titles each would show under the other terms', () => {
-    expect(tabCounts(library, q('kind:movie is:wanted'), profiles, new Set([2]))).toEqual({ all: 3, wanted: 2, long_missing: 1, downloading: 2, unreleased: 0, unmonitored: 0 })
+    expect(tabCounts(library, q('kind:movie is:wanted'), profiles, new Set([2]))).toEqual({ all: 3, wanted: 2, long_missing: 1, downloading: 2, not_out_yet: 0, unmonitored: 0 })
   })
 })
 

@@ -49,7 +49,7 @@ describe('Recent requests on the Overview', () => {
   it('badges each Slot with where it stands', async () => {
     fakeRequests([
       request({
-        slots: [requestSlot({ status: 'queued', status_label: 'Not released yet' }), requestSlot({ slot: '4k', version_id: 12, status: 'completed', status_label: 'Completed' })],
+        slots: [requestSlot({ status: 'queued', status_label: 'Not out yet' }), requestSlot({ slot: '4k', version_id: 12, status: 'completed', status_label: 'Completed' })],
       }),
       request({
         id: 2,
@@ -60,7 +60,7 @@ describe('Recent requests on the Overview', () => {
     renderApp()
 
     const [unreleased, downloading, searching] = await rows()
-    expect(unreleased).toHaveTextContent('Standard: Not released yet')
+    expect(unreleased).toHaveTextContent('Standard: Not out yet')
     expect(unreleased).toHaveTextContent('4K: Completed')
     expect(downloading).toHaveTextContent('Downloading 43%')
     expect(searching).toHaveTextContent('Searching')

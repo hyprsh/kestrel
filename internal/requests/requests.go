@@ -1092,7 +1092,7 @@ func (s *Service) derive(ctx context.Context, r *Request, st *SlotStatus, wasFil
 		}
 	}
 	if v.State == library.Unreleased {
-		st.Label = "Not released yet"
+		st.Label = "Not out yet"
 	}
 	return nil
 }

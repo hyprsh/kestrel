@@ -5916,7 +5916,7 @@ export interface components {
              * @enum {string}
              */
             status: "queued" | "downloading" | "completed" | "failed";
-            /** @description `Not released yet` or `Searching` while queued. */
+            /** @description `Not out yet` or `Searching` while queued. */
             status_label: string;
             /**
              * @description `true` while the Slot's Grab is a stalled download (the download client reports it paused, or

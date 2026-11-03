@@ -89,7 +89,7 @@ To stop downloads altogether for a while, such as when you reach a monthly cap, 
 
 Check these in order:
 
-1. **Is the Version Wanted?** Open the Title. A Version that is unmonitored, or not released yet (it says "Unreleased"), isn't searched. [Concepts](concepts.md#wanted) says when something counts as released.
+1. **Is the Version Wanted?** Open the Title. A Version that is unmonitored, or not out yet (it says "Not out yet"), isn't searched. [Concepts](concepts.md#wanted) says when something counts as released.
 2. **Is Grab automatically switched off?** See above.
 3. **Is Needs attention asking for something?** A Release in your language may have been held back, because the Profile offers Releases that have only the Original Language ([Concepts](concepts.md#profile)). Accept or dismiss it.
 4. **Did the search find a Release that scores well enough?** Open the Title and choose Manual search. It lists every Release with its Score, and says why one was rejected. "Grab anyway" overrides most rejections.

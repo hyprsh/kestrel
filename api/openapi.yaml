@@ -8405,7 +8405,7 @@ components:
             was removed later; a failed download never shows as failed (it is blocklisted and retried).
         status_label:
           type: string
-          description: "`Not released yet` or `Searching` while queued."
+          description: "`Not out yet` or `Searching` while queued."
         stalled:
           type: boolean
           description: |
