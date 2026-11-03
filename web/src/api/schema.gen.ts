@@ -3023,7 +3023,7 @@ export interface components {
             /** @description The `key` of the Profile to copy. */
             copy_from?: string;
             release_family?: components["schemas"]["ProfileReleaseFamily"];
-            resolution?: components["schemas"]["ProfileResolutionInput"];
+            resolution?: components["schemas"]["ProfileResolution"];
             language_rule?: components["schemas"]["ProfileLanguageRule"];
         };
         /**
@@ -3036,12 +3036,6 @@ export interface components {
          * @enum {string}
          */
         ProfileResolution: "hd" | "4k" | "any";
-        /**
-         * @description A `ProfileResolution` in a request. `uhd` is a deprecated alias of `4k` and is treated as `4k`; responses always
-         *     say `4k`.
-         * @enum {string}
-         */
-        ProfileResolutionInput: "hd" | "4k" | "uhd" | "any";
         /**
          * @description The audio the Profile requires; see `Profile.language_rule`.
          * @enum {string}

@@ -172,7 +172,7 @@ func TestAFailingPresetLeavesTheSlotsAndProfilesAsTheyWere(t *testing.T) {
 	t.Parallel()
 	b := newFreshInstance(t, "").setUp()
 	// A Profile that already has the name the preset's second Profile would get, after the first has been made.
-	b.valid("POST", "/profiles", `{"release_family":"bluray-web","resolution":"uhd","language_rule":"primary","name":"HD Original"}`)
+	b.valid("POST", "/profiles", `{"release_family":"bluray-web","resolution":"4k","language_rule":"primary","name":"HD Original"}`)
 	slotsBefore, profilesBefore := slotList(t, b), profileMapAll(t, b)
 
 	r := b.do("POST", "/slots/presets/language-plus-original", "")

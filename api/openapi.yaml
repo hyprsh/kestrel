@@ -4081,7 +4081,7 @@ components:
         release_family:
           $ref: "#/components/schemas/ProfileReleaseFamily"
         resolution:
-          $ref: "#/components/schemas/ProfileResolutionInput"
+          $ref: "#/components/schemas/ProfileResolution"
         language_rule:
           $ref: "#/components/schemas/ProfileLanguageRule"
     ProfileReleaseFamily:
@@ -4091,13 +4091,8 @@ components:
     ProfileResolution:
       type: string
       enum: [hd, 4k, any]
+      x-enum-varnames: [ProfileResolutionHd, ProfileResolutionN4k, ProfileResolutionAny]
       description: "`hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p; Bluray + WEB only)."
-    ProfileResolutionInput:
-      type: string
-      enum: [hd, 4k, uhd, any]
-      description: |
-        A `ProfileResolution` in a request. `uhd` is a deprecated alias of `4k` and is treated as `4k`; responses always
-        say `4k`.
     ProfileLanguageRule:
       type: string
       enum: [primary, original, en, de, fr]
