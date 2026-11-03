@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { grabDays, stats } from '../test/statsData'
-import { niceTicks } from './charts'
 import { answerText, bytesText, speedText, fillDelta, fullInText, grabsAlternative, hitText, standOut } from './statsText'
 import { growthLine } from './LibraryCards'
 import { speedRange } from './ClientCard'
@@ -59,15 +58,6 @@ describe('figures', () => {
     expect(speedRange([12_000_000, 31_000_000])).toBe('between 12 MB/s and 31 MB/s')
     expect(speedRange([5_000_000])).toBe('at 5 MB/s')
     expect(speedRange([4_500_000])).toBe('at 4.5 MB/s')
-  })
-
-  it('puts clean numbers on a column chart axis', () => {
-    expect(niceTicks(0)).toEqual([0, 1])
-    expect(niceTicks(1)).toEqual([0, 1])
-    expect(niceTicks(3)).toEqual([0, 5])
-    expect(niceTicks(7)).toEqual([0, 5, 10])
-    expect(niceTicks(23)).toEqual([0, 25, 50])
-    expect(niceTicks(100)).toEqual([0, 50, 100])
   })
 })
 

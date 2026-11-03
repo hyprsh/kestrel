@@ -1,10 +1,10 @@
 // "Grabs per day" (stacked columns of imported and failed Grabs, with the sentence on what stands out) and "Indexers" (a bar of
 // imported Grabs per indexer with its Hit rate, Answer time and failures, and the Best badge).
-import { Badge } from '@hyprsh/design'
+import { Badge, BarList, ColumnChart } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
 import { StatCard } from '../layout/StatCard'
 import { placePath, useOpenPlace } from '../place'
-import { Bar, BarHeader, BarRow, ChartTable, Columns, Legend, mark } from './charts'
+import { Legend, mark } from './charts'
 import { activityQuery } from './drillDown'
 import { answerText, dayText, grabsAlternative, grabsTotal, hitText, standOut } from './statsText'
 
@@ -28,21 +28,21 @@ export function GrabsCard({ stats }: { stats: Stats }) {
         <p className="label-13 m-0 text-gray-900">No Grabs finished in this range.</p>
       ) : (
         <>
-          <Columns
+          <ColumnChart
             height={120}
-            onOpen={(c, part) => openPlace(placePath('activity', activityQuery({ day: c.key, stage: part ? (part.name === 'Failed' ? 'failed' : 'done') : null })))}
-            alternative={grabsAlternative(stats)}
-            columns={days.map((d) => ({
-              key: d.day,
-              title: dayText(d.day),
-              parts: [
-                { name: 'Imported', className: mark.imported, n: d.imported },
-                { name: 'Failed', className: mark.failed, n: d.failed },
-              ],
-            }))}
-            axis={days.length ? [dayText(days[0].day), dayText(days[Math.floor(days.length / 2)].day), 'Today'] : undefined}
+            legend={false}
+            aria-label={grabsAlternative(stats)}
+            series={[
+              { key: 'imported', label: 'Imported', tone: 'success' },
+              { key: 'failed', label: 'Failed', tone: 'error' },
+            ]}
+            data={days.map((d) => ({ label: dayText(d.day), values: { imported: d.imported, failed: d.failed } }))}
+            onOpen={(datum, seriesKey) => {
+              const day = days.find((d) => dayText(d.day) === datum.label)
+              if (!day) return
+              openPlace(placePath('activity', activityQuery({ day: day.day, stage: seriesKey ? (seriesKey === 'failed' ? 'failed' : 'done') : null })))
+            }}
           />
-          <ChartTable caption="Grabs per day" head={['Day', 'Imported', 'Failed']} rows={days.map((d) => [dayText(d.day), d.imported, d.failed])} />
           {sentence && <p className="label-12 m-0 text-gray-900">{sentence}</p>}
         </>
       )}
@@ -50,15 +50,10 @@ export function GrabsCard({ stats }: { stats: Stats }) {
   )
 }
 
-const WIDE = 'minmax(0,1fr) minmax(0,1.6fr) 3rem 3.5rem 3.5rem'
-const NARROW = 'minmax(0,7rem) minmax(0,1fr) 2.5rem'
-
-export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean }) {
+export function IndexersCard({ stats }: { stats: Stats }) {
   const openPlace = useOpenPlace()
   const ixs = stats.indexers
   const best = ixs.find((i) => i.id === stats.best_indexer_id)
-  const most = Math.max(1, ...ixs.map((i) => i.imported))
-  const columns = phone ? NARROW : WIDE
   const noRates = ixs.length > 0 && ixs.every((i) => i.hit_rate === null)
   return (
     <StatCard
@@ -75,41 +70,27 @@ export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean })
         <p className="label-13 m-0 text-gray-900">No indexer was asked or grabbed from in this range.</p>
       ) : (
         <>
-          <div className="flex flex-col">
-            <BarHeader columns={columns}>
-              <span>Indexer</span>
-              <span>Grabs imported</span>
-              <span className="text-right">Hit</span>
-              {!phone && (
-                <>
-                  <span className="text-right">Answer</span>
-                  <span className="text-right">Failed</span>
-                </>
-              )}
-            </BarHeader>
-            {ixs.map((i) => (
-              <BarRow
-                key={i.id}
-                columns={columns}
-                onOpen={() => openPlace(placePath('activity', activityQuery({ indexer: i.id, from: stats.from, to: stats.to })))}
-                label={`${i.name}: ${i.imported} imported, ${i.failed} failed. Hit ${hitText(i.hit_rate)} of ${i.searches} searches, median answer ${answerText(i.median_answer_ms)}.`}
-              >
-                <span className="label-13 truncate font-medium">{i.name}</span>
-                <Bar share={i.imported / most} figure={String(i.imported)} />
-                <span className="label-13 text-right tabular-nums">{hitText(i.hit_rate)}</span>
-                {!phone && (
-                  <>
-                    <span className="label-13 text-right text-gray-900 tabular-nums">{answerText(i.median_answer_ms)}</span>
-                    <span className={`label-13 text-right tabular-nums ${i.failed > 2 ? 'text-[var(--red-900)]' : 'text-gray-900'}`}>{i.failed}</span>
-                  </>
-                )}
-              </BarRow>
-            ))}
-          </div>
-          <ChartTable
-            caption="Indexers"
-            head={['Indexer', 'Grabs imported', 'Grabs failed', 'Searches', 'Hit', 'Answer']}
-            rows={ixs.map((i) => [i.name, i.imported, i.failed, i.searches, hitText(i.hit_rate), answerText(i.median_answer_ms)])}
+          <BarList
+            aria-label="Indexers"
+            labelHeader="Indexer"
+            valueHeader="Grabs imported"
+            unit="imported"
+            columns={[
+              { key: 'hit', label: 'Hit', priority: 1 },
+              { key: 'answer', label: 'Answer', priority: 2 },
+              { key: 'failed', label: 'Failed', priority: 3 },
+            ]}
+            items={ixs.map((i) => ({
+              key: String(i.id),
+              label: i.name,
+              value: i.imported,
+              columns: {
+                hit: hitText(i.hit_rate),
+                answer: answerText(i.median_answer_ms),
+                failed: <span className={i.failed > 2 ? 'text-red-900' : undefined}>{i.failed}</span>,
+              },
+            }))}
+            onOpen={(item) => openPlace(placePath('activity', activityQuery({ indexer: Number(item.key), from: stats.from, to: stats.to })))}
           />
           <p className="label-12 m-0 text-gray-900">
             {noRates ? 'Hit and Answer fill in as searches run. ' : ''}

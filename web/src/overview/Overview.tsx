@@ -85,7 +85,7 @@ export function Overview({
               <div className={`flex flex-col gap-4 transition-opacity ${stats.isPlaceholderData ? 'opacity-60' : ''}`} aria-busy={stats.isPlaceholderData}>
                 <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
                   <GrabsCard stats={stats.data} />
-                  <IndexersCard stats={stats.data} phone={phone} />
+                  <IndexersCard stats={stats.data} />
                 </div>
                 {phone ? (
                   <ClientLine stats={stats.data} />

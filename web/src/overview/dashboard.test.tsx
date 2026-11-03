@@ -120,27 +120,30 @@ describe('Grabs per day', () => {
     expect(card).toHaveTextContent('Failed1')
 
     const chart = within(card).getByRole('group', { name: /^Grabs per day over the last 30 days/ })
-    const columns = within(chart).getAllByRole('button', { name: /^[A-Z][a-z]{2} \d+: / })
+    const columns = within(chart).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })
     expect(columns).toHaveLength(30)
-    const busiest = within(chart).getByRole('button', { name: /: 7 imported, 1 failed\. Open in Activity$/ })
+    const busiest = within(chart).getByRole('button', { name: /^Open Oct 16: 7 Imported, 1 Failed$/ })
 
-    const table = within(card).getByRole('table', { name: 'Grabs per day' })
+    const table = within(card).getByRole('table', { name: /^Grabs per day over the last 30 days/ })
     expect(within(table).getAllByRole('row')).toHaveLength(31)
 
+    // The design's tooltip is hidden from assistive technology (the column's name carries the same figures), so count its Total row.
+    const totals = () => within(card).queryAllByText('Total', { ignore: 'th' }).length
+    const before = totals()
     await userEvent.hover(busiest)
-    const tip = within(card).getByRole('tooltip')
-    expect(tip).toHaveTextContent('7imported')
-    expect(tip).toHaveTextContent('1failed')
+    expect(totals()).toBe(before + 1)
   })
 
   it('shows the same tooltip for a column reached with the keyboard', async () => {
     fakeStats()
     renderOverview()
     const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    const columns = within(card).getAllByRole('button', { name: /^[A-Z][a-z]{2} \d+: / })
+    const columns = within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })
 
+    const totals = () => within(card).queryAllByText('Total', { ignore: 'th' }).length
+    const before = totals()
     act(() => columns[columns.length - 1].focus())
-    expect(within(card).getByRole('tooltip')).toBeInTheDocument()
+    expect(totals()).toBe(before + 1)
     await userEvent.keyboard('{ArrowLeft}')
     expect(columns[columns.length - 2]).toHaveFocus()
   })
@@ -150,14 +153,14 @@ describe('Grabs per day', () => {
     fakeStats()
     renderOverview(open)
     const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    const busiest = within(card).getByRole('button', { name: /: 7 imported, 1 failed\. Open in Activity$/ })
+    const busiest = within(card).getByRole('button', { name: /^Open Oct 16: 7 Imported, 1 Failed$/ })
 
     await userEvent.click(busiest)
     expect(filterOf(open)).toBe('activity?day:2026-10-16')
 
-    await userEvent.click(within(card).getByRole('button', { name: /^1 failed on Oct 16\. Open in Activity$/ }))
+    await userEvent.click(within(card).getByRole('button', { name: 'Open Oct 16 Failed: 1' }))
     expect(filterOf(open)).toBe('activity?stage:failed day:2026-10-16')
-    await userEvent.click(within(card).getByRole('button', { name: /^7 imported on Oct 16\. Open in Activity$/ }))
+    await userEvent.click(within(card).getByRole('button', { name: 'Open Oct 16 Imported: 7' }))
     expect(filterOf(open)).toBe('activity?stage:done day:2026-10-16')
   })
 
@@ -166,7 +169,7 @@ describe('Grabs per day', () => {
     fakeStats()
     renderOverview(open)
     const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    const columns = within(card).getAllByRole('button', { name: /^[A-Z][a-z]{2} \d+: / })
+    const columns = within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })
     act(() => columns[columns.length - 1].focus())
 
     await userEvent.keyboard('{Enter}')
@@ -202,12 +205,20 @@ describe('Indexers', () => {
 
     const card = await screen.findByRole('region', { name: 'Indexers' })
     expect(card).toHaveTextContent('Best: NZBgeek')
-    const geek = within(card).getByRole('button', { name: /^NZBgeek: 34 imported, 1 failed/ })
+    const geek = within(card).getByRole('button', { name: 'NZBgeek' }).closest('tr')!
+    expect(geek).toHaveTextContent('34 imported')
     expect(geek).toHaveTextContent('81%')
     expect(geek).toHaveTextContent('0.6 s')
-    const hub = within(card).getByRole('button', { name: /^altHUB: 9 imported, 4 failed. Hit 52% of 30 searches, median answer 2.4 s/ })
+    const hub = within(card).getByRole('button', { name: 'altHUB' }).closest('tr')!
+    expect(hub).toHaveTextContent('9 imported')
+    expect(hub).toHaveTextContent('52%')
     expect(hub).toHaveTextContent('2.4 s')
-    expect(within(card).getByRole('table', { name: 'Indexers' })).toHaveTextContent('NZBgeek')
+    expect(within(hub).getByRole('cell', { name: '4' })).toBeInTheDocument()
+    expect(
+      within(card)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['Indexer', 'Grabs imported', 'Hit', 'Answer', 'Failed'])
   })
 
   it('opens Activity on an indexer over the range of the Overview', async () => {
@@ -216,7 +227,7 @@ describe('Indexers', () => {
     renderOverview(open)
     const card = await screen.findByRole('region', { name: 'Indexers' })
 
-    await userEvent.click(within(card).getByRole('button', { name: /^altHUB: 9 imported, 4 failed/ }))
+    await userEvent.click(within(card).getByRole('button', { name: 'altHUB' }))
     expect(filterOf(open)).toBe('activity?from:2026-10-02 to:2026-10-31 indexer:3')
   })
 
@@ -225,7 +236,7 @@ describe('Indexers', () => {
     renderOverview()
     const card = await screen.findByRole('region', { name: 'Indexers' })
     expect(card).not.toHaveTextContent('Best:')
-    expect(within(card).getByRole('button', { name: /^Fresh: 2 imported/ })).toHaveTextContent('—')
+    expect(within(card).getByRole('button', { name: 'Fresh' }).closest('tr')).toHaveTextContent('—')
     expect(card).toHaveTextContent('Hit and Answer fill in as searches run.')
   })
 
@@ -352,8 +363,8 @@ describe('on a phone', () => {
     expect(screen.queryByRole('group', { name: 'Library' })).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Grabs per day' })).toBeInTheDocument()
     const ix = screen.getByRole('region', { name: 'Indexers' })
-    expect(within(ix).getByRole('button', { name: /^NZBgeek/ })).toHaveTextContent('81%')
-    expect(within(ix).getByRole('button', { name: /^NZBgeek/ })).not.toHaveTextContent('0.6 s')
+    // The design's list hides columns by the list's own width, which jsdom does not measure: Hit survives longest.
+    expect(within(ix).getByRole('button', { name: 'NZBgeek' }).closest('tr')).toHaveTextContent('81%')
     expect(screen.getByRole('region', { name: 'Download client' })).toHaveTextContent('24 MB/s average · 9 min median · 64 completed · 4 failed')
     expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
   })
