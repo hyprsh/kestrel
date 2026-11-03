@@ -82,6 +82,9 @@ const ALIASES: Record<string, string> = {
   PaneFooter: 'Pane (footer)',
   SettingRow: 'SettingRow',
   SettingRowBody: 'SettingRow',
+  MonthGrid: 'MonthView',
+  MonthDay: 'MonthView',
+  MonthEntry: 'MonthView',
 }
 
 type Hit = { line: number; message: string; class?: string }

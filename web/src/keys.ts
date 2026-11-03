@@ -36,7 +36,7 @@ export type RowNav = { scope: string; index: number; sel: number; onSelect: () =
 
 /**
  * Moves a selection through `count` rows with j/ArrowDown and k/ArrowUp
- * (clamped), and calls `onEnter` for Enter unless a button or link has focus.
+ * (clamped), and calls `onEnter` for Enter unless a button or link has focus or something already handled the key (a grid that took Enter for its own day).
  * Rows carry data-nav="<scope>-<index>" so the selection can scroll into view.
  */
 export function useListNav(scope: string, count: number, sel: number, setSel: (i: number) => void, onEnter?: (i: number) => void, enabled = true) {
@@ -45,7 +45,7 @@ export function useListNav(scope: string, count: number, sel: number, setSel: (i
   useEffect(() => {
     if (!enabled) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || menuOpen()) return
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || menuOpen()) return
       const { count, sel, setSel, onEnter } = latest.current
       if (count === 0) return
       if (e.key === 'j' || e.key === 'ArrowDown') {
