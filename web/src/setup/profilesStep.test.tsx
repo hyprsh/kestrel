@@ -134,7 +134,7 @@ describe('the wizard Profiles step', () => {
     expect(within(region).queryByRole('link', { name: /More/ })).not.toBeInTheDocument()
 
     const suggested = await within(region).findByRole('region', { name: 'Suggested' })
-    expect(suggested.querySelector('details')).toHaveAttribute('open')
+    expect(within(region).getByRole('button', { name: 'Suggested' })).toHaveAttribute('aria-expanded', 'true')
     expect(within(suggested).getByText('4K Remux')).toBeInTheDocument() // the one that does not fit the Slots
     await userEvent.click(within(suggested).getByRole('button', { name: 'Add 4K Remux' }))
     await waitFor(() => expect(sent).toEqual([{ method: 'POST', body: { release_family: 'remux-web', resolution: '4k', language_rule: 'primary' } }]))
