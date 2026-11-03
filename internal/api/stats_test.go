@@ -108,7 +108,7 @@ func TestStatsDefaultsToThirtyDaysAndCountsWantedAndFinishedGrabs(t *testing.T) 
 	if s.TimeToFill.Median != nil || s.TimeToFill.Fills != 0 {
 		t.Errorf("time to fill = %+v, want none: no Grab filled a Version", s.TimeToFill)
 	}
-	if len(s.DownloadClient.Speed) != 14 || s.DownloadClient.State != "none" || s.DownloadClient.Name != nil {
+	if len(s.DownloadClient.Speed) != len(s.Grabs.Columns) || s.DownloadClient.State != "none" || s.DownloadClient.Name != nil {
 		t.Errorf("download client = %+v", s.DownloadClient)
 	}
 	if s.Storage.Growth != nil || s.Requests.Total != 0 {
@@ -122,6 +122,13 @@ func TestStatsRangeSelectsTheDaysAndRefusesOthers(t *testing.T) {
 	for q, days := range map[string]int{"?range=7d": 7, "?range=30d": 30, "?range=90d": 90} {
 		if got := len(w.stats(t, q).Grabs.PerDay); got != days {
 			t.Errorf("GET /stats%s has %d days, want %d", q, got, days)
+		}
+	}
+	// The Grabs chart and the download client's speed share their columns: a day each for 7 days, a week each for 30 and 90.
+	for q, columns := range map[string]int{"?range=7d": 7, "?range=30d": 5, "?range=90d": 13} {
+		s := w.stats(t, q)
+		if len(s.Grabs.Columns) != columns || len(s.DownloadClient.Speed) != columns {
+			t.Errorf("GET /stats%s has %d Grabs columns and %d speed columns, want %d", q, len(s.Grabs.Columns), len(s.DownloadClient.Speed), columns)
 		}
 	}
 	if r := w.valid("GET", "/stats?range=1y", ""); r.Status != 422 && r.Status != 400 {

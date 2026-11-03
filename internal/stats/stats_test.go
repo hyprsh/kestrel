@@ -229,14 +229,40 @@ func TestDownloadClientAveragesSpeedAndTakesTheMedianDownloadTime(t *testing.T) 
 	if c.Failed != 1 {
 		t.Errorf("failed in the client = %d, want the one download_failed in the range (a lost job is not the client's failure)", c.Failed)
 	}
-	if len(c.SpeedPerDay) != stats.SpeedDays {
-		t.Fatalf("speed days = %d", len(c.SpeedPerDay))
+	if len(c.SpeedColumns) != 5 {
+		t.Fatalf("speed columns = %d, want the 5 weeks of 30 days", len(c.SpeedColumns))
 	}
-	if y := c.SpeedPerDay[stats.SpeedDays-2]; y.BytesPerSecond == nil || int64(*y.BytesPerSecond) != 10800*mb/780 {
-		t.Errorf("yesterday's speed = %v", deref(y.BytesPerSecond))
+	if w := c.SpeedColumns[4]; w.BytesPerSecond == nil || int64(*w.BytesPerSecond) != 10800*mb/780 {
+		t.Errorf("last week's speed = %v", deref(w.BytesPerSecond))
 	}
-	if today := c.SpeedPerDay[stats.SpeedDays-1]; today.BytesPerSecond != nil {
-		t.Errorf("a day without a download has a speed: %v", *today.BytesPerSecond)
+	if old := c.SpeedColumns[0]; old.BytesPerSecond != nil {
+		t.Errorf("a week without a download has a speed: %v", *old.BytesPerSecond)
+	}
+}
+
+func TestDownloadSpeedHasTheColumnsOfTheGrabsChartForEveryRange(t *testing.T) {
+	t.Parallel()
+	r := newRig(t)
+	start := at(-1, 0)
+	r.grab(1, "imported", "", start, 600_000_000, start, done(t, start, 60))
+	for rng, want := range map[string]int{"7d": 7, "30d": 5, "90d": 13} {
+		res := r.compute(rng)
+		if len(res.Client.SpeedColumns) != want || len(res.Columns) != want {
+			t.Errorf("%s: %d speed columns and %d Grabs columns, want %d", rng, len(res.Client.SpeedColumns), len(res.Columns), want)
+			continue
+		}
+		for i, c := range res.Client.SpeedColumns {
+			if c.Period != res.Columns[i].Period {
+				t.Errorf("%s: speed column %d is %v, the Grabs column %v", rng, i, c.Period, res.Columns[i].Period)
+			}
+		}
+		yesterday := res.Window.To.AddDate(0, 0, -2)
+		for _, c := range res.Client.SpeedColumns {
+			in := !yesterday.Before(c.From) && !yesterday.After(c.To)
+			if in != (c.BytesPerSecond != nil) {
+				t.Errorf("%s: column %v to %v has speed %v, yesterday's download is in it: %v", rng, c.From, c.To, c.BytesPerSecond != nil, in)
+			}
+		}
 	}
 }
 
