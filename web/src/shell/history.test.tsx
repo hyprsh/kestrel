@@ -43,7 +43,7 @@ describe('history between screens', () => {
     expect(location.search).toBe('?range=7d')
 
     const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    await userEvent.click(within(card).getAllByRole('button', { name: /Open in Activity$/ })[0])
+    await userEvent.click(within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })[0])
     await screen.findByRole('complementary', { name: 'Activity' })
     expect(location.pathname).toBe('/activity')
     expect(location.search).not.toContain('range')
