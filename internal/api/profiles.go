@@ -162,8 +162,12 @@ func (s *server) CreateProfile(ctx context.Context, r oapi.CreateProfileRequestO
 		if b.Name != nil {
 			name = *b.Name
 		}
+		res, ok := profiles.ResolutionOf(string(*b.Resolution))
+		if !ok {
+			return nil, invalid("resolution", "invalid", "Choose hd, 4k or any")
+		}
 		var rc profiles.Recipe
-		if rc, err = profiles.ParseRecipe(scoring.ReleaseFamily(*b.ReleaseFamily), requestResolution(*b.Resolution), string(*b.LanguageRule)); err != nil {
+		if rc, err = profiles.ParseRecipe(scoring.ReleaseFamily(*b.ReleaseFamily), res, string(*b.LanguageRule)); err != nil {
 			return nil, profilesProblem(err)
 		}
 		p, err = s.profiles.Import(ctx, rc, name)
@@ -562,12 +566,4 @@ func (s *server) rescoreProfile(ctx context.Context, key string) error {
 		}
 	}
 	return nil
-}
-
-// requestResolution is the resolution a request names; `uhd` is the deprecated alias of `4k` (ADR 0009).
-func requestResolution(r oapi.ProfileResolutionInput) profiles.Resolution {
-	if r == oapi.ProfileResolutionInputUhd {
-		return profiles.ResUHD
-	}
-	return profiles.Resolution(r)
 }

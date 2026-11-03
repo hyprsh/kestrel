@@ -1038,43 +1038,19 @@ func (e ProfileReleaseFamily) Valid() bool {
 
 // Defines values for ProfileResolution.
 const (
-	ProfileResolutionAny ProfileResolution = "any"
-	ProfileResolutionHd  ProfileResolution = "hd"
-	ProfileResolutionN4k ProfileResolution = "4k"
+	Any ProfileResolution = "any"
+	Hd  ProfileResolution = "hd"
+	N4k ProfileResolution = "4k"
 )
 
 // Valid indicates whether the value is a known member of the ProfileResolution enum.
 func (e ProfileResolution) Valid() bool {
 	switch e {
-	case ProfileResolutionAny:
+	case Any:
 		return true
-	case ProfileResolutionHd:
+	case Hd:
 		return true
-	case ProfileResolutionN4k:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ProfileResolutionInput.
-const (
-	ProfileResolutionInputAny ProfileResolutionInput = "any"
-	ProfileResolutionInputHd  ProfileResolutionInput = "hd"
-	ProfileResolutionInputN4k ProfileResolutionInput = "4k"
-	ProfileResolutionInputUhd ProfileResolutionInput = "uhd"
-)
-
-// Valid indicates whether the value is a known member of the ProfileResolutionInput enum.
-func (e ProfileResolutionInput) Valid() bool {
-	switch e {
-	case ProfileResolutionInputAny:
-		return true
-	case ProfileResolutionInputHd:
-		return true
-	case ProfileResolutionInputN4k:
-		return true
-	case ProfileResolutionInputUhd:
+	case N4k:
 		return true
 	default:
 		return false
@@ -3943,9 +3919,8 @@ type ProfileCreate struct {
 	// ReleaseFamily `bluray-web` (Bluray + WEB), `remux-web` (Remux + WEB), `web` or `sqp`.
 	ReleaseFamily *ProfileReleaseFamily `json:"release_family,omitempty"`
 
-	// Resolution A `ProfileResolution` in a request. `uhd` is a deprecated alias of `4k` and is treated as `4k`; responses always
-	// say `4k`.
-	Resolution *ProfileResolutionInput `json:"resolution,omitempty"`
+	// Resolution `hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p; Bluray + WEB only).
+	Resolution *ProfileResolution `json:"resolution,omitempty"`
 }
 
 // ProfileCustomFormat defines model for ProfileCustomFormat.
@@ -4071,10 +4046,6 @@ type ProfileReleaseFamily string
 
 // ProfileResolution `hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p; Bluray + WEB only).
 type ProfileResolution string
-
-// ProfileResolutionInput A `ProfileResolution` in a request. `uhd` is a deprecated alias of `4k` and is treated as `4k`; responses always
-// say `4k`.
-type ProfileResolutionInput string
 
 // ProfileScoring What the Profile does for one kind of Title under the active TRaSH snapshot and the household's settings on it.
 type ProfileScoring struct {

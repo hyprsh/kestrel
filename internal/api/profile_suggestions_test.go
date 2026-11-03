@@ -133,7 +133,7 @@ func TestImportingARecipeCreatesAnEnabledProfileOnce(t *testing.T) {
 	if p.Name != "4K Remux" || !p.Enabled || p.ReleaseFamily != "remux-web" || p.MinHeight != 2160 || p.TrashProfileMovies != "remux-web-2160p" || len(p.Kinds) != 2 {
 		t.Errorf("imported = %+v", p)
 	}
-	if r := b.valid("POST", "/profiles", `{"release_family":"remux-web","resolution":"uhd","language_rule":"primary"}`); r.Status != 409 {
+	if r := b.valid("POST", "/profiles", `{"release_family":"remux-web","resolution":"4k","language_rule":"primary"}`); r.Status != 409 {
 		t.Errorf("import again = %d %s, want 409", r.Status, r.Body)
 	}
 	if _, ok := recipeSuggestions(t, b.browser).all(t)["4K Remux"]; ok {
@@ -147,7 +147,7 @@ func TestImportingARecipeCreatesAnEnabledProfileOnce(t *testing.T) {
 	}
 	for _, body := range []string{
 		`{"release_family":"remux-web","resolution":"any","language_rule":"primary"}`,
-		`{"release_family":"remux-web","resolution":"uhd"}`,
+		`{"release_family":"remux-web","resolution":"4k"}`,
 		`{"name":"x","copy_from":"hd-primary","release_family":"web","resolution":"hd","language_rule":"primary"}`,
 		`{"release_family":"sqp","resolution":"hd","language_rule":"de"}`,
 	} {
