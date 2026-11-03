@@ -5,7 +5,7 @@ import type { EpisodeActions } from './EpisodeActions'
 import { EpisodeFilePopover } from './EpisodeFilePopover'
 import { grabOf } from './cellDetail'
 import { episodeCode } from './episodes'
-import { SlotChips, type ChipData } from './SlotChip'
+import { SlotPills, type ChipData } from './SlotPills'
 import { SlotPopover, type SlotAction } from './SlotPopover'
 import { cellOf, type SlotInfo } from './slots'
 import { slotDetail } from './slotDetail'
@@ -68,5 +68,5 @@ export function EpisodeChips({
       wrap: (trigger) => <SlotPopover label={label} heading={heading} state={d.state} text={d.text} lines={lines} actions={act} trigger={trigger} />,
     }
   })
-  return <SlotChips chips={chips} max={max} wrap={wrap} align={align} tabIndex={tabIndex} label={`${code} Slots`} />
+  return <SlotPills chips={chips} max={max} wrap={wrap} align={align} tabIndex={tabIndex} label={`${code} Slots`} />
 }

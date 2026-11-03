@@ -4,7 +4,7 @@ import type { Episode } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import { size } from './bits'
 import { cellText, monthDay } from './cellDetail'
-import { stateWord } from './SlotChip'
+import { stateWord } from './SlotPills'
 import { cellOf } from './slots'
 import { lastSearchLine } from './WantedLine'
 

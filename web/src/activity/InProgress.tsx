@@ -18,7 +18,7 @@ import { useReport } from '../toasts'
 import { span, useNow } from '../time'
 import { cx } from '../ui'
 import { passLines, gapWaitLine, whereOf } from './SearchProgress'
-import { SlotTag } from '../library/SlotChip'
+import { SlotTag } from '../library/SlotPills'
 import { speed, stuckText, whatOf } from './words'
 
 type Pass = NonNullable<SearchStatus['pass']>

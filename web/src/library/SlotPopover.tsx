@@ -2,7 +2,7 @@
 // actions that fit it (Search and Manual Search, View in Activity, Monitor). A file's is FileDetailsPopover.
 import { Button, Popover } from '@hyprsh/design'
 import type { ReactElement } from 'react'
-import { StateDot } from './SlotChip'
+import { StateDot } from './SlotPills'
 
 export type SlotAction = { label: string; run: () => void; primary?: boolean }
 

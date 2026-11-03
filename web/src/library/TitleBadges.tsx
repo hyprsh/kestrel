@@ -8,7 +8,7 @@ import { plural } from '../format'
 import { episodeCode, seasonStanding } from './episodes'
 import { dotOf } from './bits'
 import { FileDetailsPopover } from './EpisodeFilePopover'
-import { SlotChips, stateWord, type ChipData } from './SlotChip'
+import { SlotPills, stateWord, type ChipData } from './SlotPills'
 import { SlotPopover, type SlotAction } from './SlotPopover'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useSearchWanted } from './VersionSearch'
@@ -161,7 +161,7 @@ function MovieBadges({ title, profileName, onManualSearch }: { title: TitleDetai
   })
   return (
     <>
-      <SlotChips chips={chips} max={chips.length} label="Slots" align="start" wrap />
+      <SlotPills chips={chips} max={chips.length} label="Slots" align="start" wrap />
       {date && <SentenceChip name="Release" text={date.text} sentence={date.sentence} />}
     </>
   )

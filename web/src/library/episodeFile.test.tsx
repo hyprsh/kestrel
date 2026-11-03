@@ -112,7 +112,7 @@ describe('the file of an episode Slot, in the opened row', () => {
     const row = within(grid).getByRole('row', { name: /Pilot/ })
     const standard = within(row).getByTitle('Standard: 1080p \u00b7 2.0 GB')
     expect(standard).toHaveAttribute('data-state', 'filled')
-    expect(standard.querySelector('[data-state="filled"]')).not.toBeNull()
+    expect(standard).toHaveAccessibleName('Standard: 1080p · 2.0 GB')
     expect(within(row).getByTitle(/^4K: Wanted \d+ d$/)).toHaveAttribute('data-state', 'wanted')
     const placeholder = within(grid).getByRole('row', { name: /TBA/ })
     expect(within(placeholder).getByTitle('Standard: Wanted')).toBeInTheDocument()

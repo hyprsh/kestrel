@@ -59,6 +59,9 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | File | Element | Design component | Switched? | Reason or gap |
 |---|---|---|---|---|
 | `library/SlotChip.tsx:100` | `<button>` per Slot chip | `Pill`, `Badge` | Kept | A `Badge` or `Pill` is not clickable. A clickable pill with a state dot is missing. |
+| `activity/InProgress.tsx:98` | `<button>` wrapping a two-line title, toggling a phone row open | `Entity as="button"` or `Collapse` | Kept | The button holds two text lines that stack (`flex-col`) and toggles `aria-expanded`; `Entity` has no expandable row. Needs a disclosure row. |
+| `activity/History.tsx:136` | `<button>` that is the whole row, toggling its detail | `Collapse` | Kept | A full-width row with j/k navigation and a detail; `Collapse` has its own header and spacing. |
+| `library/SlotPills.tsx` | `SlotChip`/`SlotChips`, a `<button>` per Slot chip | `Pill` with `status` and `trailing` | Switched | Each chip is a `Pill` (a popover trigger when the Slot has one). `SlotPills` stays as a thin wrapper for what `Pill` does not do: fold a list past `max` into a "+N" Pill with a popover, and map the seven Slot states to the Pill's `status`. The Pill's dot is solid, so Wanted and Not monitored lose their ring, Upgrade wanted is a green dot, and Not out yet and Not monitored are both gray; the tooltip and name still say the state. `SlotChip`/`SlotChips` are in the chrome check's aliases. |
 | `upcoming/AgendaRow.tsx:50` | `<button>` that opens the entry | `Entity as="button"` | Kept | Carries `data-nav`, `aria-current` and a composed `aria-label` for the j/k list; the row is custom. |
 | `overview/charts.tsx` | `<table>` (screen-reader twin, kept for Grabs, Indexers, Library quality) | `ColumnChart`'s own table | Partly | Gone from the two cards that switched; stays for the cards that kept local marks. |
 | `overview/charts.tsx` | `<button>` per column and mark of `Columns`, per row of `BarRow` | `ColumnChart`, `BarList` | Kept | See "Overview charts" below. |
@@ -86,7 +89,6 @@ The chart tokens (`chart-seq-*`, `chart-series`) are used through `ColumnChart` 
 
 1. `ColumnChart`: a per-column and per-mark `onClick`/`href` and an "open" accessible name (Grabs per day).
 2. `BarList`: extra columns with a header, and a row `onClick` (Indexers); `href` only suits a real URL.
-3. A clickable `Pill`/`Badge` with a state dot (Slot chips).
 4. A split-view pane layout, phone title bar, desktop icon rail and a floating action bar.
 6. A settings row (label/help on the left, control on the right) with a dirty mark, and a floating "unsaved changes" bar.
 7. ~~A month grid that lists entries per day~~ (shipped as `MonthView` in v0.20).

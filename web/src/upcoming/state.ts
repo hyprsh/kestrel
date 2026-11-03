@@ -5,7 +5,7 @@ import { localDay, type UndatedItem, type UpcomingItem, type UpcomingSlot } from
 import { percent } from '../format'
 import { phases } from '../grabs/phase'
 import { stateName, type SlotDotState } from '../ui/slotState'
-import type { ChipData } from '../library/SlotChip'
+import type { ChipData } from '../library/SlotPills'
 import type { SlotNames } from '../library/slots'
 
 /** "S02E04". */

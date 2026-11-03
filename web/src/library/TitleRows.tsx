@@ -13,7 +13,7 @@ import { KindIcon, size } from './bits'
 import { useSlotNames } from './slots'
 import { isMonitoredRow, stateLine, toneText } from './rowState'
 import { rowChips } from './rowChips'
-import { SlotChips } from './SlotChip'
+import { SlotPills } from './SlotPills'
 import { MonitorMark } from './MonitorToggle'
 import { TickBox } from './TickBox'
 
@@ -139,7 +139,7 @@ export function TitleRows({
           const line = stateLine(r, g, now)
           const monitored = isMonitoredRow(r)
           const chips = (
-            <SlotChips
+            <SlotPills
               chips={rowChips(r, g, { single, profileName, slots, now, onOpen: onOpenSlot && ((slot) => onOpenSlot(r, slot)) })}
               max={phone ? 3 : 4}
               wrap

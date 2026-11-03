@@ -19,7 +19,7 @@ import { importedOn, EndOfPath } from './EpisodeFilePopover'
 import { audioFormat, audioLine, qualityLine, qualityName } from './media'
 import { AddVersion } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
-import { SlotChips } from './SlotChip'
+import { SlotPills } from './SlotPills'
 import { slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
@@ -148,7 +148,7 @@ function SlotRow({
   const ls = v.last_search
   const summary = f ? [qualityLine(f, false), audioFormat(f)].filter(Boolean).join(' \u00b7 ') : line.text
   const fileName = f ? baseName(f.path) : grab ? grab.release_name : ls ? `Last search ${ago(ls.at, now)} \u00b7 ${foundText(ls)}` : 'No file yet'
-  const chip = <SlotChips chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: line.chip, tip: `${name}: ${line.text}` }]} max={1} />
+  const chip = <SlotPills chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: line.chip, tip: `${name}: ${line.text}` }]} max={1} />
   const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   return (
     <AccordionRow
