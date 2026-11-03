@@ -1,6 +1,6 @@
 // The parts of Manual search that show one Release: the Best fit card, a row's opened detail, what a grab turns a row into
 // (a download, or a failure), and the confirm for a grab that overrides a rejection or replaces files.
-import { Badge, Button, Entity, Link, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalSubtitle, ModalTitle, Progress } from '@hyprsh/design'
+import { Badge, Button, Entity, Link, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalSubtitle, ModalTitle, Progress, Skeleton } from '@hyprsh/design'
 import { CircleX, Download, TriangleAlert } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 import { useGrabStatus, type Release } from '../api/grabs'
@@ -127,10 +127,10 @@ export function FailedActions({ x, actions }: { x: Release; actions: ReleaseActi
 }
 
 /** The Best fit: the top Release that fits, with the one action. */
-export function BestFit({ x, wanted, entry, actions, phone }: { x: Release; wanted: number; entry: GrabEntry | undefined; actions: ReleaseActions; phone: boolean }) {
+export function BestFit({ x, wanted, entry, actions, phone, busy }: { x: Release; wanted: number; entry: GrabEntry | undefined; actions: ReleaseActions; phone: boolean; busy?: boolean }) {
   const pending = entry?.status === 'pending'
   const grab = (
-    <Button variant="primary" size={phone ? 'large' : 'medium'} width={phone ? '100%' : undefined} prefix={<Download />} loading={pending} disabled={pending} onClick={() => actions.grab(x)}>
+    <Button variant="primary" size={phone ? 'large' : 'medium'} width={phone ? '100%' : undefined} prefix={<Download />} loading={pending} disabled={pending || busy} onClick={() => actions.grab(x)}>
       {pending ? 'Grabbing…' : 'Grab'}
     </Button>
   )
@@ -186,6 +186,38 @@ export function BestFit({ x, wanted, entry, actions, phone }: { x: Release; want
             </div>
           )}
           {phone && sent && <Downloading entry={sent} x={x} actions={actions} part="text" />}
+        </Entity>
+      </Entity.List>
+    </section>
+  )
+}
+
+/** The Best fit's card while the first search runs, in the shape of the real one so nothing moves when it arrives. */
+export function BestFitSkeleton({ phone }: { phone: boolean }) {
+  return (
+    <section aria-label="Best fit loading" aria-busy="true">
+      <Entity.List>
+        <Entity aria-hidden>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Skeleton width={64} height={20} />
+              {!phone && <Skeleton width="40%" height={16} />}
+              {phone && <Skeleton className="ml-auto" width={56} height={28} />}
+            </div>
+            <Skeleton width="85%" height={20} />
+            <div className="flex flex-wrap gap-1.5">
+              {[56, 40, 48, 64, 52].map((w, i) => (
+                <Skeleton key={i} width={w} height={24} />
+              ))}
+            </div>
+            {phone && <Skeleton height={40} />}
+          </div>
+          {!phone && (
+            <div className="flex shrink-0 flex-col items-end gap-3">
+              <Skeleton width={64} height={44} />
+              <Skeleton width={72} height={36} />
+            </div>
+          )}
         </Entity>
       </Entity.List>
     </section>
