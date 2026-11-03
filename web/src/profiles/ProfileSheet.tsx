@@ -1,10 +1,9 @@
-import { Button, Checkbox, DestructiveActionModal, Input, Note, Select, Sheet, Toggle } from '@hyprsh/design'
-import { GripVertical } from 'lucide-react'
-import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Button, Checkbox, DestructiveActionModal, Entity, Input, Note, Select, Sheet, Toggle } from '@hyprsh/design'
+import { useState, type ReactNode } from 'react'
 import type { ProfileDetail } from '../api/downloads'
 import { ApiError, useDeleteProfile, usePatchProfile, type Profile, type ProfilePatch } from '../api/queries'
 import { plural } from '../format'
-import { QualityItem, QualityList } from '../layout/SettingsLists'
+import { usePhone } from '../responsive'
 import { useReport } from '../toasts'
 import { fromGb, moved, qualityLabel, sameLadder, toGb, type Kind, type ProfileOverlay, type ProfileQuality } from './ladder'
 
@@ -104,7 +103,7 @@ function overlayOf(d: Draft, start: Draft, detail: ProfileDetail): { overlay: Pr
 }
 
 /**
- * One Profile in a side sheet: the draggable quality checklist (best first; the arrow keys on a row's handle move it), where
+ * One Profile in a side sheet: the reorderable quality list (best first; a row's handle drags it, Alt and the arrow keys on it or its menu move it), where
  * Upgrades stop (the cutoff quality and Score), the minimum Score, the size limits, the audio and a summary of the Custom
  * Formats, which come from TRaSH and are shown, not edited. Nothing is saved until Save.
  */
@@ -130,11 +129,11 @@ export function ProfileSheet({ profile: p, detail, declared, onClose }: { profil
 function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile; detail: ProfileDetail; declared: boolean; onClose: () => void }) {
   const patch = usePatchProfile()
   const remove = useDeleteProfile()
+  const phone = usePhone()
   const report = useReport()
   const [start] = useState(() => draftOf(p, detail))
   const [draft, setDraft] = useState(start)
   const [kind, setKind] = useState<Kind>(detail.series.ladder.length === 0 ? 'movies' : 'series')
-  const [dragging, setDragging] = useState<number | null>(null)
   const [allFormats, setAllFormats] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [live, setLive] = useState('')
@@ -144,18 +143,9 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
   const cutoff = effectiveCutoff(draft, kind)
   const set = (change: Partial<Draft>) => setDraft((d) => ({ ...d, ...change }))
   const setLadder = (next: ProfileQuality[]) => setDraft((d) => ({ ...d, ladder: { ...d.ladder, [kind]: next } }))
-  const move = (from: number, to: number) => {
-    if (to < 0 || to >= ladder.length || from === to) return
-    setLadder(moved(ladder, from, to))
-    setLive(`${qualityLabel(ladder[from].name)} is number ${to + 1} of ${ladder.length}`)
-  }
-  const onHandleKey = (e: KeyboardEvent, index: number) => {
-    if (e.key === 'ArrowUp') move(index, index - 1)
-    else if (e.key === 'ArrowDown') move(index, index + 1)
-    else return
-    e.preventDefault()
-  }
-  const toggle = (index: number) => setLadder(ladder.map((q, i) => (i === index ? { ...q, accepted: !q.accepted } : q)))
+  // The design list announces each move itself.
+  const move = (from: number, to: number) => setLadder(moved(ladder, from, to))
+  const toggle = (name: string) => setLadder(ladder.map((q) => (q.name === name ? { ...q, accepted: !q.accepted } : q)))
   const reset = () => {
     setDraft((d) => {
       const trash = scoring.trash_ladder
@@ -209,47 +199,26 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
             </Button>
           </div>
           {ladder.length > 0 ? (
-            <QualityList>
-              {ladder.map((q, index) => {
+            <Entity.List aria-label="Qualities" onReorder={declared ? undefined : move}>
+              {ladder.map((q) => {
                 const label = qualityLabel(q.name)
                 const isCutoff = q.accepted && q.name === cutoff
+                const state = isCutoff ? 'cutoff' : q.accepted ? '' : 'not accepted'
                 return (
-                  <QualityItem
+                  <Entity
                     key={q.name}
-                    cutoff={isCutoff}
-                    dragging={dragging === index}
-                    draggable={!declared}
-                    onDragStart={(e) => {
-                      setDragging(index)
-                      e.dataTransfer.effectAllowed = 'move'
-                      e.dataTransfer.setData('text/plain', q.name)
-                    }}
-                    onDragEnd={() => setDragging(null)}
-                    onDragOver={(e) => dragging !== null && e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      if (dragging !== null) move(dragging, index)
-                      setDragging(null)
-                    }}
+                    reorderLabel={label}
+                    // chrome-ok: Entity has no marker for the cutoff row; the tint is Kestrel's
+                    className={isCutoff ? 'bg-gray-100' : undefined}
+                    left={<Checkbox checked={q.accepted} aria-label={`Accept ${label}`} disabled={declared} onChange={() => toggle(q.name)} />}
+                    right={!phone && state && <span className="label-12 text-gray-900">{state}</span>}
                   >
-                    <Button
-                      svgOnly
-                      variant="tertiary"
-                      size="tiny"
-                      disabled={declared}
-                      aria-label={`Move ${label}`}
-                      title="Drag to change the order, or press the up and down arrow keys"
-                      onKeyDown={(e) => onHandleKey(e, index)}
-                    >
-                      <GripVertical />
-                    </Button>
-                    <Checkbox checked={q.accepted} aria-label={`Accept ${label}`} disabled={declared} onChange={() => toggle(index)} />
-                    <span className={`min-w-0 flex-1 ${q.accepted ? '' : 'text-gray-700'}`}>{label}</span>
-                    <span className="label-12 text-gray-900">{isCutoff ? 'cutoff' : q.accepted ? '' : 'not accepted'}</span>
-                  </QualityItem>
+                    {/* On a phone the word goes under the name: beside it, it would cut the name. */}
+                    <Entity.Content fill title={<span className={q.accepted ? '' : 'text-gray-700'}>{label}</span>} description={phone && state ? state : undefined} />
+                  </Entity>
                 )
               })}
-            </QualityList>
+            </Entity.List>
           ) : (
             <p className="copy-13 text-gray-900">{noSnapshot ? 'No TRaSH snapshot is active yet, so there are no qualities to show.' : 'This Profile has no qualities for that kind.'}</p>
           )}

@@ -1,6 +1,6 @@
 import { displayDefaults, noDisplayDeclared } from '../test/display'
 import { QueryClient } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -651,7 +651,7 @@ describe('Settings', () => {
     expect(overlay.movies).toEqual({ cutoff: null, qualities: null })
   })
 
-  it('reorders the checklist with the arrow keys on a row’s handle and by dragging, and a tick turns a quality off', async () => {
+  it('reorders the qualities with Alt and the arrow keys on a row’s handle and with its menu, and a tick turns a quality off', async () => {
     const sent = fakeProfiles()
     serveDetails({ 'hd-primary': configuredHd() })
     await open('Slots & Profiles')
@@ -664,22 +664,18 @@ describe('Settings', () => {
 
     const handle = within(sheet).getByRole('button', { name: 'Move WEB-DL 1080p' })
     handle.focus()
-    await userEvent.keyboard('{ArrowUp}')
+    await userEvent.keyboard('{Alt>}{ArrowUp}{/Alt}')
     expect(order()).toEqual(['Remux 1080p', 'WEB-DL 1080p', 'BluRay 1080p', 'WEBRip 1080p', 'HDTV 1080p'])
-    expect(await within(sheet).findByText('WEB-DL 1080p is number 2 of 5')).toBeInTheDocument()
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}')
+    await userEvent.keyboard('{Alt>}{ArrowDown}{ArrowDown}{/Alt}')
     expect(order()).toEqual(['Remux 1080p', 'BluRay 1080p', 'WEBRip 1080p', 'WEB-DL 1080p', 'HDTV 1080p'])
     // Moving past either end does nothing.
     within(sheet).getByRole('button', { name: 'Move Remux 1080p' }).focus()
-    await userEvent.keyboard('{ArrowUp}')
+    await userEvent.keyboard('{Alt>}{ArrowUp}{/Alt}')
     expect(order()[0]).toBe('Remux 1080p')
 
-    // Dragging a row onto another puts it there.
-    const rows = within(sheet).getAllByRole('listitem')
-    const data = { effectAllowed: 'move', setData: () => undefined, getData: () => '' }
-    fireEvent.dragStart(rows[4], { dataTransfer: data })
-    fireEvent.dragOver(rows[0], { dataTransfer: data })
-    fireEvent.drop(rows[0], { dataTransfer: data })
+    // The handle's menu moves a row to the top.
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Move HDTV 1080p' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Move to Top' }))
     expect(order()[0]).toBe('HDTV 1080p')
 
     // Turning the cutoff quality off takes the cutoff away (it must be accepted).

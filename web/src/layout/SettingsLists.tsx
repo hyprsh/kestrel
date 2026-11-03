@@ -1,5 +1,5 @@
 // chrome: layout
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 /** The card of one Profile: name, what uses it and its action in a row, then the quality chips and a line of facts. `selected` marks the one open in the sheet. */
 export function ProfileCard({ name, uses, action, selected, children }: { name: string; uses: ReactNode; action: ReactNode; selected: boolean; children: ReactNode }) {
@@ -45,23 +45,5 @@ export function DefaultsLine({ label, action, children }: { label: string; actio
       <div className="label-13 flex flex-wrap gap-x-6 gap-y-1">{children}</div>
       {action}
     </section>
-  )
-}
-
-/** The checklist in the Profile sheet: rows of a quality with a tick. */
-export function QualityList({ children }: { children: ReactNode }) {
-  return <ul className="flex flex-col overflow-hidden rounded-md shadow-border [&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-gray-alpha-200">{children}</ul>
-}
-
-export function QualityItem({
-  cutoff,
-  dragging,
-  children,
-  ...rest
-}: { cutoff?: boolean; dragging?: boolean; children: ReactNode } & Pick<HTMLAttributes<HTMLLIElement>, 'draggable' | 'onDragStart' | 'onDragEnd' | 'onDragOver' | 'onDrop'>) {
-  return (
-    <li {...rest} className={`label-13 flex items-center gap-2.5 px-3 py-2 ${cutoff ? 'bg-gray-100' : ''} ${dragging ? 'opacity-50' : ''}`}>
-      {children}
-    </li>
   )
 }
