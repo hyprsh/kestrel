@@ -235,6 +235,9 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		g, err := s.send(ctx, outgoing{
 			titleID: d.ID, versionID: versionOf[plan.Slot], also: also, e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Movie, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
+		if errors.Is(err, errNotSent) {
+			continue
+		}
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -340,6 +343,9 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 			titleID: d.ID, versionID: versionOf[plan.Slot], also: also, e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
 			episodes: covers, upgrade: plan.Upgrade, by: GrabbedByRSS,
 		})
+		if errors.Is(err, errNotSent) {
+			continue
+		}
 		if err != nil {
 			errs = append(errs, err)
 			continue

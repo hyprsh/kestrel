@@ -356,10 +356,26 @@ func (s *Service) searchAutomatic(ctx context.Context, titleID int64, versionIDs
 // searchTitle searches a Title for its Wanted Versions, or with upgrade for its
 // Filled ones, and records what each Version's search found (LastSearch). A
 // Series is searched within scope; a Movie ignores it.
+//
+// One search of a Version runs at a time: a search that finds one of its Versions being searched waits for it, then
+// plans from the state the earlier one left.
 func (s *Service) searchTitle(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {
+	out, _, err := s.searchGuarded(ctx, titleID, versionIDs, scope, fromCache, upgrade, false)
+	return out, err
+}
+
+// searchGuarded is searchTitle; with coalesce, a search that finds an equal one already waiting for its turn does
+// not run at all (it reports true): the waiting one plans from fresh state and covers it. Retries after a
+// rejected Import use it, so N at once make one follow-up run rather than N.
+func (s *Service) searchGuarded(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade, coalesce bool) (Outcome, bool, error) {
+	unlock, coalesced, err := s.searching.acquire(ctx, versionIDs, coalesce)
+	if err != nil || coalesced {
+		return Outcome{}, coalesced, err
+	}
+	defer unlock()
 	out, err := s.runSearch(ctx, titleID, versionIDs, scope, fromCache, upgrade)
 	s.noteSearched(ctx, titleID, upgrade, out, err)
-	return out, err
+	return out, false, err
 }
 
 func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int64, scope library.Scope, fromCache, upgrade bool) (Outcome, error) {
@@ -449,6 +465,10 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 					ids = append(ids, slotVersion[plan.Slot])
 				}
 				gr, err := s.grabShared(ctx, ids, e.id)
+				if errors.Is(err, errNotSent) {
+					done = append(done, group...) // an active Grab already has it: not for the next group either
+					continue
+				}
 				if err != nil {
 					for _, plan := range group {
 						failed = append(failed, failedSend{plan, err})

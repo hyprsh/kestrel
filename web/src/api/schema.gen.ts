@@ -1222,7 +1222,8 @@ export interface paths {
          *     the NZB). A Release with rejections needs `override: true` ("Grab anyway"), else `422 rejected`;
          *     `blocklisted`, `other_slot` and `season_not_listed` can never be overridden and answer
          *     `422 not_overridable`. A Series Release naming episodes TheTVDB does not list yet adds them as
-         *     Placeholder Episodes, which the Grab covers.
+         *     Placeholder Episodes, which the Grab covers. A Release an active Grab of the Version already fetches
+         *     answers `409 conflict`.
          *     A spent grab budget is `429 rate_limited`; an unreachable client or indexer is
          *     `502 upstream_unavailable`.
          */

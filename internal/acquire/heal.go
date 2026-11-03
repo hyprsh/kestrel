@@ -261,7 +261,10 @@ func (s *Service) retryVersions(ctx context.Context, g db.Grab, also []int64, wh
 	ctx = history.WithTrigger(withReason(ctx, "retry: "+why), retryTrigger)
 	// A failed Upgrade leaves a Filled Version: its next best Release is the next Upgrade.
 	upgrade := g.IsUpgrade == 1
-	out, err := s.searchTitle(ctx, g.TitleID.Int64, append([]int64{g.VersionID.Int64}, also...), library.Scope{}, true, upgrade)
+	out, coalesced, err := s.searchGuarded(ctx, g.TitleID.Int64, append([]int64{g.VersionID.Int64}, also...), library.Scope{}, true, upgrade, true)
+	if coalesced {
+		return nil, nil // another retry of these Versions waits its turn and plans from fresh state
+	}
 	by := "Searched to retry"
 	if upgrade {
 		by = "Searched to retry the Upgrade"

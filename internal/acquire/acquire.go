@@ -155,6 +155,9 @@ type Service struct {
 	slots  SlotLabels
 	// searches runs the searches started by hand, two at a time.
 	searches *background
+	// searching admits one search of a Version at a time; granting serialises the check-and-record of a Version's
+	// Grabs. See keyedLock for the lock order.
+	searching, granting *keyedLock
 }
 
 // New returns a Service.
@@ -175,7 +178,7 @@ func New(d Deps) (*Service, error) {
 	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
 		snap: d.Scoring, cache: &cache{m: map[string]*entry{}, asked: map[int64]map[group]time.Time{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
-		pause: d.Pause, slots: d.Slots, searches: newBackground(2),
+		pause: d.Pause, slots: d.Slots, searches: newBackground(2), searching: newKeyedLock(), granting: newKeyedLock(),
 	}
 	d.Scoring.OnSwap(func() {
 		svc.cache.mu.Lock()
@@ -841,7 +844,22 @@ const (
 )
 
 // send fetches the NZB, adds it to the download client and records the Grab.
+//
+// The Version's Grab lock is held from the check of what its active Grabs already cover to the commit of the new
+// Grab, so two sends for one Version cannot both pass the check. A plan whose Release is already active for the
+// Version, or (unless a person chose it or it is an Upgrade) that covers nothing Wanted, is not sent: it returns
+// errNotSent, which the callers treat as nothing to do.
 func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
+	unlock, err := s.granting.lock(ctx, append([]int64{o.versionID}, o.also...))
+	if err != nil {
+		return Grab{}, err
+	}
+	defer unlock()
+	// The Why is worked out before the NZB is added to the client, for the check below; it only reads the library.
+	why, hasWhy := s.whyOf(ctx, o, o.e.cand.Verdicts[o.slot].Score)
+	if err := s.stillNeeded(ctx, o, why, hasWhy); err != nil {
+		return Grab{}, err
+	}
 	e, nzb, err := s.fetchNZB(ctx, o)
 	if err != nil {
 		return Grab{}, err
@@ -853,7 +871,6 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 
 	// The Grab names the Indexer that delivered; the verdict is the chosen Release's.
 	verdict := o.e.cand.Verdicts[o.slot]
-	why, hasWhy := s.whyOf(ctx, o, verdict.Score)
 	parsed, _ := json.Marshal(e.cand.Parsed)
 	vjson, _ := json.Marshal(verdict)
 	now := ts(s.clock())
@@ -902,6 +919,57 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 		Data:   grabSentData(o.by),
 	})
 	return g, nil
+}
+
+// errNotSent is a Grab that send dropped because an active Grab already has the Release or covers what it was for.
+var errNotSent = errors.New("grab not sent: already covered by an active grab")
+
+// ErrAlreadyGrabbed is returned for a Release an active Grab of the Version already fetches.
+var ErrAlreadyGrabbed = errors.New("release already grabbed for this version")
+
+// stillNeeded checks, under the Version's Grab lock, that o is not made redundant by a Grab recorded since its plan
+// was made. It reports errNotSent for a plan to drop, ErrAlreadyGrabbed for a person's pick of a Release that is
+// already active.
+func (s *Service) stillNeeded(ctx context.Context, o outgoing, why Why, hasWhy bool) error {
+	q := db.New(s.st.Read())
+	active, err := q.ListActiveGrabs(ctx)
+	if err != nil {
+		return err
+	}
+	// A Grab whose Import is stalled still has its download.
+	stalled, err := q.ListStalledGrabs(ctx)
+	if err != nil {
+		return err
+	}
+	bound, err := q.ListGrabVersions(ctx)
+	if err != nil {
+		return err
+	}
+	for _, g := range append(active, stalled...) {
+		fills := g.VersionID.Int64 == o.versionID || slices.ContainsFunc(bound, func(b db.GrabVersion) bool { return b.GrabID == g.ID && b.VersionID == o.versionID })
+		if g.ReleaseGuid == o.e.raw.GUID && g.IndexerID == o.e.raw.IndexerID && fills {
+			if o.by == GrabbedByHand {
+				return ErrAlreadyGrabbed
+			}
+			return errNotSent
+		}
+	}
+	if o.by == GrabbedByHand || o.upgrade {
+		return nil
+	}
+	if hasWhy && why.CoversWanted == 0 && !why.early {
+		return errNotSent
+	}
+	if o.media == downloads.Series && len(o.episodes) > 0 {
+		covered, err := s.coveredEpisodes(ctx)
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(o.episodes, func(ep int64) bool { return !covered[[2]int64{o.versionID, ep}] }) {
+			return errNotSent
+		}
+	}
+	return nil
 }
 
 // fetchNZB fetches the NZB of the chosen Release, else of the same Release from
