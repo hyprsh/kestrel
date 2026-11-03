@@ -30,7 +30,7 @@ describe('Settings on a phone', () => {
     expect(location.pathname).toBe('/settings')
 
     await user.click(within(list).getByRole('button', { name: /^Downloads/ }))
-    expect(await screen.findByRole('heading', { level: 2, name: /^Downloads/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /^Downloads/ })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Indexers' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Settings sections' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Root folders' })).not.toBeInTheDocument()
@@ -46,7 +46,7 @@ describe('Settings on a phone', () => {
     history.replaceState(null, '', '/settings')
     renderApp()
     await user.click(await screen.findByRole('button', { name: /^Downloads/ }))
-    expect(await screen.findByRole('heading', { level: 2, name: /^Downloads/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /^Downloads/ })).toBeInTheDocument()
     history.back()
     await waitFor(() => expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument())
   })
@@ -55,7 +55,7 @@ describe('Settings on a phone', () => {
     const user = userEvent.setup()
     history.replaceState(null, '', '/settings/root-folders')
     renderApp()
-    expect(await screen.findByRole('heading', { level: 2, name: 'Library' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Indexers' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(await screen.findByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument()
@@ -65,8 +65,25 @@ describe('Settings on a phone', () => {
     const user = userEvent.setup()
     history.replaceState(null, '', '/settings/grabs')
     renderApp()
-    expect(await screen.findByRole('heading', { level: 2, name: /^Downloads/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /^Downloads/ })).toBeInTheDocument()
     await openSettings(user)
     expect(await screen.findByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument()
+  })
+
+  it('names each section once, as the TitleBar heading, and moves focus to it', async () => {
+    const user = userEvent.setup()
+    history.replaceState(null, '', '/settings')
+    renderApp()
+    const names = ['General', 'Slots & Profiles', 'Library', 'Downloads', 'Media servers', 'Account', 'Security & Access', 'About']
+    for (const name of names) {
+      const list = await screen.findByRole('navigation', { name: 'Settings sections' })
+      const start = new RegExp(`^${name.replace('&', '\\&')}`)
+      await user.click(within(list).getByRole('button', { name: start }))
+      const heading = await screen.findByRole('heading', { level: 1, name: start })
+      const same = screen.getAllByRole('heading').filter((h) => h.textContent === heading.textContent)
+      expect(same).toEqual([heading])
+      await waitFor(() => expect(heading).toHaveFocus())
+      await user.click(screen.getByRole('button', { name: 'Back' }))
+    }
   })
 })

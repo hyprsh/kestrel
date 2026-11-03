@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePreviewCleanup, useRunCleanup, type CleanupCategory, type CleanupPreview, type CleanupResult } from '../api/cleanup'
 import { ApiError } from '../api/queries'
 import { bytesText } from '../format'
+import { usePhone } from '../responsive'
 import { Button, Checkbox, Code, Collapse, DestructiveActionModal, Entity, EmptyState, Note } from '@hyprsh/design'
 
 const labels: Record<CleanupCategory['key'], string> = {
@@ -21,6 +22,7 @@ const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
 /** titleIds narrows the look to those Titles; without them every tracked Title is looked at. */
 export function Cleanup({ titleIds }: { titleIds?: number[] }) {
+  const phone = usePhone() // the phone's TitleBar is the page's heading
   const preview = usePreviewCleanup()
   const run = useRunCleanup()
   const [done, setDone] = useState<CleanupResult | null>(null)
@@ -29,7 +31,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="max-w-4xl p-4 sm:px-8 sm:py-6">
-        <h1 className="heading-20">Clean up Unmanaged files</h1>
+        {!phone && <h1 className="heading-20">Clean up Unmanaged files</h1>}
         <p className="copy-14 mt-1 text-gray-900">Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.</p>
         {failed instanceof ApiError && (
           <Note variant="error" size="small" className="mt-2">

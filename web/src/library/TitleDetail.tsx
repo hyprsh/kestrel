@@ -3,6 +3,7 @@ import { forwardRef, type ReactNode } from 'react'
 import { useProfiles, useTitle, type EpisodeScope, type TitleDetail as Detail, type TitleRow } from '../api/queries'
 import { TitlePoster } from '../poster'
 import { plural } from '../format'
+import { usePhone } from '../responsive'
 import { rated, Ratings } from './Ratings'
 import { SeriesSection } from './SeriesSection'
 import { MovieSection } from './MovieSection'
@@ -116,6 +117,7 @@ const statusWord = (status: string) => status.charAt(0).toUpperCase() + status.s
 export type ManualSearchTarget = { versionId: number; slot: string; profileName: string; scope?: { body: EpisodeScope; label: string; code: string | null } }
 
 function Body({ title, row, onManualSearch }: { title: Detail; row?: TitleRow; onManualSearch: (search: ManualSearchTarget) => void }) {
+  const phone = usePhone()
   const profiles = useProfiles()
   const names = new Map((profiles.data ?? []).map((p) => [p.key, p.name]))
   const profileName = (key: string) => names.get(key) ?? key
@@ -138,7 +140,8 @@ function Body({ title, row, onManualSearch }: { title: Detail; row?: TitleRow; o
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h2 className={`heading-32 min-w-0 flex-1 basis-48 max-sm:heading-24 ${muted ? 'text-gray-900' : ''}`}>{title.title}</h2>
+            {/* On a phone the TitleBar above already shows the name as the page's heading. */}
+            {phone ? <div className="min-w-0 flex-1 basis-48" /> : <h2 className={`heading-32 min-w-0 flex-1 basis-48 ${muted ? 'text-gray-900' : ''}`}>{title.title}</h2>}
             <TitleActions title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
           </div>
           {title.primary_title !== title.title && <div className="copy-14 text-gray-900">{title.primary_title}</div>}
