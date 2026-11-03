@@ -32,6 +32,10 @@ type searchStatusJSON struct {
 		SearchMax  *int       `json:"search_max"`
 		Held       *string    `json:"held"`
 		HeldUntil  *time.Time `json:"held_until"`
+		GapMs      int        `json:"gap_ms"`
+		GapWidened bool       `json:"gap_widened"`
+		// WaitingUntil is when the last search request queued on the indexer's gap goes out.
+		WaitingUntil *time.Time `json:"waiting_until"`
 	} `json:"indexers"`
 }
 
@@ -65,6 +69,9 @@ func TestTheSearchStatusSaysHowTheLastPassWent(t *testing.T) {
 	}
 	if len(st.Indexers) != 1 || st.Indexers[0].Name != "Alpha" || st.Indexers[0].SearchUsed < 1 || st.Indexers[0].SearchMax != nil || st.Indexers[0].Held != nil {
 		t.Errorf("indexers = %+v, want Alpha with its searches counted, no known budget and nothing holding it", st.Indexers)
+	}
+	if ix := st.Indexers[0]; ix.GapMs != 0 || ix.GapWidened || ix.WaitingUntil != nil {
+		t.Errorf("indexer = %+v, want no search gap, none widened and no request waiting", ix)
 	}
 }
 

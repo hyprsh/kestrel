@@ -4709,6 +4709,13 @@ type SearchFinishedOutcome string
 
 // SearchIndexer defines model for SearchIndexer.
 type SearchIndexer struct {
+	// GapMs The least time between two search requests to the indexer now, in milliseconds: its
+	// `search_gap_seconds`, or the wider gap its slow answers asked for (`gap_widened`).
+	GapMs int `json:"gap_ms"`
+
+	// GapWidened Whether slow answers have made the gap longer than the instance's `search_gap_seconds`. It narrows again as answers come quickly.
+	GapWidened bool `json:"gap_widened"`
+
 	// Held Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
 	// request limit was reached, or a bare 429), `backing_off` (it keeps failing) or `budget` (the
 	// sweeps have used their 80 % of today's budget).
@@ -4725,6 +4732,9 @@ type SearchIndexer struct {
 
 	// SearchUsed Search requests made today (the indexer's own count when it reports one).
 	SearchUsed int `json:"search_used"`
+
+	// WaitingUntil When the last search request waiting on the gap is let go; null when none waits.
+	WaitingUntil *time.Time `json:"waiting_until"`
 }
 
 // SearchIndexerHeld Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its

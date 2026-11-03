@@ -6990,7 +6990,7 @@ components:
           description: How long the pass took.
     SearchIndexer:
       type: object
-      required: [instance_id, name, search_used, search_max, held, held_until]
+      required: [instance_id, name, search_used, search_max, held, held_until, gap_ms, gap_widened, waiting_until]
       properties:
         instance_id:
           type: integer
@@ -7019,6 +7019,19 @@ components:
           format: date-time
           nullable: true
           description: When a `request_limit` pause or a backoff ends; null otherwise.
+        gap_ms:
+          type: integer
+          description: |
+            The least time between two search requests to the indexer now, in milliseconds: its
+            `search_gap_seconds`, or the wider gap its slow answers asked for (`gap_widened`).
+        gap_widened:
+          type: boolean
+          description: Whether slow answers have made the gap longer than the instance's `search_gap_seconds`. It narrows again as answers come quickly.
+        waiting_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the last search request waiting on the gap is let go; null when none waits.
     LongMissing:
       type: object
       required: [count, items]

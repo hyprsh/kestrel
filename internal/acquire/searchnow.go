@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/hyprsh/kestrel/internal/history"
+	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
@@ -158,7 +159,7 @@ func (s *Service) handCause(ctx context.Context, action, label string) func(cont
 		reason += " for " + label
 	}
 	return func(ctx context.Context) context.Context {
-		return history.WithTrigger(withReason(ctx, reason), trigger)
+		return indexers.WithManual(history.WithTrigger(withReason(ctx, reason), trigger))
 	}
 }
 

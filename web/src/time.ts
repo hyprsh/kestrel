@@ -3,13 +3,13 @@
 // minute" agree, where "58 s" would already be stale. `span` is for lengths that do not move ("took 2 s").
 import { useEffect, useState } from 'react'
 
-/** Re-renders every half minute, so relative times count on between frames. */
-export function useNow(): number {
+/** Re-renders every half minute (or every `every` ms), so relative times count on between frames. */
+export function useNow(every = 30_000): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000)
+    const id = setInterval(() => setNow(Date.now()), every)
     return () => clearInterval(id)
-  }, [])
+  }, [every])
   return now
 }
 

@@ -179,7 +179,7 @@ func TestSweepsStopAt80PercentOfTheDailyBudgetWhileRSSAndManualSearchRun(t *test
 	if b.r.svc.CanSweep(context.Background()) {
 		t.Error("CanSweep = true past 80 %")
 	}
-	if !b.r.svc.Status(b.id, 10, 0).SweepsStopped {
+	if !b.r.svc.Status(b.id, 10, 0, 0).SweepsStopped {
 		t.Error("Status does not say the sweeps stopped past 80 %")
 	}
 	if res := b.r.svc.RSS(context.Background()); len(res.Releases) == 0 {
@@ -196,7 +196,7 @@ func TestSweepsStopAt80PercentOfTheDailyBudgetWhileRSSAndManualSearchRun(t *test
 	if !b.r.svc.CanSweep(context.Background()) {
 		t.Error("CanSweep = false the next day")
 	}
-	if b.r.svc.Status(b.id, 10, 0).SweepsStopped {
+	if b.r.svc.Status(b.id, 10, 0, 0).SweepsStopped {
 		t.Error("Status says the sweeps are still stopped the next day")
 	}
 }
@@ -236,11 +236,11 @@ func TestErrorsBackOffEscalatinglyAndAConfigChangeLiftsIt(t *testing.T) {
 	if f := b.search(ctx).Failures; len(f) != 1 || f[0].Code != plugin.CodeAuth {
 		t.Fatalf("first failure = %+v", f)
 	}
-	if st := b.r.svc.Status(b.id, 0, 0); st.BackoffUntil.After(b.clk.now()) {
+	if st := b.r.svc.Status(b.id, 0, 0, 0); st.BackoffUntil.After(b.clk.now()) {
 		t.Errorf("the first failure retries at once: %+v", st)
 	}
 	b.search(ctx)
-	if st := b.r.svc.Status(b.id, 0, 0); !st.BackoffUntil.Equal(b.clk.now().Add(time.Minute)) {
+	if st := b.r.svc.Status(b.id, 0, 0, 0); !st.BackoffUntil.Equal(b.clk.now().Add(time.Minute)) {
 		t.Errorf("the second failure waits a minute: %+v", st)
 	}
 	if f := b.search(ctx).Failures; len(f) != 1 || f[0].Code != plugin.CodeAuth {
@@ -259,7 +259,7 @@ func TestStatusReportsPausesAndBudget(t *testing.T) {
 	b.search(context.Background())
 	b.f.Exhaust(plugin.LimitSearch, 10*time.Minute)
 	b.search(context.Background())
-	st := b.r.svc.Status(b.id, 100, 0)
+	st := b.r.svc.Status(b.id, 100, 0, 0)
 	if st.SearchUsed != 2 || st.SearchMax != 100 {
 		t.Errorf("budget = %+v", st)
 	}
@@ -320,7 +320,7 @@ func TestAFetchThatErrorsDoesNotCountTowardsTheGrabLimit(t *testing.T) {
 	if err := b.fetch(indexers.Release{Release: indexer.Release{DownloadURL: "nope"}}); plugin.AsError(err).Code != plugin.CodeNotFound {
 		t.Fatalf("unknown release = %v", err)
 	}
-	if st := b.r.svc.Status(b.id, 0, 1); st.GrabUsed != 0 {
+	if st := b.r.svc.Status(b.id, 0, 1, 0); st.GrabUsed != 0 {
 		t.Errorf("GrabUsed after a failed fetch = %d", st.GrabUsed)
 	}
 	if err := b.fetch(rel); err != nil {
@@ -341,12 +341,12 @@ func TestTheGrabCountSurvivesARestart(t *testing.T) {
 func TestStatusShowsTheConfiguredGrabLimit(t *testing.T) {
 	b, rel := newGrabRig(t, 2)
 	b.fetch(rel)
-	st := b.r.svc.Status(b.id, 0, 2)
+	st := b.r.svc.Status(b.id, 0, 2, 0)
 	if st.GrabUsed != 1 || st.GrabMax != 2 || st.GrabsPaused || !st.GrabsPausedUntil.IsZero() {
 		t.Errorf("status below the limit = %+v", st)
 	}
 	b.fetch(rel)
-	st = b.r.svc.Status(b.id, 0, 2)
+	st = b.r.svc.Status(b.id, 0, 2, 0)
 	if st.GrabUsed != 2 || st.GrabMax != 2 || !st.GrabsPaused || !st.GrabsPausedUntil.Equal(nextMidnight(b.clk.now())) {
 		t.Errorf("status at the limit = %+v", st)
 	}
@@ -382,7 +382,7 @@ func TestAReportedGrabQuotaBeatsTheConfiguredLimitInBothDirections(t *testing.T)
 			t.Fatalf("fetch %d past the configured limit: %v", i+1, err)
 		}
 	}
-	if st := b.r.svc.Status(b.id, 0, 1); st.GrabUsed != 3 || st.GrabMax != 10 || st.GrabsPaused {
+	if st := b.r.svc.Status(b.id, 0, 1, 0); st.GrabUsed != 3 || st.GrabMax != 10 || st.GrabsPaused {
 		t.Errorf("status = %+v, want the reported 3 of 10", st)
 	}
 	b.f.Report(indexer.Limits{Reported: true, GrabCurrent: 10, GrabMax: 10})
@@ -436,7 +436,7 @@ func TestAfterARestartStatusShowsTheSpentGrabLimitBeforeTheIndexerIsAsked(t *tes
 	b.fetch(rel)
 	b.r.svc = indexers.New(b.r.inst, b.r.st, b.clk.now)
 
-	st := b.r.svc.Status(b.id, 100, 2)
+	st := b.r.svc.Status(b.id, 100, 2, 0)
 	if st.GrabUsed != 2 || st.GrabMax != 2 || !st.GrabsPaused || !st.GrabsPausedUntil.Equal(nextMidnight(b.clk.now())) {
 		t.Errorf("status after a restart = %+v", st)
 	}

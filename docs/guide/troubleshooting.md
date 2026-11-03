@@ -77,6 +77,7 @@ Release ages, the days in Upcoming, sign-in sessions and the times in the Log al
 
 Many indexers allow only so many API requests, and so many downloads, a day. In Settings > Downloads, each indexer has two optional limits:
 
+- **Seconds between searches:** the least Kestrel waits between two searches of this indexer, 2 by default. A search you start by hand waits half as long, and the automatic search at least 10 seconds. When an indexer starts answering much slower than usual, Kestrel doubles the wait (up to 30 seconds) until its answers are quick again; Activity says so.
 - **API requests per day:** Kestrel stays under it by pausing searches. Set it a little under your indexer's limit.
 - **Grabs per day:** once it is reached, Kestrel stops grabbing from that indexer until the UTC day ends.
 

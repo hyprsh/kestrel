@@ -4909,6 +4909,18 @@ export interface components {
              * @description When a `request_limit` pause or a backoff ends; null otherwise.
              */
             held_until: string | null;
+            /**
+             * @description The least time between two search requests to the indexer now, in milliseconds: its
+             *     `search_gap_seconds`, or the wider gap its slow answers asked for (`gap_widened`).
+             */
+            gap_ms: number;
+            /** @description Whether slow answers have made the gap longer than the instance's `search_gap_seconds`. It narrows again as answers come quickly. */
+            gap_widened: boolean;
+            /**
+             * Format: date-time
+             * @description When the last search request waiting on the gap is let go; null when none waits.
+             */
+            waiting_until: string | null;
         };
         LongMissing: {
             /** @description How many Versions are Long Missing. */

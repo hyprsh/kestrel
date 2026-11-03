@@ -134,7 +134,7 @@ export function Pipeline({ data, onOpenTitle, onManualSearch }: { data: Pipeline
             In progress <span className="label-14 font-normal text-gray-900">{inProgress}</span>
           </h2>
           <ul className="m-0 list-none overflow-hidden rounded-md p-0 shadow-border">
-            {pass && <SearchPassRow pass={pass} />}
+            {pass && <SearchPassRow pass={pass} indexers={data.search?.indexers} />}
             {live.map((e) =>
               e.type === 'active' ? (
                 <ActiveRow key={e.key} item={e.item} nav={navOf(e)} onOpenTitle={onOpenTitle} />

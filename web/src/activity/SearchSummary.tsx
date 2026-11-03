@@ -2,7 +2,7 @@
 import { Description } from '@hyprsh/design'
 import type { SearchStatus } from '../api/search'
 import { plural } from '../format'
-import { clockTime } from '../time'
+import { clockTime, span } from '../time'
 import { SearchProgress } from './SearchProgress'
 
 type Indexer = SearchStatus['indexers'][number]
@@ -26,12 +26,19 @@ function budgetLeft(i: Indexer): string | null {
   return i.search_max == null ? null : `${Math.max(0, i.search_max - i.search_used)} of ${i.search_max} searches left today`
 }
 
-/** One line per indexer worth a word: what holds its sweeps back, and its budget left when known. */
+/** "slow to answer, 8 s between searches" once slow answers have widened an indexer's gap, null while the gap is as set. */
+function slowLine(i: Indexer): string | null {
+  return i.gap_widened ? `slow to answer, ${span(i.gap_ms)} between searches` : null
+}
+
+/** One line per indexer worth a word: what holds its sweeps back, how slowly it answers and its budget left when known. */
 function indexerLine(i: Indexer): { text: string; held: boolean } | null {
   const held = heldLine(i)
+  const slow = slowLine(i)
   // The budget hold already counts the searches.
   const left = i.held === 'budget' ? null : budgetLeft(i)
-  if (held) return { text: left ? `${held} · ${left}` : held, held: true }
+  if (held) return { text: [held, slow, left].filter(Boolean).join(' · '), held: true }
+  if (slow) return { text: [`${i.name} ${slow}`, left].filter(Boolean).join(' · '), held: true }
   return left ? { text: `${i.name}: ${left}`, held: false } : null
 }
 

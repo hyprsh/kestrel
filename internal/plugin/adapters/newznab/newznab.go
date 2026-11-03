@@ -59,6 +59,8 @@ func (*Client) Describe() plugin.Manifest {
 				Help: "Comma-separated category IDs searched for Movies. 2000 covers every Movies sub-category."},
 			{Key: "tv_categories", Label: "Series categories", Type: plugin.FieldText, Default: defaultTVCategories,
 				Help: "Comma-separated category IDs searched for Series. 5000 covers every TV sub-category."},
+			{Key: "search_gap_seconds", Label: "Seconds between searches", Type: plugin.FieldInt, Default: 2,
+				Help: "The least Kestrel waits between two search requests to this indexer. A search you start by hand waits half as long, and sweeps at least 10 seconds. Slow answers widen it for a while. 0 for none."},
 			{Key: "api_requests_per_day", Label: "API requests per day", Type: plugin.FieldInt,
 				Help: "Leave empty for no limit. Kestrel stays under it by pausing searches."},
 			{Key: "grabs_per_day", Label: "Grabs per day", Type: plugin.FieldInt,

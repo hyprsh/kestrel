@@ -51,6 +51,7 @@ func (*Indexer) Describe() plugin.Manifest {
 		Capabilities: map[string][]string{"protocols": {"usenet"}},
 		Fields: []plugin.Field{
 			{Key: "api_key", Label: "API key", Type: plugin.FieldSecret, Required: true},
+			{Key: "search_gap_seconds", Label: "Seconds between searches", Type: plugin.FieldInt, Default: 0},
 			{Key: "api_requests_per_day", Label: "API requests per day", Type: plugin.FieldInt},
 			{Key: "grabs_per_day", Label: "Grabs per day", Type: plugin.FieldInt},
 		},

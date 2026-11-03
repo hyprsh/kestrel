@@ -381,6 +381,7 @@ func (s *Service) lane(ctx context.Context, inst instances.Instance, q Query) (o
 		return nil, &Failure{IndexerID: inst.ID, IndexerName: inst.Name, Code: plugin.CodeInvalid, Message: "the indexer's plugin is not installed"}
 	}
 	fail := func(err error) *Failure { return failureOf(ctx, inst, err) }
+	q, _ = s.withoutSeason(inst, q)
 	tag := func(byID bool, rels []indexer.Release) {
 		for _, r := range rels {
 			out = append(out, Release{Release: r, IndexerID: inst.ID, IndexerName: inst.Name, IndexerPriority: inst.Priority, ByID: byID})
@@ -401,6 +402,9 @@ func (s *Service) lane(ctx context.Context, inst instances.Instance, q Query) (o
 	caps := s.capsOf(ctx, p, inst)
 	if byID, ok := idQuery(q, caps); ok {
 		rels, err := s.page(ctx, p, inst, byID, caps)
+		if err == nil {
+			s.noteSeasonAnswer(inst, byID, rels)
+		}
 		tag(true, fresh(rels))
 		if err != nil {
 			return out, fail(err)
@@ -510,6 +514,21 @@ func textQueries(q Query) []string {
 
 // page runs q until the indexer has no more, keeping what it gave before an error.
 func (s *Service) page(ctx context.Context, p indexer.Indexer, inst instances.Instance, q indexer.SearchQuery, caps indexer.Caps) ([]indexer.Release, error) {
+	// An indexer that ignores the season is asked for the whole Series once in a while, whichever season is wanted.
+	memo := q.Media == indexer.MediaTV && q.Season == "" && !isManual(ctx) && s.IgnoresSeason(inst.ID)
+	if memo {
+		if rels, ok := s.memoFor(inst, q); ok {
+			return rels, nil
+		}
+	}
+	out, err := s.pages(ctx, p, inst, q, caps)
+	if memo && err == nil {
+		s.remember(inst, q, out)
+	}
+	return out, err
+}
+
+func (s *Service) pages(ctx context.Context, p indexer.Indexer, inst instances.Instance, q indexer.SearchQuery, caps indexer.Caps) ([]indexer.Release, error) {
 	limit := cmpFirst(caps.MaxPageSize, caps.PageSize, defaultPage)
 	var out []indexer.Release
 	for range maxPages {

@@ -3,6 +3,7 @@ package acquire
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -318,14 +319,13 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			add(cached)
 			obs.Releases(len(cached))
 		} else {
-			for _, n := range seasonsOf(left, scope) {
-				found, failures, err := s.gather(ctx, sub, inSeason(scope, n, episodes), g)
-				if err != nil {
-					return out, err
-				}
-				out.Failures = append(out.Failures, failures...)
+			failures, err := s.gatherSeasons(ctx, sub, scope, episodes, left, g, func(found []*entry) {
 				obs.Releases(len(found))
 				add(found)
+			})
+			out.Failures = append(out.Failures, failures...)
+			if err != nil {
+				return out, err
 			}
 		}
 		if !upgrade {
@@ -403,6 +403,67 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	errs = append(errs, sendErrors(failed, sent)...)
 	errs = append(errs, s.noteOffers(ctx, d, versionOf, in, entries, episodes))
 	return out, errors.Join(errs...)
+}
+
+// gatherSeasons asks the group g for what the Versions in left are missing:
+// once for the whole Series, then per season only for the seasons whose
+// episodes that answer has no candidate for (an indexer that ignores the
+// season answers the later ones from the first). A search narrowed to a season
+// or episodes, or with one season left, asks that season alone. each hears the
+// Releases of every request.
+func (s *Service) gatherSeasons(ctx context.Context, sub subject, scope library.Scope, episodes []library.Episode, left []Version, g group, each func([]*entry)) ([]indexers.Failure, error) {
+	seasons := seasonsOf(left, scope)
+	var failures []indexers.Failure
+	var whole []*entry
+	if !scope.Narrow() && len(seasons) > 1 {
+		found, f, err := s.gather(ctx, sub, library.Scope{}, g)
+		if err != nil {
+			return failures, err
+		}
+		failures = append(failures, f...)
+		each(found)
+		whole = found
+	}
+	for _, n := range seasons {
+		if whole != nil && candidateFor(whole, left, n) {
+			continue
+		}
+		found, f, err := s.gather(ctx, sub, inSeason(scope, n, episodes), g)
+		if err != nil {
+			return failures, err
+		}
+		failures = append(failures, f...)
+		each(found)
+	}
+	return failures, nil
+}
+
+// candidateFor says whether some Release among es that a Version's Profile
+// accepts holds an episode left to find in the season.
+func candidateFor(es []*entry, left []Version, season int) bool {
+	var refs []EpisodeRef
+	for _, v := range left {
+		for _, u := range v.Units {
+			if u.Ref.Season == season {
+				refs = append(refs, u.Ref)
+			}
+		}
+	}
+	return slices.ContainsFunc(es, func(e *entry) bool {
+		sr := e.cand.Parsed.Series
+		if sr == nil || !slices.ContainsFunc(slices.Collect(maps.Values(e.cand.Verdicts)), func(v scoring.Verdict) bool { return v.Accepted }) {
+			return false
+		}
+		return slices.ContainsFunc(refs, func(r EpisodeRef) bool {
+			switch {
+			case sr.MultiSeason:
+				return r.Season >= sr.Season
+			case r.Season != sr.Season:
+				return false
+			}
+			return sr.FullSeason || slices.Contains(sr.Episodes, r.Episode)
+		})
+	})
 }
 
 // seasonsOf are the seasons a search asks the indexers for: those of the
