@@ -195,11 +195,13 @@ WHERE (?1 IS NULL OR kind IN (SELECT value FROM json_each(?1)))
   AND (?4 IS NULL OR title_id IS NULL OR title_id NOT IN (SELECT value FROM json_each(?4)))
   AND (?5 IS NULL OR version_id IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(?5))))
   AND (?6 IS NULL OR version_id IS NULL OR version_id NOT IN (SELECT v.id FROM versions v WHERE v.slot IN (SELECT value FROM json_each(?6))))
-  AND (?7 IS NULL OR grab_id = ?7)
-  AND (?8 = 1 OR routine = 0)
-  AND (?9 IS NULL OR id < ?9)
+  AND (?7 IS NULL OR trigger_kind IN (SELECT value FROM json_each(?7)))
+  AND (?8 IS NULL OR trigger_kind NOT IN (SELECT value FROM json_each(?8)))
+  AND (?9 IS NULL OR grab_id = ?9)
+  AND (?10 = 1 OR routine = 0)
+  AND (?11 IS NULL OR id < ?11)
 ORDER BY id DESC
-LIMIT ?10
+LIMIT ?12
 `
 
 type ListEventsParams struct {
@@ -209,6 +211,8 @@ type ListEventsParams struct {
 	ExcludeTitleIds interface{}
 	Slots           interface{}
 	ExcludeSlots    interface{}
+	Triggers        interface{}
+	ExcludeTriggers interface{}
 	GrabID          interface{}
 	WithRoutine     interface{}
 	Before          interface{}
@@ -225,6 +229,8 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]Event
 		arg.ExcludeTitleIds,
 		arg.Slots,
 		arg.ExcludeSlots,
+		arg.Triggers,
+		arg.ExcludeTriggers,
 		arg.GrabID,
 		arg.WithRoutine,
 		arg.Before,

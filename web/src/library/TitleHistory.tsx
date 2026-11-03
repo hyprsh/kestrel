@@ -7,6 +7,7 @@ import { useEvents } from '../api/log'
 import type { TitleDetail } from '../api/queries'
 import { plural } from '../format'
 import { sentence } from '../log/sentence'
+import { causeText } from '../log/trigger'
 import { placePath, useOpenPlace } from '../place'
 import { ago, useNow } from '../time'
 
@@ -16,7 +17,7 @@ export function TitleHistory({ title }: { title: TitleDetail }) {
   const [open, setOpen] = useState(false)
   const now = useNow()
   const openPlace = useOpenPlace()
-  const events = useEvents({ kinds: null, excludeKinds: [], slots: null, excludeSlots: [], titleIds: [title.id], excludeTitleIds: [], routine: false })
+  const events = useEvents({ kinds: null, excludeKinds: [], slots: null, excludeSlots: [], titleIds: [title.id], excludeTitleIds: [], triggers: null, excludeTriggers: [], routine: false })
   const items = events.data ?? []
   if (items.length === 0) return null
   const last = items[0]
@@ -30,11 +31,16 @@ export function TitleHistory({ title }: { title: TitleDetail }) {
         <ul className="mt-2 flex list-none flex-col gap-1.5 p-0">
           {items.slice(0, SHOWN).map((e) => {
             const s = sentence(e)
+            const cause = causeText(e)
             return (
               <li key={e.id} className="label-13 flex min-w-0 gap-3">
                 <span className="w-24 shrink-0 text-gray-900">{ago(e.at, now)}</span>
-                <span className={`min-w-0 truncate ${s.severity === 'error' ? 'text-red-900' : s.severity === 'warning' ? 'text-amber-900' : ''}`} title={`${s.verb} ${s.rest}`.trim()}>
+                <span
+                  className={`min-w-0 truncate ${s.severity === 'error' ? 'text-red-900' : s.severity === 'warning' ? 'text-amber-900' : ''}`}
+                  title={[`${s.verb} ${s.rest}`.trim(), cause].filter(Boolean).join(' · ')}
+                >
                   <b className="font-medium">{s.verb}</b> <span className="text-gray-900">{s.rest}</span>
+                  {cause && <span className="block truncate text-[12px] text-gray-900">{cause}</span>}
                 </span>
               </li>
             )

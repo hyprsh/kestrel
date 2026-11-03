@@ -52,6 +52,28 @@ describe("a Title's History", () => {
     expect(within(history).getByRole('button', { name: 'Show in Log' })).toBeInTheDocument()
   })
 
+  it("shows each entry's trigger and reason, and leaves out what an old entry lacks", async () => {
+    server.use(
+      http.get('/events', ({ response }) =>
+        response(200).json({
+          items: [
+            { ...event(3, 'search', 'Searched in Standard: nothing to grab', 5), trigger: { kind: 'sweep', actor: null, via: null }, reason: 'due: 3 days after it became Wanted' },
+            { ...event(2, 'monitoring', 'Monitoring turned off', 60), trigger: { kind: 'person', actor: 'Navi', via: 'updateTitle' }, reason: 'chosen by hand: monitoring was changed' },
+            event(1, 'request', 'Ellie asked for Paddington', 600),
+          ],
+        }),
+      ),
+    )
+    const pane = await openPaddington()
+
+    await userEvent.click(await within(pane).findByRole('button', { name: /^History/ }))
+
+    const history = within(pane).getByRole('region', { name: 'History' })
+    expect(within(history).getByText('The search sweep · due: 3 days after it became Wanted')).toBeInTheDocument()
+    expect(within(history).getByText('Navi · update title · chosen by hand: monitoring was changed')).toBeInTheDocument()
+    expect(within(history).getAllByRole('listitem')).toHaveLength(4)
+  })
+
   it('is left out while the Title has no events', async () => {
     const pane = await openPaddington()
 

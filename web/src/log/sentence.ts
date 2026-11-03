@@ -290,6 +290,28 @@ export function sentence(e: LogEvent, title?: string, recovery?: Recovery | null
       const m2 = /^(.+?) has the Original Language only: (.+)$/.exec(m)
       return m2 ? make('Offered the Original Language only', 'warning', details(m2[1], m2[2]), 'warning') : make(m, 'warning', '', 'warning', false)
     }
+    case 'title_added': {
+      const versions = /with (.+)$/.exec(m)?.[1]
+      return title ? make('Added', 'event', `to the Library${versions ? ` with ${versions}` : ''}`) : make(m, 'event', '', 'plain', false)
+    }
+    case 'version_added': {
+      const m2 = /^Added a (.+?) Version under (.+?) to /.exec(m)
+      return m2 ? make('Added a Version to', 'event', details(m2[1], m2[2])) : make(m, 'event', '', 'plain', false)
+    }
+    case 'version_removed': {
+      const m2 = /^Removed the (.+?) Version under (.+?) from .+?, with (.+)$/.exec(m)
+      return m2 ? make('Removed a Version from', 'delete', details(m2[1], m2[2], m2[3])) : make(m, 'delete', '', 'plain', false)
+    }
+    case 'monitoring':
+      return make('Monitoring changed', 'event', details(m))
+    case 'placeholder': {
+      const code = /for (S\d+E\d+)$/.exec(m)?.[1]
+      return make('Placeholder Episode added', 'event', details(code))
+    }
+    case 'file_misfit':
+      return make('Marked a misfit', 'warning', details(/^Marked (.+) as a misfit$/.exec(m)?.[1] ?? m), 'plain')
+    case 'file_rescored':
+      return make('Re-scored', 'refresh', details(/^Re-scored (.+)$/.exec(m)?.[1] ?? m))
     default:
       return make(m, 'event', '', severityOf(e.kind), false)
   }
@@ -330,6 +352,23 @@ export const kindNames: Record<string, string> = {
   indexer_sweep_stopped: 'Sweeps stopped',
   indexer_recovered: 'Indexer recovered',
   search_skipped: 'Search skipped',
+  title_added: 'Title added',
+  title_removed: 'Title removed',
+  version_added: 'Version added',
+  version_removed: 'Version removed',
+  monitoring: 'Monitoring',
+  profile_created: 'Profile created',
+  profile_changed: 'Profile changed',
+  profile_deleted: 'Profile deleted',
+  slot_created: 'Slot created',
+  slot_changed: 'Slot changed',
+  slot_deleted: 'Slot deleted',
+  slots_preset: 'Slot preset',
+  settings_changed: 'Settings changed',
+  grabs_paused: 'Grabs paused',
+  grabs_resumed: 'Grabs resumed',
+  blocklist_removed: 'Blocklist entry removed',
+  bulk: 'Bulk action',
 }
 
 /** What a row's one action does: open the event's Title, or go to a place of the SPA. */

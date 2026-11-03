@@ -1506,7 +1506,9 @@ export interface paths {
          *     values; filters of different names must all match. `exclude_kind`, `exclude_title_id` and
          *     `exclude_slot` (each repeatable) leave those kinds, Titles and Slots out, even when `kind`,
          *     `title_id` or `slot` names them; an event about no Title or Version is never left out by the
-         *     last two. `before` pages: pass the smallest `id` seen.
+         *     last two. `trigger` and `exclude_trigger` (repeatable) keep or leave out the events whose
+         *     trigger `kind` is one of the values; an entry from before triggers were recorded matches no
+         *     `trigger` and is kept by `exclude_trigger`. `before` pages: pass the smallest `id` seen.
          */
         get: operations["listEvents"];
         put?: never;
@@ -7819,6 +7821,8 @@ export interface operations {
                 exclude_title_id?: number[];
                 slot?: components["schemas"]["SlotId"][];
                 exclude_slot?: components["schemas"]["SlotId"][];
+                trigger?: string[];
+                exclude_trigger?: string[];
                 routine?: boolean;
                 before?: number;
                 limit?: number;

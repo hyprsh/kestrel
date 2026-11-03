@@ -5,6 +5,7 @@ import type { LogEvent } from '../api/log'
 import { plural } from '../format'
 import { clock } from './rows'
 import { kindNames, searchEnd, searchResult, type Recovery } from './sentence'
+import { reasonText, triggerText } from './trigger'
 
 /** One line of the opened event. `mono` is for values that are names, paths and errors. */
 export type Field = { key: string; value: string; mono?: boolean }
@@ -148,6 +149,10 @@ export function fields(e: LogEvent, title?: string, recovery?: Recovery | null):
   }
   if (e.kind === 'grab') use('by')
   for (const [k, v] of Object.entries(data)) if (!used.has(k) && v !== null && v !== undefined && v !== '') add(label(k), valueText(v), typeof v === 'string' && /[/\\.]/.test(v))
+  // Who or what started it and why, from the entry's trigger and reason; a reason a kind's own lines already show is not said twice.
+  add('Started by', triggerText(e.trigger) ?? undefined)
+  const reason = reasonText(e)
+  if (reason && !out.some((f) => f.key === 'Reason' && f.value === reason)) add('Reason', reason)
   out.push({ key: 'When', value: fullTime(e.at) })
   return out
 }

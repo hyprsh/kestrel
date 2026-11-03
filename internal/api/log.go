@@ -29,6 +29,12 @@ func (s *server) ListEvents(ctx context.Context, r oapi.ListEventsRequestObject)
 	if p.ExcludeTitleId != nil {
 		f.ExcludeTitleIDs = *p.ExcludeTitleId
 	}
+	if p.Trigger != nil {
+		f.Triggers = triggersOf(*p.Trigger)
+	}
+	if p.ExcludeTrigger != nil {
+		f.ExcludeTriggers = triggersOf(*p.ExcludeTrigger)
+	}
 	var err error
 	if f.Slots, err = s.slotsOf(ctx, "slot", p.Slot); err != nil {
 		return nil, err
@@ -193,4 +199,12 @@ func (s *server) DeleteBlocklistEntry(ctx context.Context, r oapi.DeleteBlocklis
 		return nil, err
 	}
 	return oapi.DeleteBlocklistEntry204Response{}, nil
+}
+
+func triggersOf(names []string) []history.TriggerKind {
+	out := make([]history.TriggerKind, len(names))
+	for i, n := range names {
+		out[i] = history.TriggerKind(n)
+	}
+	return out
 }

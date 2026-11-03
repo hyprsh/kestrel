@@ -6275,6 +6275,8 @@ type ListEventsParams struct {
 	ExcludeTitleId *[]int64  `form:"exclude_title_id,omitempty" json:"exclude_title_id,omitempty"`
 	Slot           *[]SlotId `form:"slot,omitempty" json:"slot,omitempty"`
 	ExcludeSlot    *[]SlotId `form:"exclude_slot,omitempty" json:"exclude_slot,omitempty"`
+	Trigger        *[]string `form:"trigger,omitempty" json:"trigger,omitempty"`
+	ExcludeTrigger *[]string `form:"exclude_trigger,omitempty" json:"exclude_trigger,omitempty"`
 	Routine        *bool     `form:"routine,omitempty" json:"routine,omitempty"`
 	Before         *int64    `form:"before,omitempty" json:"before,omitempty"`
 	Limit          *int      `form:"limit,omitempty" json:"limit,omitempty"`
@@ -7856,6 +7858,32 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "exclude_slot"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exclude_slot", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "trigger" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "trigger", r.URL.Query(), &params.Trigger, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "trigger"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trigger", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "exclude_trigger" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "exclude_trigger", r.URL.Query(), &params.ExcludeTrigger, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "exclude_trigger"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "exclude_trigger", Err: err})
 		}
 		return
 	}

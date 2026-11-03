@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LogEvent } from '../api/log'
+import { causeText, triggerText } from './trigger'
 import { actionOf, foldSummary, kindNames, recoveriesByKey, recoveryAfter, recoveryOf, searchResult, sentence, sentenceText, severityOf, whyText } from './sentence'
 
 const ev = (kind: string, message: string, data: LogEvent['data'] = null, over: Partial<LogEvent> = {}): LogEvent => ({
@@ -89,7 +90,7 @@ describe('the sentence of each kind the server records', () => {
 
   it('has a name and a sentence for every kind of the server', () => {
     const kinds = Object.keys(kindNames)
-    expect(kinds).toHaveLength(33)
+    expect(kinds).toHaveLength(50)
     for (const kind of kinds) expect(sentence(ev(kind, 'x'), 'T').verb).not.toBe('')
   })
 
@@ -213,5 +214,35 @@ describe('a connection that failed and came back', () => {
     const s = sentence(raised, undefined, recoveryOf(cleared))
     expect(sentenceText(s)).toMatch(/^SABnzbd refused the connection · Kestrel retried 3 times, then it came back at \d\d:\d\d$/)
     expect(sentenceText(sentence(raised))).toBe('SABnzbd refused the connection')
+  })
+})
+
+describe('the trigger and reason of an entry, in words', () => {
+  const cause = (trigger: LogEvent['trigger']) => triggerText(trigger)
+
+  it('names a person with the call, and a job or rule by what it is', () => {
+    expect(cause({ kind: 'person', actor: 'Navi', via: 'updateSettings' })).toBe('Navi · update settings')
+    expect(cause({ kind: 'api_key', actor: null, via: 'bulkTitles' })).toBe('The API key · bulk titles')
+    expect(cause({ kind: 'sweep', actor: null, via: null })).toBe('The search sweep')
+    expect(cause({ kind: 'rss', actor: null, via: null })).toBe('The RSS sweep')
+    expect(cause({ kind: 'retry', actor: null, via: null })).toBe('A retry')
+    expect(cause({ kind: 'request', actor: null, via: 'Plex' })).toBe('A Request from plex')
+    expect(cause({ kind: 'rule', actor: null, via: 'watch ahead' })).toBe('The watch ahead rule')
+    expect(cause({ kind: 'job', actor: null, via: 'refresh' })).toBe('The refresh job')
+  })
+
+  it('reads a kind it does not know as that kind, and an entry without a trigger as none', () => {
+    expect(cause({ kind: 'new_thing', actor: null, via: null })).toBe('new thing')
+    expect(cause(null)).toBeNull()
+    expect(causeText({ trigger: null, reason: '' })).toBeNull()
+    expect(causeText({ trigger: { kind: 'sweep', actor: null, via: null }, reason: 'due: 3 days after it became Wanted' })).toBe('The search sweep · due: 3 days after it became Wanted')
+  })
+
+  it('reads the Library, Placeholder and misfit kinds as sentences', () => {
+    expect(text(ev('title_added', 'Added Movie "Paddington" to the Library with 2 Versions'), 'Paddington')).toBe('Added Paddington to the Library with 2 Versions')
+    expect(text(ev('version_added', 'Added a 4k Version under Remux to Movie "Paddington"'), 'Paddington')).toBe('Added a Version to Paddington · 4k · Remux')
+    expect(text(ev('version_removed', 'Removed the 4k Version under Remux from Movie "Paddington", with 1 file'), 'Paddington')).toBe('Removed a Version from Paddington · 4k · Remux · 1 file')
+    expect(text(ev('placeholder', 'Added a Placeholder Episode for S01E02'), 'Breaking Bad')).toBe('Placeholder Episode added Breaking Bad · S01E02')
+    expect(text(ev('file_misfit', 'Marked Paddington.mkv as a misfit'), 'Paddington')).toBe('Marked a misfit Paddington · Paddington.mkv')
   })
 })

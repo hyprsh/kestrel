@@ -1,10 +1,11 @@
-// The Log's qualifiers (kind:, slot:, title:, routine:) and how a parsed filter becomes the
+// The Log's qualifiers (kind:, slot:, title:, by:, routine:) and how a parsed filter becomes the
 // structured GET /events parameters. The grammar is the design's (parseQuery).
 import type { LogFilter } from '../api/log'
 import type { TitleRow } from '../api/queries'
 import { parseQuery, termText, valuesOf, type Query } from '@hyprsh/design'
 import { slotQualifier, type Facet } from '../filter/qualifiers'
 import type { SlotNames } from '../library/slots'
+import { triggerKinds } from './trigger'
 
 /** Named sets of kinds, one per View: `kind:errors` is every kind that means something went wrong. They are typed or reached by a View, never listed in the Filter menu. */
 const groups: Record<string, readonly string[]> = {
@@ -48,6 +49,14 @@ export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: r
     },
     slotQualifier(slots, { label: 'Slot', help: 'Events about a Version in that Slot', excludable: true }),
     { name: 'title', help: 'Events about a Title, by name; quote names with spaces', suggestions: titles, excludable: true },
+    {
+      name: 'by',
+      label: 'Started by',
+      help: 'Who or what started it: person, api_key, sweep, rss, import, retry, request, rule, startup, job',
+      values: Object.keys(triggerKinds),
+      excludable: true,
+      options: Object.fromEntries(Object.entries(triggerKinds).map(([k, label]) => [k, { label }])),
+    },
     {
       name: 'sort',
       label: 'Sort',
@@ -94,6 +103,8 @@ export function logFilter(q: Query, titles: readonly TitleRow[]): LogFilter {
     titleIds: valuesOf(q, 'title', named),
     excludeTitleIds: named(negated('title')),
     // Routine events are in the Log unless routine:no leaves them out; they show folded.
+    triggers: valuesOf(q, 'by'),
+    excludeTriggers: [...new Set(negated('by'))],
     routine: routine ? (routine.values.at(-1) === 'yes') !== routine.excluded : true,
   }
 }
@@ -147,7 +158,7 @@ export function refinements(query: string, qualifiers: readonly Facet[]): number
   const ownValues = (name: string) => own.filter((t) => t.name === name).flatMap((t) => t.values)
   const names = new Set<string>()
   for (const t of parsed.terms) {
-    if (t.name !== 'kind' && t.name !== 'slot' && t.name !== 'routine') continue
+    if (t.name !== 'kind' && t.name !== 'slot' && t.name !== 'routine' && t.name !== 'by') continue
     if (t.excluded || !ownValues(t.name).length || t.values.some((v) => !ownValues(t.name).includes(v))) names.add(t.name)
   }
   return names.size
