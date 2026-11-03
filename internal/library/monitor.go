@@ -68,7 +68,30 @@ func (s *Service) SetMonitored(ctx context.Context, ids []int64, monitored bool,
 		}
 		out = append(out, r)
 	}
-	return out, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	for _, r := range out {
+		if r.Changed {
+			s.recordTitleMonitoring(ctx, r.TitleID, monitored, mode)
+		}
+	}
+	return out, nil
+}
+
+// recordTitleMonitoring writes the entry of a Title monitored or unmonitored (a Series with its mode).
+func (s *Service) recordTitleMonitoring(ctx context.Context, id int64, monitored bool, mode Monitor) {
+	if s.off(ctx) {
+		return
+	}
+	kind, name := s.nameOf(ctx, id)
+	msg := titleLabel(kind, name) + " " + onOff(monitored)
+	data := map[string]any{"monitored": monitored}
+	if kind == Series && mode != "" {
+		msg += ", monitoring " + string(mode)
+		data["series_monitor"] = string(mode)
+	}
+	s.recordMonitoring(ctx, id, "title", msg, data)
 }
 
 // SetMovieMonitored monitors or unmonitors one Movie, as SetMonitored does;
@@ -90,10 +113,17 @@ func (s *Service) SetMovieMonitored(ctx context.Context, id int64, monitored boo
 	if Kind(t.Kind) != Movie {
 		return ErrNotAMovie
 	}
-	if _, err := setMonitored(ctx, q, id, monitored, "", s.clock()); err != nil {
+	r, err := setMonitored(ctx, q, id, monitored, "", s.clock())
+	if err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if r.Changed {
+		s.recordTitleMonitoring(ctx, id, monitored, "")
+	}
+	return nil
 }
 
 func setMonitored(ctx context.Context, q *db.Queries, id int64, monitored bool, mode Monitor, now time.Time) (MonitorResult, error) {

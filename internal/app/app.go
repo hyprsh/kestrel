@@ -166,7 +166,7 @@ func New(opts Options) *App {
 	slotSvc := slots.New(st)
 	roots := rootfolders.New(appSettings, opts.DataDir)
 	disp := display.New(appSettings)
-	lib := library.New(st, opts.Clock).WithCountry(func(ctx context.Context) string {
+	lib := library.New(st, opts.Clock).WithHistory(hist).WithCountry(func(ctx context.Context) string {
 		region, _, err := profs.Region(ctx)
 		if err != nil {
 			return ""

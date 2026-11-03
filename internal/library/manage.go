@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library/db"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
@@ -134,7 +136,8 @@ func (s *Service) RemoveVersion(ctx context.Context, versionID int64) ([]File, e
 	}
 	defer tx.Rollback()
 	q := db.New(tx)
-	if _, err := q.GetVersion(ctx, versionID); errors.Is(err, sql.ErrNoRows) {
+	v, err := q.GetVersion(ctx, versionID)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrVersionNotFound
 	} else if err != nil {
 		return nil, err
@@ -142,7 +145,18 @@ func (s *Service) RemoveVersion(ctx context.Context, versionID int64) ([]File, e
 	if err := q.DeleteVersion(ctx, versionID); err != nil {
 		return nil, err
 	}
-	return files, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	// The Version row is gone, so the entry names it in Data and not as its VersionID.
+	kind, name := s.nameOf(ctx, v.TitleID)
+	s.record(ctx, history.Event{
+		Kind: history.VersionRemoved, TitleID: v.TitleID,
+		Message: fmt.Sprintf("Removed the %s Version under %s from %s, with %s", v.Slot, v.ProfileKey, titleLabel(kind, name), plural(len(files), "file")),
+		Data:    dataOf(map[string]any{"version_id": versionID, "slot": v.Slot, "profile": v.ProfileKey, "files": len(files)}),
+		Reason:  why(ctx, "the Version was removed from the Title"),
+	})
+	return files, nil
 }
 
 // Removed is what a removed Title had on disk.
@@ -181,5 +195,12 @@ func (s *Service) RemoveTitle(ctx context.Context, titleID int64) (Removed, erro
 	if err := db.New(s.st.Write()).DeleteTitle(ctx, titleID); err != nil {
 		return Removed{}, err
 	}
+	// The Title row is gone, so the entry names it in Data and not as its TitleID.
+	s.record(ctx, history.Event{
+		Kind:    history.TitleRemoved,
+		Message: fmt.Sprintf("Removed %s from the Library, with %s and %s", titleLabel(Kind(t.Kind), t.Title), plural(len(vs), "Version"), plural(len(out.Files), "file")),
+		Data:    dataOf(map[string]any{"title_id": titleID, "kind": t.Kind, "title": t.Title, "versions": len(vs), "files": len(out.Files)}),
+		Reason:  why(ctx, "removed from the Library"),
+	})
 	return out, nil
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/library/db"
@@ -164,7 +165,11 @@ func (s *Service) AddSeries(ctx context.Context, a AddSeries) (int64, error) {
 			}
 		}
 	}
-	return id, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	s.recordTitleAdded(ctx, id, Series, a.TMDB.Title, len(a.Versions))
+	return id, nil
 }
 
 // insertSeries writes a new Series Title with its aliases, ratings, seasons and
@@ -456,10 +461,16 @@ func (s *Service) SetSeriesMonitor(ctx context.Context, id int64, mode Monitor) 
 	if !mode.Valid() {
 		return fmt.Errorf("library: %w %q", ErrUnknownMode, mode)
 	}
-	return s.writeSeries(ctx, id, func(q *db.Queries) error {
-		_, err := applySeriesMode(ctx, q, id, mode, s.clock())
+	changed := false
+	err := s.writeSeries(ctx, id, func(q *db.Queries) error {
+		var err error
+		changed, err = applySeriesMode(ctx, q, id, mode, s.clock())
 		return err
 	})
+	if err == nil && changed {
+		s.recordTitleMonitoring(ctx, id, mode != MonitorNone, mode)
+	}
+	return err
 }
 
 // applySeriesMode sets a Series' mode and applies it to every episode, and
@@ -475,24 +486,39 @@ func optionsOf(t db.Title) MonitorOptions {
 // SetSeriesMonitorOptions sets a Series' two switches (nil leaves one as it is). Turning Specials on or off
 // applies the mode to season 0 now; new seasons only matters for seasons that come later.
 func (s *Service) SetSeriesMonitorOptions(ctx context.Context, id int64, newSeasons, specials *bool) error {
-	return s.writeSeries(ctx, id, func(q *db.Queries) error {
+	var was, now MonitorOptions
+	err := s.writeSeries(ctx, id, func(q *db.Queries) error {
 		t, err := q.GetTitle(ctx, id)
 		if err != nil {
 			return err
 		}
-		o := optionsOf(t)
+		was = optionsOf(t)
+		now = was
 		if newSeasons != nil {
-			o.NewSeasons = *newSeasons
+			now.NewSeasons = *newSeasons
 		}
 		if specials != nil {
-			o.Specials = *specials
+			now.Specials = *specials
 		}
-		if err := q.SetSeriesMonitorOptions(ctx, db.SetSeriesMonitorOptionsParams{MonitorNewSeasons: boolInt(o.NewSeasons), MonitorSpecials: boolInt(o.Specials), ID: id}); err != nil {
+		if err := q.SetSeriesMonitorOptions(ctx, db.SetSeriesMonitorOptionsParams{MonitorNewSeasons: boolInt(now.NewSeasons), MonitorSpecials: boolInt(now.Specials), ID: id}); err != nil {
 			return err
 		}
-		_, err = applySeries(ctx, q, id, Monitor(t.SeriesMonitor.String), &o, s.clock())
+		_, err = applySeries(ctx, q, id, Monitor(t.SeriesMonitor.String), &now, s.clock())
 		return err
 	})
+	if err == nil && now != was && !s.off(ctx) {
+		_, name := s.nameOf(ctx, id)
+		var parts []string
+		if now.NewSeasons != was.NewSeasons {
+			parts = append(parts, "new seasons "+onOff(now.NewSeasons))
+		}
+		if now.Specials != was.Specials {
+			parts = append(parts, "Specials "+onOff(now.Specials))
+		}
+		s.recordMonitoring(ctx, id, "options", titleLabel(Series, name)+": "+strings.Join(parts, ", "),
+			map[string]any{"monitor_new_seasons": now.NewSeasons, "monitor_specials": now.Specials})
+	}
+	return err
 }
 
 // applySeries applies the mode to every episode with the Series' options (opts nil: the stored ones). A change
@@ -531,7 +557,7 @@ func applySeries(ctx context.Context, q *db.Queries, id int64, mode Monitor, opt
 
 // SetSeasonMonitored monitors or unmonitors a season and all its episodes.
 func (s *Service) SetSeasonMonitored(ctx context.Context, id int64, season int, monitored bool) error {
-	return s.writeSeries(ctx, id, func(q *db.Queries) error {
+	err := s.writeSeries(ctx, id, func(q *db.Queries) error {
 		seasons, err := q.ListSeasonsOfTitle(ctx, id)
 		if err != nil {
 			return err
@@ -548,12 +574,18 @@ func (s *Service) SetSeasonMonitored(ctx context.Context, id int64, season int, 
 		}
 		return q.SetSeasonMonitored(ctx, db.SetSeasonMonitoredParams{Monitored: boolInt(monitored), TitleID: id, Number: int64(season)})
 	})
+	if err == nil && !s.off(ctx) {
+		_, name := s.nameOf(ctx, id)
+		s.recordMonitoring(ctx, id, "season", fmt.Sprintf("%s season %d %s", titleLabel(Series, name), season, onOff(monitored)),
+			map[string]any{"season": season, "monitored": monitored})
+	}
+	return err
 }
 
 // SetEpisodesMonitored monitors or unmonitors episodes of a Series. An id that
 // is not one of the Series' episodes is ErrNotFound and changes nothing.
 func (s *Service) SetEpisodesMonitored(ctx context.Context, id int64, episodeIDs []int64, monitored bool) error {
-	return s.writeSeries(ctx, id, func(q *db.Queries) error {
+	err := s.writeSeries(ctx, id, func(q *db.Queries) error {
 		eps, err := q.ListEpisodesOfTitle(ctx, id)
 		if err != nil {
 			return err
@@ -574,4 +606,10 @@ func (s *Service) SetEpisodesMonitored(ctx context.Context, id int64, episodeIDs
 		}
 		return nil
 	})
+	if err == nil && !s.off(ctx) {
+		_, name := s.nameOf(ctx, id)
+		s.recordMonitoring(ctx, id, "episodes", fmt.Sprintf("%s: %s %s", titleLabel(Series, name), plural(len(episodeIDs), "episode"), onOff(monitored)),
+			map[string]any{"episode_ids": episodeIDs, "monitored": monitored})
+	}
+	return err
 }

@@ -34,6 +34,9 @@ func (s *server) BulkTitles(ctx context.Context, r oapi.BulkTitlesRequestObject)
 	if err != nil {
 		return nil, err
 	}
+	// The bulk entry below says what happened to each Title, so the changes do not each write their own.
+	callCtx := ctx
+	ctx = library.Quiet(ctx)
 	var items []oapi.TitleBulkOutcome
 	switch action {
 	case string(oapi.Monitor):
@@ -70,7 +73,7 @@ func (s *server) BulkTitles(ctx context.Context, r oapi.BulkTitlesRequestObject)
 	if err != nil {
 		return nil, err
 	}
-	s.recordBulk(ctx, action, ids, items)
+	s.recordBulk(callCtx, action, ids, items)
 	return oapi.BulkTitles200JSONResponse(oapi.TitlesBulkResult{Items: items}), nil
 }
 
@@ -81,8 +84,12 @@ func (s *server) recordBulk(ctx context.Context, action string, ids []int64, ite
 	for _, it := range items {
 		counts[it.Outcome]++
 	}
+	perTitle := make([]map[string]any, len(items))
+	for i, it := range items {
+		perTitle[i] = map[string]any{"title_id": it.TitleId, "outcome": string(it.Outcome)}
+	}
 	data, _ := json.Marshal(map[string]any{
-		"action": action, "titles": len(ids),
+		"action": action, "titles": len(ids), "items": perTitle,
 		"changed": counts[oapi.TitleBulkOutcomeOutcomeChanged], "skipped": counts[oapi.TitleBulkOutcomeOutcomeSkipped], "failed": counts[oapi.TitleBulkOutcomeOutcomeFailed],
 	})
 	noun := "Titles"

@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library/db"
 	"github.com/hyprsh/kestrel/internal/metadata"
 	"github.com/hyprsh/kestrel/internal/slot"
@@ -317,6 +318,8 @@ type Service struct {
 	country func(context.Context) string
 	// listed is the last full list; see List.
 	listed listCache
+	// history is the Log changes are written to; see WithHistory.
+	history *history.Service
 }
 
 // listCache keeps the Library list as built for one state of the tables it reads, moment and country.
@@ -408,7 +411,11 @@ func (s *Service) AddMovie(ctx context.Context, a AddMovie) (int64, error) {
 			return 0, err
 		}
 	}
-	return id, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	s.recordTitleAdded(ctx, id, Movie, d.Title, len(a.Versions))
+	return id, nil
 }
 
 // insertMovie writes a Movie's Title row with its aliases, translations and
