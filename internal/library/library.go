@@ -142,7 +142,7 @@ type Row struct {
 	SearchedAt *time.Time
 	// WantedEpisodes counts a Series' Wanted episodes; nil for a Movie.
 	WantedEpisodes *WantedEpisodes
-	// Monitored is a Movie's flag, or for a Series whether its mode is not none.
+	// Monitored is a Movie's flag, or for a Series whether its mode is not none or any season is monitored.
 	Monitored bool
 
 	originalTitle string // for the filter's text
