@@ -13,11 +13,8 @@ export const manualSearchSortLabels: Record<'score' | 'release' | 'quality' | 'l
   indexer: { asc: 'Indexer A to Z', desc: 'Indexer Z to A' },
 }
 
-/** Bytes on disk, in GB from 1 GB up, else in MB. */
-export function size(bytes: number): string {
-  const gb = bytes / 1024 ** 3
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`
-}
+/** Bytes on disk: the one size formatter (`bytesText` in format.ts), shared with the Overview. */
+export { bytesText as size } from '../format'
 
 type State = 'wanted' | 'filled' | 'downloading' | 'unmonitored' | 'unreleased' | string
 

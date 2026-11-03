@@ -62,8 +62,8 @@ describe('the Library list', () => {
     // A Title that wants nothing says what it holds: here its Primary-Language title, and its size.
     const amelie = within(list).getByRole('option', { name: /amélie/i })
     expect(amelie.querySelector('[data-state-line]')).toHaveTextContent('Die fabelhafte Welt der Amélie')
-    expect(amelie).toHaveTextContent('8.0 GB')
-    expect(screen.getByText('4 of 4 · 8.0 GB')).toBeInTheDocument()
+    expect(amelie).toHaveTextContent('8 GB')
+    expect(screen.getByText('4 of 4 · 8 GB')).toBeInTheDocument()
   })
 
   it('shows a tick box on every row, out of the Tab order', async () => {

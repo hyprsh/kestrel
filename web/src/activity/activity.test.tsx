@@ -177,7 +177,7 @@ describe('Activity', () => {
     expect(failed).toHaveTextContent('1,450')
     expect(within(failed).getByTitle('wrong language (Blocklisted: import rejected: wrong language)')).toHaveTextContent('Failed · wrong language')
     expect(imported).toHaveTextContent('Imported')
-    expect(imported).toHaveTextContent('8.0 GB')
+    expect(imported).toHaveTextContent('8 GB')
     expect(imported).toHaveTextContent('1,850')
   })
 
@@ -502,7 +502,7 @@ describe('Activity', () => {
     const timeline = within(within(item).getByRole('list', { name: 'What happened' }))
     expect(timeline.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       expect.stringMatching(/Grabbed by the search pass · NZBgeek$/),
-      expect.stringMatching(/Downloaded in SABnzbd · 3\.2 GB at 5 MB\/s$/),
+      expect.stringMatching(/Downloaded in SABnzbd · 3\.2 GB at 5\.5 MB\/s$/),
       expect.stringMatching(/Imported 1 file$/),
     ])
     expect(within(item).getByText('Files')).toBeInTheDocument()
@@ -819,7 +819,7 @@ describe('Activity on a phone', () => {
 
     const [failed, imported] = within(await screen.findByRole('region', { name: 'History' })).getAllByRole('listitem')
     expect(failed).toHaveTextContent('Failed · the download failed')
-    expect(imported).toHaveTextContent('Imported · 8.0 GB')
+    expect(imported).toHaveTextContent('Imported · 8 GB')
     expect(failed).toHaveTextContent(/\d{1,2}:\d{2}/)
     await userEvent.click(within(failed).getByRole('button', { expanded: false }))
     expect(await within(failed).findByText('What happened')).toBeInTheDocument()

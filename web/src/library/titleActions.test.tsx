@@ -158,12 +158,12 @@ describe('the Version rows', () => {
     expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('228 of 240 episodes · 8 Wanted · 2 Long Missing · 4 not monitored')
     // The row is one line open or closed: the state text, the count and the size stay in the header, the facts add Profile, Coverage and Size on disk.
     expect(within(hd).getByText('8 Wanted · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
-    expect(within(hd).getAllByText('412.0 GB')).toHaveLength(2)
+    expect(within(hd).getAllByText('412 GB')).toHaveLength(2)
     expect(within(hd).getByText('Profile')).toBeInTheDocument()
     // Closed, the header keeps saying them and the facts are folded away.
     await userEvent.click(row)
     expect(within(hd).getByText('8 Wanted · 2 Long Missing · 4 not monitored')).toBeInTheDocument()
-    expect(within(hd).getAllByText('412.0 GB')).toHaveLength(1)
+    expect(within(hd).getAllByText('412 GB')).toHaveLength(1)
     expect(within(hd).queryByText('Coverage')).not.toBeInTheDocument()
   })
 
@@ -179,11 +179,11 @@ describe('the Version rows', () => {
     expect(hd.querySelector('[data-complete]')).not.toBeNull()
     if (row.getAttribute('aria-expanded') === 'true') await userEvent.click(row)
     expect(within(hd).getByText('Complete')).toBeInTheDocument()
-    expect(within(hd).getAllByText('1.0 GB')).toHaveLength(1)
+    expect(within(hd).getAllByText('1 GB')).toHaveLength(1)
     await userEvent.click(row)
     expect(within(hd).getByText('Complete')).toBeInTheDocument() // opened, the header still says it
     expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('62 of 62 episodes')
-    expect(within(hd).getAllByText('1.0 GB')).toHaveLength(2)
+    expect(within(hd).getAllByText('1 GB')).toHaveLength(2)
   })
 
   it('leave a Wanted Special out of a Series Version’s episode total but count it as Wanted', async () => {
@@ -272,7 +272,7 @@ describe('the Version rows', () => {
     expect(await fact('Quality')).toHaveTextContent('BluRay 1080p')
     expect(await fact('Video')).toHaveTextContent('H.264')
     expect(await fact('Audio')).toHaveTextContent('DTS 5.1 · English, German')
-    expect(await fact('Size')).toHaveTextContent('8.0 GB')
+    expect(await fact('Size')).toHaveTextContent('8 GB')
     expect(await fact('Imported')).toHaveTextContent(/from GRP$/)
     expect(await fact('Path')).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
     // The Score and each Custom Format the file matched, with its points.

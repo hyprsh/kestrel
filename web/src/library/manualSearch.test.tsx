@@ -183,7 +183,7 @@ describe('manual search', () => {
     expect(card).toHaveTextContent('Best fit')
     expect(card).toHaveTextContent('Season pack · covers 2 of 4 Wanted · replaces 2 files')
     expect(card).toHaveTextContent('Show.S05.2160p.WEB-DL-NTb')
-    for (const fact of ['WEB-DL 2160p', 'HDR10', 'DDP 5.1', 'English', '38.0 GB', 'Alpha']) expect(within(card).getByText(fact)).toBeInTheDocument()
+    for (const fact of ['WEB-DL 2160p', 'HDR10', 'DDP 5.1', 'English', '38 GB', 'Alpha']) expect(within(card).getByText(fact)).toBeInTheDocument()
     expect(card).toHaveTextContent('WEB Tier 01 +1,700')
     expect(card).toHaveTextContent('x265 (HD) −150')
     expect(card).toHaveTextContent('2,350')
@@ -281,7 +281,7 @@ describe('manual search', () => {
     await openManualSearch()
     const row = rowOf(/Show.S05E05/)
     expect(row).toHaveTextContent('E05 · Dead Freight · BluRay 1080p · HDR10 · English · Alpha')
-    expect(row).toHaveTextContent('8.0 GB')
+    expect(row).toHaveTextContent('8 GB')
     expect(row).toHaveTextContent('2,050')
   })
 
@@ -364,7 +364,7 @@ describe('manual search', () => {
       await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
       await userEvent.click(within(table).getByText('Show.S05E06.1080p.WEB-DL-FAT'))
       const open = screen.getByText(/^Rejected: Over the size limit/)
-      expect(open).toHaveTextContent('Its size is 14.0 GB, and the Profile takes 1 – 10 GB per episode. You can still grab it')
+      expect(open).toHaveTextContent('Its size is 14 GB, and the Profile takes 1 – 10 GB per episode. You can still grab it')
       expect(screen.getByRole('button', { name: 'Grab Anyway…' })).toBeInTheDocument()
     })
 
@@ -464,7 +464,7 @@ describe('manual search', () => {
       expect(dialog).toHaveTextContent('Score 2,100')
       expect(dialog).toHaveTextContent('Fills')
       expect(dialog).toHaveTextContent('+250 each')
-      expect(dialog).toHaveTextContent('38.0 GB')
+      expect(dialog).toHaveTextContent('38 GB')
       expect(state.grabs).toEqual([])
 
       await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))

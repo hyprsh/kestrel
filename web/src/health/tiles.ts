@@ -2,32 +2,9 @@
 // the media servers), Storage (each disk and the database) and System (the version, the clock, the TRaSH snapshot, Grabs). Failing tiles come first in
 // their group and say since when. Used by the Health screen, Settings (which pages need attention) and the Trash.
 import type { SystemStatus } from '../api/attention'
+import { bytesText } from '../format'
 import { ago, clockTime } from '../time'
 import type { TileData, Tone } from './HealthTile'
-
-/** "800 GB", "1 TB": powers of 1024, no decimals once a number is round. */
-function formatBytes(n: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  let v = n
-  let i = 0
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024
-    i++
-  }
-  return `${Number.isInteger(v) ? v : v.toFixed(1)} ${units[i]}`
-}
-
-/** "84 MB", "1.2 GB": a database's size, a whole number once it is over ten of its unit. */
-function sizeText(n: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let v = n
-  let i = 0
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024
-    i++
-  }
-  return `${v < 10 && i > 0 ? v.toFixed(1).replace(/\.0$/, '') : Math.round(v)} ${units[i]}`
-}
 
 /** "0.7 s", "0.6 – 0.9 s" for a range, from milliseconds; "<0.1 s" for an answer in under a tenth of a second. */
 function secondsText(lo: number, hi: number): string {
@@ -110,7 +87,7 @@ function serviceTile(s: SystemStatus['services'][number], now: number): TileData
 function diskTile(d: SystemStatus['disks'][number]): TileData {
   const low = d.free_bytes < d.low_free_bytes
   const used = d.total_bytes > 0 ? Math.round(((d.total_bytes - d.free_bytes) / d.total_bytes) * 100) : 0
-  return { key: `disk-${d.path}`, name: d.path, tone: low ? 'low' : 'ok', word: low ? 'low' : undefined, detail: `${formatBytes(d.free_bytes)} free · ${used}% used${low ? ' · low' : ''}` }
+  return { key: `disk-${d.path}`, name: d.path, tone: low ? 'low' : 'ok', word: low ? 'low' : undefined, detail: `${bytesText(d.free_bytes)} free · ${used}% used${low ? ' · low' : ''}` }
 }
 
 /** "from today", "1 day old", "12 days old"; "age unknown" when the snapshot has no date. */
@@ -123,7 +100,7 @@ export function snapshotAge(committedAt: string | null, now = Date.now()): strin
 /** The database: its size and how long ago the last scheduled backup was taken. */
 function databaseTile(d: NonNullable<SystemStatus['database']>, now: number): TileData {
   const backup = d.last_backup_at ? `last backup ${ago(d.last_backup_at, now)}` : 'no backup yet'
-  return { key: 'database', name: 'Database', tone: 'ok', detail: `${sizeText(d.size_bytes)} · ${backup}` }
+  return { key: 'database', name: 'Database', tone: 'ok', detail: `${bytesText(d.size_bytes)} · ${backup}` }
 }
 
 /** The clock: "In sync", or how far off it is when it is out by over a minute. Nothing until it has been compared. */

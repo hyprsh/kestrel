@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { usePreviewCleanup, useRunCleanup, type CleanupCategory, type CleanupPreview, type CleanupResult } from '../api/cleanup'
 import { ApiError } from '../api/queries'
+import { bytesText } from '../format'
 import { Button, Checkbox, Code, Collapse, DestructiveActionModal, Entity, EmptyState, Note } from '@hyprsh/design'
 
 const labels: Record<CleanupCategory['key'], string> = {
@@ -16,7 +17,6 @@ const labels: Record<CleanupCategory['key'], string> = {
   unmanaged_videos: 'Unmanaged videos',
 }
 
-const mb = (n: number) => (n >= 1 << 30 ? `${(n / (1 << 30)).toFixed(1)} GB` : `${(n / (1 << 20)).toFixed(1)} MB`)
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
 /** titleIds narrows the look to those Titles; without them every tracked Title is looked at. */
@@ -38,7 +38,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
         )}
         {done && (
           <Note role="status" className="mt-4" variant={done.failed > 0 ? 'warning' : 'success'}>
-            {`Deleted ${done.deleted} ${done.deleted === 1 ? 'file' : 'files'} (${mb(done.bytes)})${done.failed > 0 ? `, ${done.failed} could not be deleted` : ''}.`}
+            {`Deleted ${done.deleted} ${done.deleted === 1 ? 'file' : 'files'} (${bytesText(done.bytes)})${done.failed > 0 ? `, ${done.failed} could not be deleted` : ''}.`}
           </Note>
         )}
         {preview.data ? (
@@ -112,7 +112,7 @@ function Review({
       <Entity.List aria-label="Unmanaged files by category">
         {nonEmpty.map((c) => (
           <Entity key={c.key} className="items-start" left={<Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]} />}>
-            <Entity.Content fill title={labels[c.key]} description={`${c.count} ${c.count === 1 ? 'item' : 'items'}, ${mb(c.size)}`}>
+            <Entity.Content fill title={labels[c.key]} description={`${c.count} ${c.count === 1 ? 'item' : 'items'}, ${bytesText(c.size)}`}>
               <Collapse variant="inline" title="Show files">
                 <ul className="flex flex-col gap-1">
                   {c.files.map((f) => (
@@ -134,7 +134,7 @@ function Review({
           Cancel
         </Button>
         <Button variant="error" size="small" onClick={() => setConfirming(true)} disabled={files.length === 0}>
-          Delete {files.length} {files.length === 1 ? 'item' : 'items'} ({mb(bytes)})
+          Delete {files.length} {files.length === 1 ? 'item' : 'items'} ({bytesText(bytes)})
         </Button>
       </div>
       <DestructiveActionModal
@@ -147,7 +147,7 @@ function Review({
           )
         }
         title="Delete Files"
-        description={`Delete ${files.length} ${files.length === 1 ? 'item' : 'items'} (${mb(bytes)}) from your tracked Titles' folders.`}
+        description={`Delete ${files.length} ${files.length === 1 ? 'item' : 'items'} (${bytesText(bytes)}) from your tracked Titles' folders.`}
         irreversibleDescription="Deleting these files is permanent and cannot be undone."
         confirmLabel="Delete Files"
         loading={busy}

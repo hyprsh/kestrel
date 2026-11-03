@@ -3,6 +3,7 @@
 // from those and from the Title's name (the Library knows it), so what an event does not hold is left out, never guessed.
 // A message that does not read as the formatter expects falls back to being shown as it is.
 import type { LogEvent } from '../api/log'
+import { bytesText } from '../format'
 import { manualSearchPath } from '../place'
 import { rejectionText } from '../rejection'
 import { clock } from './rows'
@@ -31,18 +32,6 @@ export type Sentence = {
   title?: string
   rest: string
   icon: IconName
-}
-
-/** Whole bytes as "1.4 GB". */
-function bytesText(n: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let v = n
-  let i = 0
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1000
-    i++
-  }
-  return `${i === 0 || v >= 10 ? Math.round(v) : v.toFixed(1)} ${units[i]}`
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`

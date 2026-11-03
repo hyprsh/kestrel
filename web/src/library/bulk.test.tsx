@@ -222,7 +222,7 @@ describe('changing the ticked Titles together', () => {
 
     await choose(pane, 'Remove from Library…')
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Titles' })
-    expect(confirm).toHaveTextContent('Remove 2 Titles from the Library, with 10.0 GB of files.')
+    expect(confirm).toHaveTextContent('Remove 2 Titles from the Library, with 10 GB of files.')
     await userEvent.click(within(confirm).getByRole('checkbox', { name: 'Also delete files' }))
     await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
 
