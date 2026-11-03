@@ -34,6 +34,8 @@ export default defineConfig({
     },
   },
   server: {
+    // Tests read the server's Go source to check the SPA has words for every kind and code.
+    fs: { allow: ['..'] },
     // `make dev-api` runs the Go server on 7676.
     proxy: {
       '/api': 'http://localhost:7676',
