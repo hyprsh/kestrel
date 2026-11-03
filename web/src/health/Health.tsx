@@ -57,12 +57,12 @@ function HealthChecks() {
   }
   return (
     <section aria-labelledby={title} className="flex flex-col gap-2.5">
-      <div className="flex items-baseline gap-2.5">
+      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
         <h3 id={title} className="heading-16 flex-1">
           Checks
         </h3>
-        {counts && <span className="label-13 text-gray-900">{counts}</span>}
-        <Button variant="tertiary" size="small" loading={checks.pending} onClick={checks.run}>
+        {counts && <span className="label-13 text-gray-900 max-sm:order-last max-sm:basis-full">{counts}</span>}
+        <Button variant="tertiary" size="small" loading={checks.pending} onClick={checks.run} className="shrink-0 whitespace-nowrap">
           Run Checks Again
         </Button>
       </div>

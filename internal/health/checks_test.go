@@ -378,6 +378,24 @@ func TestDisksListsTheDataMountAndEveryRootFolder(t *testing.T) {
 	}
 }
 
+// Two folders on one disk read the same filesystem, so the strip can show that disk once.
+func TestDisksNameTheFilesystemOfEachPath(t *testing.T) {
+	data := t.TempDir()
+	movies := filepath.Join(data, "movies")
+	if err := os.MkdirAll(movies, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	paths := []string{movies}
+	e := newEnv(t, func(d *health.Deps) { d.Checks.DataDir = data }, rootsOf(&paths))
+	disks, err := e.h.Disks(testCtx())
+	if err != nil || len(disks) != 2 {
+		t.Fatalf("Disks = %+v, %v", disks, err)
+	}
+	if disks[0].Filesystem == "" || disks[0].Filesystem != disks[1].Filesystem {
+		t.Errorf("the data dir and its subfolder should share a filesystem: %+v", disks)
+	}
+}
+
 // A plugin's message that already names the instance is the whole row.
 func TestDownloadClientAndIndexerRowsDoNotNameTheInstanceTwice(t *testing.T) {
 	ctx := testCtx()

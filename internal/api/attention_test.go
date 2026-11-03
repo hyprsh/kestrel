@@ -326,7 +326,9 @@ func TestRootFolderUnavailableIsBlockingForAMissingFolderAndClearsWhenItIsBack(t
 }
 
 func lowDisk(o *app.Options) {
-	o.DiskSpace = func(string) (health.Space, error) { return health.Space{Free: 10 << 30, Total: 1 << 40}, nil }
+	o.DiskSpace = func(string) (health.Space, error) {
+		return health.Space{Free: 10 << 30, Total: 1 << 40, Filesystem: "7"}, nil
+	}
 }
 
 func TestLowDiskSpaceIsAWarningAndTheHealthStripShowsFreeSpace(t *testing.T) {
@@ -340,7 +342,7 @@ func TestLowDiskSpaceIsAWarningAndTheHealthStripShowsFreeSpace(t *testing.T) {
 	}
 
 	st := decode[statusJSON](t, s.valid("GET", "/system/status", ""))
-	if len(st.Disks) < 1 || st.Disks[0].Path != s.data || st.Disks[0].FreeBytes != 10<<30 || st.Disks[0].TotalBytes != 1<<40 || st.Disks[0].LowFreeBytes != 1<<40/20 {
+	if len(st.Disks) < 1 || st.Disks[0].Path != s.data || st.Disks[0].FreeBytes != 10<<30 || st.Disks[0].TotalBytes != 1<<40 || st.Disks[0].LowFreeBytes != 1<<40/20 || st.Disks[0].Filesystem == nil || *st.Disks[0].Filesystem != "7" {
 		t.Errorf("disks = %+v", st.Disks)
 	}
 }
@@ -359,10 +361,11 @@ type statusJSON struct {
 		Message    *string `json:"message"`
 	} `json:"indexers"`
 	Disks []struct {
-		Path         string `json:"path"`
-		FreeBytes    int64  `json:"free_bytes"`
-		TotalBytes   int64  `json:"total_bytes"`
-		LowFreeBytes int64  `json:"low_free_bytes"`
+		Path         string  `json:"path"`
+		FreeBytes    int64   `json:"free_bytes"`
+		TotalBytes   int64   `json:"total_bytes"`
+		LowFreeBytes int64   `json:"low_free_bytes"`
+		Filesystem   *string `json:"filesystem"`
 	} `json:"disks"`
 }
 

@@ -1,4 +1,5 @@
-import { Badge, Button, Code, Entity, Input, Note } from '@hyprsh/design'
+import { Badge, Button, Entity, Input, Note } from '@hyprsh/design'
+import { MiddlePath } from '../layout/MiddlePath'
 import { SkeletonForm } from '../loading'
 import { useState, type FormEvent } from 'react'
 import { ApiError, usePatchSettings, useSettings, type Settings } from '../api/queries'
@@ -65,7 +66,7 @@ function Form({ saved, declared, compact }: { saved: Folders; declared: boolean;
                     )
                   }
                 >
-                  <Entity.Content fill title={<Code>{path}</Code>} />
+                  <Entity.Content fill title={<MiddlePath path={path} code />} />
                 </Entity>
               ))}
             </Entity.List>

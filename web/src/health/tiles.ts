@@ -84,10 +84,33 @@ function serviceTile(s: SystemStatus['services'][number], now: number): TileData
   }
 }
 
-function diskTile(d: SystemStatus['disks'][number]): TileData {
-  const low = d.free_bytes < d.low_free_bytes
-  const used = d.total_bytes > 0 ? Math.round(((d.total_bytes - d.free_bytes) / d.total_bytes) * 100) : 0
-  return { key: `disk-${d.path}`, name: d.path, tone: low ? 'low' : 'ok', word: low ? 'low' : undefined, detail: `${bytesText(d.free_bytes)} free · ${used}% used${low ? ' · low' : ''}` }
+/** One tile for a disk with every folder on it: folders on one filesystem share their free space, so it reads once. A disk the server cannot name stands alone. */
+function diskTiles(disks: SystemStatus['disks']): TileData[] {
+  const groups: SystemStatus['disks'][] = []
+  const byFilesystem = new Map<string, SystemStatus['disks']>()
+  for (const d of disks) {
+    const group = d.filesystem ? byFilesystem.get(d.filesystem) : undefined
+    if (group) group.push(d)
+    else {
+      const fresh = [d]
+      groups.push(fresh)
+      if (d.filesystem) byFilesystem.set(d.filesystem, fresh)
+    }
+  }
+  return groups.map((g) => {
+    const d = g[0]
+    const low = d.free_bytes < d.low_free_bytes
+    const used = d.total_bytes > 0 ? Math.round(((d.total_bytes - d.free_bytes) / d.total_bytes) * 100) : 0
+    const paths = g.map((x) => x.path)
+    return {
+      key: `disk-${paths[0]}`,
+      name: paths.join(', '),
+      paths,
+      tone: low ? 'low' : 'ok',
+      word: low ? 'low' : undefined,
+      detail: `${bytesText(d.free_bytes)} free · ${used}% used${low ? ' · low' : ''}`,
+    }
+  })
 }
 
 /** "from today", "1 day old", "12 days old"; "age unknown" when the snapshot has no date. */
@@ -135,7 +158,7 @@ export function healthOf(s: SystemStatus, now = Date.now()): { groups: HealthGro
   if (s.grabs_paused) system.push({ key: 'grabs', name: 'Grabs', tone: 'paused', detail: 'Automatic Grabs are paused' })
   const groups = [
     { title: 'Connections', tiles: [clientTile(s.download_client, now), ...indexerTiles(s.indexers, now), ...s.services.map((v) => serviceTile(v, now))] },
-    { title: 'Storage', tiles: [...s.disks.map(diskTile), ...(s.database ? [databaseTile(s.database, now)] : [])] },
+    { title: 'Storage', tiles: [...diskTiles(s.disks), ...(s.database ? [databaseTile(s.database, now)] : [])] },
     { title: 'System', tiles: system },
   ]
     .filter((g) => g.tiles.length > 0)

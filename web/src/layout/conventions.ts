@@ -16,6 +16,8 @@
 //                         SortButton: the one Filter button      <FacetFilterButton query onQuery qualifiers />
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
+//   MiddlePath.tsx       MiddlePath and splitPath: a folder path   <MiddlePath path="/data/media/movies-family" />
+//                         cut in the middle, keeping its last folder
 //   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
 //                         NowTitle, NowEmpty: the Overview's Downloading and Searching cards
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
