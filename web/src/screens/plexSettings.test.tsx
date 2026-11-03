@@ -114,12 +114,14 @@ describe('Settings > Plex > Plex sign-in', () => {
 
     for (const name of ['Make Requests from Watchlists', 'Watch-ahead for Series', 'Requested labels in Plex', 'Requested poster badge in Plex'])
       expect(await screen.findByRole('switch', { name })).not.toBeChecked()
-    const days = screen.getByRole('spinbutton', { name: 'Poster badge days' })
-    expect(days).toHaveValue(null)
-    expect(days).toHaveAttribute('placeholder', '30')
+    // The days only matter while the badge is on, so they show once it is.
+    expect(screen.queryByRole('spinbutton', { name: 'Poster badge days' })).not.toBeInTheDocument()
 
     for (const name of ['Make Requests from Watchlists', 'Watch-ahead for Series', 'Requested labels in Plex', 'Requested poster badge in Plex'])
       await userEvent.click(screen.getByRole('switch', { name }))
+    const days = screen.getByRole('spinbutton', { name: 'Poster badge days' })
+    expect(days).toHaveValue(null)
+    expect(days).toHaveAttribute('placeholder', '30')
     await userEvent.type(days, '14')
     await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
 
@@ -130,6 +132,15 @@ describe('Settings > Plex > Plex sign-in', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
     await vi.waitFor(() => expect(sent).toHaveLength(2))
     expect(sent[1].poster_badge_days).toBeNull()
+  })
+
+  it('hides the badge days again when the poster badge is turned off', async () => {
+    fakePlexSettings({ enabled: true, instance: 'Living room Plex', poster_badge: true, poster_badge_days: 14 })
+    await openCard()
+
+    expect(await screen.findByRole('spinbutton', { name: 'Poster badge days' })).toHaveValue(14)
+    await userEvent.click(screen.getByRole('switch', { name: 'Requested poster badge in Plex' }))
+    expect(screen.queryByRole('spinbutton', { name: 'Poster badge days' })).not.toBeInTheDocument()
   })
 
   it('shows what is saved of the switches and the server’s error on the badge days', async () => {
@@ -182,7 +193,7 @@ describe('Settings > Plex > Plex sign-in', () => {
   })
 
   it('is read-only, with the declared note, while the Config File declares it', async () => {
-    fakePlexSettings({ enabled: true, instance: 'Living room Plex', users: ['anna'], from_config_file: true })
+    fakePlexSettings({ enabled: true, instance: 'Living room Plex', users: ['anna'], poster_badge: true, from_config_file: true })
     await openCard()
 
     expect(await screen.findByRole('switch', { name: 'Let people sign in with Plex' })).toBeDisabled()

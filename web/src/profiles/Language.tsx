@@ -73,7 +73,15 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
         onChange={(e) => pick(e.target.value as Language)}
         options={languages.map((l) => ({ value: l.value, label: l.label }))}
       />
-      <Input size="small" label="Release-date country" maxLength={2} value={country} disabled={declared || !!pending} onChange={(e) => setCountry(e.target.value.toUpperCase())} className="w-24" />
+      <Input
+        size="small"
+        label="Release-date country"
+        maxLength={2}
+        value={country}
+        disabled={declared || !!pending}
+        onChange={(e) => setCountry(e.target.value.toUpperCase())}
+        wrapperClassName="w-24"
+      />
       <p className="copy-13 text-gray-900">The country decides when a Title counts as released. It follows the language until you edit it.</p>
       {save.isError && (
         <Note variant="error" size="small">
