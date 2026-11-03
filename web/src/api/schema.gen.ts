@@ -5247,7 +5247,7 @@ export interface components {
             quality: components["schemas"]["StatsQuality"][];
             /** @description Files that fit their Version and are below their Profile's cutoff, so Upgrades are wanted for them. */
             below_cutoff: number;
-            /** @description The five groups with the most files, most first. */
+            /** @description The groups with the most files, most first, ties by name, at most 50. */
             release_groups: components["schemas"]["StatsReleaseGroup"][];
             requests: components["schemas"]["StatsRequests"];
             storage: components["schemas"]["StatsStorage"];
