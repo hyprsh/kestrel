@@ -1,12 +1,15 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { failureText, shortWhy, whyFailed } from './activity/words'
 import { reasonWords, rejectionText, rejectionWords } from './rejection'
 
 // Every rejection code of internal/imports (the Reason* constants), read from the Go source so a new one without words fails here.
-const sources = import.meta.glob('../../internal/imports/*.go', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
-const serverCodes = Object.entries(sources)
-  .filter(([file]) => !file.endsWith('_test.go'))
-  .flatMap(([, src]) => [...src.matchAll(/^\s+Reason\w+\s+= "([a-z_]+)"/gm)].map((m) => m[1]))
+const dir = resolve(dirname(fileURLToPath(import.meta.url)), '../../internal/imports')
+const serverCodes = readdirSync(dir)
+  .filter((file) => file.endsWith('.go') && !file.endsWith('_test.go'))
+  .flatMap((file) => [...readFileSync(resolve(dir, file), 'utf8').matchAll(/^\s+Reason\w+\s+= "([a-z_]+)"/gm)].map((m) => m[1]))
 
 describe('the words for an Import rejection', () => {
   it('finds the server codes', () => {
