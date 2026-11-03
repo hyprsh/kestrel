@@ -24,6 +24,10 @@ const result = (over: Partial<Lookup> = {}): Lookup => ({
   in_library: null,
   addable: true,
   not_addable_reason: null,
+  network: null,
+  origin_country: null,
+  seasons: null,
+  runtime: null,
   ratings: [],
   ...over,
 })

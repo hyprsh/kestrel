@@ -1,85 +1,23 @@
-import { displayDefaults, noDisplayDeclared } from '../test/display'
-import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { App } from '../App'
 import { http } from '../test/handlers'
-import { detail, fakeLibrary, row, type LookupResult, type Sent, type Suggestion } from '../test/library'
+import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
+import { fakeTmdb, openMenu, renderApp, result } from './testkit'
 
-const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
-
-const result = (id: number, title: string, over: Partial<LookupResult> = {}): LookupResult => ({
-  kind: 'movie',
-  tmdb_id: id,
-  tvdb_id: null,
-  title,
-  year: 2014,
-  poster: null,
-  in_library: null,
-  addable: true,
-  not_addable_reason: null,
-  ratings: [],
-  ...over,
-})
-
-const defaultSuggestion = (id: number, title: string): Suggestion => ({
-  kind: 'movie',
-  tmdb_id: id,
-  title,
-  year: 2014,
-  overview: '',
-  in_library: null,
-  certification: '6',
-  certification_country: 'DE',
-  slots: [{ slot: 'standard', profile: 'hd-primary', label: 'HD', reason: 'default' }],
-  ratings: [],
-  poster: null,
-  runtime: null,
-  genres: [],
-})
-
-/** TMDB lookups: Paddington is addable, Paddington Returns is already in the Library. */
-function fakeLookup(suggestion: (id: number, title: string) => Suggestion = defaultSuggestion) {
-  const lib = fakeLibrary([row(7, 'Paddington Returns', 'Paddington 2')])
-  const sent: Sent[] = []
-  const queries: string[] = []
-  server.use(
-    http.get('/lookup', ({ request, response }) => {
-      const q = new URL(request.url).searchParams.get('q') ?? ''
-      queries.push(q)
-      return response(200).json({
-        items: [result(116149, 'Paddington'), result(346648, 'Paddington Returns', { in_library: 7 })],
-        next_cursor: null,
-        did_you_mean: null,
-      })
-    }),
-    http.get('/lookup/{kind}/{tmdb_id}', ({ params, response }) => response(200).json(suggestion(Number(params.tmdb_id), Number(params.tmdb_id) === 116149 ? 'Paddington' : 'Paddington Returns'))),
-    http.post('/titles', async ({ request, response }) => {
-      const body = await request.json()
-      sent.push({ path: 'titles', body })
-      const added = row(8, 'Paddington', 'Ein Bär namens Paddington', { slots: { standard: { version_id: 81, profile: 'hd-primary', state: 'wanted', long_missing: false }, '4k': null } })
-      lib.rows = [added, ...lib.rows]
-      return response(201).json(detail(added))
-    }),
-  )
-  return { sent, queries }
-}
-
-const openMenu = async () => {
-  await screen.findByRole('navigation')
-  await userEvent.keyboard('{Control>}k{/Control}')
-  return screen.findByRole('dialog', { name: /command menu/i })
-}
-
-/** Opens the menu in Add mode and searches. */
-async function searchForPaddington() {
+/** Opens the menu and types the query. */
+async function search(q = 'padd') {
   const menu = await openMenu()
-  await userEvent.keyboard('padd')
-  await userEvent.click(await within(menu).findByRole('option', { name: /add "padd"/i }))
+  await userEvent.keyboard(q)
   return menu
 }
+
+/** The second line of a row: what a Title or command is, under its name. */
+const second = (option: HTMLElement) => option.querySelector('[data-row] > span:nth-child(2)')?.textContent
+
+/** TMDB's results: the last group, which the Library's own Titles and the commands come before. */
+const foundGroup = (menu: HTMLElement) => within(menu).getAllByRole('group').at(-1)!
 
 describe('the command menu', () => {
   it('shows a loading line with a spinner only after a short wait', async () => {
@@ -93,8 +31,7 @@ describe('the command menu', () => {
       }),
     )
     renderApp()
-    await searchForPaddington()
-    const menu = screen.getByRole('dialog', { name: /command menu/i })
+    const menu = await search('qqzxv')
     expect(within(menu).queryByText('Searching…')).not.toBeInTheDocument()
     expect(await within(menu).findByText('Searching…', {}, { timeout: 2000 })).toBeInTheDocument()
     answer()
@@ -114,26 +51,61 @@ describe('the command menu', () => {
     await userEvent.keyboard('upcom')
     // Enter picks the first row, so wait for the list to have settled on Upcoming before pressing it.
     await within(again).findByRole('option', { name: /^Upcoming/ })
-    await userEvent.keyboard('{Enter}') // first match is Go to > Upcoming
+    await userEvent.keyboard('{Enter}') // first match is Go To > Upcoming
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Upcoming', level: 1 })).toBeInTheDocument()
   })
 
-  it('has no footer of key hints', async () => {
+  it('lists Recent Titles with their state, then Actions, then Go To', async () => {
+    fakeLibrary([row(1, 'Heat', 'Heat', { year: 1995 }), row(2, 'Zodiac', 'Zodiac')])
+    renderApp()
+    const menu = await openMenu()
+    const groups = within(menu).getAllByRole('group')
+    expect(groups.map((g) => document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent)).toEqual(['Recent', 'Actions', 'Go To'])
+    const heat = await within(menu).findByRole('option', { name: /^Heat/ })
+    expect(heat).toHaveTextContent('1995')
+    expect(second(heat)).toMatch(/^Movie · /)
+    const add = within(menu).getByRole('option', { name: /^Add Title…/ })
+    expect(second(add)).toBe('Search TMDB for a Movie or Series')
+  })
+
+  it('draws every row at one height, 52px and 56px on a phone, whatever the row holds', async () => {
+    fakeTmdb()
+    renderApp()
+    const menu = await openMenu()
+    const sameHeight = () => {
+      const options = within(menu).getAllByRole('option')
+      expect(options.length).toBeGreaterThan(3)
+      // chrome-ok: jsdom draws no layout, so the one height is asserted through the row's height classes
+      for (const o of options) expect(o).toHaveClass('h-13', 'max-sm:h-14')
+    }
+    sameHeight() // Titles, Actions and Go To
+    await userEvent.keyboard('padd')
+    await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ })
+    sameHeight() // and TMDB's results among them
+  })
+
+  it('shows a key hint footer on a desktop', async () => {
     fakeLibrary([])
     renderApp()
     const menu = await openMenu()
-    expect(within(menu).queryByText('↑')).not.toBeInTheDocument()
+    expect(within(menu).getByText('Move')).toBeInTheDocument()
+    expect(within(menu).getByText('Open')).toBeInTheDocument()
   })
 
-  it('shows the Add hint as the search field placeholder while the query is empty', async () => {
-    fakeLookup()
+  it('opens Add Title… as a search of TMDB alone, with its hint as the placeholder', async () => {
+    fakeTmdb()
     renderApp()
     const menu = await openMenu()
     await userEvent.click(within(menu).getByRole('option', { name: /add title/i }))
     const input = within(menu).getByRole('combobox', { name: /search/i })
     expect(input).toHaveAttribute('placeholder', 'Type a title to search both Movies and Series…')
-    expect(within(menu).queryByText(/^Type a title to search both/)).not.toBeInTheDocument()
+    expect(within(menu).queryByRole('option', { name: /^Library/ })).not.toBeInTheDocument()
+    await userEvent.keyboard('padd')
+    expect(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ })).toBeInTheDocument()
+    await userEvent.clear(input)
+    await userEvent.keyboard('{Backspace}')
+    expect(await within(menu).findByRole('option', { name: /^Library/ })).toBeInTheDocument() // Backspace on an empty field leaves Add mode
   })
 
   it('moves the highlight with Ctrl+N and Ctrl+P as well as the arrows', async () => {
@@ -159,13 +131,15 @@ describe('the command menu', () => {
     expect(await screen.findByRole('option', { name: /zodiac/i, selected: true })).toBeInTheDocument()
   })
 
-  it('leads with Add when no Library Title matches the query', async () => {
-    fakeLibrary([row(1, 'Heat', 'Heat')])
+  it('searches the Library, the commands and TMDB together, TMDB last', async () => {
+    fakeTmdb()
     renderApp()
-    const menu = await openMenu()
-    await userEvent.keyboard('qqzxv')
-    const options = await within(menu).findAllByRole('option')
-    expect(options[0]).toHaveTextContent('Add "qqzxv"…')
+    const menu = await search('padd')
+    await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ })
+    const groups = within(menu).getAllByRole('group')
+    expect(groups.map((g) => document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent).at(-1)).toBe('Add a Title')
+    const found = within(groups.at(-1)!).getAllByRole('option')
+    expect(found.map((o) => o.querySelector('[data-row]')?.firstElementChild?.textContent)).toEqual(['Paddington 2014', 'Paddington Returns 2014', 'Breaking Bad 2008'])
   })
 
   it('finds Titles fuzzily, best match first', async () => {
@@ -217,7 +191,7 @@ describe('the command menu', () => {
 
     await userEvent.keyboard('log')
     await within(menu).findByRole('option', { name: /^logan/i })
-    expect(groups().slice(0, 2)).toEqual(['Go to', 'Titles']) // the place Log is exact, Logan only starts with it
+    expect(groups().slice(0, 2)).toEqual(['Go To', 'Titles']) // the place Log is exact, Logan only starts with it
     expect(within(menu).getAllByRole('option')[0]).toHaveAccessibleName(/^log$/i)
 
     await userEvent.clear(input)
@@ -228,7 +202,7 @@ describe('the command menu', () => {
     await userEvent.clear(input)
     await userEvent.keyboard('ov')
     await within(menu).findByRole('option', { name: /overboard/i })
-    expect(groups().slice(0, 2)).toEqual(['Go to', 'Titles']) // Overview is the shorter
+    expect(groups().slice(0, 2)).toEqual(['Go To', 'Titles']) // Overview is the shorter
     await userEvent.keyboard('{ArrowDown}{Enter}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /overboard/i, selected: true })).toBeInTheDocument()
@@ -247,98 +221,24 @@ describe('the command menu', () => {
     expect(without.querySelector('[data-poster] img')).toBeNull() // no request that would 404
   })
 
-  it('searches once across both kinds, marking a Movie already in the Library', async () => {
-    const f = fakeLookup()
+  it('tells results apart on their second line: kind, network or studio, country, seasons or runtime and the score with its votes', async () => {
+    const f = fakeTmdb()
     renderApp()
-    const menu = await searchForPaddington()
-
-    const fresh = await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ })
-    expect(fresh).toHaveTextContent('Movie')
-    expect(fresh).not.toHaveTextContent('In library')
-    const owned = within(menu).getByRole('option', { name: /paddington returns/i })
-    expect(owned).toHaveTextContent('In library')
+    const menu = await search('padd')
+    const movie = await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ })
+    expect(second(movie)).toBe('Movie · Heyday Films · United Kingdom · 1 h 35 min · TMDB 7.3 from 4,912 votes')
+    expect(second(within(menu).getByRole('option', { name: /^Breaking Bad/ }))).toBe('Series · AMC · United States · 5 seasons · TMDB 8.9 from 14,523 votes')
     expect(f.queries.at(-1)).toBe('padd')
   })
 
-  it('adds a Movie with the Slots preselected and the default named as the reason', async () => {
-    const f = fakeLookup()
+  it('marks a Movie already in the Library and opens it instead of adding it', async () => {
+    const f = fakeTmdb()
     renderApp()
-    const menu = await searchForPaddington()
-    await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
-
-    expect(await within(menu).findByText('Preselected: Standard · HD (default)')).toBeInTheDocument()
-    expect(within(menu).getByRole('checkbox', { name: 'Standard' })).toBeChecked()
-    expect(within(menu).getByRole('checkbox', { name: '4K' })).not.toBeChecked()
-    expect(within(menu).getByRole('combobox', { name: 'Standard Profile' })).toHaveValue('hd-primary')
-
-    await userEvent.keyboard('{Enter}') // one key confirms
-
-    await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'standard', profile: 'hd-primary' }] })
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
-    expect(await screen.findByRole('option', { name: /paddington/i, selected: true })).toBeInTheDocument()
-  })
-
-  it('lets the Slots and Profiles be changed before adding', async () => {
-    const f = fakeLookup()
-    renderApp()
-    const menu = await searchForPaddington()
-    await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
-    await within(menu).findByText(/Preselected/)
-
-    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'Standard Profile' }), 'hd-primary')
-    await userEvent.click(within(menu).getByRole('checkbox', { name: '4K' }))
-    await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
-
-    await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({
-      kind: 'movie',
-      tmdb_id: 116149,
-      versions: [
-        { slot: 'standard', profile: 'hd-primary' },
-        { slot: '4k', profile: '4k-primary' },
-      ],
-    })
-  })
-
-  it('preselects the first root folder and lets another be picked', async () => {
-    const f = fakeLookup()
-    server.use(
-      http.get('/settings', ({ response }) =>
-        response(200).json({
-          language_region: { primary_language: 'en', release_date_country: 'US' },
-          check_github_updates: true,
-          pause_grabs: false,
-          display: displayDefaults,
-          from_config_file: { language_region: false, root_folders: false, check_github_updates: false, display: noDisplayDeclared },
-          trash: { auto_update: true },
-          metadata: { tmdb_api_key_set: false, tvdb_api_key_set: false },
-          root_folders: { movies: ['/data/movies', '/data/more-movies'], series: ['/data/tv'] },
-        }),
-      ),
-    )
-    renderApp()
-    const menu = await searchForPaddington()
-    await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
-    await within(menu).findByText(/Preselected/)
-
-    const folder = within(menu).getByRole('combobox', { name: 'Root folder' })
-    expect(folder).toHaveValue('/data/movies')
-    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'Standard Profile' }), 'any-primary')
-    expect(folder).toHaveValue('/data/movies') // no Profile moves the folder
-
-    await userEvent.selectOptions(folder, '/data/more-movies')
-    await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
-    await waitFor(() => expect(f.sent).toHaveLength(1))
-    expect(f.sent[0].body).toEqual({ kind: 'movie', tmdb_id: 116149, versions: [{ slot: 'standard', profile: 'any-primary' }], root_folder: '/data/more-movies' })
-  })
-
-  it('does not add an already-added Movie: it opens it in the Library', async () => {
-    const f = fakeLookup()
-    renderApp()
-    const menu = await searchForPaddington()
-    await userEvent.click(await within(menu).findByRole('option', { name: /paddington returns/i }))
+    const menu = await search('padd')
+    await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ })
+    const owned = within(foundGroup(menu)).getByRole('option', { name: /paddington returns/i })
+    expect(owned).toHaveTextContent('In Library')
+    await userEvent.click(owned)
 
     expect(f.sent).toHaveLength(0)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -346,21 +246,18 @@ describe('the command menu', () => {
     expect(await screen.findByRole('option', { name: /paddington returns/i, selected: true })).toBeInTheDocument()
   })
 
-  it('steps back from the panel with Escape and from Add mode with Backspace', async () => {
-    fakeLookup()
+  it('greys out a Series TheTVDB does not have, and says so', async () => {
+    fakeLibrary([])
+    server.use(
+      http.get('/lookup', ({ response }) =>
+        response(200).json({ items: [result(5, 'Lost Show', { kind: 'series', addable: false, not_addable_reason: 'not_on_tvdb' })], next_cursor: null, did_you_mean: null }),
+      ),
+    )
     renderApp()
-    const menu = await searchForPaddington()
-    await userEvent.click(await within(menu).findByRole('option', { name: /^Paddington\b(?!.*Returns)/ }))
-    await within(menu).findByText(/Preselected/)
-
-    await userEvent.keyboard('{Escape}')
-    expect(await within(menu).findByRole('option', { name: /paddington returns/i })).toBeInTheDocument() // back to results
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-
-    const input = within(menu).getByRole('combobox', { name: /search/i })
-    await userEvent.clear(input)
-    await userEvent.keyboard('{Backspace}')
-    expect(await within(menu).findByRole('option', { name: /library/i })).toBeInTheDocument() // root again
+    const menu = await search('lost show')
+    const option = await within(menu).findByRole('option', { name: /lost show/i })
+    expect(option).toHaveAttribute('aria-disabled', 'true')
+    expect(option).toHaveTextContent('Not on TheTVDB')
   })
 
   it('offers the best result as the query when it differs a lot from what was typed', async () => {
@@ -373,14 +270,12 @@ describe('the command menu', () => {
         return response(200).json({
           items: [result(329, 'Jurassic Park'), result(330, 'The Lost World: Jurassic Park')],
           next_cursor: null,
-          did_you_mean: q === 'jurrasic prak' ? 'Jurassic Park' : null,
+          did_you_mean: q === 'qzx prak' ? 'Jurassic Park' : null,
         })
       }),
     )
     renderApp()
-    const menu = await openMenu()
-    await userEvent.keyboard('jurrasic prak')
-    await userEvent.click(await within(menu).findByRole('option', { name: /add "jurrasic prak"/i }))
+    const menu = await search('qzx prak')
 
     const suggestion = await within(menu).findByRole('option', { name: 'Did you mean Jurassic Park?' })
     expect(suggestion).toHaveAttribute('aria-selected', 'true') // first, so Enter runs it
@@ -389,7 +284,7 @@ describe('the command menu', () => {
     expect(within(menu).getByRole('combobox', { name: /search/i })).toHaveValue('Jurassic Park')
     await waitFor(() => expect(queries.at(-1)).toBe('Jurassic Park'))
     await waitFor(() => expect(within(menu).queryByRole('option', { name: /did you mean/i })).not.toBeInTheDocument())
-    expect(within(menu).getByRole('option', { name: /^jurassic park/i })).toHaveAttribute('aria-selected', 'true')
+    expect(within(menu).getByRole('option', { name: /^jurassic park/i })).toBeInTheDocument()
   })
 
   it('says why a search failed', async () => {
@@ -403,7 +298,7 @@ describe('the command menu', () => {
       ),
     )
     renderApp()
-    await searchForPaddington()
+    await search('qqzxv')
     expect(await screen.findByRole('alert')).toHaveTextContent(/API key/)
   })
 })

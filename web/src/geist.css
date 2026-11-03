@@ -14,3 +14,53 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* The command menu is a full-screen sheet on a phone, and its pages slide in from the right (Back and an edge swipe return). */
+@media (max-width: 639.98px) {
+  .kestrel-cmd {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-height: none;
+    border-radius: 0;
+  }
+  .cmd-push {
+    animation: cmd-push 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .cmd-pop {
+    animation: cmd-pop 0.22s ease-out;
+  }
+}
+/* A phone's search row is the field with Cancel beside it: the hairline runs under both. */
+.kestrel-cmd-bar {
+  box-shadow: inset 0 -1px 0 var(--gray-alpha-400);
+}
+.kestrel-cmd-bar .hy-cmd__search {
+  box-shadow: none;
+}
+/* On a desktop the menu has room for 52px rows, and a page or list has its header and the Add row, so it keeps one height. */
+@media (min-width: 640px) {
+  .kestrel-cmd {
+    max-height: min(680px, calc(100dvh - 8rem));
+  }
+  .kestrel-cmd:has(.cmd-level) {
+    height: min(680px, calc(100dvh - 8rem));
+  }
+}
+@keyframes cmd-push {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes cmd-pop {
+  from {
+    transform: translateX(-24%);
+    opacity: 0.6;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmd-push,
+  .cmd-pop {
+    animation: none;
+  }
+}

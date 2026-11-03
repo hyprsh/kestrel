@@ -433,17 +433,19 @@ export function useLookup(q: string) {
   })
 }
 
-/** A search result with the Slots and Profiles the add panel preselects. */
+/** A search result with the Slots and Profiles its Title page preselects. */
+export const lookupDetailQuery = (kind: LookupResult['kind'], tmdbId: number) => ({
+  queryKey: ['lookup', kind, tmdbId] as const,
+  retry: false,
+  queryFn: async () => {
+    const { data, error, response } = await api.GET('/lookup/{kind}/{tmdb_id}', { params: { path: { kind, tmdb_id: tmdbId } } })
+    if (!data) throw failure(error, response)
+    return data
+  },
+})
+
 export function useLookupDetail(kind: LookupResult['kind'], tmdbId: number) {
-  return useQuery({
-    queryKey: ['lookup', kind, tmdbId],
-    retry: false,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/lookup/{kind}/{tmdb_id}', { params: { path: { kind, tmdb_id: tmdbId } } })
-      if (!data) throw failure(error, response)
-      return data
-    },
-  })
+  return useQuery(lookupDetailQuery(kind, tmdbId))
 }
 
 /**

@@ -68,6 +68,10 @@ type lookupJSON struct {
 		Poster    *string `json:"poster"`
 		InLibrary *int64  `json:"in_library"`
 		Addable   bool    `json:"addable"`
+		Network   *string `json:"network"`
+		Country   *string `json:"origin_country"`
+		Seasons   *int    `json:"seasons"`
+		Runtime   *int    `json:"runtime"`
 	} `json:"items"`
 }
 
@@ -212,6 +216,24 @@ func TestLookupSearchesBothKinds(t *testing.T) {
 	}
 	if r := l.do("GET", "/lookup?q=", ""); r.Status != 422 && r.Status != 400 {
 		t.Errorf("empty query = %d %s", r.Status, r.Body)
+	}
+}
+
+func TestLookupSaysWhatTellsResultsApart(t *testing.T) {
+	t.Parallel()
+	l := newLibraryInstance(t, metadatatest.Key)
+	got := decode[lookupJSON](t, l.valid("GET", "/lookup?q=paddington", ""))
+	m, s := got.Items[0], got.Items[1]
+	if m.Network == nil || *m.Network != "Heyday Films" || m.Country == nil || *m.Country != "GB" || m.Runtime == nil || *m.Runtime != 95 || m.Seasons != nil {
+		t.Errorf("movie = network %v country %v seasons %v runtime %v", m.Network, m.Country, m.Seasons, m.Runtime)
+	}
+	// TMDB has no details for this Series: it keeps the country its search hit named and nothing else.
+	if s.Network != nil || s.Country == nil || *s.Country != "GB" {
+		t.Errorf("series = network %v country %v", s.Network, s.Country)
+	}
+	bb := decode[lookupJSON](t, l.valid("GET", "/lookup?q=breaking", ""))
+	if b := bb.Items[0]; b.Network == nil || *b.Network != "AMC" || b.Seasons == nil || *b.Seasons != 5 || b.Country == nil || *b.Country != "US" {
+		t.Errorf("breaking bad = %+v", b)
 	}
 }
 

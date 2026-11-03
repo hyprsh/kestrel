@@ -132,7 +132,7 @@ describe('logging out', () => {
     const calls = fakeServer('logged-in')
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: /^Search or Add \(/ }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Log Out' }))
+    await userEvent.click(await screen.findByRole('option', { name: /^Log Out/ }))
     expect(await screen.findByRole('button', { name: 'Log In' })).toBeInTheDocument()
     expect(calls).toEqual([{ path: 'logout' }])
   })

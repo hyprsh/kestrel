@@ -51,6 +51,7 @@ type TMDB struct {
 	http    *http.Client
 	keys    KeySource
 	onClock func(reference, local time.Time)
+	briefs  briefCache
 }
 
 // NewTMDB returns a client.
@@ -74,6 +75,8 @@ type Provider interface {
 	Series(ctx context.Context, id int) (SeriesDetails, error)
 	// SeriesExternalIDs is the cheap TMDB-to-TheTVDB bridge call used per search result.
 	SeriesExternalIDs(ctx context.Context, id int) (ExternalIDs, error)
+	// Brief is what tells a search result apart from another of its name, from a light details call cached for a day.
+	Brief(ctx context.Context, kind Kind, id int) (Brief, error)
 	// FindMovieByIMDb is the TMDB id of the Movie with an IMDb id, or ok false.
 	FindMovieByIMDb(ctx context.Context, imdbID string) (id int, ok bool, err error)
 	// FindSeriesByIMDb is the TMDB id of the Series with an IMDb id, or ok false.
@@ -170,8 +173,9 @@ func (c *TMDB) Search(ctx context.Context, query string) ([]SearchResult, error)
 			ReleaseDate   string `json:"release_date"`
 			FirstAirDate  string `json:"first_air_date"`
 
-			VoteAverage float64 `json:"vote_average"`
-			VoteCount   int     `json:"vote_count"`
+			OriginCountry []string `json:"origin_country"` // a Series only
+			VoteAverage   float64  `json:"vote_average"`
+			VoteCount     int      `json:"vote_count"`
 		} `json:"results"`
 	}
 	q := url.Values{"query": {query}, "language": {"en-US"}, "include_adult": {"false"}}
@@ -188,7 +192,7 @@ func (c *TMDB) Search(ctx context.Context, query string) ([]SearchResult, error)
 		case "tv":
 			out = append(out, SearchResult{Kind: Series, TMDBID: r.ID, Title: r.Name, OriginalTitle: r.OriginalName,
 				Year: year(r.FirstAirDate), PosterPath: r.PosterPath, Overview: r.Overview,
-				Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount}})
+				Rating: AudienceRating{Average: r.VoteAverage, Votes: r.VoteCount}, OriginCountry: first(r.OriginCountry)})
 		}
 	}
 	return out, nil

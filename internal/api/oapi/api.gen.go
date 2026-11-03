@@ -3443,18 +3443,32 @@ type LookupResult struct {
 	InLibrary *int64    `json:"in_library"`
 	Kind      TitleKind `json:"kind"`
 
+	// Network What tells two results of one name apart: a Series' first network, a Movie's first
+	// production company. `null` when TMDB names none, and for results past the first eight of
+	// a search, which are not described further.
+	Network *string `json:"network"`
+
 	// NotAddableReason `not_on_tvdb` for a Series TheTVDB does not have; `null` when addable. Clients tolerate new values.
 	NotAddableReason *string `json:"not_addable_reason"`
+
+	// OriginCountry The ISO 3166-1 country it comes from; `null` when unknown or not described (see `network`).
+	OriginCountry *string `json:"origin_country"`
 
 	// Poster A small TMDB poster URL.
 	Poster *string `json:"poster"`
 
 	// Ratings Audience ratings of the Title from ratings sources; empty when none has one.
 	Ratings []Rating `json:"ratings"`
-	Title   string   `json:"title"`
-	TmdbId  int      `json:"tmdb_id"`
-	TvdbId  *int     `json:"tvdb_id"`
-	Year    *int     `json:"year"`
+
+	// Runtime Minutes; a typical episode's for a Series. `null` when unknown or not described (see `network`).
+	Runtime *int `json:"runtime"`
+
+	// Seasons A Series' number of seasons; `null` for a Movie, when unknown or not described (see `network`).
+	Seasons *int   `json:"seasons"`
+	Title   string `json:"title"`
+	TmdbId  int    `json:"tmdb_id"`
+	TvdbId  *int   `json:"tvdb_id"`
+	Year    *int   `json:"year"`
 }
 
 // LookupSeason defines model for LookupSeason.

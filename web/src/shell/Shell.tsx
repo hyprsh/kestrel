@@ -2,7 +2,7 @@
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { useRunningNow, type Running } from '../activity/running'
 import { Button, Rail, Separator, StatusDot, ThemeSwitcher, TitleBar, useToasts } from '@hyprsh/design'
-import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
+import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, Info, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
@@ -309,7 +309,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     const s = [...screens, adoption, cleanup, requests].find((x) => x.key === k)!
     return { ...s, label: moreLabels[k] ?? s.label }
   })
-  const places = useMemo(() => [...screens, health, { key: 'about', label: 'About' }].map((s) => ({ id: s.key, label: s.label })), [])
+  const places = useMemo(() => [...screens, health, { key: 'about', label: 'About', icon: <Info /> }].map((s) => ({ id: s.key, label: s.label, icon: s.icon })), [])
   const closeMenu = useCallback(() => setMenu(null), [])
   // Opens a Title's Manual search as a new history entry, so Back returns to where it was opened from; null closes it the same way.
   const openSearch = useCallback((at: ManualSearchAt) => {

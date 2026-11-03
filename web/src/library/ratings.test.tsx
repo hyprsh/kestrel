@@ -41,7 +41,7 @@ describe("TMDB's audience rating", () => {
     expect(link.parentElement?.parentElement).toHaveTextContent(/^2014\s*·\s*1 h 35 min\s*·\s*PG\s*·\s*TMDB 8\.4\s*·\s*Original EN$/)
   })
 
-  it('shows in the Add Title results and the add panel', async () => {
+  it('shows in the search results with its votes', async () => {
     fakeLibrary([])
     const result = (id: number, title: string, ratings: Rating[]): LookupResult => ({
       kind: 'movie',
@@ -53,6 +53,10 @@ describe("TMDB's audience rating", () => {
       in_library: null,
       addable: true,
       not_addable_reason: null,
+      network: null,
+      origin_country: null,
+      seasons: null,
+      runtime: null,
       ratings,
     })
     server.use(
@@ -82,12 +86,11 @@ describe("TMDB's audience rating", () => {
     await userEvent.keyboard('{Control>}k{/Control}')
     const menu = await screen.findByRole('dialog', { name: /command menu/i })
     await userEvent.keyboard('padd')
-    await userEvent.click(await within(menu).findByRole('option', { name: /add "padd"/i }))
 
-    const rated = await within(menu).findByRole('option', { name: /^Paddington 2014 · TMDB 7\.3 \(4\.9k\)/ })
+    const rated = await within(menu).findByRole('option', { name: /^Paddington 2014 Movie · TMDB 7\.3 from 4,912 votes/ })
     expect(within(menu).getByRole('option', { name: /Paddington Unrated/ })).not.toHaveTextContent('TMDB')
 
-    await userEvent.click(rated)
+    await userEvent.click(rated) // its page links the rating to TMDB
     const link = await within(menu).findByRole('link', { name: 'TMDB 7.3 (4.9k)' })
     expect(link).toHaveAttribute('href', 'https://www.themoviedb.org/movie/116149')
   })

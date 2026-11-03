@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
@@ -98,12 +99,20 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 	if err != nil {
 		return nil, metaProblem(err)
 	}
+	briefs := s.briefsOf(ctx, hits)
 	out := oapi.LookupList{Items: []oapi.LookupResult{}, DidYouMean: strPtr(didYouMean)}
-	for _, h := range hits {
+	for i, h := range hits {
 		res := oapi.LookupResult{
 			TmdbId: h.TMDBID, Title: h.Title, Year: intPtr(h.Year),
 			Poster: strPtr(s.meta.ImageURL(h.PosterPath, posterThumb)), Addable: true,
 			Ratings: ratingsOf(oapi.TitleKind(h.Kind), h.TMDBID, h.Rating),
+		}
+		res.OriginCountry = strPtr(h.OriginCountry)
+		if b := briefs[i]; b != (metadata.Brief{}) {
+			res.Network, res.Seasons, res.Runtime = strPtr(b.Network), intPtr(b.Seasons), intPtr(b.Runtime)
+			if b.Country != "" {
+				res.OriginCountry = &b.Country
+			}
 		}
 		if h.Kind == metadata.Movie {
 			res.Kind = oapi.Movie
@@ -125,6 +134,31 @@ func (s *server) Lookup(ctx context.Context, r oapi.LookupRequestObject) (oapi.L
 		out.Items = append(out.Items, res)
 	}
 	return oapi.Lookup200JSONResponse(out), nil
+}
+
+const (
+	briefedHits   = 8               // how many of a search's first results are described further
+	briefDeadline = 2 * time.Second // a slow TMDB leaves the rest undescribed rather than holding the search up
+)
+
+// briefsOf describes the first results of a search with one light TMDB call
+// each, at the same time. A failed or late one leaves its result bare.
+func (s *server) briefsOf(ctx context.Context, hits []metadata.SearchResult) []metadata.Brief {
+	out := make([]metadata.Brief, len(hits))
+	ctx, cancel := context.WithTimeout(ctx, briefDeadline)
+	defer cancel()
+	var wg sync.WaitGroup
+	for i, h := range hits[:min(len(hits), briefedHits)] {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if got, err := s.meta.Brief(ctx, h.Kind, h.TMDBID); err == nil {
+				out[i] = got
+			}
+		}()
+	}
+	wg.Wait()
+	return out
 }
 
 func (s *server) LookupTitle(ctx context.Context, r oapi.LookupTitleRequestObject) (oapi.LookupTitleResponseObject, error) {
