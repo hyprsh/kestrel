@@ -2789,6 +2789,9 @@ type EpisodeCell struct {
 	// `releases` counts the Releases that named the episode (a season pack names each episode it holds).
 	LastSearch *LastSearch `json:"last_search,omitempty"`
 
+	// LongMissing The episode is Wanted in this Version and has been for more than 90 days. A cell with a Grab in flight is `downloading`, so never both.
+	LongMissing bool `json:"long_missing"`
+
 	// Score The Score of the file holding the episode, when there is one.
 	Score *int `json:"score"`
 

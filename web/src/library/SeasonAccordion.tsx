@@ -16,6 +16,7 @@ const stateColor: Record<Combined, string> = {
   filled: barColor.filled,
   partial: barColor.wanted,
   wanted: barColor.wanted,
+  long_missing: barColor.longMissing,
   downloading: barColor.downloading,
   unreleased: barColor.quiet,
   unmonitored: barColor.quiet,
@@ -46,13 +47,14 @@ function standing(states: Combined[], monitored: boolean): { text: string; tone:
   if (!monitored) return { text: 'Not monitored', tone: 'text-gray-900' }
   const n = (...ks: Combined[]) => states.filter((s) => ks.includes(s)).length
   const wanted = n('wanted', 'partial')
+  const long = n('long_missing')
   const downloading = n('downloading')
   const unaired = n('unreleased')
   const off = n('unmonitored')
   const off_ = off > 0 ? `${off} not monitored` : null
-  if (wanted > 0 || downloading > 0) {
-    const parts = [wanted > 0 ? `${wanted} Wanted` : null, downloading > 0 ? `${downloading} downloading` : null, off_].filter(Boolean)
-    return { text: parts.join(' \u00b7 '), tone: wanted > 0 ? 'text-amber-900' : 'text-blue-900' }
+  if (wanted > 0 || long > 0 || downloading > 0) {
+    const parts = [wanted > 0 ? `${wanted} Wanted` : null, long > 0 ? `${long} Long Missing` : null, downloading > 0 ? `${downloading} downloading` : null, off_].filter(Boolean)
+    return { text: parts.join(' \u00b7 '), tone: long > 0 ? 'text-red-900' : wanted > 0 ? 'text-amber-900' : 'text-blue-900' }
   }
   if (off > 0) return { text: off_!, tone: 'text-gray-900' }
   if (unaired === states.length) return { text: 'Not aired', tone: 'text-gray-900' }
@@ -100,7 +102,11 @@ export function SeasonAccordion({
         const tallies = slots.map((s) => slotTally(eps, s.key))
         const line = standing(states, monitored)
         const isOpen = open.has(n)
-        const bar: BarPart[] = (['filled', 'partial', 'downloading', 'unreleased', 'unmonitored'] as Combined[]).map((k) => ({ key: k, n: states.filter((s) => s === k).length, color: stateColor[k] }))
+        const bar: BarPart[] = (['filled', 'partial', 'wanted', 'long_missing', 'downloading', 'unreleased', 'unmonitored'] as Combined[]).map((k) => ({
+          key: k,
+          n: states.filter((s) => s === k).length,
+          color: stateColor[k],
+        }))
         const complete = eps.length > 0 && states.every((s) => s === 'filled')
         // One Slot: its count as mono text beside the bar. Several: a chip per Slot (short name, state dot, count).
         const meta = [eps.length > 0 ? plural(eps.length, 'episode') : null, firstYear(eps)].filter(Boolean).join(' \u00b7 ')

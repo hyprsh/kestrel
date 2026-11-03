@@ -3550,6 +3550,8 @@ export interface components {
         };
         EpisodeCell: {
             state: components["schemas"]["SlotState"];
+            /** @description The episode is Wanted in this Version and has been for more than 90 days. A cell with a Grab in flight is `downloading`, so never both. */
+            long_missing: boolean;
             /** @description The Score of the file holding the episode, when there is one. */
             score: number | null;
             /** @description The file holding the episode in this Version, even a misfit one; `null` when there is none. */

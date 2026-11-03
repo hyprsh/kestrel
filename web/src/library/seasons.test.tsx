@@ -334,10 +334,30 @@ describe('the Seasons at a glance on the Title page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await screen.findByRole('grid', { name: 'Episodes' })
     const row = screen.getByRole('button', { name: /^Season 1:/ }).closest('[role=listitem]')!
-    expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial', 'downloading', 'unreleased', 'unmonitored'])
+    expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial', 'wanted', 'downloading', 'unreleased', 'unmonitored'])
     // One bar, whatever the Slot count; the line under it says what is open.
     expect(row.querySelectorAll('[data-bar="partial"]')).toHaveLength(1)
     expect(within(row as HTMLElement).getByText('2 Wanted · 1 downloading · 1 not monitored')).toBeInTheDocument()
+  })
+
+  it('draws a Long Missing episode in its own red segment after Wanted, counted once and said in words', async () => {
+    const state = fakeSeries()
+    const long = { ...cell('wanted'), long_missing: true }
+    state.get().episodes = [
+      episode(1, 1, 1, 'Both', { cells: filled }),
+      episode(2, 1, 2, 'Wanted', { cells: { standard: cell('wanted'), '4k': cell('wanted') } }),
+      episode(3, 1, 3, 'Long', { cells: { standard: long, '4k': long } }),
+      episode(4, 1, 4, 'Long in one', { cells: { standard: cell('filled', 100), '4k': long } }),
+      episode(5, 1, 5, 'Off', { monitored: false, cells: { standard: cell('unmonitored'), '4k': cell('unmonitored') } }),
+    ]
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('grid', { name: 'Episodes' })
+    const row = screen.getByRole('button', { name: /^Season 1:/ }).closest('[role=listitem]') as HTMLElement
+    expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'wanted', 'long_missing', 'unmonitored'])
+    expect(row.querySelector('[data-bar="wanted"]')).toHaveStyle({ flex: '1 0 0' })
+    expect(row.querySelector('[data-bar="long_missing"]')).toHaveStyle({ flex: '2 0 0' })
+    expect(within(row).getByText('1 Wanted · 2 Long Missing · 1 not monitored')).toBeInTheDocument()
   })
 })
 

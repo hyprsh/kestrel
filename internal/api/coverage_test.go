@@ -107,6 +107,49 @@ func TestASeriesVersionCoverageCountsAWantedEpisodeWithAGrabInFlightAsDownloadin
 	}
 }
 
+func TestAnEpisodeCellIsLongMissingOnceWantedForNinetyDaysUnlessAGrabCoversIt(t *testing.T) {
+	t.Parallel()
+	s := newSeriesSearch(t)
+	s.prober.set(goodProbe(), nil)
+	s.publishEpisode(t, badEp1, "1", "1")
+	s.pass(t, jobs.Search) // S01E01 has a Grab in flight
+
+	count := func() (long, downloading int) {
+		t.Helper()
+		eps := decode[struct {
+			Items []struct {
+				Cells map[string]*cellJSON `json:"cells"`
+			} `json:"items"`
+		}](t, s.valid("GET", fmt.Sprintf("/titles/%d/episodes", s.title), "")).Items
+		for _, e := range eps {
+			c := e.Cells["standard"]
+			if c == nil {
+				continue
+			}
+			if c.State == "downloading" {
+				downloading++
+			}
+			if c.LongMissing {
+				if c.State != "wanted" {
+					t.Errorf("a Long Missing cell is %s, want wanted", c.State)
+				}
+				long++
+			}
+		}
+		return long, downloading
+	}
+	if long, _ := count(); long != 0 {
+		t.Fatalf("fresh: %d Long Missing cells, want none", long)
+	}
+	for range 5 {
+		s.in.clock.Advance(20 * 24 * time.Hour)
+		count()
+	}
+	if long, dl := count(); long != 4 || dl != 1 {
+		t.Fatalf("100 days later: %d Long Missing and %d Downloading cells, want 4 and 1", long, dl)
+	}
+}
+
 func TestAMovieVersionHasNoSeriesCoverage(t *testing.T) {
 	t.Parallel()
 	s := newSearch(t)

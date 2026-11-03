@@ -21,6 +21,7 @@ export const episodeFile = (over: Partial<EpisodeFile> & Pick<EpisodeFile, 'id' 
 
 export const cell = (state: components['schemas']['SlotState'], score: number | null = null, file: EpisodeFile | null = null, last_search: components['schemas']['LastSearch'] | null = null) => ({
   state,
+  long_missing: false,
   score,
   file,
   last_search,
