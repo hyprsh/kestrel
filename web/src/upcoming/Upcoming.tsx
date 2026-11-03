@@ -2,7 +2,7 @@
 // when the reader nears either end; the side panel's calendar, the week header and the agenda follow each other. Every entry says
 // where it stands: waiting for its release, downloading, Imported, out and not found, or not monitored. j/k and Enter move and open,
 // and `t` goes back to today.
-import { Button, DotsMenu, EmptyState, Entity, MenuItem, MenuSection, Note } from '@hyprsh/design'
+import { Button, DotsMenu, EmptyState, Entity, MenuItem, MenuSection, NavItem, Note } from '@hyprsh/design'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CalendarDays, Clock, EyeOff, History } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -15,7 +15,7 @@ import { useKey, useListNav } from '../keys'
 import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
-import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import { FilterChips, SidePanel, SidePanelViews } from '../layout/SidePanel'
 import { usePhone } from '../responsive'
 import { useNow } from '../time'
 import { AgendaRow } from './AgendaRow'
@@ -530,9 +530,9 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
           <>
             <SidePanelViews>
               {views.map((v) => (
-                <SidePanelView key={v.key} icon={viewIcons[v.key]} current={view === v.key} count={counts[v.key]} onSelect={() => setView(v.key)}>
+                <NavItem key={v.key} icon={viewIcons[v.key]} current={view === v.key ? 'true' : false} trailing={counts[v.key]} onClick={() => setView(v.key)}>
                   {v.label}
-                </SidePanelView>
+                </NavItem>
               ))}
             </SidePanelViews>
             {agenda && <MonthCalendar month={month} today={today} week={week} releases={releases} onMonth={showMonth} onPick={goToDay} />}

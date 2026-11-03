@@ -32,7 +32,7 @@
 //                         for a ticked selection
 //   SidePanel.tsx         SidePanel, FilterChips, SidePanelViews  <SidePanel title width actions filter controls chips views footer>{body}</SidePanel>
 //                         and SidePanelView: the column right of  chips={<FilterChips chips={filterChips(query, onQuery, qualifiers)} />}
-//                         the rail that holds a screen's name,    views={<SidePanelViews><SidePanelView count onSelect>Errors</SidePanelView></SidePanelViews>}
+//                         the rail that holds a screen's name,    views={<SidePanelViews><NavItem trailing onClick>Errors</NavItem></SidePanelViews>}
 //                         filter, Filter and Sort, chips, views,
 //                         body and footer. A phone's top header
 //   TopBar.tsx            PhoneTopBar: the header of a phone      <PhoneTopBar title>{actions}</PhoneTopBar>
@@ -53,7 +53,7 @@
 //   - `filter` is the screen's FilterBar, full width, with its id kept (`/` focuses it) and its `?` help. `controls` is the
 //     FilterButton (or FacetFilterButton) and the SortButton, in that order, which are the only controls of the row.
 //   - `chips` are FilterChips built from the query by `filterChips`: one removable chip per active term value.
-//   - `views` are named pages or presets of the screen, as SidePanelView rows with a count; the current one has
+//   - `views` are named pages or presets of the screen, as NavItem rows with a trailing count; the current one has
 //     aria-current. Not a Filter: a view is a place, a filter narrows it.
 //   - The main content beside a panel is a PanelContent: 24px above and below and 32px at the sides (16 on a phone), a
 //     section heading is `heading-16` and a page title (Settings' page) `heading-24`; `reading` keeps a text column to 880px,

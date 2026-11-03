@@ -1,6 +1,6 @@
 // The Log: what Kestrel did, as a strip of the last days over one card of events as sentences, filtered by one field of
 // qualifiers (kind:, slot:, title:, routine:) and free text; and the Blocklist view, where an entry can be removed.
-import { Button, DotsMenu, EmptyState, Entity, MenuDivider, MenuItem, MenuSection, Note, Pager, Skeleton, Table, Toggle, parseQuery, withValue } from '@hyprsh/design'
+import { Button, DotsMenu, EmptyState, Entity, MenuDivider, MenuItem, MenuSection, NavItem, Note, Pager, Skeleton, Table, Toggle, parseQuery, withValue } from '@hyprsh/design'
 import { ArrowDownToLine, CircleAlert, FileCheck, FolderInput, List, Search, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useBlocklist, useEventsHistogram, useEventsSummary, useSameKind, useUnblock, type EventsSummary, type LogEvent } from '../api/log'
@@ -10,7 +10,7 @@ import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
 import type { Facet } from '../filter/qualifiers'
 import { FacetFilterButton, SortButton } from '../layout/FilterButton'
-import { FilterChips, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import { FilterChips, SidePanel, SidePanelViews } from '../layout/SidePanel'
 import { PagerStrip } from '../layout/PagerStrip'
 import { useKey, useListNav } from '../keys'
 import { SkeletonRows, TableSkeletonRows } from '../loading'
@@ -219,15 +219,16 @@ function LogPanel({
           {logViews.map((v) => {
             const n = countOf(v)
             return (
-              <SidePanelView
+              <NavItem
                 key={v.key}
                 icon={viewIcons[v.key]}
-                current={chosen?.key === v.key}
-                count={n === undefined ? undefined : <span className={v.key === 'errors' && n > 0 ? 'text-red-900' : undefined}>{n.toLocaleString()}</span>}
-                onSelect={() => onView(viewQuery(v, query, qualifiers))}
+                current={chosen?.key === v.key ? 'true' : false}
+                trailing={n === undefined ? undefined : v.key === 'errors' && n > 0 ? <span className="label-12 tabular-nums text-red-900">{n.toLocaleString()}</span> : n}
+                trailingLabel={n === undefined ? undefined : n.toLocaleString()}
+                onClick={() => onView(viewQuery(v, query, qualifiers))}
               >
                 {v.label}
-              </SidePanelView>
+              </NavItem>
             )
           })}
         </SidePanelViews>

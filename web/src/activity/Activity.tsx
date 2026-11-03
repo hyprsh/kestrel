@@ -2,13 +2,13 @@
 // "/activity?q=stage:done" opens it on the Imported view. The Shell owns the filter text, so a change is handed to it.
 // The side panel holds the filter and the Views, which are presets of the `stage:` term; the Pipeline fills the rest.
 // The background jobs and what runs now moved to the Health screen.
-import { DotsMenu, MenuItem, MenuSection, parseQuery, termText, valuesOf, withoutValue } from '@hyprsh/design'
+import { DotsMenu, MenuItem, NavItem, MenuSection, parseQuery, termText, valuesOf, withoutValue } from '@hyprsh/design'
 import { useMemo } from 'react'
 import { CircleCheck, CircleX, List, Loader } from 'lucide-react'
 import { FilterBar } from '../filter/FilterBar'
 import { filterChips } from '../filter/chips'
 import { FacetFilterButton } from '../layout/FilterButton'
-import { FilterChips, PanelContent, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import { FilterChips, PanelContent, SidePanel, SidePanelViews } from '../layout/SidePanel'
 import { manualSearchPath, useOpenPlace } from '../place'
 import { usePhone } from '../responsive'
 import { activityQualifiers } from './filter'
@@ -66,15 +66,16 @@ function ActivityViews({ query, onQuery, pipeline }: { query: string; onQuery: (
       {views.map((v) => {
         const n = viewCount(v, pipeline)
         return (
-          <SidePanelView
+          <NavItem
             key={v.key}
             icon={v.icon}
-            count={v.tone === 'red' && n > 0 ? <span className="text-red-900">{n}</span> : n}
-            current={current === v.key}
-            onSelect={() => onQuery(withStages(query, v.stages))}
+            trailing={v.tone === 'red' && n > 0 ? <span className="label-12 tabular-nums text-red-900">{n}</span> : n}
+            trailingLabel={v.tone === 'red' && n > 0 ? String(n) : undefined}
+            current={current === v.key ? 'true' : false}
+            onClick={() => onQuery(withStages(query, v.stages))}
           >
             {v.label}
-          </SidePanelView>
+          </NavItem>
         )
       })}
     </SidePanelViews>

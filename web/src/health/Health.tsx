@@ -1,6 +1,6 @@
 // The Health screen: the verdict first, in words, then what runs now, the checks in groups and the background jobs. The
 // side panel's Views jump between the three sections and its footer says the version, the uptime and how fresh the checks are.
-import { Button, DotsMenu, MenuItem, Note } from '@hyprsh/design'
+import { Button, DotsMenu, MenuItem, NavItem, Note } from '@hyprsh/design'
 import { Clock, HeartPulse, Loader } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useAttention, useStatus } from '../api/attention'
@@ -13,7 +13,7 @@ import { BackgroundJobs } from '../activity/BackgroundJobs'
 import type { Running } from '../activity/running'
 import { RunningNow } from '../activity/RunningNow'
 import { useSearchAll } from '../activity/useSearchAll'
-import { PanelContent, SidePanel, SidePanelView, SidePanelViews } from '../layout/SidePanel'
+import { PanelContent, SidePanel, SidePanelViews } from '../layout/SidePanel'
 import { HealthGroups } from './HealthGroups'
 import { healthOf } from './tiles'
 import { Verdict } from './Verdict'
@@ -100,21 +100,21 @@ function HealthViews({ running, current, onSelect }: { running: number; current:
   // Nothing is counted while nothing is wrong: an OK count is noise beside Running now and Background jobs.
   const checks =
     status === undefined || problems === 0 ? undefined : (
-      <span data-tone={failing > 0 ? 'failing' : 'warning'} className={failing > 0 ? 'text-red-900' : 'text-amber-900'}>
+      <span data-tone={failing > 0 ? 'failing' : 'warning'} className={`label-12 tabular-nums ${failing > 0 ? 'text-red-900' : 'text-amber-900'}`}>
         {problems}
       </span>
     )
   return (
     <SidePanelViews>
-      <SidePanelView icon={<Loader />} count={running} current={current === 'running'} onSelect={() => onSelect('running')}>
+      <NavItem icon={<Loader />} trailing={running} current={current === 'running' ? 'true' : false} onClick={() => onSelect('running')}>
         Running now
-      </SidePanelView>
-      <SidePanelView icon={<HeartPulse />} count={checks} current={current === 'checks'} onSelect={() => onSelect('checks')}>
+      </NavItem>
+      <NavItem icon={<HeartPulse />} trailing={checks} trailingLabel={problems > 0 ? String(problems) : undefined} current={current === 'checks' ? 'true' : false} onClick={() => onSelect('checks')}>
         Checks
-      </SidePanelView>
-      <SidePanelView icon={<Clock />} count={jobs} current={current === 'jobs'} onSelect={() => onSelect('jobs')}>
+      </NavItem>
+      <NavItem icon={<Clock />} trailing={jobs} current={current === 'jobs' ? 'true' : false} onClick={() => onSelect('jobs')}>
         Background jobs
-      </SidePanelView>
+      </NavItem>
     </SidePanelViews>
   )
 }
