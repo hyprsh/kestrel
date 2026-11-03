@@ -77,7 +77,7 @@ describe('the Seasons at a glance on the Title page', () => {
     await waitFor(() => expect(location.pathname + location.search).toBe('/library?open=0'))
   })
 
-  it('opens several seasons at once, keeps them in the address and compares with Expand All', async () => {
+  it('opens several seasons at once, and keeps them in the address', async () => {
     const state = fakeSeries()
     state.get().episodes = [episode(1, 1, 1, 'Pilot', { cells: filled }), episode(2, 2, 1, 'Next', { cells: filled }), episode(3, 3, 1, 'Later', { cells: filled })]
     renderApp()
@@ -88,9 +88,12 @@ describe('the Seasons at a glance on the Title page', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Season 1:/ }))
     expect(screen.getAllByRole('rowgroup', { name: /episodes$/ })).toHaveLength(2)
     await waitFor(() => expect(location.search).toBe('?open=1,3'))
-    await userEvent.click(screen.getByRole('button', { name: 'Expand All' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Season 2:/ }))
     expect(screen.getAllByRole('rowgroup', { name: /episodes$/ })).toHaveLength(3)
-    await userEvent.click(screen.getByRole('button', { name: 'Collapse All' }))
+    await waitFor(() => expect(location.search).toBe('?open=1,2,3'))
+    await userEvent.click(screen.getByRole('button', { name: /^Season 3:/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Season 2:/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Season 1:/ }))
     expect(screen.queryByRole('rowgroup', { name: /episodes$/ })).not.toBeInTheDocument()
     await waitFor(() => expect(location.search).toBe('?open='))
   })
@@ -315,11 +318,11 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(within(episodeGrid()).getByRole('checkbox', { name: 'Select Season 1 episode 3' }).closest('[role=row]')).toHaveAttribute('aria-current', 'true')
   })
 
-  it('has Find an Episode and Expand All by the heading, and the season’s actions on its row, not in its body', async () => {
+  it('has the season’s actions on its row, not in its body', async () => {
     const { state } = await openSeries()
     expect(state.get().sent).toEqual([])
-    expect(screen.getByRole('button', { name: 'Find an Episode' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Expand All' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Find an Episode' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand All' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Table options' })).not.toBeInTheDocument()
 
     const body = screen.getByRole('rowgroup', { name: 'Season 1 episodes' })
@@ -505,59 +508,10 @@ describe('what a season says when some of its episodes are not monitored', () =>
   })
 })
 
-describe('Find an Episode', () => {
-  const find = () => screen.getByRole('searchbox', { name: 'Find an episode' })
-  /** The field, opened from the toolbar's Find button if it is not open yet. */
-  const field = async () => {
-    if (!screen.queryByRole('searchbox', { name: 'Find an episode' })) await userEvent.click(screen.getByRole('button', { name: 'Find an Episode' }))
-    return find()
-  }
-
-  it('takes a code in any spelling, opens the season and highlights the episode, keeping it in the address bar', async () => {
-    await openSeries()
-    const special = () => within(screen.getByRole('rowgroup', { name: 'Specials episodes' }))
-
-    for (const code of ['s0e1', '0x01', 'S00E01']) {
-      await userEvent.clear(await field())
-      await userEvent.type(await field(), code)
-      expect(screen.getByRole('button', { name: /^Specials:/, expanded: true })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /^Season 1:/, expanded: true })).toBeInTheDocument() // the season that was open stays
-      const row = special().getByRole('checkbox', { name: 'Select Season 0 episode 1' }).closest('[role=row]')!
-      expect(row).toHaveAttribute('aria-current', 'true')
-    }
-    await waitFor(() => expect(location.pathname + location.search).toBe('/library?season=0&episode=1&open=0,1'))
-  })
-
-  it('finds part of a name and highlights only that episode', async () => {
-    await openSeries()
-    await userEvent.type(await field(), "cat's")
-    const row = (name: string) =>
-      within(screen.getByRole('rowgroup', { name: 'Season 1 episodes' }))
-        .getByRole('checkbox', { name })
-        .closest('[role=row]')!
-    expect(row('Select Season 1 episode 2')).toHaveAttribute('aria-current', 'true')
-    expect(row('Select Season 1 episode 1')).not.toHaveAttribute('aria-current')
-  })
-
-  it('says when nothing matches, and clears the highlight when the field is cleared', async () => {
-    await openSeries()
-    await userEvent.type(await field(), 's1e1')
-    const row = within(screen.getByRole('rowgroup', { name: 'Season 1 episodes' }))
-      .getByRole('checkbox', { name: 'Select Season 1 episode 1' })
-      .closest('[role=row]')!
-    expect(row).toHaveAttribute('aria-current', 'true')
-
-    await userEvent.clear(await field())
-    expect(row).not.toHaveAttribute('aria-current')
-
-    await userEvent.type(await field(), 's9e9')
-    expect(screen.getByText('No episode matches "s9e9".')).toBeInTheDocument()
-  })
-
+describe('A found episode', () => {
   it('opens on the episode the address names', async () => {
     history.replaceState(null, '', '/library?season=1&episode=2')
     await openSeries()
     await waitFor(() => expect(within(episodeGrid()).getByRole('checkbox', { name: 'Select Season 1 episode 2' }).closest('[role=row]')).toHaveAttribute('aria-current', 'true'))
-    expect(find()).toHaveValue('S01E02')
   })
 })
