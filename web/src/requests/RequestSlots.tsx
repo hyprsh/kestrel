@@ -10,7 +10,7 @@ import { slotDot, slotState } from './status'
 
 type Slots = Pick<Request, 'slots'>
 
-export function RequestSlots({ request: r, live = true }: { request: Slots; live?: boolean }) {
+export function RequestSlots({ request: r, live = true, align = 'end' }: { request: Slots; live?: boolean; align?: 'start' | 'end' }) {
   const queue = useQueue().data ?? []
   const slots = useSlotNames()
   const chips = r.slots.map((s) => {
@@ -18,7 +18,7 @@ export function RequestSlots({ request: r, live = true }: { request: Slots; live
     const state = slotDot(s, st)
     return { key: s.slot, short: slots.several ? slots.short(s.slot) : '', state, tip: `${slots.name(s.slot)}: ${st.text || stateName[state]}` }
   })
-  return <SlotChips chips={chips} max={4} wrap />
+  return <SlotChips chips={chips} max={4} wrap align={align} />
 }
 
 /** Where a Request's Slots stand, in words: "Searching", or "Standard: Completed · 4K: Searching" for several. */

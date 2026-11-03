@@ -4,8 +4,8 @@
 import { EmptyState, LoadMoreButton, Note, parseQuery } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
 import { usePhone } from '../responsive'
-import { useMemo, useState } from 'react'
-import { useRequestList } from '../api/requests'
+import { useEffect, useMemo, useState } from 'react'
+import { useRequest, useRequestList } from '../api/requests'
 import { matchText } from '../fuzzy'
 import { FilterBar } from '../filter/FilterBar'
 import { FacetFilterButton } from '../layout/FilterButton'
@@ -14,10 +14,27 @@ import { SidePanel } from '../layout/SidePanel'
 import { useKey, useListNav } from '../keys'
 import { SkeletonRows } from '../loading'
 import { requestFilter, requestQualifiers } from './filter'
+import { RequestDetail } from './RequestDetail'
 import { RequestRow } from './RequestRow'
+import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 
-/** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
-export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
+/**
+ * `query` is the filter field's text, kept by the Shell so it can live in the address bar. `requestId` is the Request the address
+ * names ("/requests/12"): shown in its detail above the list, and on a phone as a screen of its own that `onCloseRequest` leaves.
+ */
+export function Requests({
+  query,
+  onQuery,
+  requestId,
+  onCloseRequest,
+  onOpenTitle,
+}: {
+  query: string
+  onQuery: (query: string) => void
+  requestId: number | null
+  onCloseRequest: () => void
+  onOpenTitle: (id: number) => void
+}) {
   const [sel, setSel] = useState(0)
   // Requesters and sources are offered from what has been loaded: there is no list of them.
   const [seen, setSeen] = useState<{ requesters: string[]; sources: string[] }>({ requesters: [], sources: [] })
@@ -36,11 +53,38 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
     const id = shown[i]?.title_id
     if (id != null) onOpenTitle(id)
   }
+  // The addressed Request is the selected row, scrolled into view. It may be on a page not loaded yet: the list is newest first, so
+  // older pages are fetched until the loaded ones pass its date (a filtered-out Request stops there too, and only the detail shows).
+  const addressed = useRequest(requestId).data
+  const at = requestId === null ? -1 : shown.findIndex((r) => r.id === requestId)
+  useEffect(() => {
+    if (at < 0) return
+    setSel(at)
+    document.querySelector(`[data-nav="req-${at}"]`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [at, phone])
+  const last = loaded[loaded.length - 1]
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list
+  useEffect(() => {
+    if (requestId === null || !addressed || at >= 0 || !hasNextPage || isFetchingNextPage || !last) return
+    if (new Date(last.created_at) >= new Date(addressed.created_at)) void fetchNextPage()
+  }, [requestId, addressed, at, hasNextPage, isFetchingNextPage, last, fetchNextPage])
   useListNav('req', shown.length, Math.min(sel, Math.max(shown.length - 1, 0)), setSel, open)
   useKey('/', (e) => {
     e.preventDefault()
     document.getElementById('requests-filter')?.focus()
   })
+
+  if (phone && requestId !== null) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PhoneBackHeader onBack={onCloseRequest}>Request</PhoneBackHeader>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <RequestDetail id={requestId} onOpenTitle={onOpenTitle} onClose={onCloseRequest} />
+        </div>
+      </div>
+    )
+  }
+  const detail = requestId !== null && <RequestDetail id={requestId} onOpenTitle={onOpenTitle} onClose={onCloseRequest} />
 
   const filter = (
     <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} menus={false} />
@@ -71,6 +115,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
         </>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
+        {detail}
         {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
         <div className="p-4">
           {list.isPending && <SkeletonRows count={6} poster="sm" label="Loading Requests" />}

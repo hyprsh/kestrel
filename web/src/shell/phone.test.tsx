@@ -5,6 +5,9 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { fakeLibrary, row } from '../test/library'
+import { http } from '../test/handlers'
+import { fakeRequests, request } from '../test/requests'
+import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -173,5 +176,22 @@ describe('the Library on a phone', () => {
     expect(within(bar).getByRole('button', { name: 'Search Now' })).toBeInTheDocument()
     expect(within(bar).queryByRole('button', { name: 'Unmonitor' })).not.toBeInTheDocument() // in More…, so the count keeps its words
     expect(location.pathname).toBe('/library') // ticking opens no Title
+  })
+})
+
+describe('a Request on a phone', () => {
+  it('opens from its address as its own screen, and Back returns to the list', async () => {
+    const items = [request({ id: 1, title: 'Paddington' }), request({ id: 2, title: 'Heat' })]
+    fakeRequests(items)
+    server.use(http.get('/requests/{id}', ({ params, response }) => response(200).json(items.find((x) => x.id === Number(params.id))!)))
+    history.replaceState(null, '', '/requests/2')
+    renderApp()
+
+    const detail = await screen.findByRole('region', { name: 'Request' })
+    expect(detail).toHaveTextContent('Heat')
+    expect(screen.queryByRole('list', { name: 'Requests' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(await screen.findByRole('list', { name: 'Requests' })).toBeInTheDocument()
+    expect(location.pathname).toBe('/requests')
   })
 })

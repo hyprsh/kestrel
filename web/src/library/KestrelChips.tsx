@@ -52,8 +52,7 @@ const when = (iso: string) => medium.format(new Date(iso))
 export function RequestChips({ title }: { title: TitleDetail }) {
   const openPlace = useOpenPlace()
   return title.requests.map((r) => {
-    const name = /\s/.test(r.requester_name) ? `"${r.requester_name}"` : r.requester_name
-    const path = placePath('requests', `requester:${name} "${title.title.replace(/"/g, '')}"`)
+    const path = placePath('requests', '', String(r.id))
     const sentence = `Requested by ${r.requester_name} via ${sourceName(r.source)} on ${when(r.created_at)}. Open the Request.`
     return (
       <ButtonLink

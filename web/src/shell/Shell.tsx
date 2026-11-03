@@ -160,6 +160,8 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [manual, setManual] = useState<ManualSearchAt | null>(start.search)
   // On a phone Settings' list and an opened section are two screens; "/settings/indexers" is the second.
   const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
+  // A Request the Requests screen shows in its detail ("/requests/12"); on a phone it is a screen of its own.
+  const [requestId, setRequestId] = useState<number | null>(start.screen === 'requests' && isTitleId(start.section) ? Number(start.section) : null)
   const [more, setMore] = useState(false)
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
@@ -171,7 +173,20 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   useEffect(() => {
     if (manual !== null && (screen !== 'library' || manual.titleId !== libraryId)) setManual(null)
   }, [manual, screen, libraryId])
-  const section = !phone ? '' : screen === 'library' ? (titleOpen && libraryId !== null ? String(libraryId) : '') : screen === 'settings' ? settingsSection : ''
+  const section =
+    screen === 'requests'
+      ? requestId !== null
+        ? String(requestId)
+        : ''
+      : !phone
+        ? ''
+        : screen === 'library'
+          ? titleOpen && libraryId !== null
+            ? String(libraryId)
+            : ''
+          : screen === 'settings'
+            ? settingsSection
+            : ''
   // Health's section ("/health/jobs") is scrolled to; the address keeps it until the screen changes.
   const [healthSection, setHealthSection] = useState(start.screen === 'health' ? start.section : '')
   // Another Title selected: its Series' season and found episode are not the previous Title's (a Movie shows none). A view that names no Title stays for the first Series shown.
@@ -202,17 +217,24 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
       else if (place.screen === '') setScreen('overview')
       if (place.screen === 'health') setHealthSection(place.section)
       setFilter({ screen: place.screen, q: place.q })
-      setTitleOpen(isTitleId(place.section))
+      setRequestId(place.screen === 'requests' && isTitleId(place.section) ? Number(place.section) : null)
+      setTitleOpen(place.screen === 'library' && isTitleId(place.section))
       setManual(place.search)
       setEpisodeView(
-        place.season === null && !place.slot ? noEpisodeView : { titleId: isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode, slot: place.slot },
+        place.season === null && !place.slot
+          ? noEpisodeView
+          : { titleId: place.screen === 'library' && isTitleId(place.section) ? Number(place.section) : null, season: place.season, episode: place.episode, slot: place.slot },
       )
       setSettingsSection(place.screen === 'settings' ? place.section : '')
-      if (isTitleId(place.section)) setLibraryId(Number(place.section))
+      if (place.screen === 'library' && isTitleId(place.section)) setLibraryId(Number(place.section))
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
+  // Another screen leaves the Request behind.
+  useEffect(() => {
+    if (screen !== 'requests') setRequestId(null)
+  }, [screen])
   const { theme, setTheme, cycle } = useTheme()
   const auth = useAuth()
   const logout = useLogout()
@@ -323,6 +345,11 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           if (phone && section) pushPlace(placePath('settings', '', section))
         }
         if (key === 'health') setHealthSection(section)
+        if (key === 'requests') {
+          // "/requests/12" opens that Request; a phone shows it as a screen Back leaves.
+          setRequestId(isTitleId(section) ? Number(section) : null)
+          if (phone && isTitleId(section)) pushPlace(placePath('requests', q, section))
+        }
         if (section && !(phone && key === 'settings')) setTimeout(() => document.getElementById(`${key}-${section}`)?.scrollIntoView?.(), 0)
       }
       // Unsaved Settings are asked about, unless the place is Settings itself (it asks on its own when the page changes).
@@ -356,6 +383,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     if (pushedPlace()) history.back()
     else setTitleOpen(false)
   }, [])
+  const closeRequest = useCallback(() => {
+    if (phone && pushedPlace()) history.back()
+    else setRequestId(null)
+  }, [phone])
   const openSettingsSection = useCallback((id: string) => {
     setSettingsSection(id)
     pushPlace(placePath('settings', '', id))
@@ -436,7 +467,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                     ) : screen === 'health' ? (
                       <Health running={running} onOpenAdoption={() => setScreen('adoption')} onOpenTitle={openTitle} />
                     ) : screen === 'requests' ? (
-                      <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} onOpenTitle={openTitle} />
+                      <Requests query={query} onQuery={(q) => setFilter({ screen: 'requests', q })} requestId={requestId} onCloseRequest={closeRequest} onOpenTitle={openTitle} />
                     ) : screen === 'upcoming' ? (
                       <Upcoming query={query} onQuery={(q) => setFilter({ screen: 'upcoming', q })} onOpenTitle={openTitle} />
                     ) : (

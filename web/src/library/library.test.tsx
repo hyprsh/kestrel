@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row } from '../test/library'
+import { fakeRequests, request } from '../test/requests'
 import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -278,7 +279,25 @@ describe('the Library detail pane', () => {
     const pane = await screen.findByRole('region', { name: /paddington/i })
     const chip = await within(pane).findByRole('link', { name: /^Request: Requested by Anna via Silo on Oct 1, 2026/ })
     expect(chip).toHaveTextContent('Requested by Anna \u00b7 Silo')
-    expect(chip).toHaveAttribute('href', expect.stringContaining('requests?q=requester%3AAnna'))
+    expect(chip).toHaveAttribute('href', expect.stringMatching(/requests\/5$/))
+  })
+
+  it('opens exactly that Request from the chip', async () => {
+    fakeLibrary(rows())
+    const items = [request({ id: 5, title: 'Paddington' }), request({ id: 6, title: 'Paddington 2' })]
+    fakeRequests(items)
+    server.use(
+      http.get('/titles/{id}', ({ response }) => response(200).json(detail(rows()[0], { requests: [{ id: 5, source: 'silo', requester_name: 'Anna', created_at: '2026-10-01T10:00:00Z' }] }))),
+      http.get('/requests/{id}', ({ params, response }) => response(200).json(items.find((x) => x.id === Number(params.id))!)),
+    )
+    await openLibrary()
+    const pane = await screen.findByRole('region', { name: /paddington/i })
+    await userEvent.click(await within(pane).findByRole('link', { name: /^Request: Requested by Anna/ }))
+
+    const open = await screen.findByRole('region', { name: 'Request' })
+    expect(open).toHaveTextContent('Paddington')
+    expect(open).not.toHaveTextContent('Paddington 2')
+    expect(location.pathname).toBe('/requests/5')
   })
 
   it('shows the poster when the Title has one', async () => {
