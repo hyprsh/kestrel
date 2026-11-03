@@ -78,7 +78,7 @@ describe("a Movie's Versions on its Title page", () => {
     expect(within(item).getByText('Quality').nextSibling).not.toHaveTextContent('H.264')
     expect(within(item).getByText('+100')).toBeInTheDocument()
     expect(within(item).getByRole('button', { name: 'Search for an Upgrade' })).toBeEnabled()
-    expect(within(item).getByRole('button', { name: 'Manual search' })).toBeInTheDocument()
+    expect(within(item).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
     await userEvent.click(within(item).getByRole('button', { name: 'Standard Version actions' }))
     expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Delete files/ })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
@@ -103,7 +103,7 @@ describe("a Movie's Versions on its Title page", () => {
     expect(row_).toHaveAttribute('aria-expanded', 'true') // a Slot that needs a look opens by itself
     expect(within(item).getByText('Wanted since')).toBeInTheDocument()
     expect(within(item).getByText('not searched yet')).toBeInTheDocument()
-    expect(within(item).getByRole('button', { name: 'Search now' })).toBeEnabled()
+    expect(within(item).getByRole('button', { name: 'Search Now' })).toBeEnabled()
     expect(within(item).queryByRole('button', { name: 'Search for an Upgrade' })).toBeNull()
     expect(within(item).getByRole('img', { name: /^Standard: Wanted 12 days/ })).toHaveAttribute('data-state', 'wanted')
   })
@@ -120,7 +120,7 @@ describe("a Movie's Versions on its Title page", () => {
     expect(within(item).getByRole('progressbar', { name: 'Standard download progress' })).toBeInTheDocument()
     for (const k of ['Release', 'From', 'Why', 'Replaces']) expect(within(item).getByText(k)).toBeInTheDocument()
     expect(within(item).getByRole('button', { name: 'Open in Activity' })).toBeInTheDocument()
-    expect(within(item).getByRole('button', { name: 'Cancel and block' })).toBeEnabled()
+    expect(within(item).getByRole('button', { name: 'Cancel and Block' })).toBeEnabled()
   })
 
   it('offers Add a Slot while the Movie has a free Slot', async () => {

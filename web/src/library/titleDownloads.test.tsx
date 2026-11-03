@@ -99,7 +99,7 @@ describe("a Title's downloads on its page", () => {
     const state = fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
     const { row: hd } = await openPaddington()
 
-    await userEvent.click(await within(hd).findByRole('button', { name: 'Cancel and block' }))
+    await userEvent.click(await within(hd).findByRole('button', { name: 'Cancel and Block' }))
 
     expect(state.cancels).toEqual([{ id: '7', body: { blocklist: true } }])
     expect(await findToast('Grab cancelled and its Release blocklisted')).toBeInTheDocument()

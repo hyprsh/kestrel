@@ -294,7 +294,7 @@ describe('the Version rows', () => {
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
     expect((await within(hd).findByText('Wanted since')).nextElementSibling).toHaveTextContent('12 days')
-    expect(within(hd).getByRole('button', { name: 'Search now' })).toBeEnabled()
+    expect(within(hd).getByRole('button', { name: 'Search Now' })).toBeEnabled()
     expect(hd).toHaveTextContent('No file yet')
   })
 
