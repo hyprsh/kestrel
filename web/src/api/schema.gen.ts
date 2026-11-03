@@ -1316,7 +1316,9 @@ export interface paths {
          * @description Removes the job (and its files) from the download client and drops the Grab; the Version is
          *     Wanted again. With `blocklist: true` ("Cancel and blocklist") the Release also goes on the
          *     Blocklist and the Version is searched again at once for the next best Release. A client that
-         *     cannot be reached is `502 upstream_unavailable` and nothing changes.
+         *     cannot be reached is `502 upstream_unavailable` and nothing changes. A downloaded folder that is
+         *     outside the client's download directory, inside a Root folder or out of Kestrel's reach is left on
+         *     disk, and the Grab's event says so.
          */
         post: operations["cancelGrab"];
         delete?: never;
@@ -1364,7 +1366,8 @@ export interface paths {
          * Discard a stalled Import
          * @description Gives up on a stalled Import: the Grab fails as `discarded` (no Blocklist entry), the job
          *     and its files leave the download client and the Version is Wanted again. `404` for a Grab
-         *     whose Import is not stalled; a client that cannot be reached is `502 upstream_unavailable`.
+         *     whose Import is not stalled; a client that cannot be reached is `502 upstream_unavailable`. A
+         *     folder that cannot be shown safe to delete is left on disk, and the event says so.
          */
         post: operations["discardGrab"];
         delete?: never;

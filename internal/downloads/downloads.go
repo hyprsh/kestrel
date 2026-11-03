@@ -47,6 +47,15 @@ type Service struct {
 
 	mu       sync.Mutex
 	observer Observer
+	keep     func(context.Context) ([]string, error)
+}
+
+// SetKeep sets where the Library lives: the paths a client must never delete
+// downloaded files in or above when a job is removed with its data.
+func (s *Service) SetKeep(f func(context.Context) ([]string, error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.keep = f
 }
 
 // Observer hears how each call to the download client went (err nil: it
@@ -179,7 +188,8 @@ func (s *Service) List(ctx context.Context) ([]Listed, error) {
 }
 
 // Remove deletes a job from the client instance that holds it, with its files
-// when deleteData is set. A job that is already gone is not an error.
+// when deleteData is set. A job that is already gone is not an error. A
+// *downloadclient.FolderLeft means the job is removed but its folder was not.
 func (s *Service) Remove(ctx context.Context, instanceID int64, clientID string, deleteData bool) error {
 	inst, err := s.inst.Get(ctx, instanceID)
 	if err != nil {
@@ -189,5 +199,17 @@ func (s *Service) Remove(ctx context.Context, instanceID int64, clientID string,
 	if err != nil {
 		return err
 	}
-	return client.Remove(ctx, inst.Connection(), clientID, deleteData)
+	conn := inst.Connection()
+	if deleteData {
+		s.mu.Lock()
+		keep := s.keep
+		s.mu.Unlock()
+		if keep != nil {
+			// Without the Library's paths no folder may be deleted, so the failure stops the Remove.
+			if conn.Keep, err = keep(ctx); err != nil {
+				return err
+			}
+		}
+	}
+	return client.Remove(ctx, conn, clientID, deleteData)
 }

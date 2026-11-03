@@ -280,14 +280,26 @@ func cloneValues(v url.Values) url.Values {
 	return out
 }
 
+// Remove takes the job out of the queue and history. With deleteData it also
+// removes a completed job's folder: SABnzbd's del_files only deletes a failed
+// job's files, so the folder is read from the history slot's storage and deleted
+// here when removeFolder shows it is safe. A folder that was left comes back as
+// a *downloadclient.FolderLeft after the job is gone.
 func (c *Client) Remove(ctx context.Context, conn plugin.Connection, clientID string, deleteData bool) error {
 	del := "0"
 	if deleteData {
 		del = "1"
 	}
+	var stored string
 	// A job lives in the queue or in history; SABnzbd answers success for an id it
 	// does not know, so deleting from both is idempotent.
 	for _, mode := range []string{"queue", "history"} {
+		if mode == "history" && deleteData {
+			var err error
+			if stored, err = c.completedStorage(ctx, conn, clientID); err != nil {
+				return err
+			}
+		}
 		q := url.Values{"name": {"delete"}, "value": {clientID}, "del_files": {del}}
 		if mode == "history" {
 			q.Set("archive", "0")
@@ -299,7 +311,52 @@ func (c *Client) Remove(ctx context.Context, conn plugin.Connection, clientID st
 			return err
 		}
 	}
+	if stored == "" {
+		return nil
+	}
+	complete, err := c.completeDir(ctx, conn)
+	if err != nil {
+		complete = ""
+	}
+	if reason := removeFolder(stored, complete, conn.Keep); reason != "" {
+		return &downloadclient.FolderLeft{Path: stored, Reason: reason}
+	}
 	return nil
+}
+
+// completedStorage is the storage folder of the job's history slot when it
+// completed; "" for any other job (a failed one is cleaned by del_files).
+func (c *Client) completedStorage(ctx context.Context, conn plugin.Connection, clientID string) (string, error) {
+	var hist struct {
+		History struct {
+			Slots []historySlot `json:"slots"`
+		} `json:"history"`
+	}
+	q := url.Values{"start": {"0"}, "limit": {strconv.Itoa(historyLimit)}, "nzo_ids": {clientID}}
+	if err := c.call(ctx, conn, "history", q, &hist); err != nil {
+		return "", err
+	}
+	for _, s := range hist.History.Slots {
+		if s.NzoID == clientID && s.Status == "Completed" {
+			return s.Storage, nil
+		}
+	}
+	return "", nil
+}
+
+// completeDir is SABnzbd's directory for finished jobs.
+func (c *Client) completeDir(ctx context.Context, conn plugin.Connection) (string, error) {
+	var cfg struct {
+		Config struct {
+			Misc struct {
+				CompleteDir string `json:"complete_dir"`
+			} `json:"misc"`
+		} `json:"config"`
+	}
+	if err := c.call(ctx, conn, "get_config", nil, &cfg); err != nil {
+		return "", err
+	}
+	return cfg.Config.Misc.CompleteDir, nil
 }
 
 // ---- mapping ----

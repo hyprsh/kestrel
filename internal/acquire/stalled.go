@@ -8,6 +8,7 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
 	"github.com/hyprsh/kestrel/internal/history"
+	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 )
 
@@ -86,7 +87,8 @@ func (s *Service) Discard(ctx context.Context, grabID int64) error {
 	if err != nil {
 		return err
 	}
-	if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
+	left, err := s.removeJob(ctx, row.ClientInstanceID, row.ClientID)
+	if err != nil {
 		return err
 	}
 	err = db.New(s.st.Write()).FinishGrab(ctx, db.FinishGrabParams{
@@ -98,7 +100,7 @@ func (s *Service) Discard(ctx context.Context, grabID int64) error {
 	s.live.drop(grabID)
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabFailed, TitleID: row.TitleID.Int64, VersionID: row.VersionID.Int64, GrabID: grabID,
-		Message: "Discarded the stalled Import of " + row.ReleaseName,
+		Message: "Discarded the stalled Import of " + row.ReleaseName + left,
 	})
 	return nil
 }
@@ -121,4 +123,19 @@ func (s *Service) DiscardStalled(ctx context.Context, reason string) (int, error
 		n++
 	}
 	return n, nil
+}
+
+// removeJob removes a Grab's job from the download client with its data. A job
+// the client no longer has is fine. When the job is gone but its folder was left
+// on disk, left says so, ready to end an event's message; that is no error.
+func (s *Service) removeJob(ctx context.Context, instanceID int64, clientID string) (left string, err error) {
+	err = s.dl.Remove(ctx, instanceID, clientID, true)
+	var fl *downloadclient.FolderLeft
+	switch {
+	case err == nil, errors.Is(err, instances.ErrNotFound):
+		return "", nil
+	case errors.As(err, &fl):
+		return " (" + fl.Error() + ")", nil
+	}
+	return "", err
 }

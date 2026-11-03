@@ -10,7 +10,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/acquire/db"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
-	"github.com/hyprsh/kestrel/internal/plugin/instances"
 )
 
 // PollResult is what one poll found.
@@ -210,7 +209,7 @@ func (s *Service) healFailed(ctx context.Context, g db.Grab, lost, block bool, r
 		errs = append(errs, s.blockGrab(ctx, g, reason))
 	}
 	if !lost {
-		if err := s.dl.Remove(ctx, g.ClientInstanceID, g.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
+		if _, err := s.removeJob(ctx, g.ClientInstanceID, g.ClientID); err != nil {
 			errs = append(errs, err)
 		}
 	}

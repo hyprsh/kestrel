@@ -13,7 +13,6 @@ import (
 	"github.com/hyprsh/kestrel/internal/indexers"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
-	"github.com/hyprsh/kestrel/internal/plugin/instances"
 )
 
 // Phase is what a Grab in "Downloading now" is doing.
@@ -239,7 +238,8 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 		return Grab{}, err
 	}
 	g.VersionIDs = append(g.VersionIDs, also...)
-	if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
+	left, err := s.removeJob(ctx, row.ClientInstanceID, row.ClientID)
+	if err != nil {
 		return Grab{}, err
 	}
 	if blocklist {
@@ -256,7 +256,7 @@ func (s *Service) Cancel(ctx context.Context, id int64, blocklist bool) (Grab, e
 	}
 	s.live.drop(id)
 	s.hist.Record(ctx, history.Event{
-		Kind: history.GrabCanceled, TitleID: g.TitleID, VersionID: g.VersionID, Message: "Canceled " + g.ReleaseName,
+		Kind: history.GrabCanceled, TitleID: g.TitleID, VersionID: g.VersionID, Message: "Canceled " + g.ReleaseName + left,
 	})
 	if blocklist {
 		// The Release is out: take the next best one at once. A retry that finds

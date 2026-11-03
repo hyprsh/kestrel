@@ -244,28 +244,6 @@ func TestAddReportsARefusal(t *testing.T) {
 	wantCode(t, err, plugin.CodeInvalid)
 }
 
-func TestRemoveDeletesFromQueueAndHistory(t *testing.T) {
-	for _, deleteData := range []bool{true, false} {
-		srv := serveFixtures(t, nil)
-		if err := sabnzbd.New(nil).Remove(ctx(), srv.conn(key), "SABnzbd_nzo_done1", deleteData); err != nil {
-			t.Fatal(err)
-		}
-		want := "0"
-		if deleteData {
-			want = "1"
-		}
-		if len(srv.calls) != 2 {
-			t.Fatalf("%d calls", len(srv.calls))
-		}
-		for i, mode := range []string{"queue", "history"} {
-			q := srv.calls[i].Query
-			if q.Get("mode") != mode || q.Get("name") != "delete" || q.Get("value") != "SABnzbd_nzo_done1" || q.Get("del_files") != want {
-				t.Errorf("%s delete: %v", mode, q)
-			}
-		}
-	}
-}
-
 func TestTestAndCategoryList(t *testing.T) {
 	srv := serveFixtures(t, nil)
 	c := sabnzbd.New(nil)

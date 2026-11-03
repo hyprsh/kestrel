@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyprsh/kestrel/internal/acquire/db"
 	"github.com/hyprsh/kestrel/internal/history"
-	"github.com/hyprsh/kestrel/internal/plugin/instances"
 )
 
 // ImportJob is a finished Grab ready for its Import, with what the download
@@ -200,7 +199,7 @@ func (s *Service) RecordImport(ctx context.Context, grabID int64, canRemove bool
 		s.hist.Record(ctx, ev)
 		s.recordEpisodes(ctx, row, o.Episodes)
 		if canRemove {
-			if err := s.dl.Remove(ctx, row.ClientInstanceID, row.ClientID, true); err != nil && !errors.Is(err, instances.ErrNotFound) {
+			if _, err := s.removeJob(ctx, row.ClientInstanceID, row.ClientID); err != nil {
 				return err
 			}
 		}
