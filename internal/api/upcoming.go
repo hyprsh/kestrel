@@ -34,7 +34,11 @@ func (s *server) ListUpcoming(ctx context.Context, r oapi.ListUpcomingRequestObj
 	}
 	opts := library.UpcomingOptions{Unmonitored: r.Params.Unmonitored != nil && *r.Params.Unmonitored}
 	agenda, err := s.agendas.get(ctx, s.opts.Store, view.Now, fmt.Sprintf("%s|%s|%s|%v", view.Country, from.Format("2006-01-02"), to.Format("2006-01-02"), opts.Unmonitored), func() (library.Agenda, error) {
-		return s.library.UpcomingWith(ctx, view, from, to, opts)
+		data, err := s.agendaData.get(ctx, s.opts.Store, view.Now, "agenda", func() (*library.AgendaData, error) { return s.library.LoadAgenda(ctx) })
+		if err != nil {
+			return library.Agenda{}, err
+		}
+		return s.library.UpcomingFrom(ctx, data, view, from, to, opts)
 	})
 	if err != nil {
 		return nil, err

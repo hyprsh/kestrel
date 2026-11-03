@@ -109,7 +109,7 @@ export type EntryStatus = {
  * release (Kestrel searches the moment it is out), then Imported; an entry that is not monitored and has no file in every
  * Version is Not monitored whatever the server says of its Versions.
  */
-export function entryStatus(item: UpcomingItem, queue: readonly QueueItem[]): EntryStatus {
+function entryStatus(item: UpcomingItem, queue: readonly QueueItem[]): EntryStatus {
   const all = item.slots.map((slot) => ({ slot, st: standing(item, slot, queue) }))
   const wanted = all.filter((x) => x.st.kind === 'wanted').map((x) => x.slot)
   const grabbed = all.find((x) => x.st.kind === 'grabbed')
@@ -123,6 +123,19 @@ export function entryStatus(item: UpcomingItem, queue: readonly QueueItem[]): En
   if (wanted.length > 0) return { kind: 'missing', label: 'Out · not found yet', wanted, long: wanted.some((s) => s.long_missing) }
   if (imported) return { kind: 'imported', label: 'Imported', wanted, long: false }
   return { kind: 'searching', label: 'Not out yet', wanted, long: false }
+}
+
+/**
+ * entryStatus that is worked out once per entry for one queue snapshot: ask it again, for a row, the week's numbers or the month's
+ * count, and the answer is the one made first. Make a new one when the queue changes.
+ */
+export function statusCache(queue: readonly QueueItem[]): (item: UpcomingItem) => EntryStatus {
+  const made = new WeakMap<UpcomingItem, EntryStatus>()
+  return (item) => {
+    let s = made.get(item)
+    if (!s) made.set(item, (s = entryStatus(item, queue)))
+    return s
+  }
 }
 
 /** A Version's standing as the shared Slot dot draws it: Have, Downloading (with its percent), Wanted or Long Missing, Not out yet; Not monitored when the entry is off and has no file. */
@@ -152,7 +165,7 @@ export function entryChips(item: Pick<UpcomingItem, 'kind' | 'title_id' | 'seaso
 /** What a week adds up to: the episodes airing, the Movie releases, and how many entries wait for their release or are in the Library. */
 export type WeekStats = { episodes: number; movies: number; searching: number; imported: number }
 
-export function weekStats(items: readonly UpcomingItem[], first: string, queue: readonly QueueItem[]): WeekStats {
+export function weekStats(items: readonly UpcomingItem[], first: string, statusOf: (item: UpcomingItem) => EntryStatus): WeekStats {
   const end = addDays(first, 6)
   const out: WeekStats = { episodes: 0, movies: 0, searching: 0, imported: 0 }
   for (const item of items) {
@@ -160,7 +173,7 @@ export function weekStats(items: readonly UpcomingItem[], first: string, queue: 
     if (day < first || day > end) continue
     if (item.kind === 'series') out.episodes++
     else out.movies++
-    const { kind } = entryStatus(item, queue)
+    const { kind } = statusOf(item)
     if (kind === 'searching') out.searching++
     else if (kind === 'imported') out.imported++
   }
@@ -211,7 +224,9 @@ export function buildSegments(items: readonly UpcomingItem[], today: string): Se
   const byDay = new Map<string, UpcomingItem[]>()
   for (const item of items) {
     const day = localDay(item)
-    byDay.set(day, [...(byDay.get(day) ?? []), item])
+    const here = byDay.get(day)
+    if (here) here.push(item)
+    else byDay.set(day, [item])
   }
   const days = [...byDay.keys(), today].sort()
   const out: Segment[] = []

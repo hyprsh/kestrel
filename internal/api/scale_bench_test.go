@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -172,6 +173,76 @@ func BenchmarkScaleStats(b *testing.B) { benchGET(b, "/api/v1/stats") }
 func BenchmarkScaleUpcoming(b *testing.B) {
 	benchGET(b, "/api/v1/upcoming?from="+time.Now().AddDate(0, 0, -14).Format("2006-01-02")+"&to="+time.Now().AddDate(0, 0, 60).Format("2006-01-02"))
 }
+
+// BenchmarkScaleUpcomingOpen is the requests the Upcoming screen makes on open: one per month from the month of today-14 to
+// the month of today+60 (widened to the month grid), all with unmonitored=true and all at once. "cold" starts each open
+// with a write that drops the cache, so it times the first open after any change; "warm" is the same requests answered from it.
+func BenchmarkScaleUpcomingOpen(b *testing.B) {
+	h, st := scaleServer(b)
+	setup := httptest.NewRequest(http.MethodPost, "/api/v1/setup/account", strings.NewReader(`{"username":"bench","password":"bench-password-123"}`))
+	setup.Header.Set("Content-Type", "application/json")
+	setup.Header.Set("Origin", "http://"+setup.Host)
+	account := httptest.NewRecorder()
+	h.ServeHTTP(account, setup)
+	if account.Code >= 300 {
+		b.Fatalf("setup account = %d %s", account.Code, account.Body.String())
+	}
+	cookies := account.Result().Cookies()
+	firstOf := func(t time.Time) time.Time { return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC) }
+	var paths []string
+	now := time.Now().UTC()
+	for m := firstOf(now.AddDate(0, 0, -14)); !m.After(now.AddDate(0, 0, 60)); m = m.AddDate(0, 1, 0) {
+		paths = append(paths, "/api/v1/upcoming?unmonitored=true&from="+m.Format("2006-01-02")+"&to="+m.AddDate(0, 1, -1).Format("2006-01-02"))
+	}
+	open := func() int {
+		var wg sync.WaitGroup
+		sizes := make([]int, len(paths))
+		for i, p := range paths {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				req := httptest.NewRequest(http.MethodGet, p, nil)
+				for _, c := range cookies {
+					req.AddCookie(c)
+				}
+				rec := httptest.NewRecorder()
+				h.ServeHTTP(rec, req)
+				if rec.Code != 200 {
+					b.Errorf("GET %s = %d %s", p, rec.Code, rec.Body.String())
+				}
+				sizes[i] = rec.Body.Len()
+			}()
+		}
+		wg.Wait()
+		total := 0
+		for _, s := range sizes {
+			total += s
+		}
+		return total
+	}
+	open()
+	var size int
+	b.Run("cold", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			if _, err := st.Write().Exec(`update titles set overview = ? where id = 1`, fmt.Sprint("touched ", i)); err != nil {
+				b.Fatal(err)
+			}
+			b.StartTimer()
+			size = open()
+		}
+		b.ReportMetric(float64(size), "bytes/open")
+	})
+	b.Run("warm", func(b *testing.B) {
+		open()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			size = open()
+		}
+		b.ReportMetric(float64(size), "bytes/open")
+	})
+}
+
 func BenchmarkScaleAttention(b *testing.B) { benchGET(b, "/api/v1/attention") }
 func BenchmarkScaleSearchTitles(b *testing.B) {
 	benchGET(b, "/api/v1/titles?q=number%2012&limit=10000")

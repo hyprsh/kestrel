@@ -132,9 +132,11 @@ type server struct {
 	// statsNow and agendas keep the slow answers of GET /stats and GET /upcoming; see dbCache.
 	statsNow dbCache[stats.Result]
 	agendas  dbCache[library.Agenda]
-	auth     *auth
-	plex     *plexSignIn
-	hub      *hub
+	// agendaData is the tables an agenda builds from, read once for every range asked for until the database changes.
+	agendaData dbCache[*library.AgendaData]
+	auth       *auth
+	plex       *plexSignIn
+	hub        *hub
 
 	plugins     PluginInstances
 	profiles    Profiles
