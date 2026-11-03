@@ -46,7 +46,7 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `ProfileCard`, `ProfileFacts`, `DefaultsLine` | `Entity` for the head row | Kept | A card of a Profile: name, uses, action, chips and facts. Kestrel's own domain; the chips and facts are not general. |
 | `QualityChip`, `QualityChips`, `QualityList`, `QualityItem`, `QualityBox` | `Pill` or `Badge` for the chips; `Checkbox` for the box | Kept | The cutoff (dark) and "not accepted" (struck through) chip states. `QualityBox` is a hand-built checkbox look, which `Checkbox` should cover: a candidate for a follow-up. |
 | `SuggestionGroup`, `SuggestionRow`, `SuggestionMore` | `Entity` rows, `Collapse` or `ShowMore` for the disclosure | Kept | The pieces would map to `Entity` plus `Collapse`; not switched in this change (Settings: Slots and Profiles was merging). |
-| `columnWidths`, `columnOrder` | `Table` (resizing since v0.16; reordering with pinned columns and `Table.ColumnsMenu` since v0.17) | Kept | The design's `Table` now does what both hooks do, with its own menu. Switching changes the Episode table and the Log's table, which are being changed in other open PRs, so it is a separate change. |
+| `columnWidths`, `columnOrder` | `Table` (resizing since v0.16; reordering with pinned columns and `Table.ColumnsMenu` since v0.17) | Removed | Both hooks were unused: no table kept a column layout. They are deleted. The design's `Table` reorders only in its data form, and the Episode table is built from parts (roving focus, a fold row, a delete-confirm row, a phone layout), so it can't use that reordering yet. `Table.ColumnsMenu` also has no hide/show. The Log's list is not a table. See #351. |
 | `layout/FieldEnd` (new) | none | New | `QueryInput` no longer takes a `suffix` from the app (v0.18 sets it from `shortcut` only); the x of the filter field goes into the field's box through this piece. |
 
 ## Raw elements outside the layout module
@@ -61,7 +61,6 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `overview/charts.tsx` | `<table>` (screen-reader twin, kept for Grabs, Indexers, Library quality) | `ColumnChart`'s own table | Partly | Gone from the two cards that switched; stays for the cards that kept local marks. |
 | `overview/charts.tsx` | `<button>` per column and mark of `Columns`, per row of `BarRow` | `ColumnChart`, `BarList` | Kept | See "Overview charts" below. |
 | `layout/NowCard.tsx:83` | `<button>` that opens a row | `Entity as="button"` | Kept | The lead and children are one button with the j/k `navIndex` and `current` marker. |
-| `layout/columnWidths.tsx`, `layout/columnOrder.tsx` | no raw element (the match is in a comment) | `Table` | Kept | See the layout table. |
 
 ## Overview charts
 
@@ -80,7 +79,7 @@ The chart tokens (`chart-seq-*`, `chart-series`) are used through `ColumnChart` 
 - **Sparkbars:** no screen shows per-run histories (job runs, indexer requests) today, so there is nothing to replace.
 - **Menu.Sub:** the Title's ⋯ menu was not restructured; that is a redesign of a screen, outside this change's "swap only" scope.
 - **toast.update():** Kestrel's toasts (`web/src/toasts.ts`) report an outcome. Progress for a background rename or search needs a job-progress feed the SPA does not use yet.
-- **Table.ColumnsMenu and pinned columns:** see `columnWidths`/`columnOrder` above.
+- **Table.ColumnsMenu and pinned columns:** not used. The Episode table is built from parts, and the design's reordering is for the data form only (#351).
 
 ## Gaps in hyprsh/design (to file)
 
