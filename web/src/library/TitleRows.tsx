@@ -66,6 +66,7 @@ export function TitleRows({
   single = false,
   profileName,
   onOpenSlot,
+  foot,
 }: {
   rows: TitleRow[]
   /** The cursor's row. */
@@ -91,6 +92,8 @@ export function TitleRows({
   profileName?: (key: string) => string
   /** Opens the Title at one of its Slots (a chip's popover and the "+N" list go there). */
   onOpenSlot?: (row: TitleRow, slot: string) => void
+  /** Last in the scroller, so a sticky ActionBar for the ticked Titles rests at its foot. */
+  foot?: ReactNode
 }) {
   const slots = useSlotNames()
   // Where the Titles start in the scroller: below the Episode results (the `lead` rows) the filter finds.
@@ -114,8 +117,7 @@ export function TitleRows({
   const startPad = items && items.length > 0 ? items[0].start - topOffset : 0
   const endPad = items && items.length > 0 ? Math.max(0, total - items[items.length - 1].end) : 0
   return (
-    // The floating bar of ticked Titles covers the foot of the list: room for it at the end.
-    <div ref={listRef} className={`min-h-0 flex-1 overflow-auto p-1.5 ${selection.count > 0 ? 'pb-20' : ''}`}>
+    <div ref={listRef} className="min-h-0 flex-1 overflow-auto p-1.5">
       <Entity.List
         // chrome-ok: a cursor listbox (aria-activedescendant) over Entity rows; no design component is one, Select and Combobox are pickers
         role="listbox"
@@ -207,6 +209,7 @@ export function TitleRows({
           )
         })}
       </Entity.List>
+      {foot}
     </div>
   )
 }

@@ -67,24 +67,6 @@ export function StackedSetting({ label, help, children }: { label: string; help?
   )
 }
 
-/**
- * The bar that floats at the foot of a page while something on it has changed: how many changes and their names, then
- * Discard and Save (`actions`).
- */
-export function SettingsBar({ count, names, children }: { count: number; names: string; children: ReactNode }) {
-  return (
-    <div className="pointer-events-none sticky bottom-4 z-10 mt-6 flex">
-      <div role="region" aria-label="Unsaved changes" className="pointer-events-auto flex w-full min-w-0 flex-wrap items-center gap-3 rounded-xl bg-background-100 py-2.5 pr-3 pl-4 shadow-menu">
-        <span aria-hidden className="size-2 shrink-0 rounded-full bg-blue-700" />
-        <span className="label-14 min-w-0 flex-1 basis-48">
-          {count} unsaved {count === 1 ? 'change' : 'changes'} · {names}
-        </span>
-        <div className="flex items-center gap-2">{children}</div>
-      </div>
-    </div>
-  )
-}
-
 type DotState = ComponentProps<typeof StatusDot>['state']
 
 /** A status in a line: a coloured dot and its words ("Connected · version 4.3.2"). `tone` colours the words too when it is a problem. */

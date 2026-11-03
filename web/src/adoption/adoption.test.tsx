@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
+import { actionBar, queryActionBar } from '../test/actionBar'
 import { server } from '../test/server'
 import { findToast, toastRegion } from '../test/toasts'
 
@@ -297,7 +298,7 @@ describe('Adoption review', () => {
 
     await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent('1 matched, 1 need a choice, 1 skipped')
+    expect(await screen.findByText('1 matched, 1 need a choice, 1 skipped')).toBeInTheDocument()
     const items = await screen.findAllByRole('listitem')
     const main = items.find((li) => li.textContent?.includes('Paddington (2014)'))!
     expect(within(main).getByLabelText('Adopt Paddington (2014)')).toBeChecked()
@@ -460,7 +461,7 @@ describe('Adoption review of a large plan', () => {
 
     await user.click(await screen.findByLabelText('Select Film 0'))
     await user.click(screen.getByLabelText('Select Film 1'))
-    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('2 selected')
+    expect(actionBar()).toHaveTextContent('2 selected')
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(await screen.findByRole('button', { name: 'Adopt 1 Title' })).toBeInTheDocument()
@@ -471,14 +472,14 @@ describe('Adoption review of a large plan', () => {
     const { state, user } = await openPlan(moreRows(120))
 
     await user.click(await screen.findByLabelText('Select Film 0'))
-    await user.click(screen.getByRole('button', { name: 'Select all 100 shown' }))
-    await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
-    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('120 selected')
+    await user.click(within(actionBar()).getByRole('button', { name: 'Select All' }))
+    await user.click(within(actionBar()).getByRole('button', { name: 'Select all 120 in this filter' }))
+    expect(actionBar()).toHaveTextContent('120 selected')
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
-    expect(screen.getByRole('group', { name: 'Selection' })).not.toHaveTextContent('selected') // nothing is selected after the action
+    expect(queryActionBar()).not.toBeInTheDocument() // nothing is selected after the action
   })
 
   it('offers both select-all controls before a single row is ticked', async () => {
@@ -487,7 +488,7 @@ describe('Adoption review of a large plan', () => {
     expect(await screen.findByText('Showing 100 of 120')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Select all 100 shown' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
-    expect(screen.getByRole('group', { name: 'Selection' })).toHaveTextContent('120 selected')
+    expect(actionBar()).toHaveTextContent('120 selected')
     await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
 
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
@@ -499,6 +500,7 @@ describe('Adoption review of a large plan', () => {
     await screen.findByText('Showing 100 of 120')
     expect(screen.queryByRole('button', { name: "Don't adopt selected" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
   })
 
   it('says so when leaving one row out ends "all in this filter", and then names the rows left by id', async () => {
@@ -507,7 +509,7 @@ describe('Adoption review of a large plan', () => {
     await user.click(await screen.findByRole('button', { name: 'Select all 120 in this filter' }))
     await user.click(screen.getByLabelText('Select Film 3'))
 
-    const bar = screen.getByRole('group', { name: 'Selection' })
+    const bar = actionBar()
     expect(bar).toHaveTextContent('99 selected')
     expect(bar).toHaveTextContent('No longer all 120 in this filter')
     expect(within(bar).getByRole('button', { name: 'Select all 120 in this filter' })).toBeInTheDocument()

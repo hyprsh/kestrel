@@ -1,7 +1,6 @@
 // The Settings page's draft: forms keep their edits here until the one Save bar saves them (or Discard drops them).
-import { Button, Modal, useToasts } from '@hyprsh/design'
+import { ActionBar, Button, Modal, useToasts } from '@hyprsh/design'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { SettingsBar } from '../layout/SettingsPage'
 
 type Entry = { names: string[]; save: () => Promise<boolean>; discard: () => void }
 
@@ -87,16 +86,20 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   return (
     <Draft.Provider value={registry}>
       {children}
-      {dirty && (
-        <SettingsBar count={changed.length} names={changed.join(', ')}>
-          <Button size="small" variant="tertiary" disabled={saving} onClick={discard}>
-            Discard
-          </Button>
-          <Button size="small" variant="primary" loading={saving} onClick={() => void save()}>
-            Save
-          </Button>
-        </SettingsBar>
-      )}
+      <ActionBar
+        open={dirty}
+        label={`${changed.length} unsaved ${changed.length === 1 ? 'change' : 'changes'} · ${changed.join(', ')}`}
+        actions={
+          <>
+            <Button size="small" variant="tertiary" disabled={saving} onClick={discard}>
+              Discard
+            </Button>
+            <Button size="small" variant="primary" loading={saving} onClick={() => void save()}>
+              Save
+            </Button>
+          </>
+        }
+      />
       <Modal
         open={asking !== null}
         onClose={() => setAsking(null)}

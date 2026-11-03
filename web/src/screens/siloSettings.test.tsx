@@ -8,6 +8,7 @@ import { plexInstance, problem } from '../test/plex'
 import { server } from '../test/server'
 import { DraftProvider } from '../settings/draft'
 import { SiloSettingsForm } from './SiloSettings'
+import { actionBar, queryActionBar } from '../test/actionBar'
 
 type Saved = SiloSettings & { from_config_file: boolean }
 
@@ -58,10 +59,10 @@ describe('Silo settings', () => {
     expect(screen.getByRole('switch', { name: 'Watch-ahead for Series requested in Silo' })).not.toBeChecked()
     await userEvent.click(screen.getByRole('switch', { name: 'Watch-ahead for Series requested in Silo' }))
     await userEvent.selectOptions(instance, 'Garage Silo')
-    await userEvent.click(within(screen.getByRole('region', { name: 'Unsaved changes' })).getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Save' }))
 
     await vi.waitFor(() => expect(sent).toHaveLength(1))
-    await vi.waitFor(() => expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument())
+    await vi.waitFor(() => expect(queryActionBar()).not.toBeInTheDocument())
     expect(sent).toEqual([{ watch_ahead: true, instance: 'Garage Silo' }])
   })
 
@@ -74,7 +75,7 @@ describe('Silo settings', () => {
     expect(instance).toHaveValue('Living room Silo')
     await userEvent.click(screen.getByRole('switch', { name: 'Watch-ahead for Series requested in Silo' }))
     await userEvent.selectOptions(instance, 'None')
-    await userEvent.click(within(screen.getByRole('region', { name: 'Unsaved changes' })).getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Save' }))
 
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     expect(sent).toEqual([{ watch_ahead: false, instance: null }])
@@ -92,10 +93,10 @@ describe('Silo settings', () => {
     renderCard()
 
     await userEvent.click(await screen.findByRole('switch', { name: 'Watch-ahead for Series requested in Silo' }))
-    await userEvent.click(within(screen.getByRole('region', { name: 'Unsaved changes' })).getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('Name the Silo instance whose playback history Watch-ahead reads')).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Unsaved changes' })).toBeInTheDocument() // the draft is kept
+    expect(actionBar()).toBeInTheDocument() // the draft is kept
   })
 
   it('is read-only, with the declared note, while the Config File declares it', async () => {

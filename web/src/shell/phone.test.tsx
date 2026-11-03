@@ -8,6 +8,7 @@ import { fakeLibrary, row } from '../test/library'
 import { http } from '../test/handlers'
 import { fakeRequests, request } from '../test/requests'
 import { server } from '../test/server'
+import { actionBar } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -172,9 +173,9 @@ describe('the Library on a phone', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Library actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Tick Titles' }))
     await userEvent.click(within(list).getByRole('checkbox', { name: 'Tick Heat' }))
-    const bar = screen.getByRole('toolbar', { name: '1 ticked' })
+    const bar = actionBar()
     expect(within(bar).getByRole('button', { name: 'Search Now' })).toBeInTheDocument()
-    expect(within(bar).queryByRole('button', { name: 'Unmonitor' })).not.toBeInTheDocument() // in More…, so the count keeps its words
+    expect(within(bar).queryByRole('button', { name: 'Unmonitor' })).not.toBeInTheDocument() // in More…, so the count and Select All keep their room
     expect(location.pathname).toBe('/library') // ticking opens no Title
   })
 })

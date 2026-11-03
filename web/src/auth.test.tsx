@@ -159,7 +159,7 @@ describe('Settings', () => {
     await userEvent.type(screen.getByLabelText('Current password'), 'correct horse')
     await userEvent.type(screen.getByLabelText('New password'), 'brand new pass')
     await userEvent.click(screen.getByRole('button', { name: 'Change password' }))
-    expect(await screen.findByRole('status')).toHaveTextContent(/password changed/i)
+    expect(await screen.findByText(/password changed/i)).toBeInTheDocument()
     expect(calls).toEqual([{ path: 'password', body: { current_password: 'correct horse', new_password: 'brand new pass' } }])
   })
 

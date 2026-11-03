@@ -9,6 +9,7 @@ import { server } from '../test/server'
 import { findToast, toastRegion } from '../test/toasts'
 import { publishSearchFinished, type SearchFinished } from '../live/searchFinished'
 import { releaseList } from '../test/grabs'
+import { actionBar, queryActionBar } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -233,20 +234,20 @@ describe('searching from the episode list', () => {
     expect(within(await screen.findByRole('region', { name: 'Manual search' })).getByText('Season 1')).toBeInTheDocument()
   })
 
-  it('ticks episodes, a range with shift-click, and searches them together from the floating bar', async () => {
+  it('ticks episodes, a range with shift-click, and searches them together from the bar', async () => {
     const { grid, searched } = await openSeries()
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
 
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
-    const bar = screen.getByRole('toolbar', { name: 'S01E01 ticked' })
-    expect(bar).toHaveTextContent('1 ticked')
+    const bar = actionBar()
+    expect(bar).toHaveTextContent('1 selected')
     const user = userEvent.setup()
     await user.keyboard('{Shift>}')
     await user.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
     await user.keyboard('{/Shift}')
-    expect(screen.getByRole('toolbar', { name: '2 episodes ticked' })).toHaveTextContent('2 ticked')
+    expect(actionBar()).toHaveTextContent('2 selected')
 
-    await userEvent.click(within(screen.getByRole('toolbar', { name: '2 episodes ticked' })).getByRole('button', { name: 'Search' }))
+    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Search' }))
 
     // Only the 4K pilot is Wanted among the two.
     await waitFor(() => expect(searched).toEqual([{ version: 52, body: { episode_ids: [2] } }]))
@@ -257,7 +258,7 @@ describe('searching from the episode list', () => {
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
 
-    const bar = screen.getByRole('toolbar', { name: '2 episodes ticked' })
+    const bar = actionBar()
     await userEvent.click(within(bar).getByRole('button', { name: 'Stop Monitoring' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2, 3], monitored: false } }]))
 
@@ -265,44 +266,44 @@ describe('searching from the episode list', () => {
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1, episode_ids: [2, 3] } }]))
   })
 
-  it('shows the ticked bar as "N ticked", Monitor, Stop Monitoring, Search and a clear button, and Monitor and Stop Monitoring act on the ticked episodes', async () => {
+  it('shows the ticked bar as "N selected", Clear, Monitor, Stop Monitoring and Search, and Monitor and Stop Monitoring act on the ticked episodes', async () => {
     const { grid, state } = await openSeries()
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
-    const bar = screen.getByRole('toolbar', { name: '2 episodes ticked' })
+    const bar = actionBar()
     expect(
       within(bar)
         .getAllByRole('button')
         .map((b) => b.textContent || b.getAttribute('aria-label')),
-    ).toEqual(['Monitor', 'Stop Monitoring', 'Search', 'More actions for the ticked episodes', 'Clear ticks'])
-    expect(bar).toHaveTextContent('2 ticked')
+    ).toEqual(['Clear', 'Monitor', 'Stop Monitoring', 'Search', 'More actions for the ticked episodes'])
+    expect(bar).toHaveTextContent('2 selected')
     // Both are monitored already: Monitor has nothing to do.
     expect(within(bar).getByRole('button', { name: 'Monitor' })).toBeDisabled()
 
     await userEvent.click(within(bar).getByRole('button', { name: 'Stop Monitoring' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2, 3], monitored: false } }]))
-    await waitFor(() => expect(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Monitor' })).toBeEnabled())
-    await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Monitor' }))
+    await waitFor(() => expect(within(actionBar()).getByRole('button', { name: 'Monitor' })).toBeEnabled())
+    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Monitor' }))
     await waitFor(() => expect(state.get().sent[1]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [2, 3], monitored: true } }))
   })
 
   it('clears the ticks from the bar, and ticks every episode of the season from the header', async () => {
     const { grid } = await openSeries()
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick all of Season 1' }))
-    expect(screen.getByRole('toolbar', { name: '2 episodes ticked' })).toBeInTheDocument()
+    expect(actionBar()).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Clear ticks' }))
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(queryActionBar()).not.toBeInTheDocument()
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
   })
 
   it('drops the ticks of a season when another tab opens', async () => {
     const { grid } = await openSeries()
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
-    expect(screen.getByRole('toolbar')).toBeInTheDocument()
+    expect(actionBar()).toBeInTheDocument()
 
     await pickSeason('Specials')
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
     await pickSeason('Season 1')
     expect(within(screen.getByRole('grid', { name: 'Episodes' })).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
   })
@@ -326,12 +327,12 @@ describe('searching from the episode list', () => {
     rowOf(grid, /Pilot/).focus()
 
     await userEvent.keyboard('x')
-    expect(screen.getByRole('toolbar', { name: 'S01E01 ticked' })).toBeInTheDocument()
+    expect(actionBar()).toBeInTheDocument()
     // The Library's own x (tick the Title, which swaps the pane for the bulk actions) did not fire.
     expect(screen.getByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
 
     await userEvent.keyboard('{Escape}')
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
     expect(screen.getByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
   })
 

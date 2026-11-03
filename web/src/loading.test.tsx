@@ -198,13 +198,13 @@ describe('a Settings section while its settings load', () => {
       </DraftProvider>,
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading')
+    expect(screen.getByText('Loading')).toBeInTheDocument()
     expect(screen.queryByLabelText('Season order')).not.toBeInTheDocument()
 
     await settings.release()
 
     expect(await screen.findByLabelText('Season order')).toBeInTheDocument()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading')).not.toBeInTheDocument()
   })
 })
 

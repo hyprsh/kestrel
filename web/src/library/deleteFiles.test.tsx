@@ -9,6 +9,7 @@ import { detail, fakeLibrary, row } from '../test/library'
 import { cell, episode, episodeFile, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
+import { actionBar } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -260,11 +261,11 @@ describe('deleting files from the episode table', () => {
     const { grid, sent } = await openSeriesWithFiles()
 
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
-    const bar = screen.getByRole('toolbar', { name: 'S01E02 ticked' })
+    const bar = actionBar()
     await choose(null, 'More actions for the ticked episodes', 'Delete Standard Files…')
     expect(screen.getByRole('dialog', { name: 'Delete files' })).toHaveTextContent('S01E01 shares a file with it')
-    expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument() // in the bar for ticked episodes
-    expect(bar).toContainElement(screen.getByRole('dialog', { name: 'Delete files' }))
+    expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument() // above the bar for ticked episodes
+    expect(bar.previousElementSibling).toContainElement(screen.getByRole('dialog', { name: 'Delete files' })) // right above the bar
     await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'episode_ids=3' }]))
