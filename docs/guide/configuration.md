@@ -295,7 +295,7 @@ A plugin instance is one connection to a service: your download client, an index
 | `priority`  | Optional, default `0`. For an indexer, lower is asked first and wins between Releases of equal Score.   |
 | `config`    | The plugin's fields. The plugin's defaults fill the ones you leave out.                                 |
 
-Indexers with the same `priority` form a group and are asked together. An automatic search (the sweeps and Search now) asks the groups in turn, lowest first, and asks the next group only for what the earlier ones left: Wanted episodes or Upgrades with nothing to grab, and Versions that found only an Original Offer. An indexer that fails, is paused or is out of budget finds nothing for its group: what it would have found is left for the next group. A manual search and RSS ask every enabled indexer at once. With every indexer at the same priority, every search asks them all.
+Indexers with the same `priority` form a group and are asked together. An automatic search (the sweeps and Search Now) asks the groups in turn, lowest first, and asks the next group only for what the earlier ones left: Wanted episodes or Upgrades with nothing to grab, and Versions that found only an Original Offer. An indexer that fails, is paused or is out of budget finds nothing for its group: what it would have found is left for the next group. A manual search and RSS ask every enabled indexer at once. With every indexer at the same priority, every search asks them all.
 
 The fields of `config` (give a secret as `<field>_env`):
 
@@ -378,7 +378,7 @@ These rules matter once you move between the UI and the file, or rename an insta
 
 People who share your Plex server can ask for Movies and Series in Kestrel, without an app like Seerr in front of it. Switch it on in Settings > Security & Access > Plex sign-in (or declare `plex_sign_in` in the Config File) and pick the Plex instance whose server and owner token decide who may sign in.
 
-The login page then offers "Sign in with Plex". Kestrel sends the browser to plex.tv, plex.tv sends it back to Kestrel's login page with `?plex=1`, and Kestrel finishes the sign-in there. Only the browser that started a sign-in can finish it.
+The login page then offers "Sign In With Plex". Kestrel sends the browser to plex.tv, plex.tv sends it back to Kestrel's login page with `?plex=1`, and Kestrel finishes the sign-in there. Only the browser that started a sign-in can finish it.
 
 - **Who may sign in:** the server's owner, members of the owner's Plex Home, and friends whose share includes this server, read with the owner's token from the Plex instance. A list of `users` narrows that to those Plex usernames (or names, for a Home user without one), ignoring case. The Requester's own Plex token is used once, to learn who they are, and never stored.
 - **What a Requester can do:** search Titles, make a Request and see their own Requests, and nothing else. Every other route answers `403 forbidden`. A Request names no Slot, so it gets every Slot that is on for new Titles, each under its default Profile, and goes in the kind's first root folder, unless `user_root_folders` names another for that user. It shows up in Requests and in the Log like any other, with the source `plex`.

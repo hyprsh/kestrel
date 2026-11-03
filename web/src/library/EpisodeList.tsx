@@ -226,7 +226,7 @@ function FoldRow({ fold, columns, rowIndex }: { fold: UnairedFold; columns: numb
           prefix={<Icon aria-hidden className="size-3.5" />}
           onClick={fold.onToggle}
         >
-          <span className="min-w-0 truncate">{fold.expanded ? 'Hide the episodes not aired yet' : foldText(fold.episodes)}</span>
+          <span className="min-w-0 truncate">{fold.expanded ? 'Hide the Episodes Not Aired Yet' : foldText(fold.episodes)}</span>
         </Button>
       </TableCell>
     </TableRow>

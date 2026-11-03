@@ -7,7 +7,7 @@ Start with the Overview. Its **Happening now** list (which holds Needs attention
 Needs attention says "Download of … is stuck". Kestrel flags a Grab when the download client has it paused, or when its downloaded amount hasn't grown for an hour. It clears by itself as soon as the download moves again. The row offers two buttons:
 
 - **Search Again** cancels the download, puts the Release on the Blocklist and searches for the next best Release.
-- **Cancel download** cancels it and removes its job and files from the download client, without blocklisting the Release.
+- **Cancel Download** cancels it and removes its job and files from the download client, without blocklisting the Release.
 
 Whoever requested the Title sees "Taking longer than usual".
 
@@ -92,7 +92,7 @@ Check these in order:
 1. **Is the Version Wanted?** Open the Title. A Version that is unmonitored, or not out yet (it says "Not out yet"), isn't searched. [Concepts](concepts.md#wanted) says when something counts as released.
 2. **Is Grab automatically switched off?** See above.
 3. **Is Needs attention asking for something?** A Release in your language may have been held back, because the Profile offers Releases that have only the Original Language ([Concepts](concepts.md#profile)). Accept or dismiss it.
-4. **Did the search find a Release that scores well enough?** Open the Title and choose Manual search. It lists every Release with its Score, and says why one was rejected. "Grab anyway" overrides most rejections.
+4. **Did the search find a Release that scores well enough?** Open the Title and choose Manual Search. It lists every Release with its Score, and says why one was rejected. "Grab Anyway" overrides most rejections.
 5. **Are the download client and indexer healthy?** Health shows each with a status. Settings > Downloads has a Test connection button.
 6. **Has the indexer run out of API requests or grabs for today?** See above.
 

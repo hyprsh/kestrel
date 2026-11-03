@@ -290,7 +290,7 @@ describe('the Seasons at a glance on the Title page', () => {
     await userEvent.click(fold)
     expect(within(episodeGrid()).getByRole('checkbox', { name: 'Select Season 1 episode 4' })).toBeInTheDocument()
     expect(within(episodeGrid()).getByRole('row', { name: /Cat/ })).toHaveTextContent('Nov 2')
-    await userEvent.click(within(episodeGrid()).getByRole('button', { name: 'Hide the episodes not aired yet' }))
+    await userEvent.click(within(episodeGrid()).getByRole('button', { name: 'Hide the Episodes Not Aired Yet' }))
     expect(within(episodeGrid()).queryByRole('checkbox', { name: 'Select Season 1 episode 4' })).not.toBeInTheDocument()
 
     await userEvent.click(within(screen.getByRole('tablist', { name: 'Show episodes' })).getByRole('tab', { name: 'Not aired 3' }))
