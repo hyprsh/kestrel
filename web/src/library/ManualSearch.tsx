@@ -467,7 +467,7 @@ export function ManualSearch({
 
             <section aria-label="Releases" className="flex flex-col gap-2.5">
               <div className="flex flex-wrap items-center gap-3">
-                <div className="max-w-full min-w-0 overflow-x-auto">
+                <div className="max-w-full min-w-0">
                   <Tabs variant="secondary" aria-label="Show" tabs={segments} selected={segment} onChange={(v) => toSegment(v as Segment)} />
                 </div>
                 <span className="flex-1" />
