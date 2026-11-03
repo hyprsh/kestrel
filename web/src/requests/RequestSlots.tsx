@@ -3,7 +3,7 @@
 import { useQueue } from '../api/queue'
 import type { QueueItem } from '../api/queue'
 import type { Request } from '../api/requests'
-import { SlotChips } from '../library/SlotChip'
+import { SlotPills } from '../library/SlotPills'
 import { useSlotNames, type SlotNames } from '../library/slots'
 import { stateName } from '../ui/slotState'
 import { slotDot, slotState } from './status'
@@ -18,7 +18,7 @@ export function RequestSlots({ request: r, live = true, align = 'end' }: { reque
     const state = slotDot(s, st)
     return { key: s.slot, short: slots.several ? slots.short(s.slot) : '', state, tip: `${slots.name(s.slot)}: ${st.text || stateName[state]}` }
   })
-  return <SlotChips chips={chips} max={4} wrap align={align} />
+  return <SlotPills chips={chips} max={4} wrap align={align} />
 }
 
 /** Where a Request's Slots stand, in words: "Searching", or "Standard: Completed · 4K: Searching" for several. */

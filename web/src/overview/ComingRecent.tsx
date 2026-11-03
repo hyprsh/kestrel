@@ -8,7 +8,7 @@ import type { UpcomingItem } from '../api/upcoming'
 import { localDay, useRecent, useUpcoming } from '../api/upcoming'
 import type { ReactNode } from 'react'
 import { useQueue } from '../api/queue'
-import { SlotChips, SlotTag } from '../library/SlotChip'
+import { SlotPills, SlotTag } from '../library/SlotPills'
 import { useSlotNames } from '../library/slots'
 import { TitlePoster } from '../poster'
 import { ago, useNow } from '../time'
@@ -65,7 +65,7 @@ export function Coming({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void
     name: item.title,
     line: comingLine(item),
     // An entry that is not out yet has nothing to say in a chip: every Slot would be Not out yet.
-    right: item.slots.every((s) => s.state === 'not_out') ? undefined : <SlotChips chips={entryChips(item, queue, names)} max={3} label={`${item.title} Slots`} />,
+    right: item.slots.every((s) => s.state === 'not_out') ? undefined : <SlotPills chips={entryChips(item, queue, names)} max={3} label={`${item.title} Slots`} />,
   }))
   return (
     <Section id="coming-this-week" title="Coming this week" count={coming.data ? all.length : undefined} action={all.length > 0 ? <HeadingLink path="/upcoming" label="Upcoming" /> : undefined}>

@@ -4,7 +4,7 @@ import type { Episode } from '../api/queries'
 import type { EpisodeActions } from './EpisodeActions'
 import { AccordionList, AccordionRow, BarCell, Chevron, Count, CountCell, lineRow, phoneRow, RowName, SizeCell, StandingText } from './accordion'
 import { MonitorToggle } from './MonitorToggle'
-import { SlotChips, type ChipData } from './SlotChip'
+import { SlotPills, type ChipData } from './SlotPills'
 import { seasonName, slotTally, tallyCount, type SlotTally } from './episodes'
 import { combinedState, type Combined, type SlotInfo } from './slots'
 import { barColor, chipsShown, StateBar, type BarPart } from './StateBar'
@@ -115,7 +115,7 @@ export function SeasonAccordion({
           lone ? (
             <Count text={`${lone.filled}/${lone.counted}`} tip={say(lone, slots[0].name)} />
           ) : tallies.length > 1 ? (
-            <SlotChips chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i]))} max={chipsShown} />
+            <SlotPills chips={tallies.map((t, i) => tallyChip(t, monitored, slots[i]))} max={chipsShown} />
           ) : null
         ) : null
         return (

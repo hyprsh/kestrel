@@ -1,11 +1,11 @@
 // chrome: domain-visual
-// A Slot's state as a chip: the Slot's short label (STD, 4K, DE) with a dot coloured by its state, and the full state in
+// A Slot's state as a design Pill: the Slot's short label (STD, 4K, DE) with a status dot for its state, and the full state in
 // its tooltip. The Series' episode rows, the Movie header and the phone's rows share it; a list longer than `max` ends in a
 // "+N" chip that lists the rest in its tooltip. It takes any number of Slots. A chip with a `wrap` is a button: the wrap
 // puts a popover on it with just that Slot (its file, its search, its download or its monitoring).
-import { Button, Popover } from '@hyprsh/design'
+import { Popover, Pill, type PillProps } from '@hyprsh/design'
 import type { ReactElement } from 'react'
-import { StateDot, stateName, dotState } from '../ui/slotState'
+import { StateDot, stateName, dotState, type SlotDotState } from '../ui/slotState'
 import { useSlotNames } from './slots'
 
 export { StateDot }
@@ -24,60 +24,46 @@ export type ChipData = {
   wrap?: (trigger: ReactElement) => ReactElement
 }
 
-/** One chip. `text` follows the label ("40%", "Wanted"). */
-function SlotChip({ chip, tabIndex }: { chip: ChipData; tabIndex?: number }) {
-  const body = (
-    <span className="inline-flex items-center gap-1.5">
-      {chip.short && <span>{chip.short}</span>}
-      {chip.text && <span className="text-gray-900">{chip.text}</span>}
-    </span>
-  )
-  if (!chip.wrap)
-    return (
-      <span
-        title={chip.tip}
-        role="img"
-        aria-label={chip.tip}
-        data-slot={chip.key}
-        data-state={chip.state ?? 'none'}
-        className="label-12 inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full bg-gray-100 px-2 whitespace-nowrap"
-      >
-        <StateDot state={chip.state} />
-        {body}
-      </span>
-    )
-  return chip.wrap(
-    <Button
-      variant="tertiary"
-      size="tiny"
-      shape="rounded"
+/** The design's status for each of the Slot's seven states (the Pill's dot has no ring): Upgrade wanted is a Have, Not out yet and Not monitored are both gray. */
+const pillStatus: Record<SlotDotState, NonNullable<PillProps['status']>> = {
+  filled: 'success',
+  downloading: 'info',
+  wanted: 'warning',
+  long_missing: 'error',
+  unreleased: 'neutral',
+  upgrade: 'success',
+  unmonitored: 'neutral',
+}
+
+/** One chip: a Pill with the state's dot, the Slot's label and `text` after it ("40%", "Wanted"). */
+function SlotPill({ chip, tabIndex }: { chip: ChipData; tabIndex?: number }) {
+  const state = chip.state && chip.state in pillStatus ? (chip.state as SlotDotState) : null
+  const pill = (
+    <Pill
+      size="sm"
+      status={state ? pillStatus[state] : 'neutral'}
+      trailing={chip.text}
       title={chip.tip}
       aria-label={chip.tip}
-      tabIndex={tabIndex}
+      // A chip without a popover is plain text, and the Pill draws it as a span: it needs its role for the name.
+      role={chip.wrap ? undefined : 'img'}
+      tabIndex={chip.wrap ? tabIndex : undefined}
       data-slot={chip.key}
       data-state={chip.state ?? 'none'}
-      prefix={<StateDot state={chip.state} />}
-      className="label-12 shrink-0 bg-gray-100 px-2 whitespace-nowrap"
+      className="shrink-0 whitespace-nowrap"
     >
-      {body}
-    </Button>,
+      {chip.short}
+    </Pill>
   )
+  return chip.wrap ? chip.wrap(pill) : pill
 }
 
 /** "+N": a button whose popover lists the folded Slots, a line each (dot, name, Profile, count or state). */
 function More({ rest }: { rest: ChipData[] }) {
   const trigger = (
-    <Button
-      variant="tertiary"
-      size="tiny"
-      shape="rounded"
-      title={rest.map((c) => c.tip).join('\n')}
-      aria-label={`${rest.length} more Slots`}
-      data-more=""
-      className="label-12 shrink-0 bg-gray-100 whitespace-nowrap"
-    >
+    <Pill size="sm" onClick={() => {}} title={rest.map((c) => c.tip).join('\n')} aria-label={`${rest.length} more Slots`} data-more="" className="shrink-0 whitespace-nowrap">
       +{rest.length}
-    </Button>
+    </Pill>
   )
   return (
     // Not the row's: a click here opens the list, not the Title.
@@ -113,7 +99,7 @@ function More({ rest }: { rest: ChipData[] }) {
 }
 
 /** The chips, with the ones past `max` folded into "+N" (its tooltip and popover list them). `tabIndex` -1 leaves the buttons to a grid's arrow keys. */
-export function SlotChips({
+export function SlotPills({
   chips,
   max = 4,
   label,
@@ -133,7 +119,7 @@ export function SlotChips({
   return (
     <span role={label ? 'group' : undefined} aria-label={label} className={`flex ${wrap ? 'flex-wrap' : ''} items-center gap-[5px] ${align === 'end' ? 'justify-end' : ''}`}>
       {shown.map((c) => (
-        <SlotChip key={c.key} chip={c} tabIndex={tabIndex} />
+        <SlotPill key={c.key} chip={c} tabIndex={tabIndex} />
       ))}
       {rest.length > 0 && <More rest={rest} />}
     </span>
@@ -152,5 +138,5 @@ export function SlotTag({ slot, state, longMissing = false, text, tip }: { slot:
   const dot = dotState(state, longMissing)
   const names = useSlotNames()
   const name = names.name(slot)
-  return <SlotChip chip={{ key: slot, short: names.several ? names.short(slot) : '', state: dot, text, tip: tip ?? `${name}: ${dot ? stateName[dot] : 'no Version'}${text ? ` ${text}` : ''}` }} />
+  return <SlotPill chip={{ key: slot, short: names.several ? names.short(slot) : '', state: dot, text, tip: tip ?? `${name}: ${dot ? stateName[dot] : 'no Version'}${text ? ` ${text}` : ''}` }} />
 }

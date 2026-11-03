@@ -93,6 +93,8 @@ const ALIASES: Record<string, string> = {
   IndexerLine: 'Entity',
   SlotHead: 'Entity.List',
   SlotLine: 'Entity',
+  SlotChip: 'Pill',
+  SlotChips: 'Pill',
 }
 
 type Hit = { line: number; message: string; class?: string }

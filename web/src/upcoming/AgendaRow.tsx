@@ -4,7 +4,7 @@
 import { Button } from '@hyprsh/design'
 import type { QueueItem } from '../api/queue'
 import type { UpcomingItem, UpcomingSlot } from '../api/upcoming'
-import { SlotChips } from '../library/SlotChip'
+import { SlotPills } from '../library/SlotPills'
 import { TitlePoster } from '../poster'
 import { cx } from '../ui'
 import { Markers } from './bits'
@@ -39,7 +39,7 @@ export function AgendaRow({ item, queue, status, today, now, current, index, onO
   const code = item.kind === 'series' ? episodeCode(item.season!, item.episode!) : null
   const what = item.kind === 'series' ? [code, item.episode_name].filter(Boolean).join(' · ') : item.release_type ? releaseName[item.release_type] : ''
   const when = whenLine(item, today, now)
-  const chips = <SlotChips chips={entryChips(item, queue, names)} max={4} wrap label={`${item.title} Slots`} />
+  const chips = <SlotPills chips={entryChips(item, queue, names)} max={4} wrap label={`${item.title} Slots`} />
   const at = airTime(item)
   const name = (
     <>

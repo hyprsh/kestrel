@@ -13,7 +13,7 @@ import { usePhone } from '../responsive'
 import { cx } from '../ui'
 import { GrabDetail } from './GrabDetail'
 import type { Entry } from './stages'
-import { SlotTag } from '../library/SlotChip'
+import { SlotTag } from '../library/SlotPills'
 import { dayName, hhmm, shortWhy, whatOf, whyFailed } from './words'
 
 type BlocklistEntry = components['schemas']['BlocklistEntry']
