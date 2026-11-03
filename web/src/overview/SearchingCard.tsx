@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import { passResult, phaseOf, whereOf } from '../activity/SearchProgress'
 import { useSearchNow } from '../api/grabs'
 import type { SearchStatus } from '../api/search'
-import { NowCard, NowEmpty, NowList, NowRow, NowSub } from '../layout/NowCard'
+import { NowCard, NowEmpty, NowList, NowRow, NowSub, NowTitle } from '../layout/NowCard'
 import { SlotTag } from '../library/SlotPills'
 import { useSlotNames } from '../library/slots'
 import { TitlePoster } from '../poster'
@@ -145,9 +145,7 @@ function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; n
         </span>
       }
     >
-      <span className="label-14 min-w-0 truncate">
-        <b className="font-medium">{item.title}</b> <span className="text-gray-900">{wantedWhat(item)}</span>
-      </span>
+      <NowTitle name={item.title} what={wantedWhat(item)} />
       <span className={cx('label-12', item.longMissing ? 'text-red-900' : 'text-amber-900')}>{wantedWhy(item, now)}</span>
     </NowRow>
   )

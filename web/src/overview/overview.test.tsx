@@ -41,6 +41,17 @@ describe('Overview', () => {
     expect(row).toHaveTextContent('Severance S02E04')
   })
 
+  it('lets a long Title name truncate and keeps the episode range of a Grab whole', async () => {
+    fakeQueue([item({ title: 'Breaking Bad and the Long Road Home', kind: 'series', episodes: ['S05E09–E10'] })])
+    renderApp()
+
+    const row = await within(await screen.findByRole('region', { name: /downloading/i })).findByRole('listitem')
+    const range = within(row).getByText('S05E09–E10')
+    const name = within(row).getByText('Breaking Bad and the Long Road Home')
+    expect(name).not.toContainElement(range)
+    expect(range.parentElement).toBe(name.parentElement)
+  })
+
   it('links "All activity" to Activity', async () => {
     fakeQueue([item()])
     renderApp()

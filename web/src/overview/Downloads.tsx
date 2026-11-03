@@ -5,7 +5,7 @@ import { DotsMenu, MenuItem, Progress } from '@hyprsh/design'
 import type { QueueItem } from '../api/queue'
 import { percent } from '../format'
 import { phases } from '../grabs/phase'
-import { NowCard, NowEmpty, NowList, NowRow } from '../layout/NowCard'
+import { NowCard, NowEmpty, NowList, NowRow, NowTitle } from '../layout/NowCard'
 import { SkeletonRows } from '../loading'
 import { SlotTag } from '../library/SlotPills'
 import { TitlePoster } from '../poster'
@@ -82,9 +82,7 @@ export function DownloadingCard({
                   </span>
                 }
               >
-                <span className="label-14 min-w-0 truncate">
-                  <b className="font-medium">{name}</b> <span className="text-gray-900">{g.episodes.join(', ')}</span>
-                </span>
+                <NowTitle name={name} what={g.episodes.join(', ')} />
                 <span className="flex items-center gap-2.5">
                   {pct !== null && <Progress value={pct} type={importing ? 'warning' : 'success'} height={4} aria-label={`${name} progress`} className="min-w-0 flex-1" />}
                   <span className={cx('label-12 shrink-0 text-right tabular-nums', importing ? 'text-amber-900' : 'text-gray-900')}>{text}</span>
