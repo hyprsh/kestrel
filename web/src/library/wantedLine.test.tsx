@@ -51,6 +51,15 @@ describe('a Wanted Version’s search facts', () => {
     expect(await fact('Next search')).toHaveTextContent('in 4 h')
   })
 
+  it("keeps the whole last-search line on the Version's header, with the full text as its tooltip", async () => {
+    wantedMovie({ ...none, releases: 11 }, null)
+    const card = await openMovie()
+
+    const line = await card.findByText(/^Last search 2 h ago · 11 releases/)
+    expect(line.textContent).toMatch(/all German only$/)
+    expect(line).toHaveAttribute('title', line.textContent!)
+  })
+
   it('says it was not searched yet', async () => {
     wantedMovie(null, hoursAhead(1))
     const card = await openMovie()
