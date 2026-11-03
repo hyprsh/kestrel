@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import type { Episode } from '../api/queries'
 import { plural } from '../format'
 import { usePhone } from '../responsive'
-import { CellButton, CellStatic } from './CellButton'
+import { CellButton } from './CellButton'
 import { EpisodeDeleteConfirm } from './DeleteFiles'
 import { SeasonMenu, type EpisodeActions } from './EpisodeActions'
 import { monthDay } from './cellDetail'
@@ -61,7 +61,7 @@ function years(eps: Episode[], now: number): string | null {
  * The seasons as rows of the table, aligned to its Version columns: the season's name with "19 episodes · 2024", then a cell per Version
  * (a quiet check when the Version has the whole season, else a dot and what is Wanted or downloading, a button with that Version's menu for
  * the season) and the row's ⋯ menu, season-wide. The name opens the season's episodes in place (`body` draws them). A season that is not
- * monitored is dimmed. `onShowWanted` filters the table to a season's Wanted episodes.
+ * monitored has its name dimmed, never its cells or ⋯. `onShowWanted` filters the table to a season's Wanted episodes.
  */
 export function SeasonRows({
   seasons,
@@ -105,11 +105,7 @@ export function SeasonRows({
         const label = `${name}: ${standing(states, monitored)}${monitored ? `, ${tallies.map((t, i) => say(t, slots[i].name)).join('; ')}` : ''}`
         return (
           <div key={n} role="presentation" data-monitored={monitored ? 'on' : 'off'} data-season={n} data-open={isOpen ? '' : undefined} className="border-t border-gray-alpha-200">
-            <div
-              role="row"
-              style={grid.style}
-              className={`${grid.className} ${phone ? 'min-h-14 px-1.5 py-2' : 'min-h-16'} hover:bg-gray-alpha-100 ${isOpen ? 'bg-gray-alpha-100' : ''} ${monitored ? '' : 'opacity-75'}`}
-            >
+            <div role="row" style={grid.style} className={`${grid.className} ${phone ? 'min-h-14 px-1.5 py-2' : 'min-h-16'} hover:bg-gray-alpha-100 ${isOpen ? 'bg-gray-alpha-100' : ''}`}>
               <span role="rowheader" className={`flex min-w-0 items-center ${phone ? '' : 'pr-2 pl-3'}`}>
                 <button
                   type="button"
@@ -120,8 +116,8 @@ export function SeasonRows({
                 >
                   <ChevronRight aria-hidden className={`size-4 shrink-0 text-gray-900 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                   <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className={`${phone ? 'label-14' : 'text-[15px]'} label-14-strong ${monitored ? '' : 'text-gray-900'}`}>{name}</span>
-                    <span className={`${phone ? 'label-12' : 'label-13'} truncate text-gray-900`}>{meta}</span>
+                    <span className={`${phone ? 'label-14' : 'text-[15px]'} label-14-strong ${monitored ? '' : 'text-gray-900 opacity-75'}`}>{name}</span>
+                    <span className={`${phone ? 'label-12' : 'label-13'} truncate text-gray-900 ${monitored ? '' : 'opacity-75'}`}>{meta}</span>
                   </span>
                 </button>
               </span>
@@ -132,11 +128,7 @@ export function SeasonRows({
                 const cellLabel = `${name}, ${s.name}: ${view.say}`
                 return (
                   <span key={s.key} role="cell" className={`flex min-w-0 items-center border-l border-gray-alpha-200 ${phone ? 'justify-center' : 'pr-2 pl-1.5'}`}>
-                    {view.kind !== 'done' && view.kind !== 'out' && cellItems.length > 0 ? (
-                      <CellButton kind={view.kind} text={view.text} count={view.count} label={cellLabel} title={`${name} · ${s.name}`} status={view.say} items={cellItems} phone={phone} />
-                    ) : (
-                      <CellStatic kind={view.kind} text={view.text} count={view.count} label={cellLabel} phone={phone} />
-                    )}
+                    {v && <CellButton kind={view.kind} text={view.text} count={view.count} label={cellLabel} title={`${name} · ${s.name}`} status={view.say} items={cellItems} phone={phone} />}
                   </span>
                 )
               })}

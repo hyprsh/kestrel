@@ -290,3 +290,25 @@ func TestASearchSaysWhatEachReleaseCoversAndHowManyEpisodesTheVersionWants(t *te
 		t.Errorf("pack covers %+v", pack.Covers)
 	}
 }
+
+func TestAManualSearchOfAnUnmonitoredSeriesStillListsTheSeasonAndEpisodeReleases(t *testing.T) {
+	ctx := byPerson()
+	r := newRig(t)
+	id, ver := r.nightShow(t, library.MonitorNone)
+	r.publishShow(t, nightEp1, "1", "1")
+	r.publishShow(t, nightEp2, "1", "2")
+	eps, err := r.lib.Episodes(ctx, id, library.View{Country: "US", Now: r.clock.now})
+	if err != nil || len(eps) < 2 {
+		t.Fatalf("episodes = %+v, %v", eps, err)
+	}
+	season := 1
+
+	res, err := r.svc.Releases(ctx, ver, library.Scope{Season: &season}, true)
+	if err != nil || len(res.Items) != 2 {
+		t.Fatalf("season scope = %d items, %v; want both Releases though nothing is monitored", len(res.Items), err)
+	}
+	res, err = r.svc.Releases(ctx, ver, library.Scope{Season: &season, EpisodeIDs: []int64{eps[0].ID}}, true)
+	if err != nil || len(res.Items) != 1 {
+		t.Fatalf("episode scope = %d items, %v; want the one Release", len(res.Items), err)
+	}
+}

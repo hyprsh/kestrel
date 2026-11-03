@@ -1,8 +1,7 @@
 // chrome: domain-visual
-// One cell of the season table (VersionTable.tsx) that has something to do: a dot and a short text ("6 Wanted", "40%") that is a button.
+// One cell of the season table (VersionTable.tsx): a check, or a dot and a short text ("6 Wanted", "40%"), that is always a button.
 // On a wide screen it opens a menu of that Version's actions for the season or episode; on a phone, where the cell shrinks to a dot and a
-// count, the same actions open as a bottom sheet titled "Season 5 · 4K" with the state under it. A cell that has nothing to do is drawn
-// as plain text (CellStatic).
+// count, the same actions open as a bottom sheet titled "Season 5 · 4K" with the state under it. Every cell has at least Manual Search.
 import { Drawer, DrawerTitle, Entity, Menu, MenuButton, MenuContainer, MenuItem, MenuSection } from '@hyprsh/design'
 import { Check } from 'lucide-react'
 import { useState } from 'react'
@@ -46,15 +45,6 @@ function PhoneFace({ kind, count }: { kind: CellKind; count: string }) {
       <span aria-hidden className={`size-[7px] shrink-0 rounded-full ${dotClass[kind]}`} />
       {count && <span className={`label-12 ${textClass[kind]}`}>{count}</span>}
     </>
-  )
-}
-
-/** A cell with nothing to do: its face, not a button. `label` names it for a screen reader. */
-export function CellStatic({ kind, text, count, label, phone }: { kind: CellKind; text: string; count: string; label: string; phone: boolean }) {
-  return (
-    <span role="img" aria-label={label} className={`flex items-center gap-2 ${phone ? 'justify-center gap-[3px]' : 'min-w-0 px-2'}`}>
-      {phone ? <PhoneFace kind={kind} count={count} /> : <Face kind={kind} text={text} />}
-    </span>
   )
 }
 
@@ -143,7 +133,7 @@ export function CellButton({
       >
         <Face kind={kind} text={text} size={small ? 14 : 16} />
       </MenuButton>
-      <Menu width={260}>
+      <Menu width={320}>
         <MenuSection title={`${title} · ${status}`}>
           {items.map((m) => (
             <MenuItem key={m.label} prefix={<m.icon aria-hidden className="size-4" />} disabled={m.disabled} description={m.disabled ? m.reason : undefined} onSelect={m.onSelect}>

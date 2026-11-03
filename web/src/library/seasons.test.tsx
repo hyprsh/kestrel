@@ -54,8 +54,8 @@ describe('the Seasons at a glance on the Title page', () => {
         .map((b) => b.getAttribute('aria-label')),
     ).toEqual([expect.stringMatching(/^Season 2:/)])
     // One cell per Version: a quiet check when it has the whole season, else what it still needs, as a button.
-    expect(within(region).getByRole('img', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument()
-    expect(within(region).getByRole('img', { name: 'Season 1, 4K: 2 of 2' })).toBeInTheDocument()
+    expect(within(region).getByRole('button', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument()
+    expect(within(region).getByRole('button', { name: 'Season 1, 4K: 2 of 2' })).toBeInTheDocument()
     expect(within(region).getByRole('button', { name: 'Season 2, Standard: 1 Wanted' })).toHaveTextContent('1 Wanted')
     expect(within(region).getByRole('button', { name: 'Season 2, 4K: 2 Wanted' })).toHaveTextContent('2 Wanted')
     expect(within(region).getByRole('button', { name: 'Specials, Standard: Not monitored' })).toBeInTheDocument()
@@ -337,7 +337,15 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(toggle).not.toContainElement(menuButton)
     await userEvent.click(menuButton)
     const menu = screen.getByRole('menu', { name: 'Season 1 Actions' })
-    const items = ['Search All Wanted in Season 1', 'Select All Episodes', 'Stop Monitoring Season 1', 'Delete Standard Season’s Files…', 'Delete 4K Season’s Files…']
+    const items = [
+      'Search All Wanted in Season 1',
+      'Manual Search (Standard)…',
+      'Manual Search (4K)…',
+      'Select All Episodes',
+      'Stop Monitoring Season 1',
+      'Delete Standard Season’s Files…',
+      'Delete 4K Season’s Files…',
+    ]
     expect(
       within(menu)
         .getAllByRole('menuitem')
@@ -431,8 +439,8 @@ describe('the Seasons at a glance on the Title page', () => {
     await screen.findAllByRole('rowgroup', { name: /episodes$/ })
     const row = screen.getByRole('button', { name: /^Season 1:/ }).closest('[role=row]') as HTMLElement
     expect(within(row).getByText('2 episodes \u00b7 2024\u20132025')).toBeInTheDocument()
-    expect(within(row).getByRole('img', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument() // a quiet check, no "Complete" text
-    expect(within(row).getByRole('img', { name: 'Season 1, 4K: 2 of 2' })).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument() // a quiet check, no "Complete" text
+    expect(within(row).getByRole('button', { name: 'Season 1, 4K: 2 of 2' })).toBeInTheDocument()
     expect(within(row).queryByText('Complete')).not.toBeInTheDocument()
   })
 
@@ -458,7 +466,7 @@ describe('the Seasons at a glance on the Title page', () => {
         .getAttribute('aria-label'),
     ).toMatch(/2 Wanted · 1 downloading/)
     const later = screen.getByRole('button', { name: /^Season 2:/ }).closest('[role=row]') as HTMLElement
-    expect(within(later).getByRole('img', { name: 'Season 2, Standard: Not out yet' })).toBeInTheDocument()
+    expect(within(later).getByRole('button', { name: 'Season 2, Standard: Not out yet' })).toBeInTheDocument()
   })
 
   it('counts a Long Missing episode once, in the season’s name', async () => {

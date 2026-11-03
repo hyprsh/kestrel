@@ -68,7 +68,7 @@ export function EndOfPath({ path, className }: { path: string; className?: strin
 /**
  * The popover of a file: a header with a status dot and `heading`, the release name in mono, a grid of what is known of it
  * (Quality, Video, Audio, Size, Imported, Score), the Custom Formats it matched with their points, the path (its start cut off,
- * the file name kept), and the buttons: Upgrade Search when `onUpgrade` is given, and Copy Path. A row the data lacks is
+ * the file name kept), and the buttons: Upgrade Search when `onUpgrade` is given, Manual Search… when `onManual` is, and Copy Path. A row the data lacks is
  * left out, never guessed. Keys pressed in it stay out of the grid or the pane, apart from the Escape and Tab the popover
  * handles itself.
  */
@@ -81,6 +81,7 @@ export function FileDetailsPopover({
   lastSearch,
   trigger,
   onUpgrade,
+  onManual,
   position = 'bottom-end',
 }: {
   label: string
@@ -92,6 +93,7 @@ export function FileDetailsPopover({
   lastSearch?: string
   trigger: ReactElement
   onUpgrade?: () => void
+  onManual?: () => void
   position?: 'bottom-start' | 'bottom-end'
 }) {
   const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -175,6 +177,18 @@ export function FileDetailsPopover({
                 Upgrade Search
               </Button>
             )}
+            {onManual && (
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={() => {
+                  close()
+                  onManual()
+                }}
+              >
+                Manual Search…
+              </Button>
+            )}
             <Button variant="tertiary" size="small" onClick={copyPath}>
               {copy === 'copied' ? 'Copied' : 'Copy Path'}
             </Button>
@@ -200,6 +214,7 @@ export function EpisodeFilePopover({
   file,
   trigger,
   onUpgrade,
+  onManual,
 }: {
   label: string
   heading: string
@@ -207,6 +222,7 @@ export function EpisodeFilePopover({
   file: EpisodeFile
   trigger: ReactElement
   onUpgrade?: () => void
+  onManual?: () => void
 }) {
   const others = file.episode_ids.length
   return (
@@ -219,6 +235,7 @@ export function EpisodeFilePopover({
       lastSearch={cell.last_search ? lastSearchLine(cell.last_search, Date.now()).replace(/^Last searched /, '') : undefined}
       trigger={trigger}
       onUpgrade={onUpgrade}
+      onManual={onManual}
     />
   )
 }

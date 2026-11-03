@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
+import { releaseList } from '../test/grabs'
 import { cell, episode, fakeSeries } from '../test/series'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -104,6 +105,41 @@ describe('the Series table on a wide screen', () => {
     expect(within(await menuOf('S01E03 Standard: Downloading')).getByRole('menuitem', { name: 'Open in Activity' })).toBeInTheDocument()
   })
 
+  /** A Series with a complete season 1 and a season 2 not out yet, and a record of the Manual searches. */
+  function twoSeasons() {
+    const state = fakeSeries()
+    state.get().episodes = [
+      episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 100), '4k': cell('filled', 100) } }),
+      episode(5, 2, 1, 'Next', { air_date: null, cells: { standard: cell('unreleased'), '4k': cell('unreleased') } }),
+    ]
+    const manual: Posted[] = []
+    server.use(
+      http.post('/versions/{id}/releases', async ({ params, request, response }) => {
+        manual.push({ version: Number(params.id), body: await request.json() })
+        return response(200).json(releaseList())
+      }),
+    )
+    return manual
+  }
+
+  it('has Manual Search on the cell of a complete season, and picking it opens Manual search for that Version and season', async () => {
+    const manual = twoSeasons()
+    const table = await openSeries()
+    await userEvent.click(table.getByRole('button', { name: 'Season 1, Standard: 1 of 1' }))
+    await userEvent.click(within(await menuOf('Season 1, Standard: 1 of 1')).getByRole('menuitem', { name: 'Manual Search Season 1 (Standard)…' }))
+    await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1 } }]))
+  })
+
+  it('has Manual Search, and only that, on the cell of a season not out yet', async () => {
+    const manual = twoSeasons()
+    const table = await openSeries()
+    await userEvent.click(table.getByRole('button', { name: 'Season 2, 4K: Not out yet' }))
+    const menu = await menuOf('Season 2, 4K: Not out yet')
+    expect(within(menu).getAllByRole('menuitem')).toHaveLength(1)
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Manual Search Season 2 (4K)…' }))
+    await waitFor(() => expect(manual).toEqual([{ version: 52, body: { season: 2 } }]))
+  })
+
   it('puts the episode’s own ⋯ menu on its row, with Search All Versions and Stop Monitoring Episode', async () => {
     series()
     const table = await openSeries()
@@ -111,7 +147,7 @@ describe('the Series table on a wide screen', () => {
     const names = within(await menuOf('S01E02 Actions'))
       .getAllByRole('menuitem')
       .map((i) => i.textContent)
-    expect(names.slice(0, 2)).toEqual([expect.stringContaining('Search All Versions'), 'Stop Monitoring Episode'])
+    expect(names.slice(0, 4)).toEqual([expect.stringContaining('Search All Versions'), 'Manual Search (Standard)…', 'Manual Search (4K)…', 'Stop Monitoring Episode'])
   })
 })
 

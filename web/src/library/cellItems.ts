@@ -57,31 +57,33 @@ export function useCellItems(actions: EpisodeActions) {
     /** `onShowWanted` filters the table to the season's Wanted episodes. */
     season(v: EpisodeVersion, season: number, eps: Episode[], t: SlotTally, monitored: boolean, onShowWanted: (season: number) => void): CellItem[] {
       const name = seasonName(season)
-      if (!monitored) return [{ label: `Monitor ${name}`, sub: 'Search for its episodes again', icon: BookmarkCheck, onSelect: () => actions.monitorSeason(season, true) }]
       const items: CellItem[] = []
       if (t.wanted > 0) {
-        items.push(
-          {
-            label: `Search ${name} for ${v.slotName}`,
-            sub: `Asks the indexers for the ${t.wanted === 1 ? 'Wanted episode' : `${t.wanted} Wanted episodes`}`,
-            icon: Search,
-            onSelect: () => actions.search(eps, name, () => ({ season }), v.slot),
-          },
-          { label: `Manual Search ${name} (${v.slotName})…`, sub: 'Pick a Release yourself', icon: ListFilter, onSelect: () => actions.manual(v, { season }, name) },
-          {
-            label: t.wanted === 1 ? 'Show the Wanted Episode' : `Show the ${t.wanted} Wanted Episodes`,
-            sub: 'Filter the table to them',
-            icon: ListFilter,
-            onSelect: () => onShowWanted(season),
-          },
-        )
+        items.push({
+          label: `Search ${name} for ${v.slotName}`,
+          sub: `Asks the indexers for the ${t.wanted === 1 ? 'Wanted episode' : `${t.wanted} Wanted episodes`}`,
+          icon: Search,
+          onSelect: () => actions.search(eps, name, () => ({ season }), v.slot),
+        })
+      }
+      // Always there, aired or not, monitored or not: a Release can be picked by hand for any season.
+      items.push({ label: `Manual Search ${name} (${v.slotName})…`, sub: 'Pick a Release yourself', icon: ListFilter, onSelect: () => actions.manual(v, { season }, name) })
+      if (t.wanted > 0) {
+        items.push({
+          label: t.wanted === 1 ? 'Show the Wanted Episode' : `Show the ${t.wanted} Wanted Episodes`,
+          sub: 'Filter the table to them',
+          icon: ListFilter,
+          onSelect: () => onShowWanted(season),
+        })
       }
       if (t.downloading > 0) items.push(activity)
+      if (!monitored) items.push({ label: `Monitor ${name}`, sub: 'Search for its episodes again', icon: BookmarkCheck, onSelect: () => actions.monitorSeason(season, true) })
       return items
     },
     episode(v: EpisodeVersion, e: Episode, view: CellView): CellItem[] {
       const code = episodeCode(e)
       const scope = { season: e.season, episode_ids: [e.id] }
+      const manual: CellItem = { label: `Manual Search ${code} (${v.slotName})…`, sub: 'Pick a Release yourself', icon: ListFilter, onSelect: () => actions.manual(v, scope, code) }
       switch (view.kind) {
         case 'wanted':
           return [
@@ -91,14 +93,14 @@ export function useCellItems(actions: EpisodeActions) {
               icon: Search,
               onSelect: () => actions.search([e], code, (ids) => ({ season: e.season, episode_ids: ids }), v.slot),
             },
-            { label: `Manual Search ${code} (${v.slotName})…`, sub: 'Pick a Release yourself', icon: ListFilter, onSelect: () => actions.manual(v, scope, code) },
+            manual,
           ]
         case 'downloading':
-          return [activity]
+          return [manual, activity]
         case 'off':
-          return [{ label: `Monitor ${code}`, sub: 'Search for it again', icon: BookmarkCheck, onSelect: () => actions.monitor([e], true) }]
+          return [manual, { label: `Monitor ${code}`, sub: 'Search for it again', icon: BookmarkCheck, onSelect: () => actions.monitor([e], true) }]
         default:
-          return []
+          return [manual]
       }
     },
   }
