@@ -22,7 +22,7 @@ import { useReport } from '../toasts'
 import { EventList } from './EventList'
 import { useFeed, useFollowLive } from './feed'
 import { useSlotNames } from '../library/slots'
-import { currentView, logFilter, logQualifiers, logViews, oldestFirst, refinements, viewCount, viewQuery } from './filter'
+import { currentView, kindLabels, logFilter, logQualifiers, logViews, oldestFirst, refinements, viewCount, viewQuery } from './filter'
 import { foldRows, type Row } from './rows'
 import { recoveriesByKey, recoveryAfter } from './sentence'
 import { Strip, stripTotals } from './Strip'
@@ -261,34 +261,6 @@ const blockColumns = [
 function useTitleNames() {
   const titles = useTitles().data
   return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
-}
-
-/** The Filter menu's names for the kinds. */
-const kindLabels: Record<string, string> = {
-  grab: 'Grabbed',
-  grab_failed: 'Failed',
-  grab_canceled: 'Canceled',
-  grab_downloading: 'Downloading',
-  grab_completed: 'Downloaded',
-  import: 'Imported',
-  import_episode: 'Episode',
-  import_rejected: 'Import rejected',
-  import_stalled: 'Import stalled',
-  blocklist: 'Blocklisted',
-  request: 'Requested',
-  request_ended: 'Request ended',
-  watch_ahead: 'Watch-ahead',
-  rename: 'Renamed',
-  move: 'Moved',
-  delete: 'Deleted',
-  title_refreshed: 'Refreshed',
-  search: 'Searched',
-  adoption: 'Adopted',
-  adoption_scanned: 'Scanned',
-  cleanup: 'Cleaned up',
-  health_raised: 'Warning',
-  health_cleared: 'Cleared',
-  original_offered: 'Original offered',
 }
 
 function Events({ query, onQuery, onOpenTitle, onBlocklist }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void; onBlocklist: () => void }) {

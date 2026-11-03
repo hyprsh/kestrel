@@ -5,6 +5,7 @@ import type { TitleRow } from '../api/queries'
 import { parseQuery, termText, valuesOf, type Query } from '@hyprsh/design'
 import { slotQualifier, type Facet } from '../filter/qualifiers'
 import type { SlotNames } from '../library/slots'
+import { kindNames } from './sentence'
 import { triggerKinds } from './trigger'
 
 /** Named sets of kinds, one per View: `kind:errors` is every kind that means something went wrong. They are typed or reached by a View, never listed in the Filter menu. */
@@ -36,6 +37,87 @@ const groupText: Record<string, { label: string }> = {
  * refines what the Views do not cover: the single kinds, the Slot and routine events. Groups are typed (`kind:errors`) but not
  * offered, and Titles are suggested while typing `title:` but have no menu section.
  */
+/** The kinds as the Filter menu lists them, in groups (Grabs and Imports, Searches, Library changes, Configuration, Indexers, Health, Other): one entry for each kind internal/history records. */
+const menuOrder = [
+  'grab',
+  'grab_downloading',
+  'grab_completed',
+  'grab_failed',
+  'grab_canceled',
+  'import',
+  'import_episode',
+  'import_rejected',
+  'import_stalled',
+  'adoption',
+  'adoption_scanned',
+  'cleanup',
+  'blocklist',
+  'search',
+  'search_skipped',
+  'original_offered',
+  'title_added',
+  'title_removed',
+  'version_added',
+  'version_removed',
+  'monitoring',
+  'placeholder',
+  'file_misfit',
+  'file_rescored',
+  'rename',
+  'move',
+  'delete',
+  'title_refreshed',
+  'profile_created',
+  'profile_changed',
+  'profile_deleted',
+  'slot_created',
+  'slot_changed',
+  'slot_deleted',
+  'slots_preset',
+  'settings_changed',
+  'grabs_paused',
+  'grabs_resumed',
+  'blocklist_removed',
+  'indexer_paused',
+  'indexer_backed_off',
+  'indexer_slow',
+  'indexer_sweep_stopped',
+  'indexer_recovered',
+  'health_raised',
+  'health_cleared',
+  'request',
+  'request_ended',
+  'watch_ahead',
+  'bulk',
+]
+
+/** The menu's own wording for the kinds it has always listed; every other kind takes the name the opened event gives it (`kindNames`). */
+const menuNames: Record<string, string> = {
+  grab: 'Grabbed',
+  grab_failed: 'Failed',
+  grab_canceled: 'Canceled',
+  grab_downloading: 'Downloading',
+  grab_completed: 'Downloaded',
+  import: 'Imported',
+  import_episode: 'Episode',
+  blocklist: 'Blocklisted',
+  request: 'Requested',
+  rename: 'Renamed',
+  move: 'Moved',
+  delete: 'Deleted',
+  title_refreshed: 'Refreshed',
+  search: 'Searched',
+  adoption: 'Adopted',
+  adoption_scanned: 'Scanned',
+  cleanup: 'Cleaned up',
+  health_raised: 'Warning',
+  health_cleared: 'Cleared',
+  original_offered: 'Original offered',
+}
+
+/** The Filter menu's names for the kinds, in menu order; `kind:` completion offers the same set. */
+export const kindLabels: Readonly<Record<string, string>> = Object.fromEntries(menuOrder.map((k) => [k, menuNames[k] ?? kindNames[k]]))
+
 export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: readonly string[], slots: SlotNames): Facet[] {
   return [
     {
