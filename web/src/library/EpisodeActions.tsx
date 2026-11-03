@@ -370,8 +370,8 @@ export function EpisodeTick({ actions, episode, tabIndex, onFocus }: { actions: 
 }
 
 /**
- * The ActionBar for the ticked episodes: "N selected", Select All and Clear, then Monitor, Stop Monitoring, Search and a ⋯
- * menu (Manual Search…, Delete Files…); a deletion's confirmation shows above it.
+ * The ActionBar for the ticked episodes: "N selected" with its ×, and Select All, then Search and a ⋯ menu (Manual Search…,
+ * Delete Files…), with Monitor and Stop Monitoring as its quiet actions; a deletion's confirmation shows above it.
  */
 export function TickedBar({ actions }: { actions: EpisodeActions }) {
   const { selection, shown, versions } = actions
@@ -385,14 +385,12 @@ export function TickedBar({ actions }: { actions: EpisodeActions }) {
       <ActionBar
         open={ticked.length > 0}
         selection={{ count: selection.count, total: shown.length, onSelectAll: selection.checkAll, onClear: selection.clear }}
+        secondaryActions={[
+          { label: 'Monitor', disabled: ticked.every((e) => e.monitored), onSelect: () => actions.monitor(ticked, true) },
+          { label: 'Stop Monitoring', disabled: ticked.every((e) => !e.monitored), onSelect: () => actions.monitor(ticked, false) },
+        ]}
         actions={
           <>
-            <Button variant="secondary" size="small" disabled={ticked.every((e) => e.monitored)} onClick={() => actions.monitor(ticked, true)}>
-              Monitor
-            </Button>
-            <Button variant="secondary" size="small" disabled={ticked.every((e) => !e.monitored)} onClick={() => actions.monitor(ticked, false)}>
-              Stop Monitoring
-            </Button>
             <Button variant="primary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>
               Search
             </Button>

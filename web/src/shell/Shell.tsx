@@ -434,9 +434,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                     }
                   />
                 )}
-                {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
+                {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). The screens see it as 0: the main area already ends above the tab bar, so an ActionBar in one must not raise itself over it a second time. */}
                 <BlockingBanner onOpen={goPath} />
-                <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)]">
+                <main className="flex min-h-0 flex-1 flex-col pb-[var(--tab-bar-height)] [&>*]:[--tab-bar-height:0px]">
                   <Suspense fallback={<ScreenSkeleton />}>
                     {screen === 'settings' ? (
                       <SettingsScreen

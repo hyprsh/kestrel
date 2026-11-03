@@ -24,7 +24,7 @@ export type ChipData = {
   wrap?: (trigger: ReactElement) => ReactElement
 }
 
-/** The design's status for each of the Slot's seven states (the Pill's dot has no ring): Upgrade wanted is a Have, Not out yet and Not monitored are both gray. */
+/** The design's status for each of the Slot's seven states: Upgrade wanted is a Have; Not out yet and Not monitored are both gray, told apart by `pillVariant`. */
 const pillStatus: Record<SlotDotState, NonNullable<PillProps['status']>> = {
   filled: 'success',
   downloading: 'info',
@@ -35,6 +35,9 @@ const pillStatus: Record<SlotDotState, NonNullable<PillProps['status']>> = {
   unmonitored: 'neutral',
 }
 
+/** Not out yet is a gray ring and Not monitored a solid gray dot; the tooltip and accessible name say which. */
+const pillVariant: Partial<Record<SlotDotState, NonNullable<PillProps['statusVariant']>>> = { unreleased: 'outline' }
+
 /** One chip: a Pill with the state's dot, the Slot's label and `text` after it ("40%", "Wanted"). */
 function SlotPill({ chip, tabIndex }: { chip: ChipData; tabIndex?: number }) {
   const state = chip.state && chip.state in pillStatus ? (chip.state as SlotDotState) : null
@@ -42,6 +45,7 @@ function SlotPill({ chip, tabIndex }: { chip: ChipData; tabIndex?: number }) {
     <Pill
       size="sm"
       status={state ? pillStatus[state] : 'neutral'}
+      statusVariant={state ? pillVariant[state] : undefined}
       trailing={chip.text}
       title={chip.tip}
       aria-label={chip.tip}

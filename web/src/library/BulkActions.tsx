@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useBulkTitles, type TitleBulkOutcome, type TitleBulkReason, type TitlesBulk } from '../api/bulk'
 import { useProfiles, type Profile, type TitleRow } from '../api/queries'
 import { plural } from '../format'
-import { ActionBar, Button, Menu, MenuDivider, MenuItem, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Select } from '@hyprsh/design'
+import { ActionBar, Button, DotsMenu, MenuDivider, MenuItem, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Select } from '@hyprsh/design'
 import { size } from './bits'
 import { slotDefault, useSlotNames } from './slots'
 import { useReport } from '../toasts'
@@ -52,9 +52,10 @@ function summarize(items: TitleBulkOutcome[], slot: string | null): { changed: n
 type Form = 'monitor' | 'switch_profile' | 'add_version' | 'remove_version' | 'remove'
 
 /**
- * The ActionBar at the foot of the list while Titles are ticked: how many, Select All and Clear (Escape clears too),
- * then Search Now and Unmonitor and the rarer actions under More…. The Title pane beside the list stays open. An action
- * that needs a choice (a Slot, a Profile, a monitoring mode) or a confirmation asks in a dialog.
+ * The ActionBar at the foot of the list while Titles are ticked: how many with its × (Escape clears too) and Select All,
+ * then Search Now, Unmonitor (quiet, under the bar's More when narrow) and the rarer actions in a ⋯ menu (on a phone, in the bar's More). The Title pane
+ * beside the list stays open. An action that needs a choice (a Slot, a Profile, a monitoring mode) or a confirmation asks
+ * in a dialog.
  */
 export function BulkActions({
   rows,
@@ -67,7 +68,7 @@ export function BulkActions({
   shown: number
   onSelectAll: () => void
   onClear: () => void
-  /** A phone's bar: Unmonitor moves into More…, so the count and Select All keep their room. */
+  /** A phone's bar: every action but Search Now sits in the bar's own More menu. */
   compact?: boolean
 }) {
   const bulk = useBulkTitles()
@@ -92,42 +93,55 @@ export function BulkActions({
   const close = () => setForm(null)
   const busy = bulk.isPending
 
+  const unmonitor = { label: 'Unmonitor', disabled: busy, onSelect: () => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids }) }
+  // The rarer actions, in groups the ⋯ menu divides; the last group is the one that destroys.
+  const rarer: { label: string; onSelect: () => void; danger?: boolean }[][] = [
+    [
+      { label: hasSeries ? 'Monitor…' : 'Monitor', onSelect: () => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids })) },
+      { label: 'Switch Profile…', onSelect: () => setForm('switch_profile') },
+      { label: 'Add Version…', onSelect: () => setForm('add_version') },
+      { label: 'Remove Version…', onSelect: () => setForm('remove_version') },
+    ],
+    [
+      { label: 'Refresh Metadata', onSelect: () => run('Refresh metadata', { action: 'refresh', title_ids: ids }) },
+      { label: 'Freeze Metadata', onSelect: () => run('Freeze metadata', { action: 'freeze', frozen: true, title_ids: ids }) },
+      { label: 'Unfreeze Metadata', onSelect: () => run('Unfreeze metadata', { action: 'freeze', frozen: false, title_ids: ids }) },
+    ],
+    [{ label: 'Remove from Library…', onSelect: () => setForm('remove'), danger: true }],
+  ]
+  const search = (
+    <Button variant="primary" size="small" disabled={busy} onClick={() => run('Search now', { action: 'search', title_ids: ids })}>
+      Search Now
+    </Button>
+  )
+
   return (
     <>
       <ActionBar
         open
         selection={{ count: rows.length, total: shown, onSelectAll, onClear }}
+        // A phone's bar has room for the count and Search Now: every other action sits in the bar's own More menu, so there is one ⋯, not two.
+        secondaryActions={compact ? [unmonitor, ...rarer.flat().map((x) => ({ label: x.label, disabled: busy, onSelect: x.onSelect }))] : [unmonitor]}
         actions={
-          <>
-            <Button variant="primary" size="small" disabled={busy} onClick={() => run('Search now', { action: 'search', title_ids: ids })}>
-              Search Now
-            </Button>
-            {!compact && (
-              <Button variant="secondary" size="small" disabled={busy} onClick={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>
-                Unmonitor
-              </Button>
-            )}
-            <Menu.Container position="top-end">
-              <Menu.Button variant="secondary" size="small" disabled={busy}>
-                More…
-              </Menu.Button>
-              <Menu width={220}>
-                <MenuItem onSelect={() => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids }))}>{hasSeries ? 'Monitor…' : 'Monitor'}</MenuItem>
-                {compact && <MenuItem onSelect={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>Unmonitor</MenuItem>}
-                <MenuItem onSelect={() => setForm('switch_profile')}>Switch Profile…</MenuItem>
-                <MenuItem onSelect={() => setForm('add_version')}>Add Version…</MenuItem>
-                <MenuItem onSelect={() => setForm('remove_version')}>Remove Version…</MenuItem>
-                <MenuDivider />
-                <MenuItem onSelect={() => run('Refresh metadata', { action: 'refresh', title_ids: ids })}>Refresh Metadata</MenuItem>
-                <MenuItem onSelect={() => run('Freeze metadata', { action: 'freeze', frozen: true, title_ids: ids })}>Freeze Metadata</MenuItem>
-                <MenuItem onSelect={() => run('Unfreeze metadata', { action: 'freeze', frozen: false, title_ids: ids })}>Unfreeze Metadata</MenuItem>
-                <MenuDivider />
-                <MenuItem type="error" onSelect={() => setForm('remove')}>
-                  Remove from Library…
-                </MenuItem>
-              </Menu>
-            </Menu.Container>
-          </>
+          compact ? (
+            search
+          ) : (
+            <>
+              {search}
+              <DotsMenu aria-label="More actions for the ticked Titles" size="small" position="top-end" width={220} disabled={busy}>
+                {rarer.map((group, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && <MenuDivider />}
+                    {group.map((x) => (
+                      <MenuItem key={x.label} type={x.danger ? 'error' : undefined} onSelect={x.onSelect}>
+                        {x.label}
+                      </MenuItem>
+                    ))}
+                  </Fragment>
+                ))}
+              </DotsMenu>
+            </>
+          )
         }
       />
 

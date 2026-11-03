@@ -25,6 +25,11 @@ function tone({ kind, long }: EntryStatus): MonthViewEntry['tone'] {
   }
 }
 
+/** Grey comes in two: a release still to come is a ring, an entry not monitored a solid dot (the label says which). */
+function variant({ kind }: EntryStatus): MonthViewEntry['variant'] {
+  return kind === 'searching' ? 'outline' : undefined
+}
+
 /** The entry's label (the Title and the code), with the tooltip and name that say all of it. */
 function entryOf(item: UpcomingItem, status: EntryStatus, onOpenTitle: (id: number) => void): MonthViewEntry {
   const code = item.kind === 'series' ? episodeCode(item.season!, item.episode!) : null
@@ -40,6 +45,7 @@ function entryOf(item: UpcomingItem, status: EntryStatus, onOpenTitle: (id: numb
       </span>
     ),
     tone: tone(status),
+    variant: variant(status),
     onOpen: () => onOpenTitle(item.title_id),
   }
 }

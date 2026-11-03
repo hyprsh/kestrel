@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import type { components } from '../api/schema.gen'
 import { http } from '../test/handlers'
-import { actionBar, queryActionBar } from '../test/actionBar'
+import { actionBar, queryActionBar, runQuiet } from '../test/actionBar'
 import { server } from '../test/server'
 import { findToast, toastRegion } from '../test/toasts'
 
@@ -462,7 +462,7 @@ describe('Adoption review of a large plan', () => {
     await user.click(await screen.findByLabelText('Select Film 0'))
     await user.click(screen.getByLabelText('Select Film 1'))
     expect(actionBar()).toHaveTextContent('2 selected')
-    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+    await runQuiet(actionBar(), "Don't adopt selected")
 
     expect(await screen.findByRole('button', { name: 'Adopt 1 Title' })).toBeInTheDocument()
     expect(state.bulks).toEqual([{ action: 'untick', row_ids: [100, 101] }])
@@ -472,10 +472,9 @@ describe('Adoption review of a large plan', () => {
     const { state, user } = await openPlan(moreRows(120))
 
     await user.click(await screen.findByLabelText('Select Film 0'))
-    await user.click(within(actionBar()).getByRole('button', { name: 'Select All' }))
-    await user.click(within(actionBar()).getByRole('button', { name: 'Select all 120 in this filter' }))
+    await runQuiet(actionBar(), 'Select all 120')
     expect(actionBar()).toHaveTextContent('120 selected')
-    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+    await runQuiet(actionBar(), "Don't adopt selected")
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
@@ -489,7 +488,7 @@ describe('Adoption review of a large plan', () => {
     expect(screen.getByRole('button', { name: 'Select all 100 shown' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
     expect(actionBar()).toHaveTextContent('120 selected')
-    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+    await runQuiet(actionBar(), "Don't adopt selected")
 
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
   })
@@ -499,7 +498,7 @@ describe('Adoption review of a large plan', () => {
 
     await screen.findByText('Showing 100 of 120')
     expect(screen.queryByRole('button', { name: "Don't adopt selected" })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear selection' })).not.toBeInTheDocument()
     expect(queryActionBar()).not.toBeInTheDocument()
   })
 
@@ -511,9 +510,11 @@ describe('Adoption review of a large plan', () => {
 
     const bar = actionBar()
     expect(bar).toHaveTextContent('99 selected')
-    expect(bar).toHaveTextContent('No longer all 120 in this filter')
-    expect(within(bar).getByRole('button', { name: 'Select all 120 in this filter' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: "Don't adopt selected" }))
+    // The bar offers the whole filter again: "Select all 120" is how it says this is no longer all of it.
+    await user.click(within(bar).getByRole('button', { name: 'More actions' }))
+    expect(screen.getByRole('menuitem', { name: 'Select all 120' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await runQuiet(actionBar(), "Don't adopt selected")
 
     expect(state.bulks).toHaveLength(1)
     expect(state.bulks[0].filter).toBeUndefined()
@@ -537,7 +538,7 @@ describe('Adoption review of a large plan', () => {
     await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' })
     await user.click(screen.getByLabelText('Select Sure'))
     await user.click(screen.getByLabelText('Select Hesitant'))
-    await user.click(screen.getByRole('button', { name: 'Accept suggested matches' }))
+    await runQuiet(actionBar(), 'Accept suggested matches')
 
     expect(state.bulks).toEqual([{ action: 'accept_suggested', row_ids: [21, 20] }])
     expect(await screen.findByText('Accepted 1 suggested match. 1 left for you because the suggestion is not confident enough.')).toBeInTheDocument()
@@ -613,7 +614,7 @@ describe('Adoption monitoring', () => {
 
     await user.click(await screen.findByLabelText('Select Paddington.2014.1080p'))
     await user.click(screen.getByLabelText('Select Tracked'))
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Set monitoring of selected' }), 'none')
+    await runQuiet(actionBar(), 'Unmonitor')
 
     expect(state.bulks).toEqual([{ action: 'set_monitor', monitor: 'none', row_ids: [1, 6] }])
     expect(await screen.findByText('Set 1 row to Unmonitored. 1 left as they were because the Title is in the Library and keeps its monitoring.')).toBeInTheDocument()

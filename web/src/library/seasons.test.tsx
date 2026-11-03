@@ -285,7 +285,7 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(fold).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(within(episodeGrid()).getByRole('checkbox', { name: 'Tick all of Season 1' }))
     expect(actionBar()).toBeInTheDocument() // only what shows is ticked
-    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear selection' }))
 
     await userEvent.click(fold)
     expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
