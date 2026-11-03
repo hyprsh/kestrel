@@ -808,13 +808,29 @@ describe('Activity on a phone', () => {
     expect(within(failed).getByRole('button', { name: 'Search Heat Now' })).toBeInTheDocument()
   })
 
+  it('opens a History row from the keyboard, and its button is named by the row', async () => {
+    fakeSteps([stepsOf({ grab_id: 30, files: [], formats: [], blocklist_id: null })])
+    fakeGrabs([grabEntry({ grab_id: 30, title: 'Paddington', updated_at: ago(30) })])
+    renderApp()
+
+    const row = within(await screen.findByRole('region', { name: 'History' })).getByRole('listitem')
+    const toggle = within(row).getByRole('button', { name: /Paddington/ })
+    toggle.focus()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(await within(row).findByText('What happened')).toBeInTheDocument()
+    await userEvent.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('opens a live row with a tap onto Cancel, Cancel and Blocklist and Open Title', async () => {
     fakeQueue([queueItem({ grab_id: 1 })])
     renderApp()
 
     const live = within(await screen.findByRole('region', { name: 'In progress' })).getByRole('listitem')
     expect(within(live).queryByRole('button', { name: 'Cancel and Blocklist' })).not.toBeInTheDocument()
-    await userEvent.click(within(live).getByText('Paddington.2014.1080p.BluRay.x264-GRP'))
+    await userEvent.click(within(live).getByRole('button', { name: /Paddington.2014.1080p.BluRay.x264-GRP/, expanded: false }))
     expect(within(live).getByRole('button', { name: 'Cancel and Blocklist' })).toBeInTheDocument()
     expect(within(live).getByRole('button', { name: 'Open Paddington' })).toBeInTheDocument()
   })

@@ -15,6 +15,7 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | The Library query help | `QueryHelpButton` (drawn by `QueryBar` itself) | The "?" button and popover were already the design's, drawn by `QueryBar`; there was no local copy to delete. |
 | `SidePanelView` (Log, Upcoming, Activity, Health Views) | `NavItem` with `onClick`, `current`, `icon`, `trailing` | A count is a number `trailing` (its words join the name: "Errors, 3"); a toned count (red Errors, amber Checks) is a `trailing` node with `trailingLabel`. `SidePanelViews` is now a `NavList` named "Views" with a "Views" group. `current` passes `'true'`. |
 | `QualityBox` (Profile sheet) | `Checkbox` | Name "Accept <quality>" kept; it is a native checkbox now, so `aria-checked` is gone. |
+| Activity's expandable rows: the History row's own `<button aria-expanded>` and open tint, the In progress row's phone toggle, the search pass row and the `<ul>` cards | `Entity` with `detail`, `current`, `Entity.List` | A History Grab is an `Entity` with `detail` (the steps, files and actions), controlled by `expanded` so one is open at a time and the j/k Enter key still toggles it. A blocklisted Release has nothing to open, so it is a plain `Entity`. In progress rows are plain `Entity`s with the state and the hover actions in `right`; on a phone they get `detail` with the actions instead, because the expandable row's `right` is not clickable. `HistoryRow`, `LiveRow` and `SearchPassRow` stay as the few lines that turn a Grab into `left`, content and `right`. Each day of History is its own `Entity.List` under its heading, and the column head sits above them; the design's list draws one card per list. The old `Frame` is gone and is flagged by the chrome check, with `DisclosureRow`, `ExpandableRow` and `ExpandRow`. Differences: the row is 16px taller (the design's padding), the open Failed row no longer takes a red tint, and on a phone the row's name no longer includes its time (it is in `right`). |
 | `SuggestionGroup`, `SuggestionRow`, `SuggestionMore` (Suggested) | `Entity` rows in `Entity.List`, `Collapse` | The Suggested section is a `Collapse` (open or closed by context) and "Other languages" an inline `Collapse`. The group heading with its `role="group"` is a few lines in `profiles/Suggested.tsx`; `Entity.List` has no heading. The language chip stays. |
 | `FactStrip`, `Fact` (download client card) | `Description` | Four `Description`s in `layout/DescriptionGrid`, which only places them. The accordion's separate `Fact` stays (see below). |
 | The Title's ⋯ menu | `Menu.Sub`, `Menu.SubTrigger` | Metadata (refresh, freeze), Open in (the links), Files (move, clean up). Add Version, Show in Log and Remove Title stay at the top. |
@@ -57,8 +58,6 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 
 | File | Element | Design component | Switched? | Reason or gap |
 |---|---|---|---|---|
-| `activity/InProgress.tsx:98` | `<button>` wrapping a two-line title, toggling a phone row open | `Entity as="button"` or `Collapse` | Kept | The button holds two text lines that stack (`flex-col`) and toggles `aria-expanded`; `Entity` has no expandable row. Needs a disclosure row. |
-| `activity/History.tsx:136` | `<button>` that is the whole row, toggling its detail | `Collapse` | Kept | A full-width row with j/k navigation and a detail; `Collapse` has its own header and spacing. |
 | `library/SlotChip.tsx:100` | `<button>` per Slot chip | `Pill`, `Badge` | Kept | A `Badge` or `Pill` is not clickable. A clickable pill with a state dot is missing. |
 | `upcoming/AgendaRow.tsx:50` | `<button>` that opens the entry | `Entity as="button"` | Kept | Carries `data-nav`, `aria-current` and a composed `aria-label` for the j/k list; the row is custom. |
 | `overview/charts.tsx` | `<table>` (screen-reader twin, kept for Grabs, Indexers, Library quality) | `ColumnChart`'s own table | Partly | Gone from the two cards that switched; stays for the cards that kept local marks. |
@@ -92,4 +91,6 @@ The chart tokens (`chart-seq-*`, `chart-series`) are used through `ColumnChart` 
 6. A settings row (label/help on the left, control on the right) with a dirty mark, and a floating "unsaved changes" bar.
 7. ~~A month grid that lists entries per day~~ (shipped as `MonthView` in v0.20).
 8. A disclosure row (a whole-row button with `aria-expanded`) for Activity's rows.
+7. A month grid that lists entries per day.
+8. ~~A disclosure row for Activity's rows~~ shipped as `Entity` with `detail` (v0.20.0) and Activity uses it.
 9. Drag-to-reorder rows in a list.

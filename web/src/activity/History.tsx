@@ -1,7 +1,8 @@
-// Activity's History section: Imported and Failed Grabs newest first as one table card under day headers. A row opens in
-// place (click or ↵) onto its steps, files and next actions; one is open at a time. On a phone a row is two lines.
+// Activity's History section: Imported and Failed Grabs newest first, a card of design Entity rows under each day header.
+// A row is the Entity's disclosure row: it opens in place (click or ↵) onto its steps, files and next actions, one at a time.
+// On a phone a row is two lines.
 // chrome: domain-visual
-import { StatusDot } from '@hyprsh/design'
+import { Entity, EntityContent, StatusDot } from '@hyprsh/design'
 import type { GrabEntry } from '../api/activity'
 import type { components } from '../api/schema.gen'
 import type { TitleRow } from '../api/queries'
@@ -33,7 +34,9 @@ export function byDay<T extends Ended>(rows: readonly T[], now: number): { day: 
   return days
 }
 
-const columns = 'sm:grid sm:grid-cols-[52px_28px_minmax(0,1.1fr)_minmax(0,1fr)_190px_64px_56px] sm:items-center sm:gap-x-3.5'
+/** The columns of a History row after its time and poster, and of the head: the Entity's own gap is 12px, and a trailing 20px holds its chevron. */
+const columns = 'grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_190px_64px_56px] items-center gap-x-3'
+const headColumns = 'grid grid-cols-[52px_28px_minmax(0,1.1fr)_minmax(0,1fr)_190px_64px_56px_20px] items-center gap-x-3'
 
 /** The Result cell and its tooltip: a green dot and "Imported", or a red one and "Failed · why". */
 function result(e: Ended): { failed: boolean; text: string; why: string } {
@@ -74,82 +77,88 @@ export function HistoryRow({
   const s = subjectOf(e, titles)
   const r = result(e)
   const time = hhmm(endedAt(e))
-  const opens = e.type === 'grab'
   const dot = <StatusDot state={r.failed ? 'error' : 'success'} label={false} aria-hidden />
-  const head = phone ? (
+  const poster = s.titleId != null ? <TitlePoster id={s.titleId} hasPoster={s.hasPoster} size="xs" /> : <span className="w-7" />
+  const slot = s.slot && (
     <>
-      <span className="flex items-center gap-3">
-        {s.titleId != null ? <TitlePoster id={s.titleId} hasPoster={s.hasPoster} size="xs" /> : <span className="w-7" />}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-          <span className="label-14 truncate">
-            <b>{s.title}</b> <span className="text-gray-900">{s.what}</span>
-            {s.slot && (
-              <>
-                {' '}
-                <SlotTag slot={s.slot} state={r.failed ? 'wanted' : 'filled'} />
-              </>
-            )}
-          </span>
-          <span className={cx('label-12 flex items-center gap-1.5', r.failed && 'text-red-900')} title={r.why}>
-            {dot}
-            <span className="truncate">{e.type === 'grab' && !r.failed ? `Imported · ${size(s.size)}` : r.text}</span>
-          </span>
-        </span>
-        <span className="label-12-mono shrink-0 text-gray-900">{time}</span>
-      </span>
+      {' '}
+      <SlotTag slot={s.slot} state={r.failed ? 'wanted' : 'filled'} />
     </>
-  ) : (
-    <span className={cx(columns, 'text-[13px]')}>
-      <span className="label-12-mono text-gray-900">{time}</span>
-      {s.titleId != null ? <TitlePoster id={s.titleId} hasPoster={s.hasPoster} size="xs" /> : <span className="w-7" />}
-      <span className="truncate">
-        <b>{s.title}</b> <span className="text-gray-900">{s.what}</span>
-        {s.slot && (
-          <>
-            {' '}
-            <SlotTag slot={s.slot} state={r.failed ? 'wanted' : 'filled'} />
-          </>
-        )}
-      </span>
-      <span className="label-12-mono truncate text-gray-900" title={s.release}>
-        {s.release}
-      </span>
-      <span className={cx('flex min-w-0 items-center gap-1.5', r.failed && 'text-red-900')} title={r.why}>
-        {dot}
-        <span className="truncate">{r.text}</span>
-      </span>
-      <span className="text-right tabular-nums">{size(s.size)}</span>
-      <span className="text-right tabular-nums text-gray-900">{s.score === null ? '' : s.score.toLocaleString()}</span>
-    </span>
   )
+  const what = (
+    <>
+      <b>{s.title}</b> <span className="font-normal text-gray-900">{s.what}</span>
+      {slot}
+    </>
+  )
+  // The design's row is the disclosure button of a Grab; a blocklisted Release has nothing to open, so it is a plain row.
+  // Its right side holds the chevron's width, so the columns line up under the head.
+  const shared = {
+    'data-nav': `${nav.scope}-${nav.index}`,
+    current: nav.index === nav.sel,
+  }
+  const row = phone ? (
+    <EntityContent
+      fill
+      title={what}
+      description={
+        <span className={cx('label-12 inline-flex max-w-full items-center gap-1.5', r.failed && 'text-red-900')} title={r.why}>
+          {dot}
+          <span className="truncate">{e.type === 'grab' && !r.failed ? `Imported · ${size(s.size)}` : r.text}</span>
+        </span>
+      }
+    />
+  ) : (
+    <EntityContent fill>
+      <span className={cx(columns, 'text-[13px]')}>
+        <span className="truncate">{what}</span>
+        <span className="label-12-mono truncate text-gray-900" title={s.release}>
+          {s.release}
+        </span>
+        <span className={cx('flex min-w-0 items-center gap-1.5', r.failed && 'text-red-900')} title={r.why}>
+          {dot}
+          <span className="truncate">{r.text}</span>
+        </span>
+        <span className="text-right tabular-nums">{size(s.size)}</span>
+        <span className="text-right tabular-nums text-gray-900">{s.score === null ? '' : s.score.toLocaleString()}</span>
+      </span>
+    </EntityContent>
+  )
+  const left = phone ? (
+    poster
+  ) : (
+    <>
+      <span className="label-12-mono w-[52px] text-gray-900">{time}</span>
+      {poster}
+    </>
+  )
+  const right = phone ? <span className="label-12-mono text-gray-900">{time}</span> : undefined
+  if (e.type !== 'grab') {
+    return (
+      <Entity {...shared} left={left} right={right ?? <span aria-hidden className="w-4" />} onClickCapture={nav.onSelect}>
+        {row}
+      </Entity>
+    )
+  }
   return (
-    <li
-      aria-current={nav.index === nav.sel ? 'true' : undefined}
-      data-nav={`${nav.scope}-${nav.index}`}
-      className={cx(
-        'border-b border-gray-alpha-200 last:border-b-0',
-        open && (r.failed ? 'bg-red-100 shadow-[inset_2px_0_0_var(--red-700)]' : 'bg-gray-100 shadow-[inset_2px_0_0_var(--gray-1000)]'),
-        !open && nav.index === nav.sel && 'bg-gray-alpha-100',
-      )}
+    <Entity
+      {...shared}
+      left={left}
+      right={right}
+      expanded={open}
+      onExpandedChange={onToggle}
+      onClick={nav.onSelect}
+      detail={open ? <GrabDetail grab={e.grab} onOpenTitle={onOpenTitle} onManualSearch={onManualSearch} /> : ''}
     >
-      {opens ? (
-        <button type="button" aria-expanded={open} className="block w-full px-4 py-2 text-left" onClick={() => (nav.onSelect(), onToggle())}>
-          {head}
-        </button>
-      ) : (
-        <div className="px-4 py-2" onClick={nav.onSelect}>
-          {head}
-        </div>
-      )}
-      {open && e.type === 'grab' && <GrabDetail grab={e.grab} onOpenTitle={onOpenTitle} onManualSearch={onManualSearch} />}
-    </li>
+      {row}
+    </Entity>
   )
 }
 
 /** The table header row, wide screens only. */
 export function HistoryHead() {
   return (
-    <div aria-hidden className={cx(columns, 'label-12 border-b border-gray-alpha-200 bg-background-200 px-4 py-2 text-gray-900 max-sm:hidden')}>
+    <div aria-hidden className={cx(headColumns, 'label-12 px-4 text-gray-900 max-sm:hidden')}>
       <span>Time</span>
       <span />
       <span>Title</span>
@@ -157,10 +166,11 @@ export function HistoryHead() {
       <span>Result</span>
       <span className="text-right">Size</span>
       <span className="text-right">Score</span>
+      <span />
     </div>
   )
 }
 
 export function DayHeader({ day }: { day: string }) {
-  return <h3 className="label-12 m-0 border-b border-gray-alpha-200 bg-background-200 px-4 py-1.5 font-semibold text-gray-900">{day}</h3>
+  return <h3 className="label-12 m-0 px-4 font-semibold text-gray-900">{day}</h3>
 }

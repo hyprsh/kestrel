@@ -127,11 +127,12 @@ export function GrabDetail({ grab: g, onOpenTitle, onManualSearch }: { grab: Gra
   const failed = g.state === 'failed'
   const name = g.title || 'Deleted Title'
   const target = g.episodes.length > 0 ? g.episodes.join(', ') : name
-  const pad = 'pl-4 sm:pl-[110px]'
+  // The Entity's detail has its own 16px of padding; this lines the body up under the Title.
+  const pad = 'sm:pl-[94px]'
 
   if (isError) return <Note variant="error">What happened to this Grab could not be loaded.</Note>
   return (
-    <div className={cx('flex flex-col gap-4 pr-4 pb-4', pad)}>
+    <div className={cx('flex flex-col gap-4', pad)}>
       <div className="grid grid-cols-2 gap-x-8 gap-y-4 max-sm:grid-cols-1">
         <div className="flex min-w-0 flex-col gap-2">
           <span className="flex items-center gap-2">

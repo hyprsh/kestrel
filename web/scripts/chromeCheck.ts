@@ -85,6 +85,10 @@ const ALIASES: Record<string, string> = {
   MonthGrid: 'MonthView',
   MonthDay: 'MonthView',
   MonthEntry: 'MonthView',
+  Frame: 'Entity',
+  DisclosureRow: 'Entity with detail',
+  ExpandableRow: 'Entity with detail',
+  ExpandRow: 'Entity with detail',
 }
 
 type Hit = { line: number; message: string; class?: string }
