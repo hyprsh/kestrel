@@ -133,8 +133,8 @@ describe('the Library filter with an episode code', () => {
 
     await userEvent.keyboard('{Enter}')
 
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
-    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' }).closest('tr')).toHaveAttribute('aria-current', 'true'))
+    const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
+    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' }).closest('[role=row]')).toHaveAttribute('aria-current', 'true'))
     expect(screen.getByRole('button', { name: /^Season 1:/, expanded: true })).toBeInTheDocument()
     await waitFor(() => expect(new URLSearchParams(location.search).get('episode')).toBe('1'))
   })

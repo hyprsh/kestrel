@@ -338,14 +338,16 @@ describe('the Library detail pane', () => {
     const pane = await screen.findByRole('region', { name: /paddington/i })
     // The open row says what the file is, not the release it was grabbed as.
     const hdRow = await within(pane).findByRole('listitem', { name: 'Standard' })
-    await userEvent.click(within(hdRow).getByRole('button', { name: /^Standard:/ })) // every row starts closed
-    expect((await within(hdRow).findByText('Quality')).nextElementSibling).toHaveTextContent('BluRay 1080p')
-    expect(within(hdRow).getByText('Audio').nextElementSibling).toHaveTextContent('English, German')
-    expect(within(hdRow).getByText('Custom Format Score').nextElementSibling).toHaveTextContent('+1,750')
+    await userEvent.click(within(hdRow).getByRole('button', { name: 'Standard Actions' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'File Details…' }))
+    const details = within(await screen.findByRole('dialog', { name: 'Standard File Details' }))
+    expect((await details.findByText('Quality')).nextElementSibling).toHaveTextContent('BluRay 1080p')
+    expect(details.getByText('Audio').nextElementSibling).toHaveTextContent('English, German')
+    expect(details.getByText('Custom Format Score').nextElementSibling).toHaveTextContent('+1,750')
     expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
   })
 
-  it("shows the Movie's file path in the open Version row", async () => {
+  it("shows the Movie's file path in File Details", async () => {
     fakeLibrary(rows())
     const d = detail(rows()[0])
     const hd = d.versions.find((v) => v.slot === 'standard')!
@@ -363,9 +365,11 @@ describe('the Library detail pane', () => {
     const pane = await screen.findByRole('region', { name: /paddington/i })
 
     const row = await within(pane).findByRole('listitem', { name: 'Standard' })
-    await userEvent.click(within(row).getByRole('button', { name: /^Standard:/ })) // every row starts closed
-    expect((await within(row).findByText('Path')).nextElementSibling).toHaveTextContent('/data/media/movies/P/P.mkv')
-    expect(within(row).queryByRole('button', { name: 'Upgrade Search' })).not.toBeInTheDocument()
+    await userEvent.click(within(row).getByRole('button', { name: 'Standard Actions' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'File Details…' }))
+    const details = within(await screen.findByRole('dialog', { name: 'Standard File Details' }))
+    expect((await details.findByText('Path')).nextElementSibling).toHaveTextContent('/data/media/movies/P/P.mkv')
+    expect(details.queryByRole('button', { name: 'Upgrade Search' })).not.toBeInTheDocument()
   })
 })
 

@@ -42,14 +42,17 @@ describe("a Title's History", () => {
     )
     const pane = await openPaddington()
 
-    const toggle = await within(pane).findByRole('button', { name: 'History · 2 events, last: Grabbed 2 h ago' })
+    const toggle = await within(pane).findByRole('button', { name: /^History · 2 events · last: Grabbed.*, 2 h ago$/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    const history0 = within(pane).getByRole('region', { name: 'History' })
+    expect(within(history0).queryByRole('list')).not.toBeInTheDocument() // collapsed to start with
+    expect(within(history0).getByRole('button', { name: 'Open in Log' })).toBeInTheDocument()
     await userEvent.click(toggle)
 
     const history = within(pane).getByRole('region', { name: 'History' })
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(within(history).getAllByRole('listitem')).toHaveLength(3) // the two events and the way to the Log
-    expect(within(history).getByRole('button', { name: 'Show in Log' })).toBeInTheDocument()
+    expect(within(history).getByRole('button', { name: 'Show all 2 events in the Log' })).toBeInTheDocument()
   })
 
   it('names the whole age of the last event, minutes included', async () => {
@@ -58,7 +61,7 @@ describe("a Title's History", () => {
     )
     const pane = await openPaddington()
 
-    expect(await within(pane).findByRole('button', { name: 'History · 2 events, last: Imported 3 h 58 min ago' })).toBeInTheDocument()
+    expect(await within(pane).findByRole('button', { name: /last: Imported.*, 3 h 58 min ago$/ })).toBeInTheDocument()
   })
 
   it("shows each entry's trigger and reason, and leaves out what an old entry lacks", async () => {

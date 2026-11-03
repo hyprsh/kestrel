@@ -34,7 +34,8 @@ import { EventDetail } from './EventDetail'
 import { byDay, clock, type Row } from './rows'
 import { actionOf, foldSummary, searchParts, sentence, sentenceText, type IconName, type Recovery, type Sentence } from './sentence'
 
-const icons: Record<IconName, LucideIcon> = {
+/** The icon of each kind of sentence; a Title's History draws its events with them too. */
+export const icons: Record<IconName, LucideIcon> = {
   grab: ArrowDownToLine,
   download: Download,
   done: CircleCheck,

@@ -1,5 +1,5 @@
 // Components take their Slots from the Title's Versions, not a fixed pair: a Series and a Movie with four and five Slots
-// (the third, fourth and fifth are fakes; #282 will supply real ones) render a chip, a card and a Files row for each.
+// (the third, fourth and fifth are fakes; #282 will supply real ones) render a column, a cell and a card for each.
 import { QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -37,66 +37,66 @@ async function openFourSlotSeries(slotList: string[] = [...keys]) {
   return state
 }
 
+/** Opens the Series and returns its table once the newest season's episodes are drawn. */
 async function show() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  return screen.findByRole('grid', { name: 'Episodes' })
+  await screen.findByRole('rowgroup', { name: /episodes$/ })
+  return screen.getByRole('table', { name: 'Versions and seasons' })
 }
+const seasonRowOf = (table: HTMLElement, n: number) =>
+  within(table)
+    .getByRole('button', { name: new RegExp(`^Season ${n}:`) })
+    .closest<HTMLElement>('[role=row]')!
 
 describe('a Series with four Slots', () => {
-  it('has one row per episode with a chip per Slot, short labels, and no column per Slot', async () => {
+  it('has a column head per Version and a cell per Version in every episode row', async () => {
     const state = await openFourSlotSeries()
     state.get().episodes = [
       episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('filled'), german: cell('filled'), remux: cell('filled') }) }),
       episode(3, 1, 5, 'Dead Freight', { cells: cells({ standard: cell('filled'), '4k': cell('wanted'), german: cell('filled'), remux: cell('downloading') }) }),
       episode(4, 1, 6, 'Hazard Pay', { monitored: false, cells: cells({ standard: cell('unmonitored'), '4k': cell('unmonitored'), german: cell('unmonitored'), remux: cell('unmonitored') }) }),
     ]
-    const grid = await show()
+    const table = await show()
 
-    const dead = within(grid).getByRole('row', { name: /Dead Freight/ })
-    const chips = Array.from(dead.querySelectorAll('[data-slot]'))
-    expect(chips.map((c) => c.textContent)).toEqual(['STD', '4K', 'GER', 'REM'])
-    expect(chips.map((c) => c.getAttribute('data-state'))).toEqual(['filled', 'wanted', 'filled', 'downloading'])
-    expect(within(dead).getByTitle(/^4K: Wanted \d+ d$/)).toBeInTheDocument()
-    expect(grid.querySelectorAll('th').length).toBeLessThanOrEqual(7) // the columns do not grow with the Slots
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.getAttribute('aria-label') ?? h.textContent),
+    ).toEqual(expect.arrayContaining(['Standard', '4K', 'German', 'Remux']))
+    const dead = within(table).getByRole('row', { name: /Dead Freight/ })
+    for (const label of ['S01E05 4K: Wanted', 'S01E05 Remux: Downloading']) expect(within(dead).getByRole('button', { name: label })).toBeInTheDocument()
+    for (const label of ['S01E05 Standard: Have', 'S01E05 German: Have']) expect(within(dead).getByRole('img', { name: label })).toBeInTheDocument()
 
-    const off = within(grid).getByRole('row', { name: /Hazard Pay/ })
+    const off = within(table).getByRole('row', { name: /Hazard Pay/ })
     expect(off).toHaveAttribute('data-monitored', 'off')
-    expect(Array.from(off.querySelectorAll('[data-slot]')).map((c) => c.getAttribute('data-state'))).toEqual(['unmonitored', 'unmonitored', 'unmonitored', 'unmonitored'])
+    for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(off).getByRole('button', { name: `S01E06 ${n}: Not monitored` })).toBeInTheDocument()
   })
 
   it.each([
-    ['one Slot', ['standard'], ['STD']],
-    ['two Slots', ['standard', '4k'], ['STD', '4K']],
-  ])('has the one column header "Slots" and a labelled chip in every row with %s', async (_, slotList, labels) => {
+    ['one Slot', ['standard'], ['Standard']],
+    ['two Slots', ['standard', '4k'], ['Standard', '4K']],
+  ])('has a column head and an episode cell for each Version with %s', async (_, slotList, names) => {
     const state = await openFourSlotSeries(slotList)
     state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('wanted') }) })]
-    const grid = await show()
+    const table = await show()
 
-    expect(within(grid).getByRole('columnheader', { name: 'Slots' })).toBeInTheDocument()
-    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
-    const chips = Array.from(within(pilot).getByRole('group', { name: 'S01E01 Slots' }).querySelectorAll('[data-slot]'))
-    expect(chips.map((c) => c.textContent)).toEqual(labels) // no bare dot, whatever the number of Slots
-    chips.forEach((c) => expect(c).toHaveAccessibleName(/: /))
+    for (const n of names) expect(within(table).getByRole('columnheader', { name: n })).toBeInTheDocument()
+    expect(within(table).getAllByRole('columnheader', { name: /^(Standard|4K|German|Remux)$/ })).toHaveLength(names.length)
+    const pilot = within(table).getByRole('row', { name: /Pilot/ })
+    expect(within(pilot).getByRole('img', { name: 'S01E01 Standard: Have' })).toBeInTheDocument()
+    if (names.length > 1) expect(within(pilot).getByRole('button', { name: 'S01E01 4K: Wanted' })).toBeInTheDocument()
   })
 
-  it('folds the Slots past four into a +N chip whose tooltip lists them', async () => {
-    const state = await openFourSlotSeries([...keys, 'kids', 'mobile'])
-    state.get().episodes = [
-      episode(2, 1, 1, 'Pilot', {
-        cells: cells({ standard: cell('filled'), '4k': cell('filled'), german: cell('filled'), remux: cell('filled'), kids: cell('wanted'), mobile: cell('downloading') }),
-      }),
-    ]
-    const grid = await show()
-
-    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
-    expect(pilot.querySelectorAll('[data-slot]')).toHaveLength(4)
-    const more = pilot.querySelector('[data-more]')!
-    expect(more).toHaveTextContent('+2')
-    expect(more.getAttribute('title')).toMatch(/^Kids: Wanted \d+ d\nMobile: /)
+  it('gives a Series with more Versions than four a column for each', async () => {
+    const state = await openFourSlotSeries([...keys, 'kids'])
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('filled'), german: cell('filled'), remux: cell('filled'), kids: cell('wanted') }) })]
+    const table = await show()
+    expect(within(table).getAllByRole('columnheader', { name: /^(Standard|4K|German|Remux|Kids)$/ })).toHaveLength(5)
+    expect(within(within(table).getByRole('row', { name: /Pilot/ })).getByRole('button', { name: 'S01E01 Kids: Wanted' })).toBeInTheDocument()
   })
 
-  it('opens a popover of one Slot from its chip: a file for a filled Slot, Search for just that Slot for a Wanted one', async () => {
+  it('opens a menu of one Version from its cell: a file for a filled one, Search for just that Version for a Wanted one', async () => {
     const state = await openFourSlotSeries()
     const file = (n: string) => ({
       id: 70 + n.length,
@@ -119,64 +119,68 @@ describe('a Series with four Slots', () => {
         return response(202).json({ search_id: 'search-1' })
       }),
     )
-    const grid = await show()
-    const group = within(grid).getByRole('group', { name: 'S01E01 Slots' })
+    const table = await show()
+    const pilot = within(within(table).getByRole('row', { name: /Pilot/ }))
 
-    await userEvent.click(within(group).getByRole('button', { name: /^German:/ }))
+    await userEvent.click(pilot.getByRole('button', { name: 'S01E01 German: Have' }))
     const pop = await screen.findByRole('dialog', { name: 'S01E01 German file' })
-    expect(within(pop).getByText('S01E01 \u00b7 German')).toBeInTheDocument()
+    expect(within(pop).getByText('S01E01 · German')).toBeInTheDocument()
     expect(within(pop).getByText(/\[German\]\.mkv$/)).toBeInTheDocument()
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
-    await userEvent.click(within(group).getByRole('button', { name: /^Remux:/ }))
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'S01E01 Remux' })).getByRole('button', { name: 'Search' }))
+    await userEvent.click(pilot.getByRole('button', { name: 'S01E01 Remux: Wanted' }))
+    const menu = await screen.findByRole('menu')
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual([expect.stringContaining('Search S01E01 for Remux'), expect.stringContaining('Manual Search S01E01 (Remux)…')])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: /^Search S01E01 for Remux/ }))
     expect(await screen.findByText('Search started for S01E01 in Remux')).toBeInTheDocument()
     expect(searched).toEqual([{ version: 53, body: { season: 1, episode_ids: [2] } }])
   })
 
-  it('draws one bar per season, a count chip per Slot, amber where some Slots are Wanted', async () => {
+  it('draws a cell per Version in a season row: a check when it has the season, else what is Wanted, amber where some are', async () => {
     const state = await openFourSlotSeries()
     state.get().episodes = [
       episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('filled'), german: cell('filled'), remux: cell('filled') }) }),
       episode(3, 1, 2, 'Some', { cells: cells({ standard: cell('filled'), '4k': cell('wanted'), german: cell('filled'), remux: cell('wanted') }) }),
     ]
-    await show()
-    const row = within(screen.getByRole('region', { name: 'Seasons' }))
-      .getByRole('button', { name: /^Season 1:/ })
-      .closest<HTMLElement>('[role=listitem]')!
-    expect(Array.from(row.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'partial'])
-    expect(row).toHaveTextContent(/STD\s*2\/2/)
-    expect(row).toHaveTextContent(/4K\s*1\/2/)
-    expect(row).toHaveTextContent(/GER\s*2\/2/)
-    expect(row).toHaveTextContent(/REM\s*1\/2/)
-    expect(within(row).getByTitle('4K 1 of 2, 1 Wanted')).toHaveAttribute('data-state', 'wanted')
+    const table = await show()
+    const row = within(seasonRowOf(table, 1))
+    expect(row.getByRole('img', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument()
+    expect(row.getByRole('img', { name: 'Season 1, German: 2 of 2' })).toBeInTheDocument()
+    expect(row.getByRole('button', { name: 'Season 1, 4K: 1 Wanted' })).toHaveTextContent('1 Wanted')
+    expect(row.getByRole('button', { name: 'Season 1, Remux: 1 Wanted' })).toBeInTheDocument()
+    await userEvent.click(row.getByRole('button', { name: 'Season 1, 4K: 1 Wanted' }))
+    const menu = await screen.findByRole('menu')
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent),
+    ).toEqual([expect.stringContaining('Search Season 1 for 4K'), expect.stringContaining('Manual Search Season 1 (4K)…'), expect.stringContaining('Show the Wanted Episode')])
   })
 })
 
-describe('the popovers of the Slots that hold no file', () => {
-  it('says what a downloading Slot is doing with a link to Activity, and offers Monitor on a Slot that is not monitored', async () => {
+describe('the menus of the Versions that hold no file', () => {
+  it('opens Activity for a downloading Version, says a Version not aired is not out, and offers Monitor on one that is not monitored', async () => {
     const state = await openFourSlotSeries()
     state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('downloading'), '4k': cell('unmonitored'), german: cell('unreleased'), remux: cell('wanted') }) })]
-    const grid = await show()
-    const group = within(grid).getByRole('group', { name: 'S01E01 Slots' })
+    const table = await show()
+    const pilot = within(within(table).getByRole('row', { name: /Pilot/ }))
 
-    await userEvent.click(within(group).getByRole('button', { name: /^Standard:/ }))
-    const dl = await screen.findByRole('dialog', { name: 'S01E01 Standard' })
-    expect(within(dl).getByRole('button', { name: 'View in Activity' })).toBeInTheDocument()
+    await userEvent.click(pilot.getByRole('button', { name: /^S01E01 Standard: Downloading/ }))
+    const dl = await screen.findByRole('menu')
+    expect(within(dl).getByRole('menuitem', { name: /Open in Activity/ })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
 
-    await userEvent.click(within(group).getByRole('button', { name: /^German:/ }))
-    expect(await screen.findByRole('dialog', { name: 'S01E01 German' })).toHaveTextContent('Airs')
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(pilot.getByRole('img', { name: 'S01E01 German: Not out yet' })).toBeInTheDocument()
 
-    await userEvent.click(within(group).getByRole('button', { name: /^4K:/ }))
-    const off = await screen.findByRole('dialog', { name: 'S01E01 4K' })
-    expect(off).toHaveTextContent('Not monitored')
-    await userEvent.click(within(off).getByRole('button', { name: 'Monitor' }))
+    await userEvent.click(pilot.getByRole('button', { name: 'S01E01 4K: Not monitored' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Monitor S01E01/ }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: true } }]))
   })
 })
@@ -200,13 +204,15 @@ describe('a Movie with four Slots', () => {
     return screen.findByRole('region', { name: 'Paddington in Peru' })
   }
 
-  it('shows a chip per Slot in the header and a row per Version in the accordion', async () => {
+  it('shows a chip per Slot in the header and a card per Version', async () => {
     const pane = await openMovie()
     const chips = within(pane).getByRole('group', { name: 'Slots' })
     expect(Array.from(chips.querySelectorAll('[data-slot]')).map((c) => c.textContent)).toEqual(['STD', '4KWanted', 'GERWanted', 'REMWanted'])
-    const cards = within(pane).getByRole('region', { name: 'Versions' })
+    const cards = within(pane).getByRole('list', { name: 'Versions' })
     expect(within(cards).getAllByRole('listitem')).toHaveLength(4)
     for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('listitem', { name: n })).toBeInTheDocument()
+    // Four Versions: no Add Version.
+    expect(within(pane).queryByRole('button', { name: 'Add Version' })).not.toBeInTheDocument()
     // Each chip opens a popover of its Slot alone: the file of a filled one, the search of a Wanted one.
     await userEvent.click(within(chips).getByRole('button', { name: /^Standard:/ }))
     expect(await screen.findByRole('dialog', { name: 'Standard file' })).toBeInTheDocument()
@@ -217,44 +223,43 @@ describe('a Movie with four Slots', () => {
     expect(within(wanted).getByRole('button', { name: 'Search' })).toBeInTheDocument()
     expect(within(wanted).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    // Every row starts closed, the Wanted ones too.
-    for (const n of ['Standard', '4K', 'German', 'Remux']) expect(within(cards).getByRole('button', { name: new RegExp(`^${n}:`) })).toHaveAttribute('aria-expanded', 'false')
   })
 })
 
 describe('on a phone', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('gives the Monitored button and Search two large buttons and each episode its chips under the name, with a large bookmark', async () => {
+  it('gives the Monitored button and Search two large buttons, the Versions one card each and each episode a cell per Version', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
     const state = await openFourSlotSeries()
     state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('wanted'), german: cell('filled'), remux: cell('wanted') }) })]
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await screen.findByRole('option', { name: /breaking bad/i }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
 
     const monitor = await screen.findByRole('button', { name: /^Monitoring: / })
     expect(monitor).toHaveTextContent('All episodes')
     expect(screen.getByRole('button', { name: 'Search Wanted' })).toBeInTheDocument()
 
-    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
-    expect(pilot.querySelectorAll('[data-slot]')).toHaveLength(4)
-    expect(within(pilot).getByText('E01')).toBeInTheDocument()
-    expect(within(pilot).getByRole('button', { name: 'Stop Monitoring S01E01' })).toBeInTheDocument()
+    const cards = screen.getByRole('list', { name: 'Versions' })
+    expect(within(cards).getAllByRole('listitem')).toHaveLength(4)
+    const pilot = within(screen.getByRole('row', { name: /Pilot/ }))
+    expect(pilot.getByText('E01')).toBeInTheDocument()
 
-    // Tapping a chip opens its popover; tapping the row does nothing.
-    await userEvent.click(within(pilot).getByText('Pilot'))
+    // Tapping a cell opens its actions as a bottom sheet; tapping the row does nothing.
+    await userEvent.click(pilot.getByText('Pilot'))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    await userEvent.click(within(pilot).getByRole('button', { name: /^4K:/ }))
-    expect(await screen.findByRole('dialog', { name: 'S01E01 4K' })).toBeInTheDocument()
+    await userEvent.click(pilot.getByRole('button', { name: 'S01E01 4K: Wanted' }))
+    const sheet = await screen.findByRole('dialog', { name: 'S01E01 \u00b7 4K' })
+    expect(within(sheet).getByText('Search S01E01 for 4K')).toBeInTheDocument()
   })
 })
 
-describe('the episode table on a phone', () => {
+describe('the Series table on a phone', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('has no header row above its rows, keeps each name and its chips on one line, and selects all from the season menu', async () => {
+  it('has one narrow column per Version headed by its short label, and selects all from the season menu', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
     const state = await openFourSlotSeries()
     state.get().episodes = [
@@ -264,22 +269,24 @@ describe('the episode table on a phone', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await screen.findByRole('option', { name: /breaking bad/i }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
+    const table = screen.getByRole('table', { name: 'Versions and seasons' })
 
-    // Nothing heads the one column: no header row and no tick-all box above the rows.
-    expect(within(grid).queryAllByRole('columnheader')).toHaveLength(0)
-    expect(within(grid).queryByRole('checkbox', { name: 'Select All of Season 1' })).not.toBeInTheDocument()
-    // The name and its chips share one container, so they sit on one line when they fit.
-    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
-    expect(within(pilot).getByText('Pilot').closest('div')).toContainElement(pilot.querySelector('[data-slot]') as HTMLElement)
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['Season', 'STD', '4K', 'GER', 'REM'])
+    // No tick boxes until something is ticked.
+    expect(within(grid).queryByRole('checkbox')).not.toBeInTheDocument()
 
     // Select-all is in the season's menu.
     await userEvent.click(screen.getByRole('button', { name: 'Season 1 Actions' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Select All of Season 1' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Select All Episodes' }))
     expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' })).toBeChecked()
     expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 2' })).toBeChecked()
     await userEvent.click(screen.getByRole('button', { name: 'Season 1 Actions' }))
-    expect(await screen.findByRole('menuitem', { name: 'Deselect All of Season 1' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Deselect All Episodes' })).toBeInTheDocument()
   })
 })
 
@@ -298,7 +305,7 @@ describe('Slots come from the Slot list', () => {
     const served = serveSlots(['archive', 'Remux archive'], ['standard', 'Streaming'], ['kids', 'Kids'])
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const pane = await openMovieIn(['standard', 'archive'], client)
-    const cards = within(pane).getByRole('region', { name: 'Versions' })
+    const cards = within(pane).getByRole('list', { name: 'Versions' })
     await waitFor(() =>
       expect(
         within(cards)

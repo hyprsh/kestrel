@@ -33,6 +33,3 @@ export function IconAction({
     </Tooltip>
   )
 }
-
-/** Where a table row's actions show: always on touch (no hover), else on hover or focus of the row, and while its menu is open. */
-export const rowActionsShown = '[@media(hover:hover)]:opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 group-data-[menu-open]/row:opacity-100'

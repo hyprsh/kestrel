@@ -15,7 +15,6 @@ async function openPaddington(client = new QueryClient({ defaultOptions: { queri
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
   const item = await within(pane).findByRole('listitem', { name: 'Standard' })
-  await userEvent.click(within(item).getByRole('button', { name: /^Standard:/ })) // every row starts closed
   return { pane, row: item }
 }
 
@@ -27,89 +26,56 @@ describe("a Title's downloads on its page", () => {
     ])
     const { pane, row: hd } = await openPaddington()
 
-    expect((await within(hd).findAllByText('Paddington.2014.1080p-GRP')).length).toBeGreaterThan(0)
-    expect(within(hd).getByText(/^75% · .* · 2 min left/)).toBeInTheDocument()
+    expect(await within(hd).findByText('Paddington.2014.1080p-GRP')).toBeInTheDocument()
+    expect(within(hd).getByText(/^Downloading 75% · .* left/)).toHaveTextContent('2 min left')
     expect(within(pane).queryByText(/Heat/)).not.toBeInTheDocument()
     expect(within(pane).queryByRole('region', { name: 'Downloading' })).not.toBeInTheDocument()
-    expect(within(pane).getByRole('button', { name: /^Standard: Downloading 75% · 2 min left/ })).toBeInTheDocument()
   })
 
-  it("shows a Series Slot's downloads on its card, with the episodes, percent and time left", async () => {
+  it("shows a Series Slot's downloads on its column head, with the episodes, percent and time left", async () => {
     fakeSeries()
     fakeQueue([queueItem({ grab_id: 1, title_id: 5, slot: '4k', episodes: ['S05E09', 'S05E10'] })])
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /breaking bad/i })
 
-    const uhd = await within(pane).findByRole('listitem', { name: '4K' })
-    expect(await within(uhd).findByText('Downloading S05E09–E10')).toBeInTheDocument()
-    expect(within(pane).getByRole('listitem', { name: 'Standard' })).not.toHaveTextContent('Downloading')
-    await userEvent.click(within(uhd).getByRole('button', { name: /^4K:/ }))
-    expect(within(uhd).getByText(/^75%/)).toBeInTheDocument()
-    expect(within(uhd).getByRole('button', { name: /^S05E09–E10 in Activity/ })).toBeInTheDocument() // a link into Activity
+    const uhd = await within(pane).findByRole('columnheader', { name: '4K' })
+    expect(await within(uhd).findByText(/^Downloading S05E09–E10 · 75%/)).toHaveTextContent('2 min left')
+    expect(within(pane).getByRole('columnheader', { name: 'Standard' })).not.toHaveTextContent('Downloading')
   })
 
-  it('draws a line per Grab in a Series Slot, each with its progress and a link into Activity', async () => {
-    fakeSeries()
-    fakeQueue([
-      queueItem({ grab_id: 1, title_id: 5, slot: '4k', episodes: ['S05E05', 'S05E06', 'S05E07', 'S05E08'], bytes_total: 1000, bytes_left: 250, eta: 120 }),
-      queueItem({ grab_id: 2, title_id: 5, slot: '4k', episodes: ['S05E09'], bytes_total: 1000, bytes_left: 500, eta: 600 }),
-    ])
-    renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const pane = await screen.findByRole('region', { name: /breaking bad/i })
-    const uhd = await within(pane).findByRole('listitem', { name: '4K' })
-    await userEvent.click(within(uhd).getByRole('button', { name: /^4K:/ }))
-
-    const lines = within(uhd)
-      .getAllByRole('listitem')
-      .filter((li) => li !== uhd)
-    expect(lines).toHaveLength(2)
-    expect(lines[0]).toHaveTextContent(/^S05E05–E08/)
-    expect(lines[0]).toHaveTextContent('75% · 2 min left')
-    expect(within(lines[0]).getByRole('progressbar')).toBeInTheDocument()
-    expect(within(lines[0]).getByRole('button', { name: 'S05E05–E08 in Activity' })).toBeInTheDocument()
-    expect(lines[1]).toHaveTextContent(/^S05E09/)
-    expect(lines[1]).toHaveTextContent('50% · 10 min left')
-    expect(within(lines[1]).getByRole('button', { name: 'S05E09 in Activity' })).toBeInTheDocument()
-  })
-
-  it('has no download line when nothing of this Title is downloading', async () => {
+  it('has no download state when nothing of this Title is downloading', async () => {
     fakeQueue([queueItem({ title_id: 2, title: 'Heat' })])
     const { row: hd } = await openPaddington()
 
-    await within(hd)
-      .findByText('Wanted for 1 day', { exact: false })
-      .catch(() => undefined)
-    expect(within(hd).queryByText('Downloading')).not.toBeInTheDocument()
+    expect(within(hd).queryByText(/Downloading/)).not.toBeInTheDocument()
+    expect(within(hd).queryByRole('button', { name: 'Open in Activity' })).not.toBeInTheDocument()
   })
 
   it('cancels a Grab from the Version menu', async () => {
     const state = fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
     const { pane, row: hd } = await openPaddington()
-    await within(hd).findByText('Release')
+    await within(hd).findByText(/Downloading/)
 
     await openVersionMenu(pane, 'Standard')
     await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel Download' }))
 
     expect(state.cancels).toEqual([{ id: '7', body: { blocklist: false } }])
     expect(await findToast('Grab cancelled')).toBeInTheDocument()
-    await expect.poll(() => within(hd).queryByText('Release')).toBeNull()
   })
 
-  it('has Open in Activity as the main action of a downloading row, on its header, not in its body', async () => {
+  it('has Open in Activity as the main action of a downloading card', async () => {
     fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
     const { row: hd } = await openPaddington()
 
-    expect(within(hd).getAllByRole('button', { name: 'Open in Activity' })).toHaveLength(1)
-    expect(hd.firstElementChild).toContainElement(within(hd).getByRole('button', { name: 'Open in Activity' }))
+    expect(await within(hd).findByRole('button', { name: 'Open in Activity' })).toBeInTheDocument()
     expect(within(hd).queryByRole('button', { name: 'Cancel and Block' })).not.toBeInTheDocument()
   })
 
   it('cancels and blocklists from the Version menu', async () => {
     const state = fakeQueue([queueItem({ grab_id: 7, title_id: 1 })])
     const { pane, row: hd } = await openPaddington()
-    await within(hd).findByText('Release')
+    await within(hd).findByText(/Downloading/)
 
     await openVersionMenu(pane, 'Standard')
     await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel and Blocklist' }))
@@ -122,12 +88,12 @@ describe("a Title's downloads on its page", () => {
     fakeQueue([])
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { row: hd } = await openPaddington(client)
-    await within(hd).findByText('Wanted since')
+    await within(hd).findByText('No file yet')
 
     // What the stream's `queue` frames do (live/stream.ts).
     act(() => client.setQueryData(['queue'], [queueItem({ title_id: 1, release_name: 'Paddington.2014.720p-GRP' })]))
 
-    expect((await within(hd).findAllByText(/Paddington\.2014\.720p-GRP/)).length).toBeGreaterThan(0)
+    expect(await within(hd).findByText(/Paddington\.2014\.720p-GRP/)).toBeInTheDocument()
   })
 })
 

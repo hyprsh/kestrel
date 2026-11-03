@@ -145,7 +145,7 @@ async function openSeriesWithFiles() {
   const sent = recordDeletes()
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  const grid = await screen.findByRole('grid', { name: 'Episodes' })
+  const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
   return { grid, sent }
 }
 
@@ -161,7 +161,7 @@ describe('deleting files from the episode table', () => {
   it("deletes an episode's file, naming every episode the shared file holds", async () => {
     const { grid, sent } = await openSeriesWithFiles()
 
-    await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
+    await choose(grid, 'S01E01 Actions', 'Delete Standard Files…')
     const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Breaking Bad - S01E01-E02 - [Standard].mkv')
     expect(confirm).toHaveTextContent('3 GB')
@@ -178,20 +178,20 @@ describe('deleting files from the episode table', () => {
     const { grid, sent } = await openSeriesWithFiles()
     const pilot = within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' })
 
-    await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
+    await choose(grid, 'S01E01 Actions', 'Delete Standard Files…')
 
     const confirm = within(grid).getByRole('dialog', { name: 'Delete files' })
-    expect(confirm.closest('tr')?.previousElementSibling).toContainElement(pilot) // right under the row
+    expect(confirm.closest('[role=row]')?.previousElementSibling).toContainElement(pilot) // right under the row
     expect(confirm).toHaveFocus()
 
     await userEvent.keyboard('{Escape}')
 
     expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
-    expect(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }).closest('tr')).toContainElement(document.activeElement as HTMLElement)
+    expect(within(grid).getByRole('button', { name: 'S01E01 Actions' }).closest('[role=row]')).toContainElement(document.activeElement as HTMLElement)
     expect(sent).toEqual([])
   })
 
-  it("asks under the season's buttons, above the table, for a season's files", async () => {
+  it("asks under the season's row, above its episodes, for a season's files", async () => {
     const { grid } = await openSeriesWithFiles()
 
     await choose(null, 'Season 1 Actions', "Delete Standard Season's Files…")
@@ -204,7 +204,7 @@ describe('deleting files from the episode table', () => {
 
   it('cannot delete a file a Slot does not have', async () => {
     const { grid } = await openSeriesWithFiles()
-    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
+    await userEvent.click(within(grid).getByRole('button', { name: 'S01E01 Actions' }))
     expect(screen.getByRole('menuitem', { name: 'Delete 4K Files…' })).toHaveAttribute('aria-disabled', 'true')
   })
 
@@ -236,15 +236,15 @@ describe('deleting files from the episode table', () => {
     )
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
 
-    expect(within(within(grid).getByRole('row', { name: /Pilot/ })).getByTitle('4K: 2160p · 1 GB')).toBeInTheDocument()
-    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
+    expect(within(grid).getByRole('button', { name: 'S01E01 4K: Have' })).toBeInTheDocument()
+    await userEvent.click(within(grid).getByRole('button', { name: 'S01E01 Actions' }))
     expect(screen.getByRole('menuitem', { name: 'Delete Files…' })).not.toHaveAttribute('aria-disabled', 'true')
     await userEvent.keyboard('{Escape}')
 
-    expect(within(within(grid).getByRole('row', { name: /Cat/ })).getByTitle(/^4K: Wanted/)).toBeInTheDocument()
-    await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 2' }))
+    expect(within(grid).getByRole('button', { name: 'S01E02 4K: Wanted' })).toBeInTheDocument()
+    await userEvent.click(within(grid).getByRole('button', { name: 'S01E02 Actions' }))
     expect(screen.getByRole('menuitem', { name: 'Delete Files…' })).toHaveAttribute('aria-disabled', 'true')
   })
 

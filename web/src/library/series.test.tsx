@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row, type LookupResult, type Sent } from '../test/library'
-import { fakeSeries, pickSeason, seriesRow } from '../test/series'
+import { cell, episodeFile, fakeSeries, pickSeason, seriesRow } from '../test/series'
 import { server } from '../test/server'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -117,64 +117,71 @@ describe('adding a Series from the command menu', () => {
 
 async function openSeries() {
   const state = fakeSeries()
+  // The Pilot's Standard file, so its check opens the file's details.
+  const pilot = state.get().episodes[1]
+  pilot.cells = { ...pilot.cells, standard: cell('filled', 120, episodeFile({ id: 9, path: '/tv/Breaking Bad/S01E01.mkv', size: 2 << 30, quality: 'WEBDL-1080p', episode_ids: [2] })) }
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  const grid = await screen.findByRole('grid', { name: 'Episodes' })
+  const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
   return { state, grid }
 }
 
 describe('the episode list', () => {
-  it('shows a row per episode of the open season and a chip per Slot with a Version, its full state in the tooltip', async () => {
+  it('shows a row per episode of the open season and a cell per Version, its full state in the cell’s name', async () => {
     const { grid } = await openSeries()
     const pilot = within(grid).getByRole('row', { name: /Pilot/ })
-    expect(within(pilot).getByTitle('Standard: Have')).toHaveTextContent('STD')
-    expect(within(pilot).getByTitle(/^4K: Wanted \d+ d$/)).toHaveTextContent('4K')
+    expect(within(pilot).getByRole('button', { name: 'S01E01 Standard: Have' })).toBeInTheDocument()
+    expect(within(pilot).getByRole('button', { name: 'S01E01 4K: Wanted' })).toBeInTheDocument()
     const cat = within(grid).getByRole('row', { name: /Cat's in the Bag/ })
-    expect(within(cat).getByTitle('Standard: not aired')).toHaveAttribute('data-state', 'unreleased')
-    expect(within(grid).queryByRole('columnheader', { name: 'Standard' })).not.toBeInTheDocument() // no Slot has a column
+    expect(within(cat).getByRole('img', { name: 'S01E02 Standard: Not out yet' })).toBeInTheDocument()
+    // The Versions are the columns of the table's head, not of the list.
+    const table = screen.getByRole('table', { name: 'Versions and seasons' })
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.getAttribute('aria-label')),
+    ).toContain('Standard')
     expect(within(grid).getByText('—')).toBeInTheDocument() // the second episode has no air date yet
     // Specials are another season, not rows of this list.
     expect(within(grid).queryByRole('row', { name: /Good Cop Bad Cop/ })).not.toBeInTheDocument()
     await pickSeason('Specials')
-    const special = within(screen.getByRole('grid', { name: 'Episodes' })).getByRole('row', { name: /Good Cop Bad Cop/ })
-    expect(within(special).getByTitle('Standard: Not monitored')).toHaveAttribute('data-state', 'unmonitored')
+    const special = within(screen.getByRole('rowgroup', { name: 'Specials episodes' })).getByRole('row', { name: /Good Cop Bad Cop/ })
+    expect(within(special).getByRole('button', { name: 'S00E01 Standard: Not monitored' })).toBeInTheDocument()
     expect(special).toHaveAttribute('data-monitored', 'off')
   })
 
-  it('has a bookmark toggle on every row that monitors the episode or stops', async () => {
+  it('has an episode menu that monitors the episode or stops', async () => {
     const { state, grid } = await openSeries()
-    const toggle = within(grid).getByRole('button', { name: 'Stop Monitoring S01E01' })
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    await userEvent.click(toggle)
+    await userEvent.click(within(grid).getByRole('button', { name: 'S01E01 Actions' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Stop Monitoring Episode' }))
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } }]))
-    const off = await within(grid).findByRole('button', { name: 'Monitor S01E01' })
-    expect(off).toHaveAttribute('aria-pressed', 'false')
-    expect(within(grid).getByRole('row', { name: /Pilot/ })).toHaveAttribute('data-monitored', 'off')
-    // The click did not open the row.
-    expect(within(grid).queryByRole('list', { name: 'Slots of S01E01' })).not.toBeInTheDocument()
+    expect(await within(grid).findByRole('row', { name: /Pilot/ })).toHaveAttribute('data-monitored', 'off')
+    await userEvent.click(within(grid).getByRole('button', { name: 'S01E01 Actions' }))
+    expect(await screen.findByRole('menuitem', { name: 'Monitor Episode' })).toBeInTheDocument()
   })
 
-  it('opens a popover of just that Slot from its chip: a click, or Enter on the focused chip', async () => {
+  it('opens the menu of just that Version from its cell: a click, or Enter on the focused cell', async () => {
     const { grid } = await openSeries()
-    const chip = (code: string, slot: string) => within(within(grid).getByRole('group', { name: `${code} Slots` })).getByRole('button', { name: new RegExp(`^${slot}:`) })
+    const cellOf = (code: string, slot: string) => within(grid).getByRole('button', { name: new RegExp(`^${code} ${slot}:`) })
 
     // A click on the row itself opens nothing.
     await userEvent.click(within(grid).getByText('Pilot'))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(within(grid).queryByRole('button', { name: /^(Open|Close) S01E01/ })).not.toBeInTheDocument() // no row chevron
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 
-    await userEvent.click(chip('S01E01', '4K'))
-    const wanted = await screen.findByRole('dialog', { name: 'S01E01 4K' })
-    expect(within(wanted).getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    await userEvent.click(cellOf('S01E01', '4K'))
+    const wanted = await screen.findByRole('menu', { name: 'S01E01 4K: Wanted' })
+    expect(within(wanted).getByRole('menuitem', { name: 'Search S01E01 for 4K' })).toBeInTheDocument()
+    expect(within(wanted).getByRole('menuitem', { name: 'Manual Search S01E01 (4K)…' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
 
-    chip('S01E02', 'Standard').focus()
+    // A filled cell opens the file's details.
+    cellOf('S01E01', 'Standard').focus()
     await userEvent.keyboard('{Enter}')
-    expect(await screen.findByRole('dialog', { name: 'S01E02 Standard' })).toHaveTextContent('Not aired')
+    expect(await screen.findByRole('dialog', { name: 'S01E01 Standard file' })).toBeInTheDocument()
   })
 
-  it('is operated from the keyboard: j/k and the arrows move rows, left and right move between chips, Space ticks, Enter opens a chip', async () => {
+  it('is operated from the keyboard: j/k and the arrows move rows, left and right move between cells, Space ticks, Enter opens a cell', async () => {
     const { grid } = await openSeries()
     // The controls above the list have their own tab stops: start at the last one before it.
     await act(async () => screen.getByRole('button', { name: 'Season 1 Actions' }).focus())
@@ -183,21 +190,17 @@ describe('the episode list', () => {
     expect(pilot).toHaveFocus()
 
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop Monitoring) S01E01$/ })).toHaveFocus() // the bookmark comes first
+    expect(within(pilot).getByRole('button', { name: /^S01E01 Standard:/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
+    expect(within(pilot).getByRole('button', { name: /^S01E01 4K:/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(pilot).getByRole('button', { name: /^4K:/ })).toHaveFocus()
-    await userEvent.keyboard('{ArrowRight}')
-    expect(within(pilot).getByRole('button', { name: /^4K:/ })).toHaveFocus() // the last chip stays
+    expect(within(pilot).getByRole('button', { name: /^S01E01 4K:/ })).toHaveFocus() // the last cell stays
     await userEvent.keyboard('{Enter}')
-    expect(await screen.findByRole('dialog', { name: 'S01E01 4K' })).toBeInTheDocument()
+    expect(await screen.findByRole('menu', { name: 'S01E01 4K: Wanted' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
     await userEvent.keyboard('{ArrowLeft}')
-    expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
-    await userEvent.keyboard('{ArrowLeft}')
-    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop Monitoring) S01E01$/ })).toHaveFocus()
+    expect(within(pilot).getByRole('button', { name: /^S01E01 Standard:/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowLeft}')
     expect(pilot).toHaveFocus()
 
@@ -209,7 +212,7 @@ describe('the episode list', () => {
     expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 2' })).toBeChecked()
     await userEvent.keyboard('k')
     expect(pilot).toHaveFocus()
-    // From a chip, j and k still move rows.
+    // From a cell, j and k still move rows.
     await userEvent.keyboard('{ArrowRight}j')
     expect(within(grid).getByRole('row', { name: /Cat's in the Bag/ })).toHaveFocus()
 
@@ -235,6 +238,6 @@ describe('the episode list', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await screen.findByRole('heading', { name: 'Heat' })
-    expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('rowgroup', { name: /episodes$/ })).not.toBeInTheDocument()
   })
 })

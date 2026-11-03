@@ -184,26 +184,31 @@ describe('the Original Offer indicator on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /paddington/i })
-    const item = await within(pane).findByRole('listitem', { name: 'Standard' })
-    await userEvent.click(within(item).getByRole('button', { name: /^Standard:/ })) // every row starts closed
+    await within(pane).findByRole('listitem', { name: 'Standard' })
     return pane
+  }
+  const openOffer = async (pane: HTMLElement) => {
+    await userEvent.click(await within(pane).findByRole('button', { name: 'Original Offer' }))
+    return within(await screen.findByRole('dialog', { name: /Original Offer/ }))
   }
 
   it('says an original is available on the Version', async () => {
     const pane = await openWith(movieOffer)
-    expect(within(pane).getByText('A Standard release in the original language only is available · Score 50')).toBeInTheDocument()
-    expect(within(pane).getByRole('button', { name: 'Accept' })).toBeInTheDocument()
-    expect(within(pane).getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    const offer = await openOffer(pane)
+    expect(offer.getByText('A Standard release in the original language only is available · Score 50')).toBeInTheDocument()
+    expect(offer.getByRole('button', { name: 'Accept' })).toBeInTheDocument()
+    expect(offer.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
   })
 
   it('says when the offer was dismissed', async () => {
     const pane = await openWith({ ...movieOffer, dismissed: true })
-    expect(within(pane).getByText('A Standard release in the original language only is available · Score 50 · Dismissed')).toBeInTheDocument()
-    expect(within(pane).queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
+    const offer = await openOffer(pane)
+    expect(offer.getByText('A Standard release in the original language only is available · Score 50 · Dismissed')).toBeInTheDocument()
+    expect(offer.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
   })
 
   it('is absent without an offer', async () => {
     const pane = await openWith(null)
-    expect(within(pane).queryByText(/original language only/i)).not.toBeInTheDocument()
+    expect(within(pane).queryByRole('button', { name: 'Original Offer' })).not.toBeInTheDocument()
   })
 })

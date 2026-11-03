@@ -38,7 +38,7 @@ _Avoid_: Upgrade until (for the quality), cutoff unmet (for Wanted)
 The smallest and largest size a Profile accepts, per Movie or per episode of a Series (a pack or multi-episode Release is judged per episode). A Release outside it is rejected as `size`, "over" or "under" the limit; "Grab anyway" overrides it, and the file imports as usual.
 
 **Slot**:
-A named place in every Title that holds at most one Version, such as Standard or 4K. The admin adds, renames, orders and removes Slots; a Slot's label names its files, and each Slot has a default Profile per kind and says whether new Titles get it. No Slot is special: a Title needs at least one Version in some Slot. Which Version a viewer plays is the media server's choice, not Kestrel's.
+A named place in every Title that holds at most one Version, such as Standard or 4K. A library has at most four Slots, so a Title has at most four Versions, and Settings and the API refuse a fifth. The admin adds, renames, orders and removes Slots; a Slot's label names its files, and each Slot has a default Profile per kind and says whether new Titles get it. No Slot is special: a Title needs at least one Version in some Slot. Which Version a viewer plays is the media server's choice, not Kestrel's.
 _Avoid_: Tier (TRaSH uses it for release groups), Profile (for the place a Version fills)
 
 **Primary Language**:

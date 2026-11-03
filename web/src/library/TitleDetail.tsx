@@ -10,7 +10,6 @@ import { MovieSection } from './MovieSection'
 import { TitleHistory } from './TitleHistory'
 import { TitleActions } from './TitleActions'
 import { TitleBadges } from './TitleBadges'
-import { VersionRows } from './VersionRows'
 
 /**
  * The right pane of the Library: the selected Title's header with its search button and menu, its Versions, and a Series' episodes under them.
@@ -155,9 +154,8 @@ function Body({ title, row, onManualSearch }: { title: Detail; row?: TitleRow; o
         </div>
       </div>
 
-      <VersionRows title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
       {title.kind === 'series' ? (
-        <SeriesSection title={title} onManualSearch={onManualSearch} />
+        <SeriesSection title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
       ) : (
         <MovieSection title={title} profiles={profiles.data ?? []} profileName={profileName} onManualSearch={onManualSearch} />
       )}

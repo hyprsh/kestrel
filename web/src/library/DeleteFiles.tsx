@@ -2,7 +2,7 @@
 // an episode's, a season's or the ticked episodes' files in the episode table.
 // Every deletion asks first, naming the files, their total size and every
 // episode that loses its file, those sharing a file with the chosen ones too.
-import { Menu, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalSubtitle, ModalTitle, Note, TableCell, TableRow } from '@hyprsh/design'
+import { Menu, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalSubtitle, ModalTitle, Note } from '@hyprsh/design'
 import { useState } from 'react'
 import type { Episode, EpisodeScope } from '../api/queries'
 import type { components } from '../api/schema.gen'
@@ -226,13 +226,13 @@ export function EpisodeDeleteConfirm({ deletes, at = null }: { deletes: EpisodeD
  * The confirmation of a deletion asked from table row `at`, as a row of its own right under it, so it shows where the
  * menu was. Keys typed in it stay in it: the table's own (arrows, s, m) must not also act.
  */
-export function RowDeleteConfirm({ deletes, at, columns }: { deletes: EpisodeDeletes; at: string; columns: number }) {
+export function RowDeleteConfirm({ deletes, at }: { deletes: EpisodeDeletes; at: string }) {
   if (deletes.pending?.at !== at) return null
   return (
-    <TableRow>
-      <TableCell colSpan={columns} wrap onKeyDown={(e) => e.stopPropagation()}>
+    <div role="row" onKeyDown={(e) => e.stopPropagation()}>
+      <div role="cell" className="px-3 py-2">
         <EpisodeDeleteConfirm deletes={deletes} at={at} />
-      </TableCell>
-    </TableRow>
+      </div>
+    </div>
   )
 }

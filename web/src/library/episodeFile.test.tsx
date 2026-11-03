@@ -47,16 +47,16 @@ async function openSeries() {
   const user = userEvent.setup()
   render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
   await user.click(await screen.findByRole('button', { name: 'Library' }))
-  await screen.findAllByRole('grid', { name: 'Episodes' })
+  await screen.findAllByRole('rowgroup', { name: /episodes$/ })
   await pickSeason('Season 1') // Season 2, the latest, opens with Season 1, which has something Wanted
-  const grid = screen.getByRole('grid', { name: 'Episodes' })
+  const grid = screen.getByRole('rowgroup', { name: 'Season 1 episodes' })
   return { user, grid, state }
 }
 
 const rowOf = (grid: HTMLElement, episode: string) =>
   within(grid)
     .getByRole('checkbox', { name: `Select ${episode}` })
-    .closest('tr')!
+    .closest<HTMLElement>('[role=row]')!
 
 describe('episode titles', () => {
   it('shows the Primary-Language title with the original beneath only when they differ', async () => {
@@ -80,12 +80,12 @@ describe('episode titles', () => {
   it('shows a listed episode without a title as TBA with no tooltip', async () => {
     await openSeries()
     await pickSeason('Season 2')
-    expect(within(rowOf(screen.getByRole('grid', { name: 'Episodes' }), 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
+    expect(within(rowOf(screen.getByRole('rowgroup', { name: 'Season 2 episodes' }), 'Season 2 episode 1')).getByText('TBA')).not.toHaveAttribute('title')
   })
 })
 
 describe('the episodes loading Skeleton', () => {
-  it('shows the grid header and rows of Skeleton at once, announced once', async () => {
+  it('shows the table head and rows of Skeleton at once, announced once', async () => {
     const state = fakeSeries()
     state.get().episodes = [episode(2, 1, 1, 'Pilot')]
     server.use(
@@ -96,41 +96,37 @@ describe('the episodes loading Skeleton', () => {
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const region = await screen.findByRole('region', { name: 'Episodes' })
+    const region = await screen.findByRole('region', { name: 'Versions' })
     expect(within(region).getByText('Loading episodes')).toBeInTheDocument()
-    expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
-    expect(await screen.findByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
+    expect(within(region).getByRole('table', { name: 'Versions and seasons' })).toBeInTheDocument() // the Versions' head does not wait for the episodes
+    expect(screen.queryByRole('rowgroup', { name: /episodes$/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })).toBeInTheDocument()
   })
 })
 
-/** One Slot's chip of an episode (S01E01): a button whose popover is that Slot. */
-const chipOf = (grid: HTMLElement, code: string, slot: string) => within(within(grid).getByRole('group', { name: `${code} Slots` })).getByRole('button', { name: new RegExp(`^${slot}:`) })
+/** One Version's cell of an episode (S01E01): a button whose menu or popover is that Version; `state` is "Have" or "Wanted". */
+const cellOf = (grid: HTMLElement, code: string, slot: string, state = 'Have') => within(grid).getByRole('button', { name: `${code} ${slot}: ${state}` })
 
-describe('the file of an episode Slot, in the opened row', () => {
-  it('names the Slot and its state in the chip tooltips, and the chip of a filled Slot is a green dot in plain text', async () => {
+describe('the file of an episode Version, in the opened season', () => {
+  it('names the Version and its state in its cell: a check button for a file, the state for a Wanted one', async () => {
     const { grid } = await openSeries()
-    const row = within(grid).getByRole('row', { name: /Pilot/ })
-    const standard = within(row).getByTitle('Standard: 1080p \u00b7 2 GB')
-    expect(standard).toHaveAttribute('data-state', 'filled')
-    expect(standard).toHaveAccessibleName('Standard: 1080p · 2 GB')
-    expect(within(row).getByTitle(/^4K: Wanted \d+ d$/)).toHaveAttribute('data-state', 'wanted')
-    const placeholder = within(grid).getByRole('row', { name: /TBA/ })
-    expect(within(placeholder).getByTitle('Standard: Wanted')).toBeInTheDocument()
+    const row = rowOf(grid, 'Season 1 episode 1')
+    expect(within(row).getByRole('button', { name: 'S01E01 Standard: Have' })).toHaveAttribute('title', 'Standard: Have')
+    expect(within(row).getByRole('button', { name: 'S01E01 4K: Wanted' })).toHaveTextContent('Wanted')
+    const placeholder = rowOf(grid, 'Season 1 episode 3')
+    expect(within(placeholder).getByRole('button', { name: 'S01E03 Standard: Wanted' })).toBeInTheDocument()
   })
 
-  it('opens the popover of a Wanted Slot with when it was last searched, how many releases named it and how it ended, and Search and Manual search', async () => {
+  it('opens the menu of a Wanted cell with Search and Manual Search for just that Version', async () => {
     const { user, grid } = await openSeries()
-    await user.click(chipOf(grid, 'S01E03', '4K'))
-    const pop = await screen.findByRole('dialog', { name: 'S01E03 4K' })
-    expect(within(pop).getByText('S01E03 \u00b7 4K')).toBeInTheDocument()
-    expect(pop).toHaveTextContent('Last searched 2 h ago \u00b7 14 releases \u00b7 none fit the Profile')
-    expect(within(pop).getByRole('button', { name: 'Search' })).toBeInTheDocument()
-    expect(within(pop).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
+    await user.click(cellOf(grid, 'S01E03', '4K', 'Wanted'))
+    expect(await screen.findByRole('menuitem', { name: 'Search S01E03 for 4K' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Manual Search S01E03 (4K)…' })).toBeInTheDocument()
   })
 
   it('opens a popover on click laid out like the mockup, whose Copy Path button copies the path', async () => {
     const { user, grid } = await openSeries()
-    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    await user.click(cellOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('S01E01 · Standard')).toBeInTheDocument()
@@ -160,12 +156,12 @@ describe('the file of an episode Slot, in the opened row', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     // Escape closed only the popover: the Series stays open.
-    expect(screen.getByRole('grid', { name: 'Episodes' })).toBeInTheDocument()
+    expect(screen.getByRole('rowgroup', { name: 'Season 1 episodes' })).toBeInTheDocument()
   })
 
   it('shows the Score with each matched Custom Format and its signed points', async () => {
     const { user, grid } = await openSeries()
-    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    await user.click(cellOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('120')).toBeInTheDocument()
@@ -180,9 +176,9 @@ describe('the file of an episode Slot, in the opened row', () => {
     const user = userEvent.setup()
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await user.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
     await pickSeason('Season 1')
-    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    await user.click(cellOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('Size')).toBeInTheDocument()
@@ -198,9 +194,9 @@ describe('the file of an episode Slot, in the opened row', () => {
     const user = userEvent.setup()
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await user.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
     await pickSeason('Season 1')
-    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    await user.click(cellOf(grid, 'S01E01', 'Standard'))
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getAllByText(/Show - S01E01/)).toHaveLength(1)
   })
@@ -212,9 +208,9 @@ describe('the file of an episode Slot, in the opened row', () => {
     const user = userEvent.setup()
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await user.click(await screen.findByRole('button', { name: 'Library' }))
-    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
     await pickSeason('Season 1')
-    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    await user.click(cellOf(grid, 'S01E01', 'Standard'))
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('Score')).toBeInTheDocument()
@@ -229,7 +225,7 @@ describe('the file of an episode Slot, in the opened row', () => {
     const { user, grid } = await openSeries()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     document.execCommand = vi.fn(() => false)
-    chipOf(grid, 'S01E01', 'Standard').focus()
+    cellOf(grid, 'S01E01', 'Standard').focus()
     await user.keyboard('{Enter}')
 
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
@@ -241,20 +237,20 @@ describe('the file of an episode Slot, in the opened row', () => {
     const { user, grid } = await openSeries()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     document.execCommand = vi.fn(() => true)
-    await user.click(chipOf(grid, 'S01E01', 'Standard'))
+    await user.click(cellOf(grid, 'S01E01', 'Standard'))
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     await user.click(within(pop).getByRole('button', { name: 'Copy Path' }))
     expect(await within(pop).findByRole('button', { name: 'Copied' })).toBeInTheDocument()
     expect(document.execCommand).toHaveBeenCalledWith('copy')
   })
 
-  it('closes the popover on a click elsewhere, and a Slot popover is only that Slot', async () => {
+  it('closes the popover on a click elsewhere, and a Version popover is only that Version', async () => {
     const { user, grid } = await openSeries()
-    await user.click(chipOf(grid, 'S01E02', 'Standard'))
+    await user.click(cellOf(grid, 'S01E02', 'Standard'))
     expect(await screen.findByRole('dialog', { name: 'S01E02 Standard file' })).toBeInTheDocument()
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
 
-    await user.click(within(grid).getByText('Name'))
+    await user.click(within(grid).getByText('Der Einstieg'))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })
