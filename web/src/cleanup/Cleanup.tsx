@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { usePreviewCleanup, useRunCleanup, type CleanupCategory, type CleanupPreview, type CleanupResult } from '../api/cleanup'
 import { ApiError } from '../api/queries'
 import { bytesText } from '../format'
-import { usePhone } from '../responsive'
+import { PanelContent, SidePanel } from '../layout/SidePanel'
 import { Button, Checkbox, Code, Collapse, DestructiveActionModal, Entity, EmptyState, Note } from '@hyprsh/design'
 
 const labels: Record<CleanupCategory['key'], string> = {
@@ -22,62 +22,69 @@ const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 
 /** titleIds narrows the look to those Titles; without them every tracked Title is looked at. */
 export function Cleanup({ titleIds }: { titleIds?: number[] }) {
-  const phone = usePhone() // the phone's TitleBar is the page's heading
   const preview = usePreviewCleanup()
   const run = useRunCleanup()
   const [done, setDone] = useState<CleanupResult | null>(null)
   const failed = preview.error ?? run.error
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto tab-clear">
-      <div className="max-w-4xl p-4 sm:px-8 sm:py-6">
-        {!phone && <h1 className="heading-20">Clean up Unmanaged files</h1>}
-        <p className="copy-14 mt-1 text-gray-900">Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.</p>
-        {failed instanceof ApiError && (
-          <Note variant="error" size="small" className="mt-2">
-            {failed.message}
-          </Note>
-        )}
-        {done && (
-          <Note role="status" className="mt-4" variant={done.failed > 0 ? 'warning' : 'success'}>
-            {`Deleted ${done.deleted} ${done.deleted === 1 ? 'file' : 'files'} (${bytesText(done.bytes)})${done.failed > 0 ? `, ${done.failed} could not be deleted` : ''}.`}
-          </Note>
-        )}
-        {preview.data ? (
-          <Review
-            key={preview.data.preview_id}
-            data={preview.data}
-            busy={run.isPending}
-            error={run.error instanceof ApiError ? run.error.message : null}
-            onRun={(categories, exclude) =>
-              run.mutate(
-                { previewId: preview.data.preview_id, categories, exclude },
-                {
-                  onSuccess: (r) => {
-                    setDone(r)
-                    preview.reset()
+    <div className="flex min-h-0 flex-1 max-sm:flex-col">
+      <SidePanel
+        title="Clean up Unmanaged files"
+        chips={
+          !preview.data && (
+            <div className="flex">
+              <Button
+                variant="primary"
+                size="small"
+                className="flex-1"
+                loading={preview.isPending}
+                onClick={() => {
+                  setDone(null)
+                  preview.mutate(titleIds)
+                }}
+              >
+                Look for Unmanaged Files
+              </Button>
+            </div>
+          )
+        }
+      />
+      <PanelContent reading>
+        <div className="flex flex-col gap-4">
+          <p className="copy-14 text-gray-900">Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.</p>
+          {failed instanceof ApiError && (
+            <Note variant="error" size="small">
+              {failed.message}
+            </Note>
+          )}
+          {done && (
+            <Note role="status" variant={done.failed > 0 ? 'warning' : 'success'}>
+              {`Deleted ${done.deleted} ${done.deleted === 1 ? 'file' : 'files'} (${bytesText(done.bytes)})${done.failed > 0 ? `, ${done.failed} could not be deleted` : ''}.`}
+            </Note>
+          )}
+          {preview.data && (
+            <Review
+              key={preview.data.preview_id}
+              data={preview.data}
+              busy={run.isPending}
+              error={run.error instanceof ApiError ? run.error.message : null}
+              onRun={(categories, exclude) =>
+                run.mutate(
+                  { previewId: preview.data.preview_id, categories, exclude },
+                  {
+                    onSuccess: (r) => {
+                      setDone(r)
+                      preview.reset()
+                    },
                   },
-                },
-              )
-            }
-            onCancel={() => preview.reset()}
-          />
-        ) : (
-          <div className="mt-4">
-            <Button
-              variant="primary"
-              size="small"
-              loading={preview.isPending}
-              onClick={() => {
-                setDone(null)
-                preview.mutate(titleIds)
-              }}
-            >
-              Look for Unmanaged Files
-            </Button>
-          </div>
-        )}
-      </div>
+                )
+              }
+              onCancel={() => preview.reset()}
+            />
+          )}
+        </div>
+      </PanelContent>
     </div>
   )
 }
@@ -108,9 +115,9 @@ function Review({
   const bytes = files.reduce((n, f) => n + f.size, 0)
   const nonEmpty = data.categories.filter((c) => c.count > 0)
 
-  if (nonEmpty.length === 0) return <EmptyState className="mt-6" title="No Unmanaged Files" description="No Unmanaged files were found." />
+  if (nonEmpty.length === 0) return <EmptyState title="No Unmanaged Files" description="No Unmanaged files were found." />
   return (
-    <div className="mt-4">
+    <div>
       <Entity.List aria-label="Unmanaged files by category">
         {nonEmpty.map((c) => (
           <Entity key={c.key} className="items-start" left={<Checkbox checked={ticked.has(c.key)} onChange={() => setTicked(toggle(ticked, c.key))} aria-label={labels[c.key]} />}>

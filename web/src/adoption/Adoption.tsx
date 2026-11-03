@@ -24,7 +24,7 @@ import { useOpenCleanup } from '../cleanup/launch'
 import { LoadingRegion, SkeletonRows } from '../loading'
 import { useSlotNames, type SlotNames } from '../library/slots'
 import { PosterSkeleton, TitlePoster } from '../poster'
-import { usePhone } from '../responsive'
+import { PanelContent, SidePanel } from '../layout/SidePanel'
 import { TickBox } from '../library/TickBox'
 import { useSelection } from '../selection'
 import { useReport } from '../toasts'
@@ -120,13 +120,13 @@ function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionBulkRowRe
 }
 
 export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
-  const phone = usePhone() // the phone's TitleBar is the page's heading
   const plan = useAdoption()
   const scan = useScan()
   const commit = useCommit()
   const discard = useDiscard()
   const retry = useRetry()
   const reopen = useReopen()
+  const patchPlan = usePatchPlan()
   const toast = useReport()
   const toasts = useToasts()
   // Adoption shows its progress on its own screen, so its "started" Toasts carry no link to Activity (useReport's `started` would add one).
@@ -138,73 +138,116 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
     )
   const [filter, setFilter] = useState<Filter>('all')
   const state = plan.data?.state
-
-  if (!plan.data)
-    return (
-      <div className="copy-14 p-6 text-gray-900">
-        {plan.isError ? (
-          'Could not read the Adoption state.'
-        ) : (
-          <LoadingRegion>
-            <SkeletonRows count={3} />
-          </LoadingRegion>
-        )}
-      </div>
-    )
   const p = plan.data
   const failed = scan.error ?? commit.error ?? discard.error ?? retry.error ?? reopen.error
 
-  return (
-    <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto tab-clear'}>
-      <div className={embedded ? '' : 'max-w-4xl p-4 sm:px-8 sm:py-6'}>
-        {!embedded && !phone && <h1 className="heading-20">Adopt existing library</h1>}
-        <p className="copy-14 mt-1 text-gray-900">
-          Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes until you adopt the plan.
-        </p>
-        {failed instanceof ApiError && (
-          <Note variant="error" size="small" className="mt-2">
-            {failed.message}
-          </Note>
-        )}
-
-        {(state === 'idle' || state === undefined) && (
-          <div className="mt-4 flex flex-col gap-3">
-            {p.error && (
-              <Note variant="error" size="small">
-                {p.error}
-              </Note>
-            )}
-            {p.result && <Kept result={p.result} actions={{ onRetry: () => retry.mutate(), onReopen: () => reopen.mutate(), busy: retry.isPending || reopen.isPending }} />}
-            <div>
-              <Button variant="primary" size="small" onClick={() => started(scan.mutateAsync(), 'Scan for unmanaged files started')} disabled={scan.isPending}>
-                Scan for Unmanaged Files
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {(state === 'scanning' || state === 'committing') && (
-          <Note role="status" className="mt-4" icon={<Spinner size="sm" />}>
-            <div>
-              {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
-            </div>
-            {p.progress.current && <div className="copy-13 break-all text-gray-900">{currentText(p.progress.current)}</div>}
-          </Note>
-        )}
-
-        {state === 'planned' && p.result && <Kept result={p.result} />}
-        {state === 'planned' && (
-          <Plan
-            filter={filter}
-            onFilter={setFilter}
-            summary={p.summary}
-            monitor={p.monitor}
-            onCommit={() => started(commit.mutateAsync(p.revision), 'Adopting the plan started')}
-            onDiscard={() => void toast(discard.mutateAsync(), { done: 'Adoption plan discarded' })}
-            busy={commit.isPending || discard.isPending}
-          />
-        )}
+  // The plan's controls: the summary and the two Selects, and the buttons that act on the whole plan.
+  const planned = p && state === 'planned'
+  const planFilters = planned && (
+    <>
+      <div role="status" className="copy-14 text-gray-900">
+        {p.summary.matched} matched, {p.summary.needs_choice} need a choice, {p.summary.skipped} skipped
       </div>
+      <Select aria-label="Show" size="small" value={filter} onChange={(e) => setFilter(e.target.value as Filter)} options={filters.map((f) => ({ value: f.key, label: f.label }))} />
+      <Select
+        aria-label="Monitoring"
+        size="small"
+        value={p.monitor}
+        onChange={(e) => patchPlan.mutate(e.target.value as AdoptionMonitor)}
+        disabled={patchPlan.isPending}
+        options={planMonitorOptions}
+      />
+    </>
+  )
+  const busy = commit.isPending || discard.isPending
+  const planButtons = planned && (
+    <>
+      <Button size="small" onClick={() => void toast(discard.mutateAsync(), { done: 'Adoption plan discarded' })} disabled={busy}>
+        Discard Plan
+      </Button>
+      <Button variant="primary" size="small" onClick={() => started(commit.mutateAsync(p.revision), 'Adopting the plan started')} disabled={busy || p.summary.adopting === 0}>
+        Adopt {p.summary.adopting} {p.summary.adopting === 1 ? 'Title' : 'Titles'}
+      </Button>
+    </>
+  )
+  const scanButton = p && (state === 'idle' || state === undefined) && (
+    <Button variant="primary" size="small" onClick={() => started(scan.mutateAsync(), 'Scan for unmanaged files started')} disabled={scan.isPending}>
+      Scan for Unmanaged Files
+    </Button>
+  )
+
+  const body = !p ? (
+    <div className="copy-14 text-gray-900">
+      {plan.isError ? (
+        'Could not read the Adoption state.'
+      ) : (
+        <LoadingRegion>
+          <SkeletonRows count={3} />
+        </LoadingRegion>
+      )}
+    </div>
+  ) : (
+    <div className="flex flex-col gap-4">
+      <p className="copy-14 text-gray-900">
+        Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes until you adopt the plan.
+      </p>
+      {failed instanceof ApiError && (
+        <Note variant="error" size="small">
+          {failed.message}
+        </Note>
+      )}
+
+      {(state === 'idle' || state === undefined) && (
+        <>
+          {p.error && (
+            <Note variant="error" size="small">
+              {p.error}
+            </Note>
+          )}
+          {p.result && <Kept result={p.result} actions={{ onRetry: () => retry.mutate(), onReopen: () => reopen.mutate(), busy: retry.isPending || reopen.isPending }} />}
+          {embedded && <div>{scanButton}</div>}
+        </>
+      )}
+
+      {(state === 'scanning' || state === 'committing') && (
+        <Note role="status" icon={<Spinner size="sm" />}>
+          <div>
+            {state === 'scanning' ? 'Scanning' : 'Adopting'}… {p.progress.done} of {p.progress.total}
+          </div>
+          {p.progress.current && <div className="copy-13 break-all text-gray-900">{currentText(p.progress.current)}</div>}
+        </Note>
+      )}
+
+      {state === 'planned' && p.result && <Kept result={p.result} />}
+      {state === 'planned' && (
+        <>
+          {embedded && (
+            <div className="flex flex-wrap items-center gap-3 max-sm:flex-col max-sm:items-stretch">
+              {planFilters}
+              <div className="ml-auto flex gap-2 max-sm:ml-0 max-sm:[&>*]:flex-1">{planButtons}</div>
+            </div>
+          )}
+          {patchPlan.error instanceof ApiError && (
+            <Note variant="error" size="small">
+              {patchPlan.error.message}
+            </Note>
+          )}
+          {/* Keyed by the filter, so a change of it starts with nothing ticked and no report. */}
+          <Plan key={filter} filter={filter} summary={p.summary} monitor={p.monitor} />
+        </>
+      )}
+    </div>
+  )
+
+  if (embedded) return body
+  return (
+    <div className="flex min-h-0 flex-1 max-sm:flex-col">
+      <SidePanel
+        title="Adopt existing library"
+        filter={planned ? <div className="flex flex-col gap-2.5">{planFilters}</div> : undefined}
+        chips={planned ? <div className="flex gap-2 [&>*]:flex-1">{planButtons}</div> : scanButton ? <div className="flex [&>*]:flex-1">{scanButton}</div> : undefined}
+      />
+      <PanelContent reading>{body}</PanelContent>
     </div>
   )
 }
@@ -231,26 +274,9 @@ function Kept({ result, actions }: { result: NonNullable<AdoptionPlan['result']>
   )
 }
 
-function Plan({
-  filter,
-  onFilter,
-  summary,
-  monitor,
-  onCommit,
-  onDiscard,
-  busy,
-}: {
-  filter: Filter
-  onFilter: (f: Filter) => void
-  summary: AdoptionPlan['summary']
-  monitor: AdoptionMonitor
-  onCommit: () => void
-  onDiscard: () => void
-  busy: boolean
-}) {
+function Plan({ filter, summary, monitor }: { filter: Filter; summary: AdoptionPlan['summary']; monitor: AdoptionMonitor }) {
   const list = useAdoptionRows({ filter }, true)
   const bulk = useBulkRows()
-  const patchPlan = usePatchPlan()
   const [report, setReport] = useState('')
   const rows = useMemo(() => list.data?.pages.flatMap((pg) => pg.items) ?? [], [list.data])
   const total = list.data?.pages[0]?.total ?? 0
@@ -258,11 +284,6 @@ function Plan({
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
   const selection = useSelection(ids, total)
   const planEmpty = summary.matched + summary.needs_choice + summary.skipped === 0
-  const change = (f: Filter) => {
-    selection.clear()
-    setReport('')
-    onFilter(f)
-  }
   const run = (action: AdoptionRowsBulk['action'], setTo?: AdoptionMonitor) => {
     const body: AdoptionRowsBulk = { action, ...(setTo && { monitor: setTo }), ...(selection.all ? { filter } : { row_ids: selection.checked }) }
     bulk.mutate(body, {
@@ -273,46 +294,19 @@ function Plan({
     })
   }
   return (
-    <div className="mt-4">
-      <div className="flex flex-wrap items-center gap-3 max-sm:flex-col max-sm:items-stretch">
-        <div role="status" className="copy-14 text-gray-900">
-          {summary.matched} matched, {summary.needs_choice} need a choice, {summary.skipped} skipped
-        </div>
-        <Select aria-label="Show" size="small" value={filter} onChange={(e) => change(e.target.value as Filter)} options={filters.map((f) => ({ value: f.key, label: f.label }))} />
-        <Select
-          aria-label="Monitoring"
-          size="small"
-          value={monitor}
-          onChange={(e) => patchPlan.mutate(e.target.value as AdoptionMonitor)}
-          disabled={patchPlan.isPending}
-          options={planMonitorOptions}
-        />
-        <div className="ml-auto flex gap-2 max-sm:ml-0 max-sm:[&>*]:flex-1">
-          <Button size="small" onClick={onDiscard} disabled={busy}>
-            Discard Plan
-          </Button>
-          <Button variant="primary" size="small" onClick={onCommit} disabled={busy || summary.adopting === 0}>
-            Adopt {summary.adopting} {summary.adopting === 1 ? 'Title' : 'Titles'}
-          </Button>
-        </div>
-      </div>
-      {patchPlan.error instanceof ApiError && (
-        <Note variant="error" size="small" className="mt-2">
-          {patchPlan.error.message}
-        </Note>
-      )}
+    <div>
       {bulk.error instanceof ApiError && (
-        <Note variant="error" size="small" className="mt-2">
+        <Note variant="error" size="small" className="mb-2">
           {bulk.error.message}
         </Note>
       )}
       {report && (
-        <Note size="small" className="mt-2">
+        <Note size="small" className="mb-2">
           {report}
         </Note>
       )}
       {!selection.active && rows.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <Button variant="tertiary" size="small" onClick={selection.checkAll}>
             Select All {rows.length} Shown
           </Button>
@@ -324,7 +318,7 @@ function Plan({
         </div>
       )}
       {list.isPending ? (
-        <Entity.List className="mt-4" aria-busy="true" aria-label="Loading the plan">
+        <Entity.List aria-busy="true" aria-label="Loading the plan">
           {[0, 1, 2].map((i) => (
             <Entity
               key={i}
@@ -340,10 +334,10 @@ function Plan({
           ))}
         </Entity.List>
       ) : rows.length === 0 ? (
-        <EmptyState className="mt-6" title={planEmpty ? 'No Files To Adopt' : 'No Rows Match'} description={planEmpty ? 'No files to adopt were found.' : 'No rows match this filter.'} />
+        <EmptyState title={planEmpty ? 'No Files To Adopt' : 'No Rows Match'} description={planEmpty ? 'No files to adopt were found.' : 'No rows match this filter.'} />
       ) : (
         <>
-          <Entity.List className="mt-4" aria-label="Adoption plan">
+          <Entity.List aria-label="Adoption plan">
             {rows.map((r) => (
               <Entity
                 key={r.id}
