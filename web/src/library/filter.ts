@@ -6,6 +6,7 @@ import { foldText, matchFolded, type FoldedText } from '../fuzzy'
 import { parseQuery, withoutTerm, withValue, type Query, type Term } from '@hyprsh/design'
 import { kindQualifier, slotQualifier, type Facet } from '../filter/qualifiers'
 import { slotNamesOf, type SlotNames } from './slots'
+import { shownState } from '../ui/slotState'
 import { parseCode, splitCode } from './episodeCode'
 
 type Version = TitleRow['slot_states'][number]
@@ -117,7 +118,7 @@ export function withTab(text: string, tab: StateTab, qualifiers: readonly Facet[
   return tab === 'all' ? out : withValue(out, 'is', tab, qualifiers)
 }
 
-const versions = (r: TitleRow): Version[] => r.slot_states
+const versions = (r: TitleRow): Version[] => r.slot_states.map((s) => ({ ...s, state: shownState(s.state, r.monitored) }))
 
 /** Whether a Title has one value of a qualifier. A `profile:` value is a name or a key, in any case. `grabbing` holds the Titles with a Grab on its way. */
 function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[], grabbing: ReadonlySet<number>): boolean {

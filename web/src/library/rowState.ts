@@ -9,6 +9,7 @@ import { percent, plural } from '../format'
 import { ago, clockTime, span } from '../time'
 import { expandCodes } from './cellDetail'
 import { size as bytes } from './bits'
+import { shownState } from '../ui/slotState'
 
 export type Tone = 'error' | 'warning' | 'info' | 'quiet'
 
@@ -63,8 +64,8 @@ function episodes(g: QueueItem): string {
   return e.length <= 1 ? (e[0] ?? 'Episodes') : `${e[0]}–${e[e.length - 1]}`
 }
 
-/** The Title's Versions with their Slots, in Slot order. */
-const kept = (r: TitleRow) => r.slot_states.map((v) => ({ slot: v.slot as string, v }))
+/** The Title's Versions with their Slots, in Slot order, in the state the Title's monitoring leaves them (see shownState). */
+const kept = (r: TitleRow) => r.slot_states.map((v) => ({ slot: v.slot as string, v: { ...v, state: shownState(v.state, r.monitored) } }))
 
 /** Whether a Grab fills a Version that has nothing yet (or a misfit), rather than Upgrading a file. */
 const filling = (g: QueueItem) => !g.is_upgrade
@@ -132,7 +133,7 @@ export const isMonitoredRow = (r: TitleRow) => r.monitored
 
 /** The Slots as the chips show them, in Slot order: a Wanted Version a Grab is filling is downloading. */
 export function shownSlots(r: TitleRow, grabs: readonly QueueItem[]): TitleRow['slot_states'] {
-  return r.slot_states.map((v) => (v.state === 'wanted' && grabs.some((g) => g.slot === v.slot && filling(g)) ? { ...v, state: 'downloading' } : v))
+  return r.slot_states.map((v) => (v.state === 'wanted' && grabs.some((g) => g.slot === v.slot && filling(g)) ? { ...v, state: 'downloading' } : { ...v, state: shownState(v.state, r.monitored) }))
 }
 
 /** The grid's poster badge: Long Missing, or how far a Grab has got. */

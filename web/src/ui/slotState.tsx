@@ -20,6 +20,13 @@ const dots: Record<SlotDotState | 'none', string> = {
 export const dotState = (state: string | null, longMissing = false): SlotDotState | null =>
   state === null ? null : state === 'wanted' && longMissing ? 'long_missing' : state in dots ? (state as SlotDotState) : 'unmonitored'
 
+/**
+ * The state a Version is shown in once the Title's monitoring is counted: a Title that is not monitored reads Not monitored
+ * even when its Version is also not out yet, because nothing will happen once it is out. Every screen that draws one state for
+ * a Version (the Library row, its Slot chips and filter) ranks the two this way, from here.
+ */
+export const shownState = <S extends string | null>(state: S, monitored: boolean): S | 'unmonitored' => (state === 'unreleased' && !monitored ? 'unmonitored' : state)
+
 /** The words of each state, as the legend and a tooltip say them. */
 export const stateName: Record<SlotDotState, string> = {
   filled: 'Have',
