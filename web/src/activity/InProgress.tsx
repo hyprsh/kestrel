@@ -2,7 +2,7 @@
 // with its state and a slim Progress bar. The × cancels at once; blocklisting stays in the ⋯ menu, because it changes
 // what future searches grab. Both show on hover or focus, and on a phone a tap on the row opens them.
 // chrome: domain-visual
-import { Button, DestructiveActionModal, DotsMenu, MenuItem, Progress } from '@hyprsh/design'
+import { Button, DestructiveActionModal, DotsMenu, Entity, EntityContent, MenuItem, Progress } from '@hyprsh/design'
 import { Search, X } from 'lucide-react'
 import { useState } from 'react'
 import { useDownloadClient, useStalledImport, type GrabEntry } from '../api/activity'
@@ -42,35 +42,63 @@ function activeGist(i: QueueItem, now: number): Gist {
 const tones = { blue: 'text-blue-900', amber: 'text-amber-900', red: 'text-red-900' } as const
 const bars = { blue: 'success', amber: 'warning', red: 'error' } as const
 
+/** The search pass's bar and its count. */
+function PassBar({ phase }: { phase: { done: number; total: number } }) {
+  return (
+    <div className="flex items-center gap-2.5 max-sm:w-full sm:w-60">
+      <Progress value={phase.done} max={Math.max(phase.total, 1)} type="success" height={6} aria-label="Search progress" className="min-w-16 flex-1" />
+      <span className="label-12 w-16 shrink-0 text-right tabular-nums">{`${phase.done} of ${phase.total}`}</span>
+    </div>
+  )
+}
+
 /** The search pass as the first row of the card. */
 export function SearchPassRow({ pass: p, indexers = [] }: { pass: Pass; indexers?: SearchStatus['indexers'] }) {
   const now = useNow(1_000)
+  const phone = usePhone()
   const { phase, name, releases } = passLines(p, now)
   const waiting = gapWaitLine(indexers, now)
   const c = p.current
   const where = c ? [whereOf(c), c.slot].filter(Boolean).join(' · ') : null
+  const bar = <PassBar phase={phase} />
   return (
-    <li aria-label="Search pass" className="flex items-center gap-3.5 border-b border-gray-alpha-200 bg-background-200 px-4 py-2.5 last:border-b-0 max-sm:flex-wrap">
-      <Search aria-hidden className="size-5 shrink-0 text-gray-900" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="label-14 truncate">
-          <b>{name}</b>
-          {c && <span className="text-gray-900">{` · now ${c.title}${where ? ` ${where}` : ''}`}</span>}
-        </span>
-        <span className="label-12 text-gray-900">{releases}</span>
+    <Entity aria-label="Search pass" left={<Search aria-hidden className="size-5 text-gray-900" />} right={phone ? undefined : bar}>
+      <EntityContent
+        fill
+        title={
+          <>
+            {name}
+            {c && <span className="font-normal text-gray-900">{` · now ${c.title}${where ? ` ${where}` : ''}`}</span>}
+          </>
+        }
+        description={<span className="label-12">{releases}</span>}
+      >
         {waiting && <span className="label-12 text-amber-900">{waiting}</span>}
-      </div>
-      <div className="flex shrink-0 items-center gap-2.5 max-sm:w-full sm:w-60">
-        <Progress value={phase.done} max={Math.max(phase.total, 1)} type="success" height={6} aria-label="Search progress" className="min-w-16 flex-1" />
-        <span className="label-12 w-16 shrink-0 text-right tabular-nums">{`${phase.done} of ${phase.total}`}</span>
-      </div>
-      <span className="hidden w-16 shrink-0 sm:block" />
-    </li>
+        {phone && bar}
+      </EntityContent>
+    </Entity>
   )
 }
 
-/** The frame of a live row: poster, Title with what it covers, the Release, the state column and the hover actions. */
-function Frame({
+/** The state column of a live row: the Slot and its state words, then the Progress bar. */
+function State({ grab: g, gist }: { grab: Pick<QueueItem, 'slot' | 'release_name'>; gist: Gist }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 sm:w-60">
+      <span className="flex min-w-0 items-center gap-2">
+        {g.slot && <SlotTag slot={g.slot} state="downloading" text={gist.pct !== null ? `${gist.pct}%` : undefined} />}
+        <span className={cx('label-12 truncate', tones[gist.tone])}>{gist.text}</span>
+      </span>
+      {gist.pct !== null && <Progress value={gist.pct} type={bars[gist.tone]} height={6} aria-label={`${g.release_name} progress`} />}
+    </div>
+  )
+}
+
+/**
+ * A live row: poster, Title with what it covers, the Release and the state. On a wide screen the actions sit at the end, shown
+ * on hover or focus. On a phone the row is the Entity's disclosure row and the actions are its detail, because the design's
+ * expandable row holds no controls of its own.
+ */
+function LiveRow({
   grab: g,
   gist,
   nav,
@@ -86,37 +114,41 @@ function Frame({
   below?: React.ReactNode
 }) {
   const phone = usePhone()
-  const [open, setOpen] = useState(false)
   const name = g.title || 'Deleted Title'
+  const state = <State grab={g} gist={gist} />
   return (
-    <li
-      aria-current={nav.index === nav.sel ? 'true' : undefined}
+    <Entity
+      className="group"
+      current={nav.index === nav.sel}
       data-nav={`${nav.scope}-${nav.index}`}
-      onClick={nav.onSelect}
-      className={cx('group border-b border-gray-alpha-200 px-4 py-2.5 last:border-b-0', nav.index === nav.sel && 'bg-gray-alpha-100')}
+      left={g.title_id != null ? <TitlePoster id={g.title_id} hasPoster={g.has_poster} size="xs" /> : <span className="w-7" />}
+      right={
+        phone ? undefined : (
+          <>
+            {state}
+            <span className="flex w-16 justify-end gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              {actions}
+              {more}
+            </span>
+          </>
+        )
+      }
+      detail={phone ? <div className="flex flex-wrap gap-2">{below}</div> : undefined}
+      onClick={phone ? nav.onSelect : undefined}
+      onClickCapture={phone ? undefined : nav.onSelect}
     >
-      <div className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-x-3.5 sm:grid-cols-[28px_minmax(0,1fr)_240px_64px]">
-        {g.title_id != null ? <TitlePoster id={g.title_id} hasPoster={g.has_poster} size="xs" /> : <span className="w-7" />}
-        <button type="button" className="flex min-w-0 flex-col gap-0.5 text-left" onClick={() => phone && setOpen((o) => !o)} aria-expanded={phone ? open : undefined}>
-          <span className="label-14 truncate">
-            <b>{name}</b> <span className="text-gray-900">{whatOf(g)}</span>
-          </span>
-          <span className="label-12-mono truncate text-gray-900">{g.release_name}</span>
-        </button>
-        <div className="flex min-w-0 flex-col gap-1 max-sm:col-span-2 max-sm:col-start-2">
-          <span className="flex min-w-0 items-center gap-2">
-            {g.slot && <SlotTag slot={g.slot} state="downloading" text={gist.pct !== null ? `${gist.pct}%` : undefined} />}
-            <span className={cx('label-12 truncate', tones[gist.tone])}>{gist.text}</span>
-          </span>
-          {gist.pct !== null && <Progress value={gist.pct} type={bars[gist.tone]} height={6} aria-label={`${g.release_name} progress`} />}
-        </div>
-        <span className="flex justify-end gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 max-sm:hidden">
-          {actions}
-          {more}
-        </span>
-      </div>
-      {phone && open && <div className="mt-2 flex flex-wrap gap-2 pl-[42px]">{below}</div>}
-    </li>
+      <EntityContent
+        fill
+        title={
+          <>
+            {name} <span className="font-normal text-gray-900">{whatOf(g)}</span>
+          </>
+        }
+        description={<span className="label-12-mono">{g.release_name}</span>}
+      >
+        {phone && state}
+      </EntityContent>
+    </Entity>
   )
 }
 
@@ -135,7 +167,7 @@ export function ActiveRow({ item: i, nav, onOpenTitle }: { item: QueueItem; nav:
   const name = i.title || 'Deleted Title'
   const run = (blocklist: boolean) => void cancel.run(i.grab_id, blocklist)
   return (
-    <Frame
+    <LiveRow
       grab={i}
       gist={gist}
       nav={nav}
@@ -177,7 +209,7 @@ export function StalledRow({ grab: g, nav, onOpenTitle }: { grab: GrabEntry; nav
   const gist: Gist = { text: `Stalled · ${g.stalled!.reason}`, tone: 'red', pct: 100 }
   return (
     <>
-      <Frame
+      <LiveRow
         grab={g}
         gist={gist}
         nav={nav}

@@ -2,7 +2,7 @@
 // It stays live through the stream: the queue from `queue` frames, the stalled and finished Grabs from the `grab` hints,
 // the search pass from `search` frames.
 // chrome: domain-visual
-import { Button, EmptyState, Note, parseQuery, valuesOf } from '@hyprsh/design'
+import { Button, EmptyState, EntityList, Note, parseQuery, valuesOf } from '@hyprsh/design'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFinishedGrabs, useGrabsSummary, useStalledGrabs, type GrabEntry, type GrabsFilter } from '../api/activity'
 import { useBlocklist } from '../api/log'
@@ -133,7 +133,7 @@ export function Pipeline({ data, onOpenTitle, onManualSearch }: { data: Pipeline
           <h2 className="heading-16">
             In progress <span className="label-14 font-normal text-gray-900">{inProgress}</span>
           </h2>
-          <ul className="m-0 list-none overflow-hidden rounded-md p-0 shadow-border">
+          <EntityList>
             {pass && <SearchPassRow pass={pass} indexers={data.search?.indexers} />}
             {live.map((e) =>
               e.type === 'active' ? (
@@ -142,25 +142,23 @@ export function Pipeline({ data, onOpenTitle, onManualSearch }: { data: Pipeline
                 <StalledRow key={e.key} grab={e.grab} nav={navOf(e)} onOpenTitle={onOpenTitle} />
               ) : null,
             )}
-          </ul>
+          </EntityList>
         </section>
       )}
       {ended.length > 0 && (
         <section aria-label="History" className="flex flex-col gap-2">
           <h2 className="heading-16">History</h2>
-          <div className="overflow-hidden rounded-md shadow-border">
-            <HistoryHead />
-            {days.map((d) => (
-              <div key={d.day}>
-                <DayHeader day={d.day} />
-                <ul aria-label={d.day} className="m-0 list-none p-0">
-                  {d.rows.map((e) => (
-                    <HistoryRow key={e.key} entry={e} titles={titles} nav={navOf(e)} open={openKey === e.key} onToggle={() => toggle(e)} onOpenTitle={onOpenTitle} onManualSearch={onManualSearch} />
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          <HistoryHead />
+          {days.map((d) => (
+            <div key={d.day} className="flex flex-col gap-1.5">
+              <DayHeader day={d.day} />
+              <EntityList aria-label={d.day}>
+                {d.rows.map((e) => (
+                  <HistoryRow key={e.key} entry={e} titles={titles} nav={navOf(e)} open={openKey === e.key} onToggle={() => toggle(e)} onOpenTitle={onOpenTitle} onManualSearch={onManualSearch} />
+                ))}
+              </EntityList>
+            </div>
+          ))}
         </section>
       )}
       {loaded && rows.length === 0 && !pass && (
