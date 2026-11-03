@@ -70,7 +70,14 @@ const kept = (r: TitleRow) => r.slot_states.map((v) => ({ slot: v.slot as string
 /** Whether a Grab fills a Version that has nothing yet (or a misfit), rather than Upgrading a file. */
 const filling = (g: QueueItem) => !g.is_upgrade
 
-export type StateLine = { text: string; tone: Tone }
+/** `short` is the form the row falls back to when `text` does not fit its width; `text` is then its tooltip. */
+export type StateLine = { text: string; tone: Tone; short?: string }
+
+/** "10 d", "5 h": a span of time as short as the Library's rows need it. */
+function shortDays(ms: number): string {
+  const n = Math.floor(ms / DAY)
+  return n < 1 ? span(ms) : `${n} d`
+}
 
 /**
  * Why the Title is where it is, in one line. In order: a Series' Wanted episodes (with the downloading ones), a Grab
@@ -84,24 +91,34 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
     // A season pack that also holds filled episodes counts as an Upgrade, so any Grab counts here; the Wanted ones are all that can be downloading.
     const downloading = Math.min(w.wanted, new Set(grabs.flatMap((g) => expandCodes(g.episodes))).size)
     const text = `${seasons(w.seasons)}: ${w.wanted} Wanted${downloading > 0 ? `, ${downloading} downloading` : ''}`
-    return w.long_missing > 0 ? { text: `Long Missing · ${text}`, tone: 'error' } : { text, tone: 'warning' }
+    // Short: the downloading ones as an arrow, and a Long Missing line drops the seasons ("Long Missing · 46 Wanted").
+    const count = `${w.wanted} Wanted${downloading > 0 ? ` \u00b7 ${downloading} \u2193` : ''}`
+    if (w.long_missing > 0) return { text: `Long Missing · ${text}`, tone: 'error', short: `Long Missing · ${count}` }
+    return { text, tone: 'warning', ...(downloading > 0 && { short: `${seasons(w.seasons)}: ${count}` }) }
   }
   const [g] = grabs
   if (g) {
     const verb = g.is_upgrade ? 'upgrading' : 'downloading'
     const what = r.kind === 'series' ? episodes(g) : two && g.slot ? (r.slot_states.find((s) => s.slot === g.slot)?.label ?? null) : null
     const lead = what ? `${what} ${verb}` : verb[0].toUpperCase() + verb.slice(1)
-    return { text: `${lead} · ${progress(g)}`, tone: 'info' }
+    const pct = g.phase === 'downloading' ? percent(g.bytes_total, g.bytes_left) : null
+    const text = `${lead} · ${progress(g)}`
+    const short = pct === null || g.stuck ? text : `${lead} · ${pct}%`
+    return { text, tone: 'info', ...(short !== text && { short }) }
   }
   if (!r.monitored) return { text: 'Not monitored', tone: 'quiet' }
   const long = vs.filter((x) => x.v.long_missing)
   const wanted = vs.filter((x) => x.v.state === 'wanted')
   // A Slot is named when only some of the Title's Versions are in the state.
   const which = (some: typeof vs) => (two && some.length < vs.length ? `${some[0].v.label} ` : '')
-  if (long.length > 0) return { text: `Long Missing · ${which(long)}Wanted for ${days(now - Date.parse(r.wanted_since ?? r.added_at))}`, tone: 'error' }
+  if (long.length > 0) {
+    const ms = now - Date.parse(r.wanted_since ?? r.added_at)
+    return { text: `Long Missing · ${which(long)}Wanted for ${days(ms)}`, tone: 'error', short: `Long Missing · ${which(long)}${shortDays(ms)}` }
+  }
   if (wanted.length > 0) {
     const since = r.wanted_since ? `Wanted for ${days(now - Date.parse(r.wanted_since))}` : 'Wanted'
-    return { text: `${which(wanted)}${since} · ${searched(r.searched_at, now)}`, tone: 'warning' }
+    const shortSince = r.wanted_since ? `Wanted \u00b7 ${shortDays(now - Date.parse(r.wanted_since))}` : 'Wanted'
+    return { text: `${which(wanted)}${since} · ${searched(r.searched_at, now)}`, tone: 'warning', short: `${which(wanted)}${shortSince}` }
   }
   if (vs.length > 0 && vs.every((x) => x.v.state === 'unmonitored')) return { text: 'Not monitored', tone: 'quiet' }
   if (vs.some((x) => x.v.state === 'unreleased') && !vs.some((x) => x.v.state === 'filled')) return { text: 'Not out yet', tone: 'quiet' }
@@ -110,7 +127,8 @@ export function stateLine(r: TitleRow, grabs: readonly QueueItem[], now: number,
     // Series: how many episodes sit below the Profile's cutoff; a Movie names the Slot when only some of its Versions do.
     const episodes = upgrading.reduce((n, x) => n + (x.v.episodes_upgrade ?? 0), 0)
     const text = r.kind === 'series' && episodes > 0 ? `Upgrade wanted \u00b7 ${plural(episodes, 'episode')} below cutoff` : `${which(upgrading)}Upgrade wanted \u00b7 below cutoff`.trim()
-    return { text: text[0].toUpperCase() + text.slice(1), tone: 'warning' }
+    const short = r.kind === 'series' && episodes > 0 ? `Upgrade wanted \u00b7 ${episodes} ${episodes === 1 ? 'ep' : 'eps'}` : `${which(upgrading)}Upgrade wanted`.trim()
+    return { text: text[0].toUpperCase() + text.slice(1), tone: 'warning', short: short[0].toUpperCase() + short.slice(1) }
   }
   return { text: holding(r, vs, now, opts.size ?? false), tone: 'quiet' }
 }

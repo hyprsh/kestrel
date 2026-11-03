@@ -10,6 +10,7 @@ import { SkeletonRow } from '../loading'
 import { TitlePoster } from '../poster'
 import type { Selection } from '../selection'
 import { KindIcon, size } from './bits'
+import { FitLine } from './FitLine'
 import { useSlotNames } from './slots'
 import { isMonitoredRow, stateLine, toneText } from './rowState'
 import { rowChips } from './rowChips'
@@ -189,18 +190,17 @@ export function TitleRows({
               <Entity.Content
                 fill
                 title={
-                  <span className="block truncate">
-                    <span data-title className={monitored ? '' : 'text-gray-900'}>
+                  // The name gives way before the year, which is always shown.
+                  <span className="flex min-w-0">
+                    <span data-title className={`min-w-0 truncate ${monitored ? '' : 'text-gray-900'}`}>
                       {r.title}
                     </span>
-                    {r.year ? <span className="ml-1.5 font-normal text-gray-900">{r.year}</span> : null}
+                    {r.year ? <span className="ml-1.5 shrink-0 font-normal text-gray-900">{r.year}</span> : null}
                   </span>
                 }
                 description={
                   <span className="flex flex-col gap-1">
-                    <span data-state-line className={`block truncate ${toneText[line.tone]}`}>
-                      {line.text}
-                    </span>
+                    <FitLine key={line.text} data-state-line="" text={line.text} short={line.short} className={toneText[line.tone]} />
                     <span className={dimmed}>{chips}</span>
                   </span>
                 }
