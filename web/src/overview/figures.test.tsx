@@ -67,7 +67,7 @@ describe('the figures and cards that open the data behind them', () => {
     renderOverview(open)
 
     const card = await screen.findByRole('region', { name: 'Requests' })
-    expect(await opens(card, 'Open Requests', open)).toBe('requests?')
+    expect(await opens(card, 'Open every Request', open)).toBe('requests?')
     expect(await opens(card, 'Open the open Requests', open)).toBe('requests?status:open')
     expect(await opens(card, "Open Ellie's Requests", open)).toBe('requests?requester:Ellie')
   })
