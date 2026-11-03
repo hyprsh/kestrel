@@ -80,6 +80,8 @@ const ALIASES: Record<string, string> = {
   WideListPane: 'Pane with SplitView',
   PaneHeader: 'Pane (header)',
   PaneFooter: 'Pane (footer)',
+  SettingRow: 'SettingRow',
+  SettingRowBody: 'SettingRow',
 }
 
 type Hit = { line: number; message: string; class?: string }

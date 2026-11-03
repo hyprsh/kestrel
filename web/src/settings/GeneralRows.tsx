@@ -1,7 +1,7 @@
-import { Button, Input, Note, Select, Toggle } from '@hyprsh/design'
+import { Button, Input, Note, Select, SettingRow, Toggle } from '@hyprsh/design'
 import { ApiError, usePatchSettings, useSettings, type Settings, type SettingsPatch } from '../api/queries'
 import { manualSearchSortLabels } from '../library/bits'
-import { SettingRow, SettingsBlock, SettingsCard } from '../layout/SettingsPage'
+import { SettingsBlock, SettingsCard } from '../layout/SettingsPage'
 import { SkeletonForm, SkeletonRows } from '../loading'
 import { startedInBackground, useReport } from '../toasts'
 import { useDraftForm } from './draft'
@@ -62,31 +62,32 @@ function LanguageDraft({ saved, declared }: { saved: Settings['language_region']
   })
   const off = declared || !!pending
   return (
-    <SettingsCard>
-      <SettingRow
-        label="Primary language"
-        dirty={dirty('language')}
-        help="Sets the audio your Profiles require, what DL and MULTi mean in release names and the language of title search. Changing it re-scores every file you already have, without renaming or searching."
-      >
-        <Select
-          size="small"
-          aria-label="Primary language"
-          value={draft.language}
-          disabled={off}
-          onChange={(e) => {
-            const language = e.target.value as Language
-            set({ language, country: languages.find((l) => l.value === language)?.country ?? draft.country })
-          }}
-          options={languages.map((l) => ({ value: l.value, label: l.label }))}
-        />
-      </SettingRow>
-      <SettingRow label="Country" dirty={dirty('country')} help="Whose release dates decide when a Title counts as released. It follows the language until you edit it.">
-        <Input size="small" aria-label="Release-date country" maxLength={2} value={draft.country} disabled={off} onChange={(e) => set({ country: e.target.value.toUpperCase() })} />
-        <RowError error={save.error} />
-        {pending && <Note size="small">Switching to {languageName(pending)}… Every file is re-scored first. The new Language applies when that ends, and Activity shows how far it is.</Note>}
-        {declared && declaredNote('the language and country')}
-      </SettingRow>
-    </SettingsCard>
+    <>
+      <SettingsCard>
+        <SettingRow
+          label="Primary language"
+          changed={dirty('language')}
+          help="Sets the audio your Profiles require, what DL and MULTi mean in release names and the language of title search. Changing it re-scores every file you already have, without renaming or searching."
+        >
+          <Select
+            size="small"
+            value={draft.language}
+            disabled={off}
+            onChange={(e) => {
+              const language = e.target.value as Language
+              set({ language, country: languages.find((l) => l.value === language)?.country ?? draft.country })
+            }}
+            options={languages.map((l) => ({ value: l.value, label: l.label }))}
+          />
+        </SettingRow>
+        <SettingRow label="Country" changed={dirty('country')} help="Whose release dates decide when a Title counts as released. It follows the language until you edit it.">
+          <Input size="small" aria-label="Release-date country" maxLength={2} value={draft.country} disabled={off} onChange={(e) => set({ country: e.target.value.toUpperCase() })} />
+        </SettingRow>
+      </SettingsCard>
+      <RowError error={save.error} />
+      {pending && <Note size="small">Switching to {languageName(pending)}… Every file is re-scored first. The new Language applies when that ends, and Activity shows how far it is.</Note>}
+      {declared && declaredNote('the language and country')}
+    </>
   )
 }
 
@@ -187,29 +188,21 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
       <SettingsCard>
         <SettingRow
           label="Season order"
-          dirty={dirty('season_order')}
+          changed={dirty('season_order')}
           help="How a Series lists its seasons for everyone in the household. Newest first also reverses the episodes in each; Specials come before Season 1 oldest first, and last newest first."
         >
-          <Select
-            size="small"
-            aria-label="Season order"
-            value={draft.season_order}
-            disabled={off('season_order')}
-            onChange={(e) => set({ season_order: e.target.value as Display['season_order'] })}
-            options={seasonOrders}
-          />
+          <Select size="small" value={draft.season_order} disabled={off('season_order')} onChange={(e) => set({ season_order: e.target.value as Display['season_order'] })} options={seasonOrders} />
         </SettingRow>
         <SettingRow
           label="Open the newest season"
-          dirty={dirty('open_newest')}
+          changed={dirty('open_newest')}
           help="A Series page opens its newest season and every season with something Wanted, instead of starting with every season closed. A link to a season or an episode still opens that one."
         >
-          <Toggle aria-label="Open the newest season" checked={draft.open_newest} disabled={off('seasons_open')} onChange={(open_newest) => set({ open_newest })} />
+          <Toggle checked={draft.open_newest} disabled={off('seasons_open')} onChange={(open_newest) => set({ open_newest })} />
         </SettingRow>
-        <SettingRow label="Manual search sort" dirty={dirty('manual_search_sort')} help="How Manual search lists Releases when it opens.">
+        <SettingRow label="Manual search sort" changed={dirty('manual_search_sort')} help="How Manual search lists Releases when it opens.">
           <Select
             size="small"
-            aria-label="Manual search sort"
             value={draft.manual_search_sort}
             disabled={off('manual_search_sort')}
             onChange={(e) => set({ manual_search_sort: e.target.value as Display['manual_search_sort'] })}
@@ -218,33 +211,25 @@ function DisplayDraft({ saved, declared }: { saved: Display; declared: Settings[
         </SettingRow>
         <SettingRow
           label="Upcoming starts on"
-          dirty={dirty('upcoming_display')}
+          changed={dirty('upcoming_display')}
           help="The display Upcoming opens with. A browser that picked another display keeps its own. A phone always shows the Agenda."
         >
           <Select
             size="small"
-            aria-label="Upcoming starts on"
             value={draft.upcoming_display}
             disabled={off('upcoming_display')}
             onChange={(e) => set({ upcoming_display: e.target.value as Display['upcoming_display'] })}
             options={upcomingDisplays}
           />
         </SettingRow>
-        <SettingRow label="Upcoming shows" dirty={dirty('kind')} help="Which Titles Upcoming starts with.">
-          <Select
-            size="small"
-            aria-label="Upcoming shows"
-            value={draft.kind}
-            disabled={off('upcoming_filters')}
-            onChange={(e) => set({ kind: e.target.value as Display['upcoming_filters']['kind'] })}
-            options={kinds}
-          />
+        <SettingRow label="Upcoming shows" changed={dirty('kind')} help="Which Titles Upcoming starts with.">
+          <Select size="small" value={draft.kind} disabled={off('upcoming_filters')} onChange={(e) => set({ kind: e.target.value as Display['upcoming_filters']['kind'] })} options={kinds} />
         </SettingRow>
-        <SettingRow label="Wanted only" dirty={dirty('wanted_only')} help="Upcoming starts with the Wanted entries only.">
-          <Toggle aria-label="Wanted only" checked={draft.wanted_only} disabled={off('upcoming_filters')} onChange={(wanted_only) => set({ wanted_only })} />
+        <SettingRow label="Wanted only" changed={dirty('wanted_only')} help="Upcoming starts with the Wanted entries only.">
+          <Toggle checked={draft.wanted_only} disabled={off('upcoming_filters')} onChange={(wanted_only) => set({ wanted_only })} />
         </SettingRow>
-        <SettingRow label="Hide imported" dirty={dirty('hide_imported')} help="Upcoming starts without the entries that already have their file.">
-          <Toggle aria-label="Hide imported" checked={draft.hide_imported} disabled={off('upcoming_filters')} onChange={(hide_imported) => set({ hide_imported })} />
+        <SettingRow label="Hide imported" changed={dirty('hide_imported')} help="Upcoming starts without the entries that already have their file.">
+          <Toggle checked={draft.hide_imported} disabled={off('upcoming_filters')} onChange={(hide_imported) => set({ hide_imported })} />
         </SettingRow>
       </SettingsCard>
       <RowError error={save.error} />
@@ -261,17 +246,18 @@ export function UpdatesRow() {
   if (!data) return <SkeletonRows count={1} />
   const declared = data.from_config_file.check_github_updates
   return (
-    <SettingsCard>
-      <SettingRow label="Check GitHub daily" help="Once a day Kestrel asks GitHub for a newer release, security advisories and a newer TRaSH commit. Off means no request to GitHub at all.">
-        <Toggle
-          aria-label="Check GitHub daily"
-          checked={data.check_github_updates}
-          disabled={save.isPending || declared}
-          onChange={(check_github_updates) => void report(save.mutateAsync({ check_github_updates }), { failed: 'Could not save the update check' })}
-        />
-        {declared && declaredNote('this switch')}
-      </SettingRow>
-    </SettingsCard>
+    <>
+      <SettingsCard>
+        <SettingRow label="Check GitHub daily" help="Once a day Kestrel asks GitHub for a newer release, security advisories and a newer TRaSH commit. Off means no request to GitHub at all.">
+          <Toggle
+            checked={data.check_github_updates}
+            disabled={save.isPending || declared}
+            onChange={(check_github_updates) => void report(save.mutateAsync({ check_github_updates }), { failed: 'Could not save the update check' })}
+          />
+        </SettingRow>
+      </SettingsCard>
+      {declared && declaredNote('this switch')}
+    </>
   )
 }
 

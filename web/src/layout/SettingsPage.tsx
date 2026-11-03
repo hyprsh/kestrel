@@ -36,9 +36,13 @@ export function SettingsSection({ id, title, count, action, children }: { id?: s
   )
 }
 
-/** The card of a Settings section: plain rows one under another, divided. */
+/** The card of a Settings section: rows one under another, divided (the design `SettingRow` draws its own divider and has no right padding). */
 export function SettingsCard({ children }: { children: ReactNode }) {
-  return <div className="overflow-hidden rounded-md shadow-border [&>*:not(:last-child)]:border-b [&>*:not(:last-child)]:border-gray-alpha-200">{children}</div>
+  return (
+    <div className="overflow-hidden rounded-md shadow-border [&>.hy-setting-row]:pr-3 [&>*:not(.hy-setting-row):not(:last-child)]:border-b [&>*:not(.hy-setting-row):not(:last-child)]:border-gray-alpha-200">
+      {children}
+    </div>
+  )
 }
 
 /** A card that holds one block of its own (the download client, the setup wizard), padded. */
@@ -47,25 +51,20 @@ export function SettingsBlock({ children }: { children: ReactNode }) {
 }
 
 /**
- * One setting: its name and explanation at the left, its control at the right. `dirty` draws the blue edge of an
- * unsaved change. `stacked` puts the control under the text across the card, for a form of several fields.
+ * One setting that is a form of several fields, not one control: its name and explanation, then the form across the card
+ * (the design `SettingRow` puts a single control in a 280px column beside the text and names it with `<label for>`, which
+ * a form cannot take). A single control uses the design `SettingRow` instead.
  */
-// chrome-ok: adopting the design SettingRow is a separate ticket
-export function SettingRow({ label, help, dirty = false, stacked = false, children }: { label: string; help?: ReactNode; dirty?: boolean; stacked?: boolean; children?: ReactNode }) {
+export function StackedSetting({ label, help, children }: { label: string; help?: ReactNode; children: ReactNode }) {
   return (
-    <div className={`grid gap-x-6 gap-y-3 px-4 py-3.5 ${stacked ? '' : 'sm:grid-cols-[minmax(0,1fr)_minmax(0,300px)] sm:items-center'} ${dirty ? 'shadow-[inset_2px_0_0_var(--blue-700)]' : ''}`}>
+    <div className="grid gap-y-3 py-3.5 px-3 [.hy-setting-row+&]:border-t [.hy-setting-row+&]:border-gray-alpha-200">
       <div className="min-w-0">
         <h4 className="label-14 font-medium">{label}</h4>
         {help && <div className="copy-13 text-gray-900">{help}</div>}
       </div>
-      {children !== undefined && <div className={`flex min-w-0 flex-col gap-2 ${stacked ? '' : 'sm:items-end'}`}>{children}</div>}
+      <div className="flex min-w-0 flex-col gap-2">{children}</div>
     </div>
   )
-}
-
-/** A line of a setting's control column that is not the control: a note or an error under it, kept to the card's text size. */
-export function SettingRowBody({ children }: { children: ReactNode }) {
-  return <div className="flex w-full min-w-0 flex-col gap-2">{children}</div>
 }
 
 /**

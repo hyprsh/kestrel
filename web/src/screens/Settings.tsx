@@ -1,9 +1,9 @@
-import { Button, Entity, Input, NavItem, NavList, Note, StatusDot, Snippet, Textarea, Toggle, Code } from '@hyprsh/design'
+import { Button, Entity, Input, NavItem, NavList, Note, StatusDot, Snippet, SettingRow, Textarea, Toggle, Code } from '@hyprsh/design'
 import { ArrowDownToLine, BadgeCheck, ChevronRight, Folder, Info, Search, Shield, SlidersHorizontal, Tv, User } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
 import { PanelContent, SidePanel } from '../layout/SidePanel'
-import { SettingRow, SettingRowBody, SettingsCard, SettingsHeader, SettingsSection } from '../layout/SettingsPage'
+import { SettingsCard, SettingsHeader, SettingsSection, StackedSetting } from '../layout/SettingsPage'
 import { useStatus } from '../api/attention'
 import { healthOf } from '../health/tiles'
 import { PhoneBackHeader } from '../layout/PhoneBackHeader'
@@ -204,27 +204,26 @@ export function Settings({
     profiles: <ProfilesSection />,
     trash: (
       <SettingsCard>
-        <SettingRow
+        <StackedSetting
           label="Custom Formats and profiles"
-          stacked
           help="Kestrel scores Releases with TRaSH's Custom Formats. It checks daily and takes the newest set whole, after re-scoring every file under it."
         >
           <TrashForm />
-        </SettingRow>
+        </StackedSetting>
       </SettingsCard>
     ),
     'root-folders': (
       <SettingsCard>
-        <SettingRow label="Folders" stacked help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
+        <StackedSetting label="Folders" help="Where Imports put Movies and Series. The first of each kind is the default when adding a Title.">
           <RootFoldersForm compact />
-        </SettingRow>
+        </StackedSetting>
       </SettingsCard>
     ),
     slots: <SlotsSection />,
     adoption: (
       <SettingsCard>
         <SettingRow label="Adopt existing library" help="Scan the Movie and Series Root folders for files Kestrel does not manage yet and take them over without downloading again.">
-          <Button size="small" onClick={onAdopt}>
+          <Button size="small" aria-label={adoptionLabel(adoption.data?.state)} onClick={onAdopt}>
             {adoptionLabel(adoption.data?.state)}
           </Button>
         </SettingRow>
@@ -232,9 +231,9 @@ export function Settings({
     ),
     metadata: (
       <SettingsCard>
-        <SettingRow label="TMDB and TheTVDB" stacked help="Kestrel looks Titles up with the project's own keys. Enter your own to use them instead; they are never shown again.">
+        <StackedSetting label="TMDB and TheTVDB" help="Kestrel looks Titles up with the project's own keys. Enter your own to use them instead; they are never shown again.">
           <ProviderKeysForm />
-        </SettingRow>
+        </StackedSetting>
       </SettingsCard>
     ),
     'download-client': <DownloadClientSection />,
@@ -485,7 +484,7 @@ function ChangePassword() {
   }
 
   return (
-    <SettingRow label="Password" stacked help="At least 8 characters. Changing it logs out every other session.">
+    <StackedSetting label="Password" help="At least 8 characters. Changing it logs out every other session.">
       <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
         <fieldset disabled={declared} className="contents">
           <Input size="small" label="Current password" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
@@ -506,7 +505,7 @@ function ChangePassword() {
         </fieldset>
         {declared && <Note size="small">The Config File sets the account, so its password cannot be changed here. Change the file and restart Kestrel instead.</Note>}
       </form>
-    </SettingRow>
+    </StackedSetting>
   )
 }
 
@@ -517,7 +516,7 @@ function LogOut() {
   if (!(auth.data?.state === 'ok' && auth.data.me.method === 'session')) return null
   return (
     <SettingRow label="Log Out" help="Ends this session. Other sessions stay.">
-      <Button size="small" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
+      <Button size="small" aria-label="Log Out" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
         Log Out
       </Button>
     </SettingRow>
@@ -528,7 +527,7 @@ function LogOutEverywhere() {
   const logout = useLogoutEverywhere()
   return (
     <SettingRow label="Sessions" help="Ends every session, including this one.">
-      <Button size="small" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
+      <Button size="small" aria-label="Log Out Everywhere" disabled={logout.isPending} onClick={() => logout.mutate(undefined)}>
         Log Out Everywhere
       </Button>
     </SettingRow>
@@ -546,7 +545,7 @@ function ApiKeyRow() {
 
   return (
     <SettingsCard>
-      <SettingRow label="Full-access key" stacked help="One full-access key for scripts and the Silo plugin, sent as the X-Api-Key header. Kestrel keeps only a hash of it.">
+      <StackedSetting label="Full-access key" help="One full-access key for scripts and the Silo plugin, sent as the X-Api-Key header. Kestrel keeps only a hash of it.">
         <div className="flex max-w-lg flex-col gap-3">
           {shown ? (
             <div className="flex flex-col gap-2">
@@ -587,7 +586,7 @@ function ApiKeyRow() {
             </>
           )}
         </div>
-      </SettingRow>
+      </StackedSetting>
     </SettingsCard>
   )
 }
@@ -599,13 +598,12 @@ function ReverseProxyRow() {
 
 function PlexSignInRow() {
   return (
-    <SettingRow
+    <StackedSetting
       label="Let people sign in"
-      stacked
       help="Let the people you share your Plex server with sign in with their Plex account to search for Titles, make Requests and follow their own. They can reach nothing else."
     >
       <PlexSignInForm />
-    </SettingRow>
+    </StackedSetting>
   )
 }
 
@@ -632,29 +630,27 @@ function ReverseProxyForm({ saved }: { saved: ReverseProxy }) {
       <SettingsCard>
         <SettingRow
           label="Header login"
-          dirty={dirty('enabled')}
+          changed={dirty('enabled')}
           help="Log in from the header below, from a trusted proxy (needs one). For an SSO portal; it is off by default and the login form stays as a fallback."
         >
           <Toggle aria-label="Log in from the header, from a trusted proxy" checked={draft.enabled} disabled={off} onChange={(enabled) => set({ enabled })} />
         </SettingRow>
         <SettingRow
           label="Trusted proxies"
-          dirty={dirty('trusted')}
+          changed={dirty('trusted')}
           help="The proxies in front of Kestrel, so it sees each client's own address for the login throttle and the Secure cookie. One address or range per line."
         >
-          <Textarea aria-label="Trusted proxies" rows={3} value={draft.trusted} disabled={off} onChange={(e) => set({ trusted: e.target.value })} placeholder={'172.18.0.0/16\n10.0.0.5'} mono />
+          <Textarea rows={3} value={draft.trusted} disabled={off} onChange={(e) => set({ trusted: e.target.value })} placeholder={'172.18.0.0/16\n10.0.0.5'} mono />
         </SettingRow>
-        <SettingRow label="Header" dirty={dirty('header')} help="The request header that carries the signed-in user's name.">
-          <Input size="small" aria-label="Header" value={draft.header} disabled={off} onChange={(e) => set({ header: e.target.value })} />
-          {save.isError && (
-            <SettingRowBody>
-              <Note variant="error" size="small">
-                {save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}
-              </Note>
-            </SettingRowBody>
-          )}
+        <SettingRow label="Header" changed={dirty('header')} help="The request header that carries the signed-in user's name.">
+          <Input size="small" value={draft.header} disabled={off} onChange={(e) => set({ header: e.target.value })} />
         </SettingRow>
       </SettingsCard>
+      {save.isError && (
+        <Note variant="error" size="small">
+          {save.error instanceof ApiError && save.error.status === 422 ? save.error.message : 'Could not save. Try again.'}
+        </Note>
+      )}
       {saved.from_config_file && <Note size="small">The Config File sets the reverse proxy, so it cannot be changed here. Change the file and restart Kestrel instead.</Note>}
       {saved.untrusted.length > 0 && (
         <section aria-label="Untrusted proxy header sightings">
