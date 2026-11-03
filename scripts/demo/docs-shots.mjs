@@ -18,7 +18,11 @@ const themes = ['light', 'dark']
 const PASSWORD = 'demo-password-123'
 
 async function context(browser, theme, width = 1280, height = 800) {
-  const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: theme })
+  const ctx = await browser.newContext({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+    colorScheme: theme,
+  })
   await ctx.addInitScript((t) => localStorage.setItem('kestrel.theme', t), theme)
   return ctx
 }
@@ -28,6 +32,17 @@ async function save(target, name, theme, opts = {}) {
   await wait(500)
   await target.screenshot({ path, ...opts })
   console.log('saved', path)
+}
+
+// A search pass that has just ended shows "Search done" on the Overview for a minute, which shifts the
+// Wanted list down; whether it is there depends on timing, so dismiss it for steady shots.
+async function dismissSearchDone(page) {
+  const row = page.locator('[data-search-done]')
+  await wait(500)
+  if (await row.count()) {
+    await row.getByRole('button', { name: 'Dismiss' }).click()
+    await row.waitFor({ state: 'detached' })
+  }
 }
 
 // setup shoots the wizard: the empty account step, then, with the account made, the download client
@@ -91,34 +106,50 @@ async function app() {
     const h = await open({ theme, width: 1280, height: 800 })
     try {
       await h.clickAria('Library')
-      await h.page.locator('[id^="title-"]').filter({ hasText: /^\s*Breaking Bad/ }).first().click()
+      await h.page
+        .locator('[id^="title-"]')
+        .filter({ hasText: /^\s*Breaking Bad/ })
+        .first()
+        .click()
       await wait(1000)
       await save(h.page, '04-series', theme)
 
       await h.page.goto(h.base + '/', { waitUntil: 'domcontentloaded' })
+      await dismissSearchDone(h.page)
       await h.page.locator('[aria-label^="Search or add"]').locator('visible=true').first().click()
       await h.page.getByText('Add Title…', { exact: true }).click()
       await h.page.keyboard.type('paddington')
       await h.waitText('Paddington in Peru')
       await save(h.page, '05-add-title', theme)
 
-      await h.page.goto(h.base + '/upcoming', { waitUntil: 'domcontentloaded' })
+      await h.page.goto(h.base + '/upcoming', {
+        waitUntil: 'domcontentloaded',
+      })
       await wait(1500)
       await save(h.page, '06-upcoming', theme)
 
-      await h.page.goto(h.base + '/settings/slots-profiles', { waitUntil: 'domcontentloaded' })
+      await h.page.goto(h.base + '/settings/slots-profiles', {
+        waitUntil: 'domcontentloaded',
+      })
       await wait(1500)
-      await h.page.getByRole('heading', { name: 'Profiles', exact: true }).first().evaluate((el) => el.scrollIntoView())
+      await h.page
+        .getByRole('heading', { name: 'Profiles', exact: true })
+        .first()
+        .evaluate((el) => el.scrollIntoView())
       await save(h.page, '07-profiles', theme)
 
       // A Profile's sheet: where Upgrades stop, the size limits and the qualities.
-      await h.page.getByRole('button', { name: /^Edit / }).first().click()
+      await h.page
+        .getByRole('button', { name: /^Edit / })
+        .first()
+        .click()
       await h.page.getByLabel('Good enough at').waitFor()
       await h.page.getByText('Size per Movie', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'end' }))
       await save(h.page, '13-profile-sheet', theme)
 
       await h.page.goto(h.base + '/', { waitUntil: 'domcontentloaded' })
       await h.page.getByRole('heading', { name: 'Needs attention' }).waitFor()
+      await dismissSearchDone(h.page)
       await wait(1500)
       await save(h.page, '08-overview', theme)
 
@@ -137,16 +168,27 @@ async function app() {
       }
 
       // A failed Grab in Activity, opened to show its steps.
-      await h.page.goto(h.base + '/activity', { waitUntil: 'domcontentloaded' })
-      await h.page.getByText(/Failed · the download failed/).first().click()
+      await h.page.goto(h.base + '/activity', {
+        waitUntil: 'domcontentloaded',
+      })
+      await h.page
+        .getByText(/Failed · the download failed/)
+        .first()
+        .click()
       await h.page.getByRole('list', { name: 'What happened' }).waitFor()
       await save(h.page, '10-grab-steps', theme)
 
       // The Log, with an error opened: its details and "Same error before".
       await h.page.goto(h.base + '/log', { waitUntil: 'domcontentloaded' })
-      await h.page.getByRole('button', { name: /^Open event: Download failed/ }).first().click()
+      await h.page
+        .getByRole('button', { name: /^Open event: Download failed/ })
+        .first()
+        .click()
       await h.page.getByText('Same error before').waitFor()
-      await h.page.getByText(/^Last \d+ days$/).first().evaluate((el) => el.scrollIntoView({ block: 'start' }))
+      await h.page
+        .getByText(/^Last \d+ days$/)
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: 'start' }))
       await save(h.page, '11-log', theme)
 
       await h.page.goto(h.base + '/health', { waitUntil: 'domcontentloaded' })

@@ -9,11 +9,19 @@
 //
 // The browser is $DEMO_CHROME if set, else an installed Google Chrome, else
 // Playwright's own Chromium (npx --prefix scripts/demo playwright-core install chromium).
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
 
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
-export const demoURL = () => process.env.DEMO_URL || `http://127.0.0.1:${process.env.DEMO_PORT || 7677}`
+// Without DEMO_URL or DEMO_PORT, ask demo.sh for this worktree's port.
+const defaultPort = () =>
+  execFileSync(fileURLToPath(new URL('./demo.sh', import.meta.url)), ['port'], {
+    encoding: 'utf8',
+  }).trim()
+
+export const demoURL = () => process.env.DEMO_URL || `http://127.0.0.1:${process.env.DEMO_PORT || defaultPort()}`
 
 export async function launch() {
   const args = ['--force-color-profile=srgb']
@@ -28,7 +36,11 @@ export async function launch() {
 // open starts a browser on the demo Kestrel. theme is 'light' or 'dark'.
 export async function open({ base = demoURL(), width = 1440, height = 900, theme = 'light' } = {}) {
   const browser = await launch()
-  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: theme })
+  const context = await browser.newContext({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+    colorScheme: theme,
+  })
   const page = await context.newPage()
   await page.goto(base + '/ping')
   const status = await page.evaluate(async (theme) => {
@@ -46,7 +58,10 @@ export async function open({ base = demoURL(), width = 1440, height = 900, theme
   await wait(600)
 
   const h = {
-    browser, context, page, base,
+    browser,
+    context,
+    page,
+    base,
     // clickAria clicks the visible element with that aria-label.
     async clickAria(name) {
       await page.locator(`[aria-label="${name}"]`).locator('visible=true').first().click()

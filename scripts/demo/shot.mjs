@@ -11,7 +11,11 @@ if (!out) {
   console.error('usage: node shot.mjs <out.png> [title] [--full] [--dark] [--width N] [--height N]')
   process.exit(2)
 }
-const h = await open({ theme: flag('--dark') ? 'dark' : 'light', width: num('--width', 1440), height: num('--height', 900) })
+const h = await open({
+  theme: flag('--dark') ? 'dark' : 'light',
+  width: num('--width', 1440),
+  height: num('--height', 900),
+})
 try {
   if (title) await h.openTitle(title)
   await h.shot(out, { full: flag('--full') })

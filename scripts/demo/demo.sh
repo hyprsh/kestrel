@@ -5,22 +5,29 @@
 #   demo.sh start <binary>                     (re)start the fake and Kestrel on a freshly seeded DEMO_DIR
 #   demo.sh releases on|off                    let the fake indexer offer releases, or none (the default)
 #   demo.sh unlisted on|off                    with releases on, also offer ones for episodes and seasons TheTVDB doesn't list (off by default)
-#   demo.sh stop                               stop both
+#   demo.sh stop                               stop both (this worktree's demo only)
+#   demo.sh status                             say whether this worktree's demo is running, and where
+#   demo.sh port                               print the Kestrel port of this worktree's demo
 #
-# Environment: DEMO_DIR (default /tmp/kestrel-demo, wiped by start; when that is taken,
-# start uses a short /tmp/kd.XXXXXX and prints it, so export it for the other commands), DEMO_PORT
-# (Kestrel, default 7677), DEMO_FAKE_PORT (fake.py, default 7690), DEMO_SEED=0 to
-# start without the seed, on a fresh instance that shows the setup wizard. DEMO_TITLES=4000 grows the seeded Library to that
-# many Titles (seed_big.py: a realistic mix, written straight into SQLite, for measuring). Logs are in
-# $DEMO_DIR/logs. Needs go, node, npm, python3 and curl, and `npm ci --prefix
+# Environment: every worktree gets its own demo, so several run side by side. The defaults come from a
+# hash of the repo's path: DEMO_DIR /tmp/kd-<8 hex digits> (wiped by start), DEMO_PORT (Kestrel) 20000
+# + an even offset below 2000, DEMO_FAKE_PORT (fake.py) the port after it. stop, status and a second
+# start in the same worktree find the same run; stop only stops that one. Set any of the three to
+# override; `demo.sh port` prints the Kestrel port the other commands would use. DEMO_SEED=0 starts
+# without the seed, on a fresh instance that shows the setup wizard. DEMO_TITLES=4000 grows the seeded
+# Library to that many Titles (seed_big.py: a realistic mix, written straight into SQLite, for
+# measuring). Logs are in $DEMO_DIR/logs. Needs go, node, npm, python3 and curl, and `npm ci --prefix
 # scripts/demo` once for the posters.
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd "$here/../.." && pwd)
-dir=${DEMO_DIR:-/tmp/kestrel-demo}
-port=${DEMO_PORT:-7677}
-fport=${DEMO_FAKE_PORT:-7690}
+# The defaults derive from the repo path, so each worktree has its own demo.
+sum=$(printf '%s' "$repo" | cksum | cut -d' ' -f1)
+slot=$((sum % 1000))
+dir=${DEMO_DIR:-$(printf '/tmp/kd-%08x' "$sum")}
+port=${DEMO_PORT:-$((20000 + slot * 2))}
+fport=${DEMO_FAKE_PORT:-$((port + 1))}
 fake=http://127.0.0.1:$fport
 
 die() { echo "demo: $*" >&2; exit 1; }
@@ -45,6 +52,19 @@ stop() {
     fi
     rm -f "$pidfile"
   done
+}
+
+status() {
+  local running=0 name
+  for name in kestrel fake; do
+    if [ -f "$dir/$name.pid" ] && kill -0 "$(cat "$dir/$name.pid")" 2>/dev/null; then running=$((running + 1)); fi
+  done
+  if [ "$running" = 2 ]; then
+    echo "running: Kestrel on http://127.0.0.1:$port, fake on $fake, dir $dir"
+  else
+    echo "not running (dir $dir, Kestrel port $port, fake port $fport)"
+    return 1
+  fi
 }
 
 build() {
@@ -76,11 +96,6 @@ start() {
   [ -x "$bin" ] || die "$bin is not an executable; build one with demo.sh build"
   bin=$(cd "$(dirname "$bin")" && pwd)/$(basename "$bin")
   [ -d "$here/node_modules/playwright-core" ] || die "run npm ci --prefix scripts/demo first"
-  if [ -z "${DEMO_DIR:-}" ] && [ -e "$dir" ] && [ ! -f "$dir/.kestrel-demo" ]; then
-    # The default path is taken by something that is not a demo dir. Take a short one of our own.
-    dir=$(mktemp -d /tmp/kd.XXXXXX)
-    echo "demo: /tmp/kestrel-demo is taken; using $dir (export DEMO_DIR=$dir for the other demo.sh calls and the scenario)"
-  fi
   if [ -e "$dir" ] && [ ! -f "$dir/.kestrel-demo" ] && [ -n "$(ls -A "$dir")" ]; then
     die "$dir exists and is not a demo dir; set DEMO_DIR to another path"
   fi
@@ -146,5 +161,7 @@ case $cmd in
   stop) stop ;;
   releases) releases "$@" ;;
   unlisted) unlisted "$@" ;;
-  *) sed -n '2,15s/^# \{0,1\}//p' "$0"; exit 2 ;;
+  status) status ;;
+  port) echo "$port" ;;
+  *) sed -n '2,19s/^# \{0,1\}//p' "$0"; exit 2 ;;
 esac

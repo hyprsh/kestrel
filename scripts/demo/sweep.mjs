@@ -21,7 +21,9 @@ const screens = {
   'title-movie': { path: (ids) => `/library/${ids.movie}` },
   'title-series': { path: (ids) => `/library/${ids.series}` },
   // A Movie with a Version downloading, which the Versions card and the Files row both show.
-  'title-movie-downloading': { path: (ids) => `/library/${ids.downloading ?? ids.movie}` },
+  'title-movie-downloading': {
+    path: (ids) => `/library/${ids.downloading ?? ids.movie}`,
+  },
   upcoming: '/upcoming',
   requests: '/requests',
   activity: '/activity',
@@ -36,7 +38,11 @@ const screens = {
   },
   'settings-profile-sheet': {
     path: '/settings/slots-profiles',
-    prepare: async (h) => h.page.getByRole('button', { name: /^Edit / }).first().click(),
+    prepare: async (h) =>
+      h.page
+        .getByRole('button', { name: /^Edit / })
+        .first()
+        .click(),
   },
   // The command menu with a query no Library Title matches, which leads with Add.
   'menu-add': {
@@ -46,7 +52,11 @@ const screens = {
       await h.page.keyboard.type('qqzxv')
     },
   },
-  more: { path: '/', phoneOnly: true, prepare: async (h) => h.page.getByRole('button', { name: 'More' }).click() },
+  more: {
+    path: '/',
+    phoneOnly: true,
+    prepare: async (h) => h.page.getByRole('button', { name: 'More' }).click(),
+  },
 }
 
 const argv = process.argv.slice(2)
@@ -72,7 +82,11 @@ let overflowed = 0
 try {
   const titles = await h.page.evaluate(async () => (await fetch('api/v1/titles')).json())
   const list = Array.isArray(titles) ? titles : (titles.titles ?? titles.items ?? [])
-  const ids = { movie: list.find((t) => t.kind === 'movie')?.id, series: list.find((t) => t.kind === 'series')?.id, downloading: list.find((t) => t.title === 'Paddington in Peru')?.id }
+  const ids = {
+    movie: list.find((t) => t.kind === 'movie')?.id,
+    series: list.find((t) => t.kind === 'series')?.id,
+    downloading: list.find((t) => t.title === 'Paddington in Peru')?.id,
+  }
   if (!ids.movie || !ids.series) throw new Error('the demo has no Movie and Series Title; is it seeded (demo.sh start)?')
 
   for (const name of names.length ? names : Object.keys(screens)) {
