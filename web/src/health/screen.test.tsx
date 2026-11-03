@@ -231,8 +231,8 @@ describe('Health screen', () => {
     expect(views[0]).toHaveAttribute('aria-current', 'true')
   })
 
-  // The rail is the navigation without a name; a side panel's Views are named.
-  const rail = async () => (await screen.findAllByRole('navigation')).find((n) => !n.hasAttribute('aria-label'))!
+  // The rail is the navigation named Screens.
+  const rail = async () => screen.findByRole('navigation', { name: 'Screens' })
 
   it('opens from the rail button, which is the current page while Health is shown', async () => {
     fakeStatus(status())

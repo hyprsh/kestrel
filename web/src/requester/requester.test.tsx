@@ -68,7 +68,7 @@ describe('the Requester app', () => {
     renderApp()
 
     expect(await screen.findByRole('heading', { name: 'Your Requests' })).toBeInTheDocument()
-    expect(screen.getByText('anna')).toBeInTheDocument()
+    expect(screen.getAllByText('anna')[0]).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Log Out' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()

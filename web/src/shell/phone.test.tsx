@@ -124,7 +124,7 @@ describe('the Library on a phone', () => {
     expect(screen.queryByRole('region', { name: 'Paddington' })).not.toBeInTheDocument() // no side-by-side pane
 
     await userEvent.click(await within(list).findByRole('option', { name: /heat/i }))
-    expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Heat' })).toBeInTheDocument()
     expect(screen.queryByRole('listbox', { name: /library/i })).not.toBeInTheDocument()
     expect(location.pathname).toBe('/library/2')
 
@@ -138,7 +138,7 @@ describe('the Library on a phone', () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await userEvent.click(await within(list).findByRole('option', { name: /paddington/i }))
-    expect(await screen.findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Paddington' })).toBeInTheDocument()
 
     history.back()
     await waitFor(() => expect(screen.getByRole('listbox', { name: /library/i })).toBeInTheDocument())
@@ -149,7 +149,7 @@ describe('the Library on a phone', () => {
     fakeLibrary(rows())
     history.replaceState(null, '', '/library/2')
     renderApp()
-    expect(await screen.findByRole('heading', { name: 'Heat' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Heat' })).toBeInTheDocument()
   })
 
   it('shows the filter field with icon-only Filter and Sort buttons on one line, and no count line', async () => {

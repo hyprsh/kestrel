@@ -36,7 +36,7 @@ async function frame(client: QueryClient, snapshot: Partial<ActivitySnapshot>) {
 
 // What runs shows in the rail on a desktop.
 // The Views of a side panel are a navigation too; the rail is the one without a name.
-const topBar = () => within(screen.getAllByRole('navigation').find((n) => !n.hasAttribute('aria-label'))!)
+const topBar = () => within(screen.getByRole('navigation', { name: 'Screens' }))
 
 describe('the rail', () => {
   beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))

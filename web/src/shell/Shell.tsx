@@ -1,9 +1,9 @@
 // The Geist shell: a thin icon rail, and beside it each screen's SidePanel (layout/SidePanel.tsx) or, for a screen without one, a plain title at the top of its content.
 // Ported from the prototype's variant C; screens arrive with later tickets.
 import { useRunningNow, type Running } from '../activity/running'
-import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
+import { Button, Rail, Separator, StatusDot, ThemeSwitcher, TitleBar, useToasts } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
 import { useAuth, useLogout } from '../api/queries'
@@ -25,9 +25,7 @@ import { THEME_KEY, useTheme, type Theme } from '../theme'
 import { ScreenSkeleton } from '../loading'
 import { lazyScreen } from './lazyScreen'
 import { KestrelLogo } from '../ui'
-import { Rail as RailFrame, RailSpacer } from '../layout/Rail'
 import { SidePanelPhoneContext } from '../layout/SidePanel'
-import { PhoneTopBar } from '../layout/TopBar'
 import { BlockingBanner } from './BlockingBanner'
 import { MoreSheet, PhoneTabBar, type Tab } from './PhoneNav'
 import { HealthButton } from './HealthButton'
@@ -411,7 +409,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           <SidePanelPhoneContext.Provider value={phoneExtras}>
             <div className="flex h-full">
               {!phone && (
-                <Rail
+                <AppRail
                   screen={screen}
                   onSelect={(key) => guardLeave(() => setScreen(key))}
                   running={running}
@@ -423,12 +421,18 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
               )}
               <div className="flex min-w-0 flex-1 flex-col">
                 {phone && !panelScreens.includes(screen) && (
-                  <PhoneTopBar title={current.label}>
-                    {phoneExtras}
-                    <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={() => setMenu({ mode: 'add' })}>
-                      <Plus />
-                    </Button>
-                  </PhoneTopBar>
+                  <TitleBar
+                    hideFrom={false}
+                    title={current.label}
+                    actions={
+                      <>
+                        {phoneExtras}
+                        <Button svgOnly variant="tertiary" aria-label="Add Title" onClick={() => setMenu({ mode: 'add' })}>
+                          <Plus />
+                        </Button>
+                      </>
+                    }
+                  />
                 )}
                 {/* The floating tab bar is out of layout; --tab-bar-height keeps every screen's last row clear of it (0 on a tablet or desktop). */}
                 <BlockingBanner onOpen={goPath} />
@@ -516,39 +520,7 @@ function attentionLabel(a: { count: number; rows: { severity: string }[] }) {
   return `${a.count} ${a.count === 1 ? 'needs' : 'need'} attention${blocking > 0 ? `, ${blocking} blocking` : ''}`
 }
 
-function RailButton({
-  label,
-  active,
-  onClick,
-  badge,
-  children,
-}: {
-  label: string
-  active?: boolean
-  onClick: () => void
-  badge?: { count: number; tone: 'error' | 'warning'; label: string }
-  children: ReactNode
-}) {
-  return (
-    <Tooltip text={label} position="right">
-      <Button
-        svgOnly
-        variant={active ? 'secondary' : 'tertiary'}
-        aria-label={label}
-        aria-current={active ? 'page' : undefined}
-        onClick={onClick}
-        badge={badge?.count}
-        badgeTone={badge?.tone}
-        badgeLabel={badge?.label}
-      >
-        {children}
-      </Button>
-    </Tooltip>
-  )
-}
-
-// chrome-ok: adopting the design Rail is a separate ticket
-function Rail({
+function AppRail({
   screen,
   onSelect,
   theme,
@@ -568,38 +540,32 @@ function Rail({
   const attention = useAttention().data
   const needs = attention?.count ?? 0
   return (
-    <RailFrame>
-      {/* The mark is the Overview link (home), with its attention badge, and active like the other screens. */}
-      <RailButton
+    <Rail label="Screens" value={screen} onChange={onSelect}>
+      {/* The mark is the Overview link (home), with its attention badge, and current like the other screens. */}
+      <Rail.Item
+        value="overview"
         label="Overview"
-        active={screen === 'overview'}
-        onClick={() => onSelect('overview')}
-        badge={needs > 0 ? { count: needs, tone: attention?.severity === 'blocking' ? 'error' : 'warning', label: attentionLabel(attention!) } : undefined}
-      >
-        <KestrelLogo />
-      </RailButton>
+        icon={<KestrelLogo />}
+        badge={needs > 0 ? needs : undefined}
+        badgeTone={attention?.severity === 'blocking' ? 'error' : 'warning'}
+        badgeLabel={needs > 0 ? attentionLabel(attention!) : undefined}
+      />
       {/* One entry point: the command menu searches the Library and, with "Add Title…", the Movies and Series to add. */}
-      <RailButton label={`Search or add (${MOD} K)`} onClick={onSearch}>
-        <Search />
-      </RailButton>
+      <Rail.Item label={`Search or add (${MOD} K)`} icon={<Search />} onClick={onSearch} />
       <Separator className="my-1 w-6" />
       {screens
         .filter((s) => s.key !== 'overview' && s.key !== 'settings')
         .map((s) => (
-          <RailButton key={s.key} label={s.label} active={screen === s.key} onClick={() => onSelect(s.key)}>
-            {s.icon}
-          </RailButton>
+          <Rail.Item key={s.key} value={s.key} label={s.label} icon={s.icon} />
         ))}
-      <RailSpacer />
+      <Rail.Spacer />
       <RailRunning running={running} onOpen={onOpenRunning} />
       {/* Applies the choice to <html> and saves it; the command menu's "Switch theme" moves it through the same value. */}
       <HealthButton tooltipPosition="right" active={screen === 'health'} />
       <ThemeSwitcher variant="cycle" attribute="class" storageKey={THEME_KEY} value={theme} onChange={onTheme} tooltipPosition="right" />
       {/* Last of the bottom group, below Health and the theme switcher. */}
-      <RailButton label="Settings" active={screen === 'settings'} onClick={() => onSelect('settings')}>
-        <Settings />
-      </RailButton>
-    </RailFrame>
+      <Rail.Item value="settings" label="Settings" icon={<Settings />} />
+    </Rail>
   )
 }
 

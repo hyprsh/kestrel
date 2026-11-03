@@ -1,4 +1,4 @@
-import { Button, Entity, Input, NavItem, NavList, Note, StatusDot, Snippet, SettingRow, Textarea, Toggle, Code } from '@hyprsh/design'
+import { Button, Entity, Input, NavItem, NavList, Note, StatusDot, Snippet, SettingRow, Textarea, TitleBar, Toggle, Code } from '@hyprsh/design'
 import { ArrowDownToLine, BadgeCheck, ChevronRight, Folder, Info, Search, Shield, SlidersHorizontal, Tv, User } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
@@ -6,7 +6,6 @@ import { PanelContent, SidePanel } from '../layout/SidePanel'
 import { SettingsCard, SettingsHeader, SettingsSection, StackedSetting } from '../layout/SettingsPage'
 import { useStatus } from '../api/attention'
 import { healthOf } from '../health/tiles'
-import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { adoptionLabel, useAdoption } from '../api/adoption'
 import { ApiError, useApiKey, useAuth, useChangePassword, useCreateApiKey, useLogout, useLogoutEverywhere, useReverseProxy, useSaveReverseProxy, type ReverseProxy } from '../api/queries'
 import { About } from '../about/About'
@@ -263,7 +262,7 @@ export function Settings({
     if (open)
       return (
         <div key={open.page.id} className="flex min-h-0 flex-1 flex-col">
-          <PhoneBackHeader onBack={() => guardLeave(() => onCloseSection?.())}>{open.page.title}</PhoneBackHeader>
+          <TitleBar hideFrom={false} back={{ onClick: () => guardLeave(() => onCloseSection?.()) }} title={open.page.title} />
           <div className="min-h-0 flex-1 overflow-auto p-4">
             <PageView page={open.page} content={content} summary={summaries[open.page.id]} target={open.part?.id} headingHidden />
           </div>

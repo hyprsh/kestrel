@@ -1,7 +1,7 @@
 // The Requests screen, behind the Overview's "View all": every Request from outside Kestrel,
 // newest first, filtered by status:, requester: and source: (asked of the server) and free text
 // on the Title and who asked (over the rows loaded). Off the rail; its place is "/requests".
-import { EmptyState, LoadMoreButton, Note, parseQuery } from '@hyprsh/design'
+import { EmptyState, LoadMoreButton, Note, parseQuery, TitleBar } from '@hyprsh/design'
 import { RowList } from '../layout/RowList'
 import { usePhone } from '../responsive'
 import { useEffect, useMemo, useState } from 'react'
@@ -16,7 +16,6 @@ import { SkeletonRows } from '../loading'
 import { requestFilter, requestQualifiers } from './filter'
 import { RequestDetail } from './RequestDetail'
 import { RequestRow } from './RequestRow'
-import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 
 /**
  * `query` is the filter field's text, kept by the Shell so it can live in the address bar. `requestId` is the Request the address
@@ -77,7 +76,7 @@ export function Requests({
   if (phone && requestId !== null) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <PhoneBackHeader onBack={onCloseRequest}>Request</PhoneBackHeader>
+        <TitleBar hideFrom={false} back={{ onClick: onCloseRequest }} title="Request" />
         <div className="min-h-0 flex-1 overflow-auto">
           <RequestDetail id={requestId} onOpenTitle={onOpenTitle} onClose={onCloseRequest} />
         </div>

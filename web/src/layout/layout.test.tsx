@@ -8,11 +8,8 @@ import type { Facet } from '../filter/qualifiers'
 import { FacetFilterButton, FilterButton, SortButton } from './FilterButton'
 import { FilterStrip } from './FilterStrip'
 import { PageSurface } from './PageSurface'
-import { PhoneBackHeader } from './PhoneBackHeader'
-import { Rail, RailSpacer } from './Rail'
 import { SectionBlock } from './SectionBlock'
 import { FilterChips, SidePanel, SidePanelPhoneContext, SidePanelViews } from './SidePanel'
-import { PhoneTopBar } from './TopBar'
 import { WidePage } from './WidePage'
 
 describe('the layout pieces', () => {
@@ -24,14 +21,6 @@ describe('the layout pieces', () => {
       </FilterStrip>,
     )
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Movies'])
-  })
-
-  it('PhoneBackHeader shows the title and calls onBack from its Back button', async () => {
-    const onBack = vi.fn()
-    render(<PhoneBackHeader onBack={onBack}>Paddington</PhoneBackHeader>)
-    expect(screen.getByText('Paddington')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
-    expect(onBack).toHaveBeenCalledOnce()
   })
 
   it('SectionBlock is a region named by its title and count, around its children', () => {
@@ -52,32 +41,6 @@ describe('the layout pieces', () => {
       </PageSurface>,
     )
     expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument()
-  })
-
-  it('Rail is a navigation landmark around its children', () => {
-    render(
-      <Rail>
-        <button>Add</button>
-        <RailSpacer />
-        <button>About</button>
-      </Rail>,
-    )
-    expect(
-      within(screen.getByRole('navigation'))
-        .getAllByRole('button')
-        .map((b) => b.textContent),
-    ).toEqual(['Add', 'About'])
-  })
-
-  it('PhoneTopBar shows the title and what follows it', () => {
-    render(
-      <PhoneTopBar title="Log">
-        <button>Add</button>
-      </PhoneTopBar>,
-    )
-    const phone = screen.getByRole('banner')
-    expect(phone).toHaveTextContent('Log')
-    expect(within(phone).getByRole('button', { name: 'Add' })).toBeInTheDocument()
   })
 
   it('WidePage holds its children', () => {
