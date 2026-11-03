@@ -272,7 +272,7 @@ describe('Indexers', () => {
 })
 
 describe('the download client', () => {
-  it('shows its name, state, figures and a 14-day speed chart with a summary and a table', async () => {
+  it('shows its name, state, figures and a speed chart over the range with a summary and a table', async () => {
     fakeStats()
     renderOverview()
 
@@ -283,9 +283,24 @@ describe('the download client', () => {
     expect(card).toHaveTextContent('9 minmedian download')
     expect(card).toHaveTextContent('64completed')
     expect(card).toHaveTextContent('4failed in the client')
-    const chart = within(card).getAllByLabelText('Average speed per day, last 14 days, between 12 MB/s and 31 MB/s')[0]
+    const chart = within(card).getAllByLabelText('Average speed per week, last 30 days, between 12 MB/s and 31 MB/s')[0]
     expect(chart).toBeInTheDocument()
+    expect(card).toHaveTextContent('Speed per week, last 30 days')
     expect(within(card).getByRole('button', { name: /View as Table/ })).toBeInTheDocument()
+  })
+
+  it('names the range and has a column per day for 7 days', async () => {
+    const day = (i: number) => new Date(Date.UTC(2026, 9, 25 + i)).toISOString().slice(0, 10)
+    fakeStats((range) =>
+      stats({
+        range,
+        download_client: { ...stats().download_client, speed_per_day: Array.from({ length: 7 }, (_, i) => ({ day: day(i), to: day(i), bytes_per_second: (10 + i) * 1_000_000 })) },
+      }),
+    )
+    renderOverview()
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Range' }), 'Last 7 days')
+    const card = await screen.findByText('Speed per day, last 7 days')
+    expect(within(card.closest('section')!).getAllByLabelText('Average speed per day, last 7 days, between 10 MB/s and 16 MB/s')[0]).toBeInTheDocument()
   })
 
   it('says when no client is enabled', async () => {
@@ -389,7 +404,7 @@ describe('on a phone', () => {
     const ix = screen.getByRole('region', { name: 'Indexers' })
     // The design's list hides columns by the list's own width, which jsdom does not measure: Hit survives longest.
     expect(within(ix).getByRole('button', { name: 'NZBgeek' }).closest('tr')).toHaveTextContent('81%')
-    expect(screen.getByRole('region', { name: 'Download client' })).toHaveTextContent('24 MB/s average · 9 min median · 64 completed · 4 failed')
+    expect(screen.getByRole('region', { name: 'Download client' })).toHaveTextContent('24 MB/s average · 9 min median · 64 completed · 4 failed · last 30 days')
     expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
   })
 })

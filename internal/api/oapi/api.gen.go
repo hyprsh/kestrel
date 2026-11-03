@@ -5288,7 +5288,8 @@ type StatsDownloadClient struct {
 	// Name Null without an enabled download client.
 	Name *string `json:"name"`
 
-	// SpeedPerDay The last 14 days, oldest first.
+	// SpeedPerDay The speed over the range, oldest first, in the same columns as `grabs.columns`: one per UTC day for
+	// 7 days, one per week for 30 and 90 days (the weeks end on the last day of the range).
 	SpeedPerDay []StatsSpeedDay `json:"speed_per_day"`
 
 	// State `none` without an enabled download client.
@@ -5395,8 +5396,13 @@ type StatsRequests struct {
 
 // StatsSpeedDay defines model for StatsSpeedDay.
 type StatsSpeedDay struct {
-	BytesPerSecond *float64           `json:"bytes_per_second"`
-	Day            openapi_types.Date `json:"day"`
+	BytesPerSecond *float64 `json:"bytes_per_second"`
+
+	// Day First UTC day of the column.
+	Day openapi_types.Date `json:"day"`
+
+	// To Last UTC day of the column (the same as `day` for a day).
+	To openapi_types.Date `json:"to"`
 }
 
 // StatsStorage defines model for StatsStorage.
