@@ -10,6 +10,7 @@ import { server } from '../test/server'
 import { findToast } from '../test/toasts'
 import { fakeSetup } from '../test/fakeSetup'
 import { seededSlots } from '../test/slots'
+import { actionBar, queryActionBar } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -211,7 +212,7 @@ describe('Settings', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     if (section) await userEvent.click(await screen.findByRole('link', { name: section }))
   }
-  const bar = () => screen.getByRole('region', { name: 'Unsaved changes' })
+  const bar = () => actionBar()
 
   type Quality = { name: string; accepted: boolean }
   const ladderOf = (names: string[], off: string[] = []): Quality[] => names.map((name) => ({ name, accepted: !off.includes(name) }))
@@ -309,7 +310,7 @@ describe('Settings', () => {
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'settings', body: { language_region: { primary_language: 'de', release_date_country: 'DE' } } }))
     expect(await within(section).findByText(/Switching to German…/)).toBeInTheDocument()
     expect(within(section).getByLabelText('Primary language')).toBeDisabled()
-    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
   })
 
   it('marks a changed row, and Discard puts every row back', async () => {
@@ -322,7 +323,7 @@ describe('Settings', () => {
     expect(within(section).getByLabelText('Release-date country')).toHaveValue('BE')
 
     await userEvent.click(within(bar()).getByRole('button', { name: 'Discard' }))
-    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
     expect(within(section).getByLabelText('Primary language')).toHaveValue('en')
     expect(within(section).getByLabelText('Release-date country')).toHaveValue('US')
   })
@@ -345,7 +346,7 @@ describe('Settings', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Slots & Profiles' }))
     await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and leave' }))
     expect(await screen.findByRole('heading', { name: 'Slots & Profiles', level: 2 })).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
   })
 
   it('leaves without asking when nothing changed', async () => {

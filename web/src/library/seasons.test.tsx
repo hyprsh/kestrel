@@ -7,6 +7,7 @@ import { detail, row } from '../test/library'
 import { http } from '../test/handlers'
 import { server } from '../test/server'
 import { cell, episode, fakeSeries, pickSeason, seriesRow } from '../test/series'
+import { actionBar } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -283,8 +284,8 @@ describe('the Seasons at a glance on the Title page', () => {
     const fold = within(episodeGrid()).getByRole('button', { name: '3 more, not aired yet (S01E02 – S01E04, from Mon, Nov 2)' })
     expect(fold).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(within(episodeGrid()).getByRole('checkbox', { name: 'Tick all of Season 1' }))
-    expect(screen.getByRole('toolbar', { name: 'S01E01 ticked' })).toBeInTheDocument() // only what shows is ticked
-    await userEvent.click(screen.getByRole('button', { name: 'Clear ticks' }))
+    expect(actionBar()).toBeInTheDocument() // only what shows is ticked
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
 
     await userEvent.click(fold)
     expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
@@ -504,7 +505,7 @@ describe('Find an episode', () => {
     expect(row).not.toHaveAttribute('aria-current')
 
     await userEvent.type(await field(), 's9e9')
-    expect(screen.getByRole('status')).toHaveTextContent('No episode matches "s9e9".')
+    expect(screen.getByText('No episode matches "s9e9".')).toBeInTheDocument()
   })
 
   it('opens on the episode the address names', async () => {

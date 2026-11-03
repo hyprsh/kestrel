@@ -8,6 +8,7 @@ import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
+import { actionBar, queryActionBar } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -44,17 +45,16 @@ describe('selecting Titles in the Library', () => {
     await userEvent.keyboard('j')
     await userEvent.keyboard('x')
 
-    expect(screen.getByText('2 ticked')).toBeInTheDocument()
+    expect(actionBar()).toHaveTextContent('2 selected')
     expect(box('Paddington')).toBeChecked()
     expect(box('Heat')).not.toBeChecked()
     expect(box('Zodiac')).toBeChecked()
 
     await userEvent.keyboard('x') // x again unticks
-    expect(screen.getByText('1 ticked')).toBeInTheDocument()
+    expect(actionBar()).toHaveTextContent('1 selected')
 
     await userEvent.keyboard('{Escape}')
-    expect(screen.queryByText(/ticked/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('toolbar', { name: /ticked/ })).not.toBeInTheDocument()
+    expect(queryActionBar()).not.toBeInTheDocument()
     expect(box('Zodiac')).not.toBeChecked() // the boxes stay, empty
   })
 
@@ -62,10 +62,10 @@ describe('selecting Titles in the Library', () => {
     fakeLibrary(rows())
     await openLibrary()
     await userEvent.click(box('Heat'))
-    expect(screen.getByRole('toolbar', { name: '1 ticked' })).toBeInTheDocument()
+    expect(actionBar()).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Clear ticks' }))
-    expect(screen.queryByRole('toolbar', { name: /ticked/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(queryActionBar()).not.toBeInTheDocument()
   })
 
   it('ticks a range with shift-click without moving the cursor', async () => {
@@ -78,7 +78,7 @@ describe('selecting Titles in the Library', () => {
     await user.click(box('Breaking Bad'))
     await user.keyboard('{/Shift}')
 
-    expect(screen.getByText('3 ticked')).toBeInTheDocument()
+    expect(actionBar()).toHaveTextContent('3 selected')
     expect(box('Paddington')).not.toBeChecked()
     expect(box('Zodiac')).toBeChecked()
     expect(screen.getByRole('option', { selected: true })).toHaveTextContent('Paddington')
@@ -91,13 +91,12 @@ describe('selecting Titles in the Library', () => {
     await userEvent.type(filter, 'kind:movie')
     await userEvent.click(box('Heat'))
 
-    await userEvent.click(screen.getByRole('button', { name: 'More…' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Tick All 3 Shown' }))
+    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Select All' }))
 
-    expect(screen.getByText('3 ticked')).toBeInTheDocument()
+    expect(actionBar()).toHaveTextContent('3 selected')
     await userEvent.clear(filter)
     expect(box('Breaking Bad')).not.toBeChecked()
-    expect(screen.getByText('3 ticked')).toBeInTheDocument()
+    expect(actionBar()).toHaveTextContent('3 selected')
   })
 })
 
@@ -123,7 +122,7 @@ const skipped = (id: number, reason: Outcome['reason'], message: string): Outcom
 async function withTicked(...names: string[]) {
   await openLibrary()
   for (const n of names) await userEvent.click(box(n))
-  return screen.getByRole('toolbar', { name: `${names.length} ticked` })
+  return actionBar()
 }
 
 /** Runs an action of the bar: one of its buttons, or an item of its More… menu. */

@@ -224,7 +224,8 @@ export function Library({
   const menu = <LibraryMenu onAdopt={onAdopt} onCleanup={() => openCleanup()} onTick={phone ? () => selection.setActive(true) : undefined} />
   const count = <span className="label-12 shrink-0 text-gray-900 tabular-nums">{counted ? counted.filter(Boolean).join(' · ') : <Skeleton width={48} height={14} />}</span>
 
-  const bulk = selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onTickAll={selection.checkAll} onClear={selection.clear} compact={phone} /> : null
+  const bulk =
+    selection.count > 0 ? <BulkActions rows={rows.filter((r) => selection.has(r.id))} shown={rows.length} onSelectAll={selection.checkAll} onClear={selection.clear} compact={phone} /> : null
 
   const pick = (r: TitleRow) => {
     setHitKey(null)
@@ -269,6 +270,7 @@ export function Library({
       navOffset={hits.length}
       activeId={hit ? hitDomId(hit) : undefined}
       onOpenSlot={openSlot}
+      foot={bulk}
       single={singleSlot(all, slots)}
       profileName={(key) => profiles?.find((p) => p.key === key)?.name ?? key}
     />
@@ -357,10 +359,7 @@ export function Library({
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <SidePanel {...panel} />
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          {rows.length === 0 && !titles.isPending ? nothing : items}
-          {bulk}
-        </div>
+        <div className="relative flex min-h-0 flex-1 flex-col">{rows.length === 0 && !titles.isPending ? nothing : items}</div>
       </div>
     )
 
@@ -382,10 +381,7 @@ export function Library({
           </>
         }
       >
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          {items}
-          {bulk}
-        </div>
+        <div className="relative flex min-h-0 flex-1 flex-col">{items}</div>
       </SidePanel>
       {titlePage(focusList)}
     </div>

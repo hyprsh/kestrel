@@ -1,12 +1,11 @@
 // What the episode list can do beyond showing states: Search now for an episode (a button on its row, shown on hover), a
 // season (its ⋯ menu) or the ticked episodes (the bar); monitoring by the bookmark toggles and the bar's Monitor and Stop
 // Monitoring; Manual search, Show in Log and Delete files (DeleteFiles.tsx) in the ⋯ menus of an opened row, the season and the bar.
-import { Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem, termText } from '@hyprsh/design'
-import { ArrowUpCircle, ListFilter, ScrollText, Search, X, type LucideIcon } from 'lucide-react'
+import { ActionBar, Button, DotsMenu, Menu, MenuButton, MenuContainer, MenuDivider, MenuItem, termText } from '@hyprsh/design'
+import { ArrowUpCircle, ListFilter, ScrollText, Search, type LucideIcon } from 'lucide-react'
 import { useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useSearchNow } from '../api/grabs'
 import { useMonitorEpisodes, usePatchSeason, useProfiles, type Episode, type EpisodeScope, type TitleDetail } from '../api/queries'
-import { FloatingBar } from '../layout/FloatingBar'
 import { placePath, useOpenPlace } from '../place'
 import { useSelection, type Selection } from '../selection'
 import { useReport } from '../toasts'
@@ -371,37 +370,40 @@ export function EpisodeTick({ actions, episode, tabIndex, onFocus }: { actions: 
 }
 
 /**
- * The floating bar for the ticked episodes: "N ticked", Monitor, Stop Monitoring, Search, a ⋯ menu (Manual Search…, Delete
- * Files…) and Clear ticks; a deletion's confirmation shows above it.
+ * The ActionBar for the ticked episodes: "N selected", Select All and Clear, then Monitor, Stop Monitoring, Search and a ⋯
+ * menu (Manual Search…, Delete Files…); a deletion's confirmation shows above it.
  */
 export function TickedBar({ actions }: { actions: EpisodeActions }) {
   const { selection, shown, versions } = actions
   const ticked = shown.filter((e) => selection.has(e.id))
-  if (ticked.length === 0 && actions.deletes.pending?.at !== null) return null
   const wanted = wantedIn(ticked, versions)
   const label = ticked.length === 1 ? episodeCode(ticked[0]) : `${ticked.length} episodes`
   const season = ticked[0]?.season
   return (
-    <FloatingBar label={`${label} ticked`} placement="sticky">
+    <>
       <EpisodeDeleteConfirm deletes={actions.deletes} />
-      <span className="label-13 mr-1.5 ml-1">{selection.count} ticked</span>
-      <Button variant="secondary" size="small" disabled={ticked.every((e) => e.monitored)} onClick={() => actions.monitor(ticked, true)}>
-        Monitor
-      </Button>
-      <Button variant="secondary" size="small" disabled={ticked.every((e) => !e.monitored)} onClick={() => actions.monitor(ticked, false)}>
-        Stop Monitoring
-      </Button>
-      <Button variant="primary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>
-        Search
-      </Button>
-      <DotsMenu aria-label="More actions for the ticked episodes" size="small" position="top-end" width={240}>
-        <ManualItems versions={versions} onPick={(v) => actions.manual(v, { season, episode_ids: ticked.map((e) => e.id) }, label)} />
-        <MenuDivider />
-        <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={ticked} label={label} scope={{ episode_ids: ticked.map((e) => e.id) }} text="Files" at={null} />
-      </DotsMenu>
-      <Button variant="tertiary" size="small" svgOnly aria-label="Clear ticks" title="Clear ticks" onClick={selection.clear}>
-        <X aria-hidden className="size-4" />
-      </Button>
-    </FloatingBar>
+      <ActionBar
+        open={ticked.length > 0}
+        selection={{ count: selection.count, total: shown.length, onSelectAll: selection.checkAll, onClear: selection.clear }}
+        actions={
+          <>
+            <Button variant="secondary" size="small" disabled={ticked.every((e) => e.monitored)} onClick={() => actions.monitor(ticked, true)}>
+              Monitor
+            </Button>
+            <Button variant="secondary" size="small" disabled={ticked.every((e) => !e.monitored)} onClick={() => actions.monitor(ticked, false)}>
+              Stop Monitoring
+            </Button>
+            <Button variant="primary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>
+              Search
+            </Button>
+            <DotsMenu aria-label="More actions for the ticked episodes" size="small" position="top-end" width={240}>
+              <ManualItems versions={versions} onPick={(v) => actions.manual(v, { season, episode_ids: ticked.map((e) => e.id) }, label)} />
+              <MenuDivider />
+              <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={ticked} label={label} scope={{ episode_ids: ticked.map((e) => e.id) }} text="Files" at={null} />
+            </DotsMenu>
+          </>
+        }
+      />
+    </>
   )
 }

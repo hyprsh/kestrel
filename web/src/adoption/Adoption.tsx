@@ -25,12 +25,11 @@ import { LoadingRegion, SkeletonRows } from '../loading'
 import { useSlotNames, type SlotNames } from '../library/slots'
 import { PosterSkeleton, TitlePoster } from '../poster'
 import { TickBox } from '../library/TickBox'
-import { SelectionBar } from '../layout/SelectionBar'
 import { useSelection } from '../selection'
 import { useReport } from '../toasts'
 import { Finished, type FinishedActions } from './Finished'
 import { currentText, skipText } from './text'
-import { Badge, Button, Checkbox, EmptyState, Entity, Input, LoadMoreButton, Note, Select, Skeleton, Spinner, useToasts } from '@hyprsh/design'
+import { ActionBar, Badge, Button, Checkbox, EmptyState, Entity, Input, LoadMoreButton, Note, Select, Skeleton, Spinner, useToasts } from '@hyprsh/design'
 
 type Filter = 'all' | 'matched' | 'needs_choice' | 'skipped' | 'duplicate' | 'replacement'
 
@@ -307,27 +306,18 @@ function Plan({
           {report}
         </Note>
       )}
-      <div className="mt-3">
-        <SelectionBar selection={selection} shown={rows.length} total={total} verb="select" always>
-          <Button size="small" onClick={() => run('tick')} disabled={bulk.isPending}>
-            Adopt selected
+      {!selection.active && rows.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button variant="tertiary" size="small" onClick={selection.checkAll}>
+            Select all {rows.length} shown
           </Button>
-          <Button size="small" onClick={() => run('untick')} disabled={bulk.isPending}>
-            Don't adopt selected
-          </Button>
-          <Button size="small" onClick={() => run('accept_suggested')} disabled={bulk.isPending}>
-            Accept suggested matches
-          </Button>
-          <Select
-            aria-label="Set monitoring of selected"
-            size="small"
-            value=""
-            onChange={(e) => e.target.value && run('set_monitor', e.target.value as AdoptionMonitor)}
-            disabled={bulk.isPending}
-            options={[{ value: '', label: 'Set monitoring…' }, ...planMonitorOptions]}
-          />
-        </SelectionBar>
-      </div>
+          {total > rows.length && (
+            <Button variant="tertiary" size="small" onClick={selection.checkMatching}>
+              Select all {total} in this filter
+            </Button>
+          )}
+        </div>
+      )}
       {list.isPending ? (
         <Entity.List className="mt-4" aria-busy="true" aria-label="Loading the plan">
           {[0, 1, 2].map((i) => (
@@ -378,6 +368,37 @@ function Plan({
           </div>
         </>
       )}
+      <ActionBar
+        open={selection.active}
+        selection={{ count: selection.count, total: selection.all ? selection.count : rows.length, onSelectAll: selection.checkAll, onClear: selection.clear }}
+        actions={
+          <>
+            {!selection.all && total > rows.length && (
+              <Button variant="tertiary" size="small" onClick={selection.checkMatching}>
+                Select all {total} in this filter
+              </Button>
+            )}
+            {selection.narrowed && <span className="copy-13 text-gray-900">No longer all {total} in this filter</span>}
+            <Button size="small" onClick={() => run('tick')} disabled={bulk.isPending}>
+              Adopt selected
+            </Button>
+            <Button size="small" onClick={() => run('untick')} disabled={bulk.isPending}>
+              Don't adopt selected
+            </Button>
+            <Button size="small" onClick={() => run('accept_suggested')} disabled={bulk.isPending}>
+              Accept suggested matches
+            </Button>
+            <Select
+              aria-label="Set monitoring of selected"
+              size="small"
+              value=""
+              onChange={(e) => e.target.value && run('set_monitor', e.target.value as AdoptionMonitor)}
+              disabled={bulk.isPending}
+              options={[{ value: '', label: 'Set monitoring…' }, ...planMonitorOptions]}
+            />
+          </>
+        }
+      />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { serveDisplay } from '../test/serveDisplay'
 import { cell, episode, fakeSeries } from '../test/series'
+import { actionBar, queryActionBar } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -132,12 +133,12 @@ describe('Settings, Display', () => {
     await userEvent.selectOptions(within(section).getByRole('combobox', { name: 'Manual search sort' }), 'size_desc')
     await userEvent.click(within(section).getByRole('switch', { name: 'Wanted only' }))
     expect(state.patched).toEqual([]) // a draft until saved
-    const bar = screen.getByRole('region', { name: 'Unsaved changes' })
+    const bar = actionBar()
     expect(bar).toHaveTextContent('3 unsaved changes · Season order, Manual search sort, Wanted only')
     await userEvent.click(within(bar).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(state.patched).toHaveLength(1))
     expect(state.patched).toEqual([{ display: { season_order: 'newest_first', manual_search_sort: 'size_desc', upcoming_filters: { wanted_only: true } } }])
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument())
+    await waitFor(() => expect(queryActionBar()).not.toBeInTheDocument())
     await waitFor(() => expect(within(section).getByRole('combobox', { name: 'Season order' })).toHaveValue('newest_first'))
     expect(localStorage.length + sessionStorage.length).toBe(0)
   })
@@ -150,7 +151,7 @@ describe('Settings, Display', () => {
     await userEvent.click(within(section).getByRole('switch', { name: 'Open the newest season' }))
     await userEvent.selectOptions(within(section).getByRole('combobox', { name: 'Upcoming starts on' }), 'month')
     expect(state.patched).toEqual([]) // a draft until saved
-    const bar = screen.getByRole('region', { name: 'Unsaved changes' })
+    const bar = actionBar()
     expect(bar).toHaveTextContent('2 unsaved changes · Open the newest season, Upcoming starts on')
     await userEvent.click(within(bar).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(state.patched).toEqual([{ display: { seasons_open: 'latest_and_wanted', upcoming_display: 'month' } }]))

@@ -16,15 +16,12 @@
 //                         SortButton: the one Filter button      <FacetFilterButton query onQuery qualifiers />
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
-//   FloatingBar.tsx       toolbar for ticked rows: over a list's foot, or sticky in a pane    <FloatingBar label="2 ticked">{actions}</FloatingBar>
 //   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
 //                         NowEmpty: the Overview's Downloading and Searching cards
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
 //   RowList.tsx           RowList, stackedRow, stackedRight: a    <RowList>{<Entity className={stackedRow} rightClassName={stackedRight} />}</RowList>
 //                         list whose rows stack their right content when the list is narrow (container query)
 //   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
-//   SelectionBar.tsx      count, select-all, Clear and actions  <SelectionBar selection={...} shown={n}>{actions}</SelectionBar>
-//                         for a ticked selection
 //   SidePanel.tsx         SidePanel, FilterChips, SidePanelViews  <SidePanel title width actions filter controls chips views footer>{body}</SidePanel>
 //                         and SidePanelView: the column right of  chips={<FilterChips chips={filterChips(query, onQuery, qualifiers)} />}
 //                         the rail that holds a screen's name,    views={<SidePanelViews><NavItem trailing onClick>Errors</NavItem></SidePanelViews>}

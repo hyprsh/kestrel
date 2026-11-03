@@ -1,10 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
 import { useBulkTitles, type TitleBulkOutcome, type TitleBulkReason, type TitlesBulk } from '../api/bulk'
 import { useProfiles, type Profile, type TitleRow } from '../api/queries'
 import { plural } from '../format'
-import { Button, Menu, MenuDivider, MenuItem, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Select, Tooltip } from '@hyprsh/design'
-import { FloatingBar } from '../layout/FloatingBar'
+import { ActionBar, Button, Menu, MenuDivider, MenuItem, Modal, ModalAction, ModalActions, ModalBody, ModalHeader, ModalTitle, Select } from '@hyprsh/design'
 import { size } from './bits'
 import { slotDefault, useSlotNames } from './slots'
 import { useReport } from '../toasts'
@@ -54,22 +52,22 @@ function summarize(items: TitleBulkOutcome[], slot: string | null): { changed: n
 type Form = 'monitor' | 'switch_profile' | 'add_version' | 'remove_version' | 'remove'
 
 /**
- * The bar that floats over the foot of the list while Titles are ticked: how many, Search Now and Unmonitor, the
- * rarer actions under More…, and Clear (Escape clears too). The Title pane beside the list stays open. An action
+ * The ActionBar at the foot of the list while Titles are ticked: how many, Select All and Clear (Escape clears too),
+ * then Search Now and Unmonitor and the rarer actions under More…. The Title pane beside the list stays open. An action
  * that needs a choice (a Slot, a Profile, a monitoring mode) or a confirmation asks in a dialog.
  */
 export function BulkActions({
   rows,
   shown,
-  onTickAll,
+  onSelectAll,
   onClear,
   compact = false,
 }: {
   rows: TitleRow[]
   shown: number
-  onTickAll: () => void
+  onSelectAll: () => void
   onClear: () => void
-  /** A phone's bar: Unmonitor moves into More…, so the count keeps its words. */
+  /** A phone's bar: Unmonitor moves into More…, so the count and Select All keep their room. */
   compact?: boolean
 }) {
   const bulk = useBulkTitles()
@@ -94,51 +92,44 @@ export function BulkActions({
   const close = () => setForm(null)
   const busy = bulk.isPending
 
-  const name = `${rows.length} ticked`
   return (
     <>
-      <FloatingBar label={name}>
-        <span className="label-13 min-w-0 flex-1 truncate">{name}</span>
-        <Button variant="primary" size="small" disabled={busy} onClick={() => run('Search now', { action: 'search', title_ids: ids })}>
-          Search Now
-        </Button>
-        {!compact && (
-          <Button variant="secondary" size="small" disabled={busy} onClick={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>
-            Unmonitor
-          </Button>
-        )}
-        <Menu.Container position="top-end">
-          <Menu.Button variant="secondary" size="small" disabled={busy}>
-            More…
-          </Menu.Button>
-          <Menu width={220}>
-            <MenuItem onSelect={() => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids }))}>{hasSeries ? 'Monitor…' : 'Monitor'}</MenuItem>
-            {compact && <MenuItem onSelect={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>Unmonitor</MenuItem>}
-            <MenuItem onSelect={() => setForm('switch_profile')}>Switch Profile…</MenuItem>
-            <MenuItem onSelect={() => setForm('add_version')}>Add Version…</MenuItem>
-            <MenuItem onSelect={() => setForm('remove_version')}>Remove Version…</MenuItem>
-            <MenuDivider />
-            <MenuItem onSelect={() => run('Refresh metadata', { action: 'refresh', title_ids: ids })}>Refresh Metadata</MenuItem>
-            <MenuItem onSelect={() => run('Freeze metadata', { action: 'freeze', frozen: true, title_ids: ids })}>Freeze Metadata</MenuItem>
-            <MenuItem onSelect={() => run('Unfreeze metadata', { action: 'freeze', frozen: false, title_ids: ids })}>Unfreeze Metadata</MenuItem>
-            {rows.length < shown && (
-              <>
-                <MenuDivider />
-                <MenuItem onSelect={onTickAll}>Tick All {shown} Shown</MenuItem>
-              </>
+      <ActionBar
+        open
+        selection={{ count: rows.length, total: shown, onSelectAll, onClear }}
+        actions={
+          <>
+            <Button variant="primary" size="small" disabled={busy} onClick={() => run('Search now', { action: 'search', title_ids: ids })}>
+              Search Now
+            </Button>
+            {!compact && (
+              <Button variant="secondary" size="small" disabled={busy} onClick={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>
+                Unmonitor
+              </Button>
             )}
-            <MenuDivider />
-            <MenuItem type="error" onSelect={() => setForm('remove')}>
-              Remove from Library…
-            </MenuItem>
-          </Menu>
-        </Menu.Container>
-        <Tooltip text="Clear ticks (Esc)">
-          <Button variant="tertiary" size="small" svgOnly aria-label="Clear ticks" onClick={onClear}>
-            <X />
-          </Button>
-        </Tooltip>
-      </FloatingBar>
+            <Menu.Container position="top-end">
+              <Menu.Button variant="secondary" size="small" disabled={busy}>
+                More…
+              </Menu.Button>
+              <Menu width={220}>
+                <MenuItem onSelect={() => (hasSeries ? setForm('monitor') : run('Monitor', { action: 'monitor', monitored: true, title_ids: ids }))}>{hasSeries ? 'Monitor…' : 'Monitor'}</MenuItem>
+                {compact && <MenuItem onSelect={() => run('Unmonitor', { action: 'monitor', monitored: false, title_ids: ids })}>Unmonitor</MenuItem>}
+                <MenuItem onSelect={() => setForm('switch_profile')}>Switch Profile…</MenuItem>
+                <MenuItem onSelect={() => setForm('add_version')}>Add Version…</MenuItem>
+                <MenuItem onSelect={() => setForm('remove_version')}>Remove Version…</MenuItem>
+                <MenuDivider />
+                <MenuItem onSelect={() => run('Refresh metadata', { action: 'refresh', title_ids: ids })}>Refresh Metadata</MenuItem>
+                <MenuItem onSelect={() => run('Freeze metadata', { action: 'freeze', frozen: true, title_ids: ids })}>Freeze Metadata</MenuItem>
+                <MenuItem onSelect={() => run('Unfreeze metadata', { action: 'freeze', frozen: false, title_ids: ids })}>Unfreeze Metadata</MenuItem>
+                <MenuDivider />
+                <MenuItem type="error" onSelect={() => setForm('remove')}>
+                  Remove from Library…
+                </MenuItem>
+              </Menu>
+            </Menu.Container>
+          </>
+        }
+      />
 
       {form === 'monitor' && <MonitorForm busy={busy} onCancel={close} onApply={(mode) => run('Monitor', { action: 'monitor', monitored: true, series_monitor: mode, title_ids: ids })} />}
       {form === 'switch_profile' && (
