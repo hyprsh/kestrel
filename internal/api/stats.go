@@ -143,10 +143,10 @@ func (s *server) rootDisks(ctx context.Context) ([]stats.Disk, error) {
 func (s *server) statsClient(ctx context.Context, c stats.Client) (oapi.StatsDownloadClient, error) {
 	out := oapi.StatsDownloadClient{
 		State: oapi.StatsDownloadClientState("none"), Completed: c.Completed, Failed: c.Failed, AvgBytesPerSecond: c.AvgBytesPerSecond,
-		MedianDownloadSeconds: seconds(c.MedianDownload), SpeedPerDay: make([]oapi.StatsSpeedDay, 0, len(c.SpeedPerDay)),
+		MedianDownloadSeconds: seconds(c.MedianDownload), SpeedPerDay: make([]oapi.StatsSpeedDay, 0, len(c.SpeedColumns)),
 	}
-	for _, d := range c.SpeedPerDay {
-		out.SpeedPerDay = append(out.SpeedPerDay, oapi.StatsSpeedDay{Day: openapi_types.Date{Time: d.Day}, BytesPerSecond: d.BytesPerSecond})
+	for _, d := range c.SpeedColumns {
+		out.SpeedPerDay = append(out.SpeedPerDay, oapi.StatsSpeedDay{Day: openapi_types.Date{Time: d.From}, To: openapi_types.Date{Time: d.To}, BytesPerSecond: d.BytesPerSecond})
 	}
 	// The speed now is the sum of what the client says for each active download.
 	if active, err := s.acquire.Active(ctx); err == nil {

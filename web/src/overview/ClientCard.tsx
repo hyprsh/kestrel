@@ -1,10 +1,10 @@
-// The download client: its name and connection state, how fast and how long it downloaded, and the last 14 days of speed
-// as columns in the design's single-series colour.
+// The download client: its name and connection state, how fast and how long it downloaded, and the speed over the range
+// as columns, the same ones as the Grabs chart in the design's single-series colour.
 import { ColumnChart } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
 import { StatCard } from '../layout/StatCard'
 import { mark, Swatch } from './charts'
-import { dayText, durationText, speedText } from './statsText'
+import { durationText, periodText, periodWord, rangeName, speedText } from './statsText'
 
 function Figure({ value, label, danger }: { value: string; label: string; danger?: boolean }) {
   return (
@@ -25,8 +25,9 @@ export function speedRange(speeds: number[]): string {
 
 export function ClientCard({ stats }: { stats: Stats }) {
   const c = stats.download_client
-  const days = c.speed_per_day
-  const speeds = days.flatMap((d) => (d.bytes_per_second === null ? [] : [d.bytes_per_second]))
+  const columns = c.speed_per_day
+  const word = periodWord(stats.range)
+  const speeds = columns.flatMap((d) => (d.bytes_per_second === null ? [] : [d.bytes_per_second]))
   const state = c.state === 'ok' ? 'Connected' : c.state === 'failing' ? 'Not connecting' : null
   return (
     <StatCard
@@ -57,12 +58,14 @@ export function ClientCard({ stats }: { stats: Stats }) {
             <>
               <ColumnChart
                 height={48}
-                aria-label={`Average speed per day, last 14 days, ${speedRange(speeds)}`}
+                aria-label={`Average speed per ${word}, ${rangeName(stats.range)}, ${speedRange(speeds)}`}
                 series={[{ key: 'speed', label: 'Speed' }]}
                 valueFormatter={speedText}
-                data={days.map((d) => ({ label: dayText(d.day), values: { speed: d.bytes_per_second ?? 0 } }))}
+                data={columns.map((d) => ({ label: periodText(d.day, d.to), values: { speed: d.bytes_per_second ?? 0 } }))}
               />
-              <span className="label-12 text-gray-900">Speed per day, last 14 days</span>
+              <span className="label-12 text-gray-900">
+                Speed per {word}, {rangeName(stats.range)}
+              </span>
             </>
           )}
         </>

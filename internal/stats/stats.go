@@ -38,9 +38,6 @@ func ParseRange(s string) (Range, bool) {
 	return Range{}, false
 }
 
-// SpeedDays is how many days the download client's speed chart covers, whatever the range.
-const SpeedDays = 14
-
 // BestMinHitRate is the lowest Hit rate an indexer can have and still be called the best.
 const BestMinHitRate = 0.5
 
@@ -117,8 +114,6 @@ func dayOf(t time.Time) time.Time {
 
 func ts(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
-func nullTS(t time.Time) sql.NullString { return sql.NullString{String: ts(t), Valid: true} }
-
 func parse(s string) time.Time {
 	t, _ := time.Parse(time.RFC3339, s)
 	return t
@@ -162,13 +157,14 @@ type Client struct {
 	// AvgBytesPerSecond is the bytes of the finished downloads over the time they took; nil with none.
 	AvgBytesPerSecond *float64
 	MedianDownload    *time.Duration
-	// SpeedPerDay is the average speed of each of the last SpeedDays days, oldest first; nil for a day with no download.
-	SpeedPerDay []SpeedDay
+	// SpeedColumns is the average speed of each Period of the range (the Grabs chart's columns), oldest first;
+	// nil for a Period with no download.
+	SpeedColumns []SpeedColumn
 }
 
-// SpeedDay is one day of the speed chart.
-type SpeedDay struct {
-	Day            time.Time
+// SpeedColumn is one column of the speed chart.
+type SpeedColumn struct {
+	Period
 	BytesPerSecond *float64
 }
 
@@ -290,7 +286,7 @@ func (s *Service) Compute(ctx context.Context, now time.Time, r Range, disks []D
 		}
 	}
 
-	if res.Client, err = s.client(ctx, q, now, from, to); err != nil {
+	if res.Client, err = s.client(ctx, q, w, r, from, to); err != nil {
 		return res, err
 	}
 	if res.Quality, err = s.quality(ctx, q); err != nil {
@@ -406,7 +402,7 @@ func betterIndexer(a, b Indexer) bool {
 	return a.Name < b.Name
 }
 
-func (s *Service) client(ctx context.Context, q *db.Queries, now time.Time, from, to string) (Client, error) {
+func (s *Service) client(ctx context.Context, q *db.Queries, w Window, r Range, from, to string) (Client, error) {
 	var c Client
 	rows, err := q.Downloads(ctx, db.DownloadsParams{FromAt: sql.NullString{String: from, Valid: true}, ToAt: sql.NullString{String: to, Valid: true}})
 	if err != nil {
@@ -436,38 +432,34 @@ func (s *Service) client(ctx context.Context, q *db.Queries, now time.Time, from
 	}
 	c.Failed = int(failed)
 
-	end := dayOf(now).AddDate(0, 0, 1)
-	start := end.AddDate(0, 0, -SpeedDays)
-	recent, err := q.Downloads(ctx, db.DownloadsParams{FromAt: nullTS(start), ToAt: nullTS(end)})
-	if err != nil {
-		return c, err
-	}
+	// The speed of each Period: the bytes of the downloads that finished in it over the time they took.
 	type acc struct {
 		bytes int64
 		secs  float64
 	}
-	days := map[string]*acc{}
-	for _, r := range recent {
-		done := parse(r.DownloadDoneAt.String)
-		d := done.Sub(parse(r.DownloadStartedAt.String))
+	periods := w.Periods(r)
+	sums := make([]acc, len(periods))
+	for _, row := range rows {
+		done := parse(row.DownloadDoneAt.String)
+		d := done.Sub(parse(row.DownloadStartedAt.String))
 		if d <= 0 {
 			continue
 		}
-		k := done.Format("2006-01-02")
-		if days[k] == nil {
-			days[k] = &acc{}
+		for i, p := range periods {
+			if !done.Before(p.From) && done.Before(p.To.AddDate(0, 0, 1)) {
+				sums[i].bytes += row.Size
+				sums[i].secs += d.Seconds()
+				break
+			}
 		}
-		days[k].bytes += r.Size
-		days[k].secs += d.Seconds()
 	}
-	for i := 0; i < SpeedDays; i++ {
-		day := start.AddDate(0, 0, i)
-		sd := SpeedDay{Day: day}
-		if a := days[day.Format("2006-01-02")]; a != nil && a.secs > 0 {
-			v := float64(a.bytes) / a.secs
-			sd.BytesPerSecond = &v
+	for i, p := range periods {
+		col := SpeedColumn{Period: p}
+		if sums[i].secs > 0 {
+			v := float64(sums[i].bytes) / sums[i].secs
+			col.BytesPerSecond = &v
 		}
-		c.SpeedPerDay = append(c.SpeedPerDay, sd)
+		c.SpeedColumns = append(c.SpeedColumns, col)
 	}
 	return c, nil
 }

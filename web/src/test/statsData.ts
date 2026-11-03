@@ -22,7 +22,13 @@ export function withColumns(g: Omit<Stats['grabs'], 'columns'>): Stats['grabs'] 
   return { ...g, columns }
 }
 
-const speedDays = (speeds: (number | null)[]) => speeds.map((s, i) => ({ day: new Date(Date.UTC(2026, 9, 18 + i)).toISOString().slice(0, 10), bytes_per_second: s === null ? null : s * 1_000_000 }))
+/** The speed per column of a 30 day range ending on 2026-10-31: five weeks, the oldest of two days. */
+const speedDays = (speeds: (number | null)[]) =>
+  speeds.map((s, i) => {
+    const from = i === 0 ? '2026-10-02' : new Date(Date.UTC(2026, 9, 4 + (i - 1) * 7)).toISOString().slice(0, 10)
+    const to = new Date(Date.UTC(2026, 9, 3 + i * 7)).toISOString().slice(0, 10)
+    return { day: from, to, bytes_per_second: s === null ? null : s * 1_000_000 }
+  })
 
 /** A month at the Overview of a library of six Titles; `over` replaces whole sections. */
 export function stats(over: Partial<Stats> = {}): Stats {
@@ -50,7 +56,7 @@ export function stats(over: Partial<Stats> = {}): Stats {
       avg_bytes_per_second: 24_000_000,
       current_bytes_per_second: 29_360_640,
       median_download_seconds: 9 * 60,
-      speed_per_day: speedDays([18, 22, 25, 12, 28, 31, 24, 20, 26, 27, 15, 23, 29, 24]),
+      speed_per_day: speedDays([18, 12, 25, 31, 24]),
     },
     quality: [
       { slot: 'standard', files: 100, remux_bluray: 22, web_dl: 64, webrip_or_lower: 14 },

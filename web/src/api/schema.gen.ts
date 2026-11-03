@@ -2537,7 +2537,7 @@ export interface paths {
          *       `hit_rate`, then fewer failed Grabs; `null` when none qualifies.
          *     - `download_client` is the enabled download client. Speed and download time run from the client first
          *       reporting a Grab downloading to its reporting it finished (unpacking included), so they cover Grabs
-         *       after this was first recorded. `speed_per_day` is the last 14 days whatever the range.
+         *       after this was first recorded. `speed_per_day` covers the range in the columns of `grabs.columns`: a day each for 7 days, a week each for 30 and 90 days.
          *     - `quality` splits the files of each Slot by source, now. `release_groups` are the groups of the
          *       files that Grabs brought in the range.
          *     - `requests` counts the accepted Requests created in the range; one is done once every Slot it asked for
@@ -5340,12 +5340,23 @@ export interface components {
              */
             current_bytes_per_second: number | null;
             median_download_seconds: number | null;
-            /** @description The last 14 days, oldest first. */
+            /**
+             * @description The speed over the range, oldest first, in the same columns as `grabs.columns`: one per UTC day for
+             *     7 days, one per week for 30 and 90 days (the weeks end on the last day of the range).
+             */
             speed_per_day: components["schemas"]["StatsSpeedDay"][];
         };
         StatsSpeedDay: {
-            /** Format: date */
+            /**
+             * Format: date
+             * @description First UTC day of the column.
+             */
             day: string;
+            /**
+             * Format: date
+             * @description Last UTC day of the column (the same as `day` for a day).
+             */
+            to: string;
             /** Format: double */
             bytes_per_second: number | null;
         };
