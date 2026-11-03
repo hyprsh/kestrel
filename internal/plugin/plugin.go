@@ -90,6 +90,10 @@ func AsError(err error) *Error {
 type Connection struct {
 	ID     int64          `json:"id"`
 	Config map[string]any `json:"config"`
+	// Keep lists absolute paths whose files a plugin must never delete, nor
+	// anything above them: the host fills it with the Library's Root folders
+	// for calls that may remove data.
+	Keep []string `json:"keep,omitempty"`
 }
 
 // String returns the string setting key, or "".

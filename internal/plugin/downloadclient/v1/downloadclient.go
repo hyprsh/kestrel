@@ -32,8 +32,23 @@ type Client interface {
 	List(ctx context.Context, conn plugin.Connection, category string) ([]Item, error)
 
 	// Remove deletes the job, and its downloaded files when deleteData is set.
-	// Removing a job that is already gone is not an error.
+	// Removing a job that is already gone is not an error. When the job is gone
+	// but its folder was left on disk because deleting it could not be shown
+	// safe (outside the download directory, in or above conn.Keep, or out of
+	// reach), Remove returns a *FolderLeft: the host treats it as success and
+	// says so.
 	Remove(ctx context.Context, conn plugin.Connection, clientID string, deleteData bool) error
+}
+
+// FolderLeft is what Remove returns when the job is removed but its downloaded
+// folder was left on disk. It is not a failure.
+type FolderLeft struct {
+	Path   string
+	Reason string
+}
+
+func (e *FolderLeft) Error() string {
+	return "left the download folder " + e.Path + ": " + e.Reason
 }
 
 // StatusReporter is an optional part of a download client adapter: what the
