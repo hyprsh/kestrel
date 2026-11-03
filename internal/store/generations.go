@@ -27,6 +27,7 @@ type generations struct {
 	seen      bool
 	seenData  int64  // data_version at the last observation
 	seenNoted uint64 // noted at the last observation
+	unsettled bool   // the last observations saw a hooked commit that was not visible yet
 }
 
 func newGenerations() *generations {
@@ -71,13 +72,23 @@ func (g *generations) rollback() {
 // a write from outside. A commit is noted by its hook just before it is visible to other connections, so an
 // observation can catch the one without the other; the next one then reads a change nothing accounts for and drops
 // everything once, which only costs a rebuild.
+//
+// An observation that sees a hooked commit whose data_version has not moved yet is unsettled: what it hands out may
+// stand on the old data. The next observation that sees data_version move then drops everything whatever the hooks say,
+// because a later hooked commit (of an unrelated table) can make that move look explained. So a generation handed out
+// while a hooked commit was not visible never equals one handed out after it is.
 func (g *generations) observe(data int64) {
 	if !g.seen {
 		g.seen, g.seenData, g.seenNoted = true, data, g.noted
 		return
 	}
-	if data != g.seenData && g.noted == g.seenNoted {
-		g.epoch++
+	if data != g.seenData {
+		if g.noted == g.seenNoted || g.unsettled {
+			g.epoch++
+		}
+		g.unsettled = false
+	} else if g.noted != g.seenNoted {
+		g.unsettled = true
 	}
 	g.seenData, g.seenNoted = data, g.noted
 }

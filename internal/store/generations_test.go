@@ -137,6 +137,27 @@ func TestGenerationTakenBeforeACommitIsVisibleIsNotTheOneAfter(t *testing.T) {
 	}
 }
 
+// The same gap, but a second commit to an unrelated table lands before the next stamp, so that data_version and the
+// hooks' count both moved and the change looks explained.
+func TestGenerationTakenInACommitGapSurvivesALaterUnrelatedCommit(t *testing.T) {
+	s := mustOpen(t, t.TempDir(), 2)
+	ctx := context.Background()
+	stamp(t, s, "t1")
+
+	var during uint64
+	s.BetweenHookAndVisible(func() { during = stamp(t, s, "t1") })
+	if _, err := s.Write().ExecContext(ctx, "INSERT INTO t1 (id) VALUES (1)"); err != nil { // A: visible now
+		t.Fatal(err)
+	}
+	s.BetweenHookAndVisible(nil)
+	if _, err := s.Write().ExecContext(ctx, "INSERT INTO t2 (id) VALUES (1)"); err != nil { // B: unrelated
+		t.Fatal(err)
+	}
+	if after := stamp(t, s, "t1"); after == during {
+		t.Errorf("generation %d taken before commit A was visible is still current after A and B", during)
+	}
+}
+
 // A write the hooks never saw (another process) moves every generation.
 func TestGenerationMovesOnWriteFromOutside(t *testing.T) {
 	dir := t.TempDir()
