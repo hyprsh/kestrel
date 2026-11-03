@@ -1,21 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { grabDays, stats, withColumns } from '../test/statsData'
-import { answerText, bytesText, speedText, fillDelta, fullInText, grabsAlternative, hitText, standOut } from './statsText'
+import { answerText, speedText, fillDelta, fullInText, grabsAlternative, hitText, standOut } from './statsText'
 import { growthLine } from './LibraryCards'
 import { speedRange } from './ClientCard'
 
-const GB = 1024 ** 3
-
 describe('figures', () => {
-  it('writes sizes in 1024-based GB and TB, one decimal under ten', () => {
-    expect(bytesText(0)).toBe('0 B')
-    expect(bytesText(440 * GB)).toBe('440 GB')
-    expect(bytesText(1.2 * 1024 * GB)).toBe('1.2 TB')
-    expect(bytesText(4 * 1024 * GB)).toBe('4 TB')
-    expect(bytesText(24_000_000)).toBe('23 MB')
-    expect(bytesText(5 * 1024 ** 2)).toBe('5 MB')
-  })
-
   it('writes the time until the disks are full in months, then years, and nothing without an estimate', () => {
     expect(fullInText(null)).toBeNull()
     expect(fullInText(0.4)).toBe('full in under a month')

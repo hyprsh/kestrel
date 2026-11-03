@@ -2,13 +2,13 @@
 // last four (the Library's size is on its own screen).
 import { Progress } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
-import { plural } from '../format'
+import { bytesText, plural } from '../format'
 import { StatTile } from '../layout/StatCard'
 import { placePath } from '../place'
 import { span } from '../time'
 import { Drill } from './Drill'
 import { activityQuery } from './drillDown'
-import { bytesText, fillDelta, fullInText, grabsTotal, rangeOf } from './statsText'
+import { fillDelta, fullInText, grabsTotal, rangeOf } from './statsText'
 
 const value = 'heading-24 max-sm:heading-20'
 const note = 'label-12 text-gray-900'

@@ -50,7 +50,7 @@ describe('the sentence of each kind the server records', () => {
       ev('adoption_scanned', 'Adoption scan: 4 matched, 1 need a choice, 0 skipped', null, { routine: true, title_id: null }),
       'Adoption scan: 4 matched, 1 need a choice, 0 skipped',
     ],
-    ['cleanup', ev('cleanup', 'Cleaned up 3 Unmanaged file(s), 1500000000 bytes'), 'Cleaned up Paddington · 3 Unmanaged files · 1.5 GB'],
+    ['cleanup', ev('cleanup', 'Cleaned up 3 Unmanaged file(s), 1500000000 bytes'), 'Cleaned up Paddington · 3 Unmanaged files · 1.4 GB'],
     ['request', ev('request', 'Request from Ellie via Plex'), 'Ellie requested Paddington · through Plex'],
     ['request_ended', ev('request_ended', 'Request from Ellie via Plex ended by hand'), 'Ended the request for Paddington · from Ellie through Plex'],
     ['watch_ahead', ev('watch_ahead', 'Watch-ahead added season 3'), 'Watch-ahead added Paddington · season 3'],

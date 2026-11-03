@@ -67,7 +67,7 @@ describe("deleting a Movie's file", () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
     const confirm = within(hd).getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Paddington (2014) - [Standard].mkv')
-    expect(confirm).toHaveTextContent('4.0 GB')
+    expect(confirm).toHaveTextContent('4 GB')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
 
     expect(within(hd).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
@@ -164,7 +164,7 @@ describe('deleting files from the episode table', () => {
     await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
     const confirm = screen.getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Breaking Bad - S01E01-E02 - [Standard].mkv')
-    expect(confirm).toHaveTextContent('3.0 GB')
+    expect(confirm).toHaveTextContent('3 GB')
     expect(confirm).toHaveTextContent('Loses its file: S01E01, S01E02')
     expect(confirm).toHaveTextContent('S01E02 shares a file with it and loses its file too')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
@@ -238,7 +238,7 @@ describe('deleting files from the episode table', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
 
-    expect(within(within(grid).getByRole('row', { name: /Pilot/ })).getByTitle('4K: 2160p · 1.0 GB')).toBeInTheDocument()
+    expect(within(within(grid).getByRole('row', { name: /Pilot/ })).getByTitle('4K: 2160p · 1 GB')).toBeInTheDocument()
     await userEvent.click(within(grid).getByRole('button', { name: 'Actions for Season 1 episode 1' }))
     expect(screen.getByRole('menuitem', { name: 'Delete Files…' })).not.toHaveAttribute('aria-disabled', 'true')
     await userEvent.keyboard('{Escape}')

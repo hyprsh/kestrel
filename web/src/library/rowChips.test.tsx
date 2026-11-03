@@ -172,7 +172,7 @@ describe('Library rows: Slot chips', () => {
     const file = await screen.findByRole('dialog')
     expect(file).not.toHaveTextContent('Bluray-1080p')
     await act(async () => release())
-    await waitFor(() => expect(file).toHaveTextContent('Bluray-1080p \u00b7 H.265 \u00b7 HDR10 \u00b7 DDP 5.1 \u00b7 18.0 GB'))
+    await waitFor(() => expect(file).toHaveTextContent('Bluray-1080p \u00b7 H.265 \u00b7 HDR10 \u00b7 DDP 5.1 \u00b7 18 GB'))
   })
 
   it('lists the folded Slots as links to the Title at that Slot', async () => {

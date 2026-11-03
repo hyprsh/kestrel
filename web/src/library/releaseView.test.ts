@@ -63,8 +63,8 @@ describe('release view', () => {
     expect(sizeLine(rel({ size: 6.3 * GB, size_limit: { per_episode: false, max: 30 * GB } }))).toBe('6.3 GB · within up to 30 GB per Movie')
     expect(sizeLine(rel({ size: 6.3 * GB }))).toBe('6.3 GB')
     const rejected = rel({ size: 14 * GB, size_limit: limit, rejections: [{ code: 'size', message: 'Over the size limit', overridable: true }] })
-    expect(sizeLine(rejected)).toBe('14.0 GB')
-    expect(rejectionAdvice(rejected)).toBe('Its size is 14.0 GB, and the Profile takes 1 – 10 GB per episode. You can still grab it; Kestrel imports it like any other.')
+    expect(sizeLine(rejected)).toBe('14 GB')
+    expect(rejectionAdvice(rejected)).toBe('Its size is 14 GB, and the Profile takes 1 – 10 GB per episode. You can still grab it; Kestrel imports it like any other.')
   })
 
   it('writes the episodes a list of covers holds as runs per season', () => {

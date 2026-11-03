@@ -12,19 +12,6 @@ export const ranges: { value: StatsRange; label: string; days: number; short: st
 
 export const rangeOf = (r: StatsRange) => ranges.find((x) => x.value === r) ?? ranges[1]
 
-/** "440 GB", "1.2 TB": 1024-based like the Library's sizes (library/bits `size`), labelled GB and TB; one decimal under 10. */
-export function bytesText(n: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  let v = n
-  let u = 0
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024
-    u++
-  }
-  const digits = v < 10 && u > 0 ? 1 : 0
-  return `${v.toFixed(digits).replace(/\.0$/, '')} ${units[u]}`
-}
-
 /** "24 MB/s": a link speed, so decimal (a million bytes to the MB), a decimal under ten. */
 export function speedText(bytesPerSecond: number): string {
   const mb = bytesPerSecond / 1e6

@@ -2,6 +2,7 @@ import { Button, Description, Note, Sheet } from '@hyprsh/design'
 import { useState } from 'react'
 import { useDownloadsStatus, useTestInstance } from '../api/downloads'
 import { usePluginInstances, usePlugins, type PluginInstance } from '../api/queries'
+import { bytesText } from '../format'
 import { DescriptionGrid, SettingsBlock, SettingsSection, StatusLine } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { ago, useNow } from '../time'
@@ -9,12 +10,6 @@ import { useReport } from '../toasts'
 import { InstanceForm } from './InstanceForm'
 
 const contract = 'download_client.v1'
-
-/** Free space as the card shows it: "1.1 TB", "340 GB". */
-function freeSpace(bytes: number): string {
-  const tb = bytes / 1024 ** 4
-  return tb >= 1 ? `${tb.toFixed(1)} TB` : `${Math.max(0, Math.round(bytes / 1024 ** 3))} GB`
-}
 
 const queueText = (downloading: number, queued: number) => {
   if (downloading === 0 && queued === 0) return 'Idle'
@@ -152,7 +147,7 @@ export function DownloadClientSection() {
         <Description title="Address" ellipsis content={<span className="label-13-mono">{address || 'Not set'}</span>} />
         <Description title="Category" ellipsis content={category.length > 0 ? category.join(' · ') : 'Not set'} />
         <Description title="Queue" ellipsis content={status?.state === 'ok' && status.downloading !== null && status.queued !== null ? queueText(status.downloading, status.queued) : 'Unknown'} />
-        <Description title="Free space" ellipsis content={status?.state === 'ok' && status.free_bytes !== null ? freeSpace(status.free_bytes) : 'Unknown'} />
+        <Description title="Free space" ellipsis content={status?.state === 'ok' && status.free_bytes !== null ? bytesText(Math.max(0, status.free_bytes)) : 'Unknown'} />
       </DescriptionGrid>
       {sheet}
     </SettingsBlock>,

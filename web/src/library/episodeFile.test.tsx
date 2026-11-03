@@ -110,9 +110,9 @@ describe('the file of an episode Slot, in the opened row', () => {
   it('names the Slot and its state in the chip tooltips, and the chip of a filled Slot is a green dot in plain text', async () => {
     const { grid } = await openSeries()
     const row = within(grid).getByRole('row', { name: /Pilot/ })
-    const standard = within(row).getByTitle('Standard: 1080p \u00b7 2.0 GB')
+    const standard = within(row).getByTitle('Standard: 1080p \u00b7 2 GB')
     expect(standard).toHaveAttribute('data-state', 'filled')
-    expect(standard).toHaveAccessibleName('Standard: 1080p · 2.0 GB')
+    expect(standard).toHaveAccessibleName('Standard: 1080p · 2 GB')
     expect(within(row).getByTitle(/^4K: Wanted \d+ d$/)).toHaveAttribute('data-state', 'wanted')
     const placeholder = within(grid).getByRole('row', { name: /TBA/ })
     expect(within(placeholder).getByTitle('Standard: Wanted')).toBeInTheDocument()
@@ -143,10 +143,10 @@ describe('the file of an episode Slot, in the opened row', () => {
         .getAllByText(/H\.264/)
         .filter((e) => e.tagName === 'DD'),
     ).toHaveLength(1)
-    expect(within(pop).getAllByText('2.0 GB')).toHaveLength(1)
+    expect(within(pop).getAllByText('2 GB')).toHaveLength(1)
     expect(within(pop).queryByText(/^Have$/)).not.toBeInTheDocument()
     expect(within(pop).getByText('DD 5.1 · English, German')).toBeInTheDocument()
-    expect(within(pop).getByText('2.0 GB')).toBeInTheDocument()
+    expect(within(pop).getByText('2 GB')).toBeInTheDocument()
     expect(within(pop).getByText('Oct 20, 2020, from NTb')).toBeInTheDocument()
     expect(within(pop).getByText(/holds 2 episodes/)).toBeInTheDocument()
     // The path is one line that is cut at its start, with the whole of it as the tooltip.

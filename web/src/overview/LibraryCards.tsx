@@ -2,13 +2,12 @@
 // the Library grows).
 import { Progress } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
-import { plural } from '../format'
+import { bytesText, plural } from '../format'
 import { useSlotNames } from '../library/slots'
 import { StatCard } from '../layout/StatCard'
 import { placePath } from '../place'
 import { Drill } from './Drill'
 import { ChartTable, Legend, mark } from './charts'
-import { bytesText } from './statsText'
 import { usedPercent } from './Tiles'
 
 const classes = ['Remux / BluRay', 'WEB-DL', 'WEBRip / lower'] as const
