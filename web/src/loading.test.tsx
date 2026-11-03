@@ -129,7 +129,7 @@ describe('Requests while they load', () => {
         return response(200).json({ items: [request()], next_cursor: null, total: 1 })
       }),
     )
-    inClient(<Requests query="" onQuery={() => {}} onOpenTitle={() => {}} />)
+    inClient(<Requests query="" onQuery={() => {}} requestId={null} onCloseRequest={() => {}} onOpenTitle={() => {}} />)
 
     expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument()
     expect(screen.queryByText('No Request matches.')).not.toBeInTheDocument()
