@@ -1,4 +1,4 @@
-import { Button, EmptyState, KeyboardInput, Note, parseQuery, Skeleton } from '@hyprsh/design'
+import { Button, EmptyState, KeyboardInput, Note, parseQuery, Skeleton, TitleBar } from '@hyprsh/design'
 import { Plus } from 'lucide-react'
 import { lazy, Suspense, useContext, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useProfiles, useTitles, type TitleRow } from '../api/queries'
@@ -8,7 +8,6 @@ import { filterChips } from '../filter/chips'
 import { FilterBar } from '../filter/FilterBar'
 import { useKey, useListNav } from '../keys'
 import { FacetFilterButton, SortButton } from '../layout/FilterButton'
-import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 import { FilterChips, SidePanel } from '../layout/SidePanel'
 import type { ManualSearchAt } from '../place'
 import { usePhone } from '../responsive'
@@ -330,7 +329,7 @@ export function Library({
   if (phone && titleOpen)
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {!searching && <PhoneBackHeader onBack={onCloseTitle}>{current?.title}</PhoneBackHeader>}
+        {!searching && <TitleBar hideFrom={false} back={{ onClick: onCloseTitle }} title={current?.title} />}
         {titlePage(onCloseTitle)}
       </div>
     )

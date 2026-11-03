@@ -20,12 +20,8 @@
 //   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
 //                         NowEmpty: the Overview's Downloading and Searching cards
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
-//   PhoneBackHeader.tsx   Back button and title over a phone     <PhoneBackHeader onBack={...}>{title}</PhoneBackHeader>
-//                         screen
 //   RowList.tsx           RowList, stackedRow, stackedRight: a    <RowList>{<Entity className={stackedRow} rightClassName={stackedRight} />}</RowList>
 //                         list whose rows stack their right content when the list is narrow (container query)
-//   Rail.tsx              Rail and RailSpacer: the desktop       <Rail>{icon buttons}<RailSpacer /></Rail>
-//                         navigation rail and its gap
 //   SectionBlock.tsx      static section with a title and count  <SectionBlock title="Downloading" count={3}>{rows}</SectionBlock>
 //   SelectionBar.tsx      count, select-all, Clear and actions  <SelectionBar selection={...} shown={n}>{actions}</SelectionBar>
 //                         for a ticked selection
@@ -34,8 +30,6 @@
 //                         the rail that holds a screen's name,    views={<SidePanelViews><NavItem trailing onClick>Errors</NavItem></SidePanelViews>}
 //                         filter, Filter and Sort, chips, views,
 //                         body and footer. A phone's top header
-//   TopBar.tsx            PhoneTopBar: the header of a phone      <PhoneTopBar title>{actions}</PhoneTopBar>
-//                         screen that has no SidePanel
 //   WidePage.tsx          wide, long page of cards (setup)       <WidePage>{cards}</WidePage>
 //
 // THE SIDE PANEL (ADR 0017; the full-width top bar is gone)
@@ -43,7 +37,7 @@
 // the old top bar: the screen renders it as the first child of its own row, content after it. Its rules:
 //   - The title is the screen name, in the panel's h1 (`heading-20`) and its accessible name. A screen has one panel, and
 //     no other heading above its content. A screen without a panel (Overview, Requests, Adoption, Clean up) has a plain h1 in `heading-20`
-//     at the top of its content, no bar and no border; a phone has the PhoneTopBar instead.
+//     at the top of its content, no bar and no border; a phone has the design TitleBar instead.
 //   - Width is a token: 380 for the Library (`width="wide"`), 280 for every other screen (the default); SIDE_PANEL_WIDTH.
 //     A screen does not choose another width.
 //   - `actions` are icon buttons only: a "…" menu (a DotsMenu named "<Screen> actions") and at most one primary "+" (a

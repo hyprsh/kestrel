@@ -95,6 +95,9 @@ const ALIASES: Record<string, string> = {
   SlotLine: 'Entity',
   SlotChip: 'Pill',
   SlotChips: 'Pill',
+  PhoneTopBar: 'TitleBar',
+  PhoneBackHeader: 'TitleBar (with back)',
+  RailSpacer: 'Rail.Spacer',
 }
 
 type Hit = { line: number; message: string; class?: string }
