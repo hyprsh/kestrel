@@ -484,19 +484,32 @@ def ctl(query):
     urllib.request.urlopen(f"{FAKE}/_ctl?{query}").read()
 
 
-# A Grab downloading: search Paddington in Peru by hand and grab the Blu-ray, as a user would. The
-# fake indexer offers nothing unless its releases are on, so they are on only for this.
+def grab_blu_ray(call, version_id):
+    """Search by hand and grab the Blu-ray, as a user would. A Release can drop out of the search results or off the indexer
+    before the Grab (409 release_expired): search again and retry once. A Grab the search already made ("already downloading")
+    is what this wants anyway. Any other failure, or a second release_expired, stops the seed naming this step."""
+    step = "the Grab downloading (Paddington in Peru's Blu-ray)"
+    for attempt in (1, 2):
+        found = call("POST", f"/versions/{version_id}/releases", {})["items"]
+        pick = next((r for r in found if r["fits"] and "BluRay.x264" in r["name"]), None)
+        if pick is None:
+            raise SystemExit(f"seed: {step}: no Blu-ray Release fits in the search results")
+        try:
+            call("POST", "/grabs", {"version_id": version_id, "release_id": pick["release_id"]})
+            return
+        except SystemExit as e:
+            if "already downloading" in str(e):
+                return
+            if "release_expired" in str(e) and attempt == 1:
+                continue
+            raise SystemExit(f"seed: {step}: {e}" + (" (after searching again)" if attempt == 2 else ""))
+
+
+# A Grab downloading: the fake indexer offers nothing unless its releases are on, so they are on only for this.
 peru = ver[(tid[516729], "standard")]
 ctl("releases=1")
 try:
-    found = call("POST", f"/versions/{peru}/releases", {})["items"]
-    pick = next(r for r in found if r["fits"] and "BluRay.x264" in r["name"])
-    try:
-        call("POST", "/grabs", {"version_id": peru, "release_id": pick["release_id"]})
-    except SystemExit as e:
-        # The search above may already have grabbed it (the Grab is what this wants either way).
-        if "already downloading" not in str(e):
-            raise
+    grab_blu_ray(call, peru)
 finally:
     ctl("releases=0")
 
