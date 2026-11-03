@@ -39,10 +39,10 @@ describe('the sentence of each kind the server records', () => {
       ev('import', `Imported ${R} as /x.mkv (probe inconclusive: the parsed languages stand)`),
       `Imported Paddington · ${R} · languages not confirmed by the probe`,
     ],
-    ['import_rejected', ev('import_rejected', `Import of ${R} rejected: not_upgrade`), `Import rejected Paddington · not_upgrade · ${R}`],
+    ['import_rejected', ev('import_rejected', `Import of ${R} rejected: not_upgrade`), `Import rejected Paddington · not an upgrade · ${R}`],
     ['import_stalled', ev('import_stalled', `Import of ${R} stalled: disk full`), `Import stalled Paddington · disk full · ${R}`],
     ['import_episode imported', ev('import_episode', 'S01E02: imported as /tv/x.mkv', { status: 'imported', file: 'x.mkv', path: '/tv/x.mkv' }), 'Imported Paddington · S01E02 · x.mkv'],
-    ['import_episode left alone', ev('import_episode', 'S01E03: left alone (unmonitored)', { status: 'skipped', reason: 'unmonitored' }), 'Left alone Paddington · S01E03 · unmonitored'],
+    ['import_episode left alone', ev('import_episode', 'S01E03: left alone (unmonitored)', { status: 'skipped', reason: 'unmonitored' }), 'Left alone Paddington · S01E03 · episode not monitored'],
     ['adoption', ev('adoption', 'Adopted Paddington (2014) in Standard, 4K'), 'Adopted Paddington · into Standard, 4K'],
     ['adoption of a Title the Library lost', ev('adoption', 'Adopted Heat (1995) in Standard'), 'Adopted Heat (1995) · into Standard', ''],
     [

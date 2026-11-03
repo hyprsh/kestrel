@@ -442,6 +442,6 @@ describe('on a phone', () => {
     await ready()
 
     await user.click(within(rowsOf()[0]).getByRole('button', { name: /^Open event/ }))
-    expect(within(rowsOf()[0]).getByText('not_upgrade', { selector: 'dd' })).toBeInTheDocument()
+    expect(within(rowsOf()[0]).getByText('not an upgrade', { selector: 'dd' })).toBeInTheDocument()
   })
 })

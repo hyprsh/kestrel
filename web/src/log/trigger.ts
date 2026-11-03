@@ -1,6 +1,7 @@
 // Who or what started an event, and why, in words: the trigger an event stores (kind, actor, via) and its reason.
 // The set of trigger kinds grows on the server; one this file does not know reads as its raw kind, never hidden.
 import type { LogEvent } from '../api/log'
+import { reasonWords } from '../rejection'
 
 /** The trigger kinds the Log can be filtered by (`by:person`), with how each reads as a menu option. A kind not listed still filters when typed. */
 export const triggerKinds: Readonly<Record<string, string>> = {
@@ -44,7 +45,7 @@ export function triggerText(t: LogEvent['trigger'] | undefined): string | null {
 }
 
 /** The reason of an event, as the server wrote it ("due: 3 days after it became Wanted"), or null for an entry from before reasons were recorded. */
-export const reasonText = (e: Pick<LogEvent, 'reason'>): string | null => (e.reason ? e.reason : null)
+export const reasonText = (e: Pick<LogEvent, 'reason'>): string | null => (e.reason ? reasonWords(e.reason) : null)
 
 /** "Navi · update settings · edited by hand" for a Title's history line; either part may be missing. */
 export function causeText(e: Pick<LogEvent, 'trigger' | 'reason'>): string | null {

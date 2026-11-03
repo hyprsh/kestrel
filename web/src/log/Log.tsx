@@ -16,6 +16,7 @@ import { useKey, useListNav } from '../keys'
 import { SkeletonRows, TableSkeletonRows } from '../loading'
 import { usePageParam } from '../place'
 import { plural } from '../format'
+import { reasonWords } from '../rejection'
 import { usePhone } from '../responsive'
 import { useNow } from '../time'
 import { useReport } from '../toasts'
@@ -482,7 +483,7 @@ function Blocklist({ query, onQuery, onBack, onView }: { query: string; onQuery:
                     <div className="label-12-mono break-all">{b.release_name}</div>
                     <div className="label-13 mt-0.5 text-gray-900">
                       {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
-                      {b.reason} · {when(b.created_at)}
+                      {reasonWords(b.reason)} · {when(b.created_at)}
                     </div>
                   </div>
                 </Entity>
@@ -513,7 +514,7 @@ function Blocklist({ query, onQuery, onBack, onView }: { query: string; onQuery:
                       <div className="label-12-mono truncate">{b.release_name}</div>
                       <div className="label-13 truncate text-gray-900">
                         {b.title_id && names.get(b.title_id) ? `${names.get(b.title_id)} · ` : ''}
-                        {b.reason} · {when(b.created_at)}
+                        {reasonWords(b.reason)} · {when(b.created_at)}
                       </div>
                     </Table.Cell>
                     <Table.Cell align="right">
