@@ -321,6 +321,9 @@ export const kindNames: Record<string, string> = {
   health_raised: 'Needs attention',
   health_cleared: 'Needs attention cleared',
   original_offered: 'Original Offer',
+  placeholder: 'Placeholder Episode',
+  file_misfit: 'Misfit file',
+  file_rescored: 'File re-scored',
 }
 
 /** What a row's one action does: open the event's Title, or go to a place of the SPA. */

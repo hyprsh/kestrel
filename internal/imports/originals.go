@@ -1,6 +1,7 @@
 package imports
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/hyprsh/kestrel/internal/probe"
@@ -19,6 +20,19 @@ func fitOf(profile *scoring.Profile, info probe.Info, v scoring.Verdict, admitte
 	misfit = !slices.Contains(profile.Classes(), info.Class()) || v.Rejected(scoring.RejectLanguage) ||
 		v.Rejected(scoring.RejectOriginalOnly) && !admitted
 	return misfit, original
+}
+
+// misfitWhy says what of a misfit file the Profile does not accept, for the Log; "" for a file that fits.
+func misfitWhy(profile *scoring.Profile, info probe.Info, v scoring.Verdict, admitted bool) string {
+	switch {
+	case !slices.Contains(profile.Classes(), info.Class()):
+		return fmt.Sprintf("its resolution (%v, %dx%d) is outside what the Profile accepts", info.Class(), info.Width, info.Height)
+	case v.Rejected(scoring.RejectLanguage):
+		return "its audio has no language the Profile accepts"
+	case v.Rejected(scoring.RejectOriginalOnly) && !admitted:
+		return "its audio is the Original Language only, which the Profile does not take unless offered"
+	}
+	return ""
 }
 
 // replacesOriginal says whether a file with Verdict v replaces a held file

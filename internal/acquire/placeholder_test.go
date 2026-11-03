@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
@@ -39,13 +40,18 @@ func (r *rig) episodeCount(t *testing.T, id int64) int {
 func TestRSSGrabsAnEpisodeJustPastTheLastListedOneAsAPlaceholderEpisode(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t)
+	hist := r.logged(t)
 	id, _ := r.nightShow(t, library.MonitorAll)
 	const name = "Night.Show.S01E03.1080p.WEB-DL.H264-GRP"
 	r.publishTV(t, name)
 
-	out, err := r.svc.SyncRSS(ctx)
+	out, err := r.svc.SyncRSS(history.WithTrigger(ctx, history.Job(history.TriggerRSS, "")))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if evs := eventsOf(t, hist, history.PlaceholderAdded); len(evs) != 1 || evs[0].Trigger.Kind != history.TriggerRSS || evs[0].TitleID != id ||
+		evs[0].EpisodeID == 0 || evs[0].Reason != name+" names S01E03, which TheTVDB does not list yet" {
+		t.Errorf("placeholder entries = %+v", evs)
 	}
 	if len(out.Grabbed) != 1 || out.Grabbed[0].ReleaseName != name {
 		t.Fatalf("grabbed = %+v", out.Grabbed)

@@ -261,7 +261,7 @@ func New(opts Options) *App {
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
 		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
 		Rescore: func(ctx context.Context, titleID int64) error {
-			return imp.RescoreTitles(ctx, live.Current(), []int64{titleID}, nil)
+			return imp.RescoreTitles(ctx, live.Current(), []int64{titleID}, "Adoption re-scored the Title under the settings of now", nil)
 		},
 	})
 	if err != nil {

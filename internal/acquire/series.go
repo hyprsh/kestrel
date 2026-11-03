@@ -353,7 +353,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 				var ids, also []int64
 				var placeholderErr error
 				for i, p := range group {
-					eps, err := s.placeholdersFor(ctx, d.ID, p.Covers, episodes)
+					eps, err := s.placeholdersFor(ctx, d.ID, e.raw.Title, p.Covers, episodes)
 					if err != nil {
 						placeholderErr = err
 						break
