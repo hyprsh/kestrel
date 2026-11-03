@@ -20,6 +20,10 @@ const result = (id: number, title: string, over: Partial<LookupResult> = {}): Lo
   in_library: null,
   addable: true,
   not_addable_reason: null,
+  network: null,
+  origin_country: null,
+  seasons: null,
+  runtime: null,
   ratings: [],
   ...over,
 })
@@ -71,7 +75,6 @@ async function searchBreaking() {
   await userEvent.keyboard('{Control>}k{/Control}')
   const menu = await screen.findByRole('dialog', { name: /command menu/i })
   await userEvent.keyboard('break')
-  await userEvent.click(await within(menu).findByRole('option', { name: /add "break"/i }))
   return menu
 }
 
@@ -96,16 +99,15 @@ describe('adding a Series from the command menu', () => {
     expect(f.sent).toHaveLength(0)
   })
 
-  it('adds a Series with a monitoring mode chosen in the panel', async () => {
+  it('adds a Series with a monitoring mode chosen in its page', async () => {
     const f = fakeSeriesLookup()
     renderApp()
     const menu = await searchBreaking()
     await userEvent.click(await within(menu).findByRole('option', { name: /breaking bad/i }))
 
-    await within(menu).findByText(/Preselected/)
-    expect(within(menu).getByRole('combobox', { name: 'Monitor' })).toHaveValue('all')
-    await userEvent.selectOptions(within(menu).getByRole('combobox', { name: 'Monitor' }), 'future')
-    await userEvent.click(within(menu).getByRole('button', { name: /^add/i }))
+    await userEvent.click(await within(menu).findByRole('option', { name: /^Monitor/ }))
+    await userEvent.click(within(menu).getByRole('option', { name: /^Future Episodes Only/ })) // the overview is not there, so only the modes without seasons
+    await userEvent.click(await within(menu).findByRole('option', { name: /^Add Series/ }))
 
     await waitFor(() => expect(f.sent).toHaveLength(1))
     expect(f.sent[0].body).toEqual({ kind: 'series', tmdb_id: 1396, versions: [{ slot: 'standard', profile: 'hd-primary' }], series_monitor: 'future' })

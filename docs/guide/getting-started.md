@@ -155,20 +155,20 @@ The last step lists what is set up and names any required step that is still to 
 
 ## Add your first Title
 
-Choose **+** at the top of the Library's side panel (on a phone, in the top bar), or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux; the magnifier in the rail opens the same menu, where you choose **Add Title…**), and type a name. Pick the right result. Titles you already have say "In library".
+Choose **+** at the top of the Library's side panel (on a phone, in the top bar), or press <kbd>⌘</kbd> <kbd>K</kbd> (<kbd>Ctrl</kbd> <kbd>K</kbd> on Windows and Linux; the magnifier in the rail, or the Search tab on a phone, opens the same menu), and type a name. The menu searches your Library, its commands and TMDB together; **Add Title…** searches TMDB alone. Each result's second line tells two of one name apart: Movie or Series, the network or studio, the country, the seasons or the runtime, and its TMDB score with the votes behind it. Titles you already have say "In Library" and open instead.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/05-add-title-dark.png">
-  <img alt="The add panel searching for Paddington, with results for three Movies and a Series" src="images/05-add-title-light.png">
+  <img alt="The command menu searching for Paddington, with results for three Movies and a Series" src="images/05-add-title-light.png">
 </picture>
 
-The next step is the add panel. It is preselected from your defaults, and says why:
+Choose a result (<kbd>↵</kbd>) and its page opens inside the menu, with its poster, facts and overview over the choices. They start from your defaults, and a choice you change says **Changed**. Each choice opens its own list: choose one (<kbd>↵</kbd>) to pick it and return, and <kbd>Esc</kbd> goes back one step (at the first step it closes the menu).
 
-- **Slots:** tick the Slots you want, such as Standard, 4K or both (with a single Slot, there is nothing to tick). Each ticked Slot gets its own file, under the Profile you pick beside it.
+- **One row per Slot:** such as Standard and 4K. A Slot's list holds **Off** (no file in that Slot) and each Profile; each switched-on Slot gets its own file, under the Profile you pick. With a single Slot, there is nothing to switch off.
 - **Monitor** (Series only): which seasons to want. All of them, only future episodes, only the first or latest season, or a pick.
-- **Root folder:** only shown when you have more than one.
+- **Root Folder:** where the Title is filed, the first one unless you pick another.
 
-Choose **Add**.
+Choose **Add Movie** or **Add Series** (or press <kbd>⌘</kbd> <kbd>↵</kbd>); its second line sums up what will be added. The menu closes and a Toast confirms, with a link to the Title. <kbd>⌘</kbd> <kbd>↵</kbd> on a result in the list adds it with the defaults without opening its page. On a phone the page slides in with a **Back** button, and **Add** stays at the bottom.
 
 ## What Kestrel does next
 

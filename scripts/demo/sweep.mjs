@@ -13,6 +13,24 @@ const widths = [
   { w: 1440, h: 900 },
 ]
 
+// Opens the command menu, from the rail's search button or a phone's Search tab.
+async function menuOpen(h) {
+  await h.page.locator('[aria-label^="Search or Add"]').locator('visible=true').first().click()
+  await h.page.getByRole('combobox').waitFor()
+  await wait(400)
+}
+
+// The command menu on Drug Lords' page: searched, then its result opened.
+async function menuTitle(h) {
+  await menuOpen(h)
+  await h.page.keyboard.type('drug lords')
+  await h.page
+    .getByRole('option', { name: /Drug Lords/ })
+    .first()
+    .click()
+  await h.page.getByRole('option', { name: /^Standard/ }).waitFor()
+}
+
 // A screen is an address, or an object with the address (a function of the Title ids), a step that
 // gets the screen to its state, and phoneOnly for the More sheet, which only a phone has.
 const screens = {
@@ -44,12 +62,25 @@ const screens = {
         .first()
         .click(),
   },
-  // The command menu with a query no Library Title matches, which leads with Add.
-  'menu-add': {
+  // The command menu: opened, a search that finds TMDB results, a result's page and one of its choice lists.
+  menu: { path: '/', prepare: menuOpen },
+  'menu-search': {
     path: '/',
     prepare: async (h) => {
-      await h.page.locator('[aria-label^="Search or Add"]').locator('visible=true').first().click()
-      await h.page.keyboard.type('qqzxv')
+      await menuOpen(h)
+      await h.page.keyboard.type('drug lords')
+      await h.page
+        .getByRole('option', { name: /Drug Lords/ })
+        .first()
+        .waitFor()
+    },
+  },
+  'menu-title': { path: '/', prepare: menuTitle },
+  'menu-choice': {
+    path: '/',
+    prepare: async (h) => {
+      await menuTitle(h)
+      await h.page.getByRole('option', { name: /^Monitor/ }).click()
     },
   },
   more: {

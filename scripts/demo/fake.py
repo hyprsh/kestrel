@@ -13,7 +13,9 @@ What it knows (MOVIES and SERIES below):
   Better Call Saul, The Adventures of Paddington Bear, and two with trouble on
   purpose: Friends (TheTVDB answers after 25 s, for loading states) and
   Twin Peaks (TheTVDB answers 500, for error states).
-- Searches match "padd", "breaking"/"camino", "saul", "friends", "twin".
+- Four more for telling results apart in the add search: Drug Lords (2018, Netflix) and Drug Lords (2016) as Series,
+  the Movie Drug Lord and the Series Drugs, Inc.
+- Searches match "padd", "breaking"/"camino", "saul", "friends", "twin", "drug".
 - The indexer has no releases until GET /_ctl?releases=1 (=0 empties it again).
   Then it offers releases for every Movie and for Breaking Bad, never other Series. Every search takes 0.6 s to answer, offering releases or not.
   Their names carry the video codec (x264, H.264, H.265, HEVC), HDR and audio (DD, DDP, DTS-HD.MA with channels) the way
@@ -66,16 +68,19 @@ PORT = 7690
 MOVIES = {
     116149: dict(title="Paddington", year=2014, date="2014-11-28", imdb="tt1109624", runtime=95, va=7.3, vc=4912,
                  overview="A young Peruvian bear with a passion for all things British travels to London in search of a home. Finding himself lost and alone at Paddington Station, he meets the kindly Brown family.",
-                 genres=["Comedy", "Family", "Adventure"], de="Paddington", cert="PG"),
+                 genres=["Comedy", "Family", "Adventure"], de="Paddington", cert="PG", studio="Heyday Films", cc="GB"),
     346648: dict(title="Paddington 2", year=2017, date="2017-11-10", imdb="tt4468740", runtime=104, va=7.6, vc=3115,
                  overview="Paddington, now happily settled with the Browns, picks up a series of odd jobs to buy the perfect present for his Aunt Lucy, only for it to be stolen.",
-                 genres=["Adventure", "Comedy", "Family"], de="Paddington 2", cert="PG"),
+                 genres=["Adventure", "Comedy", "Family"], de="Paddington 2", cert="PG", studio="Heyday Films", cc="GB"),
     516729: dict(title="Paddington in Peru", year=2024, date="2024-11-08", imdb="tt5822536", runtime=106, va=7.1, vc=612,
                  overview="Paddington travels to Peru to visit his beloved Aunt Lucy, who now resides at the Home for Retired Bears. With the Brown family in tow, a thrilling adventure ensues.",
-                 genres=["Adventure", "Comedy", "Family"], de="Paddington in Peru", cert="PG"),
+                 genres=["Adventure", "Comedy", "Family"], de="Paddington in Peru", cert="PG", studio="StudioCanal", cc="GB"),
     559969: dict(title="El Camino: A Breaking Bad Movie", year=2019, date="2019-10-11", imdb="tt9243946", runtime=123, va=6.9, vc=5321,
                  overview="In the wake of his dramatic escape from captivity, Jesse Pinkman must come to terms with his past in order to forge some kind of future.",
                  genres=["Crime", "Drama", "Thriller"], de="El Camino: Ein \"Breaking Bad\"-Film", cert="TV-MA"),
+    90001: dict(title="Drug Lord", year=2014, date="2014-05-02", imdb="tt9000001", runtime=96, va=5.2, vc=41, studio="Mandarin Cinema", cc="MX",
+                overview="A cartel accountant is pulled between his family and the man he keeps the books for.",
+                genres=["Crime", "Drama"], de="Drug Lord", cert="R"),
 }
 
 BB = {
@@ -154,6 +159,18 @@ SERIES = {
                 status="Ended", va=6.9, vc=31, network="Teletoon", runtime=22, genres=["Animation", "Family"], de="Die Abenteuer von Paddington Bär",
                 overview="Animated adventures of the bear from darkest Peru who lives with the Brown family in London.",
                 eps=lambda: generic_eps(76543, [13, 13, 13], 1997, "Episode"), cert=[("US", "TV-Y")]),
+    90101: dict(name="Drug Lords", tvdb=390101, imdb="tt9000101", date="2018-03-09", last="2019-06-14", status="Ended",
+                va=7.3, vc=30, network="Netflix", runtime=48, genres=["Documentary", "Crime"], de="Drug Lords", cc="US",
+                overview="Former agents, smugglers and the families they left behind tell how two cartels fell, in the words of the people who were there.",
+                eps=lambda: generic_eps(390101, [4, 4], 2018, "Episode"), cert=[("US", "TV-MA")]),
+    90102: dict(name="Drug Lords", tvdb=390102, imdb="tt9000102", date="2016-02-01", last="2016-03-07", status="Ended",
+                va=6.1, vc=8, network="Canal Once", runtime=45, genres=["Documentary"], de="Drug Lords", cc="MX",
+                overview="Six hours on the men who ran the trade from Sinaloa.",
+                eps=lambda: generic_eps(390102, [6], 2016, "Episode"), cert=[("MX", "B15")]),
+    90103: dict(name="Drugs, Inc.", tvdb=390103, imdb="tt9000103", date="2010-01-10", last="2017-03-01", status="Ended",
+                va=7.8, vc=212, network="National Geographic", runtime=45, genres=["Documentary", "Crime"], de="Drugs, Inc.", cc="US",
+                overview="A look inside the business of illegal drugs, from the street to the boardroom.",
+                eps=lambda: generic_eps(390103, [6, 6, 8, 6, 6, 6, 6, 6], 2010, "Episode"), cert=[("US", "TV-14")]),
 }
 TVDB = {v["tvdb"]: k for k, v in SERIES.items()}
 
@@ -174,7 +191,7 @@ def search(q):
         s = SERIES[i]
         return dict(id=i, media_type="tv", name=s["name"], original_name=s["name"], original_language="en",
                     overview=s["overview"], poster_path=poster_path("tv", i), first_air_date=s["date"],
-                    vote_average=s["va"], vote_count=s["vc"], popularity=40)
+                    vote_average=s["va"], vote_count=s["vc"], popularity=40, origin_country=[s.get("cc", "US")])
     if "padd" in q:
         res = [mv(116149), mv(346648), mv(516729), tv(61814)]
     elif "breaking" in q or "camino" in q:
@@ -185,6 +202,8 @@ def search(q):
         res = [tv(1668)]
     elif "twin" in q:
         res = [tv(1920)]
+    elif "drug" in q:
+        res = [tv(90101), tv(90102), mv(90001), tv(90103)]
     return {"page": 1, "results": res, "total_pages": 1, "total_results": len(res)}
 
 
@@ -195,6 +214,8 @@ def movie(i):
         "release_date": m["date"], "runtime": m["runtime"], "overview": m["overview"],
         "poster_path": poster_path("movie", i), "genres": [{"name": g} for g in m["genres"]],
         "external_ids": {"imdb_id": m["imdb"]}, "vote_average": m["va"], "vote_count": m["vc"],
+        "production_companies": [{"name": m["studio"]}] if m.get("studio") else [],
+        "production_countries": [{"iso_3166_1": m.get("cc", "US")}],
         "alternative_titles": {"titles": []},
         "translations": {"translations": [{"iso_3166_1": "DE", "iso_639_1": "de", "data": {"title": m["de"]}}]},
         "release_dates": {"results": [
@@ -215,7 +236,8 @@ def tv(i):
         "id": i, "name": s["name"], "original_name": s["name"], "original_language": "en", "first_air_date": s["date"],
         "episode_run_time": [s["runtime"]], "overview": s["overview"], "poster_path": poster_path("tv", i),
         "vote_average": s["va"], "vote_count": s["vc"], "genres": [{"name": g} for g in s["genres"]],
-        "networks": [{"name": s["network"]}], "external_ids": {"imdb_id": s["imdb"], "tvdb_id": s["tvdb"]},
+        "networks": [{"name": s["network"]}], "origin_country": [s.get("cc", "US")],
+        "number_of_seasons": len({e["seasonNumber"] for e in s["eps"]() if e["seasonNumber"] > 0}), "external_ids": {"imdb_id": s["imdb"], "tvdb_id": s["tvdb"]},
         "alternative_titles": {"results": []},
         "translations": {"translations": [{"iso_3166_1": "DE", "iso_639_1": "de", "data": {"name": s["de"]}}]},
         "content_ratings": {"results": [{"iso_3166_1": c, "rating": r} for c, r in s["cert"]]},
