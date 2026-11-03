@@ -1,10 +1,13 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import goKinds from '../../../internal/history/history.go?raw'
 import { slotNamesOf } from '../library/slots'
 import { kindLabels, logQualifiers } from './filter'
 import { kindNames } from './sentence'
 
 // Every Kind constant of internal/history, read from the Go source so a new one without words fails here.
+const goKinds = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../internal/history/history.go'), 'utf8')
 const serverKinds = [...goKinds.matchAll(/^\s+\w+\s+Kind = "([a-z_]+)"/gm)].map((m) => m[1])
 
 describe('the kinds the Log records', () => {
