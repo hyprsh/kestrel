@@ -457,11 +457,18 @@ describe('Settings', () => {
     { release_family: 'sqp', name: 'SQP', items: [{ name: 'SQP 1080p', release_family: 'sqp', resolution: 'hd', language_rule: 'primary', kinds: ['movie'] }] },
   ]
 
+  // The Suggested section is a Collapse: its rows are reachable once it is open.
+  const openSuggested = async () => {
+    const toggle = await screen.findByRole('button', { name: 'Suggested' })
+    if (toggle.getAttribute('aria-expanded') === 'false') await userEvent.click(toggle)
+    return screen.findByRole('region', { name: 'Suggested' })
+  }
+
   it('lists Suggested Profiles by Release Family with their kinds and a chip naming the language', async () => {
     fakeProfiles({ groups: suggested })
     serveDetails()
     await open('Slots & Profiles')
-    const section = await screen.findByRole('region', { name: 'Suggested' })
+    const section = await openSuggested()
     const remux = within(within(section).getAllByRole('group', { name: 'Remux + WEB' })[0])
     expect(remux.getByText('4K Remux')).toBeInTheDocument()
     expect(remux.getByText('Movies and Series')).toBeInTheDocument()
@@ -473,17 +480,17 @@ describe('Settings', () => {
     fakeProfiles({ groups: suggested })
     serveDetails()
     await open('Slots & Profiles')
-    const section = within(await screen.findByRole('region', { name: 'Suggested' }))
-    const toggle = section.getByText('Other languages')
-    const disclosure = toggle.closest('details')!
-    expect(disclosure).not.toHaveAttribute('open')
+    const section = within(await openSuggested())
+    const toggle = section.getByRole('button', { name: 'Other languages' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
     // The Primary and Original recipes are outside it, the named one inside.
-    expect(within(disclosure).queryByText('4K Remux')).not.toBeInTheDocument()
-    expect(within(disclosure).getByText('4K Remux German')).toBeInTheDocument()
+    expect(section.getAllByText('4K Remux')).toHaveLength(1)
+    expect(section.getByText('4K Remux German')).not.toBeVisible()
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(section.getByText('4K Remux German')).toBeVisible()
     expect(section.getAllByText('Movies')[0]).toBeInTheDocument()
     expect(section.getByTitle('German audio')).toHaveTextContent('German')
-    await userEvent.click(toggle)
-    expect(disclosure).toHaveAttribute('open')
   })
 
   it('names the Primary Language a Primary recipe resolves to', async () => {
@@ -504,11 +511,10 @@ describe('Settings', () => {
     fakeProfiles({ groups: suggested })
     serveDetails()
     await open('Slots & Profiles')
-    const section = within(await screen.findByRole('region', { name: 'Suggested' }))
-    const disclosure = section.getByText('Suggested').closest('details')!
-    expect(disclosure).not.toHaveAttribute('open')
-    await userEvent.click(section.getByText('Suggested'))
-    expect(disclosure).toHaveAttribute('open')
+    const toggle = await screen.findByRole('button', { name: 'Suggested' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('starts the Suggested section open while the household has no Profiles', async () => {
@@ -516,18 +522,19 @@ describe('Settings', () => {
     server.use(http.get('/profiles', ({ response }) => response(200).json({ items: [] })))
     serveDetails()
     await open('Slots & Profiles')
-    const section = within(await screen.findByRole('region', { name: 'Suggested' }))
-    expect(section.getByText('Suggested').closest('details')).toHaveAttribute('open')
+    expect(await screen.findByRole('button', { name: 'Suggested' })).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('moves an added Suggested Profile into the Profiles list, enabled, without a reload', async () => {
     const sent = fakeProfiles({ groups: suggested })
     serveDetails()
     await open('Slots & Profiles')
+    await openSuggested()
     await userEvent.click(await screen.findByRole('button', { name: 'Add 4K Remux' }))
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'import', body: { release_family: 'remux-web', resolution: '4k', language_rule: 'primary' } }))
     expect(await screen.findByRole('button', { name: 'Edit 4K Remux' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add 4K Remux' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Other languages' }))
     expect(screen.getByRole('button', { name: 'Add 4K Remux German' })).toBeInTheDocument() // still listed, under Other languages
   })
 
@@ -544,6 +551,7 @@ describe('Settings', () => {
     server.use(http.get('/profiles', ({ response }) => response(200).json({ items: seeded().map((p) => ({ ...p, from_config_file: true })) })))
     serveDetails()
     await open('Slots & Profiles')
+    await openSuggested()
     expect(await screen.findByRole('button', { name: 'Add 4K Remux' })).toBeDisabled()
     expect(screen.getAllByText(/The Config File sets the Profiles/)).toHaveLength(1)
   })
@@ -616,8 +624,8 @@ describe('Settings', () => {
 
     const items = () => within(sheet).getAllByRole('listitem')
     expect(items().map((li) => li.textContent)).toEqual(['Remux 1080p', 'BluRay 1080p', 'WEB-DL 1080pcutoff', 'WEBRip 1080p', 'HDTV 1080pnot accepted'])
-    expect(within(sheet).getByRole('checkbox', { name: 'Accept HDTV 1080p' })).toHaveAttribute('aria-checked', 'false')
-    expect(within(sheet).getByRole('checkbox', { name: 'Accept WEB-DL 1080p' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(sheet).getByRole('checkbox', { name: 'Accept HDTV 1080p' })).not.toBeChecked()
+    expect(within(sheet).getByRole('checkbox', { name: 'Accept WEB-DL 1080p' })).toBeChecked()
     expect(within(sheet).getByLabelText('Good enough at')).toHaveValue('WEBDL-1080p')
     expect(within(sheet).getByLabelText('Upgrade until Score')).toHaveValue('2000')
     expect(within(sheet).getByLabelText('Minimum Score')).toHaveValue('0')
@@ -690,7 +698,7 @@ describe('Settings', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Edit HD' }))
     const sheet = await screen.findByRole('dialog', { name: 'HD' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Reset to TRaSH' }))
-    expect(within(sheet).getByRole('checkbox', { name: 'Accept HDTV 1080p' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(sheet).getByRole('checkbox', { name: 'Accept HDTV 1080p' })).toBeChecked()
     expect(within(sheet).getByRole('button', { name: 'Reset to TRaSH' })).toBeDisabled()
     await userEvent.click(within(sheet).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(sent.at(-1)?.path).toBe('profile hd-primary'))

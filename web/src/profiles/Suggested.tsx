@@ -1,7 +1,6 @@
-import { Badge, Button } from '@hyprsh/design'
+import { Badge, Button, Collapse, Entity } from '@hyprsh/design'
 import { useState } from 'react'
 import { useImportProfile, useProfileSuggestions, type ProfileSuggestion } from '../api/queries'
-import { SuggestionGroup, SuggestionMore, SuggestionRow } from '../layout/SettingsLists'
 import { useReport } from '../toasts'
 import { kindsText, recipeLanguage, usePrimaryName } from './recipe'
 
@@ -35,30 +34,47 @@ export function Suggested({ declared = false, startOpen = false }: { declared?: 
     )
   }
   const list = (g: Group) => (
-    <SuggestionGroup key={g.release_family} name={g.name}>
-      {g.items.map((s) => (
-        <SuggestionRow
-          key={`${s.resolution}-${s.language_rule}`}
-          name={s.name}
-          holds={kindsText(s.kinds)}
-          chip={chip(s)}
-          action={
-            <Button size="small" variant="secondary" aria-label={`Add ${s.name}`} disabled={declared || add.isPending} onClick={() => void run(s)}>
-              Add
-            </Button>
-          }
-        />
-      ))}
-    </SuggestionGroup>
+    <div key={g.release_family} role="group" aria-label={g.name} className="flex flex-col gap-1">
+      <h4 className="label-13 text-gray-900">{g.name}</h4>
+      <Entity.List>
+        {g.items.map((s) => (
+          <Entity
+            key={`${s.resolution}-${s.language_rule}`}
+            right={
+              <Button size="small" variant="secondary" aria-label={`Add ${s.name}`} disabled={declared || add.isPending} onClick={() => void run(s)}>
+                Add
+              </Button>
+            }
+          >
+            <Entity.Content
+              fill
+              title={s.name}
+              description={
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1 whitespace-normal">
+                  <span>{kindsText(s.kinds)}</span>
+                  {chip(s)}
+                </span>
+              }
+            />
+          </Entity>
+        ))}
+      </Entity.List>
+    </div>
   )
   const common = only(groups, (s) => s.language_rule === 'primary' || s.language_rule === 'original')
   const other = only(groups, (s) => s.language_rule !== 'primary' && s.language_rule !== 'original')
   return (
-    <section aria-label="Suggested" className="pt-2">
-      <SuggestionMore summary="Suggested" strong open={open} onToggle={setOpen}>
-        {common.map(list)}
-        {other.length > 0 && <SuggestionMore summary="Other languages">{other.map(list)}</SuggestionMore>}
-      </SuggestionMore>
-    </section>
+    <div className="pt-2">
+      <Collapse title="Suggested" size="small" expanded={open} onChange={setOpen} headingLevel={3}>
+        <div className="flex flex-col gap-2.5">
+          {common.map(list)}
+          {other.length > 0 && (
+            <Collapse title="Other languages" variant="inline">
+              <div className="flex flex-col gap-2.5 pt-2.5">{other.map(list)}</div>
+            </Collapse>
+          )}
+        </div>
+      </Collapse>
+    </div>
   )
 }
