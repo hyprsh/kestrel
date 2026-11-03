@@ -268,8 +268,17 @@ function ManualItems({ versions, text = 'Manual Search', onPick }: { versions: E
   ))
 }
 
+/** One "Manual Search (4K)…" item per Version, always enabled: a Release can be picked by hand for any season or episode. */
+function ManualSlotItems({ versions, onPick }: { versions: EpisodeVersion[]; onPick: (v: EpisodeVersion) => void }) {
+  return versions.map((v) => (
+    <MenuItem key={v.slot} prefix={<ListFilter aria-hidden className="size-4" />} onSelect={() => onPick(v)}>
+      {`Manual Search (${v.slotName})…`}
+    </MenuItem>
+  ))
+}
+
 /**
- * The ⋯ menu of an episode row: Search All Versions (what is Wanted in it, in every Version), Stop Monitoring Episode (Monitor Episode
+ * The ⋯ menu of an episode row: Search All Versions (what is Wanted in it, in every Version), Manual Search (<Slot>)… per Version, Stop Monitoring Episode (Monitor Episode
  * while it is not) and the delete items of its files. A Version's own search and files are its cell's menu.
  */
 export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: EpisodeActions; episode: Episode; onOpenChange?: (open: boolean) => void }) {
@@ -286,6 +295,7 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
       >
         Search All Versions
       </MenuItem>
+      <ManualSlotItems versions={versions} onPick={(v) => actions.manual(v, { season: episode.season, episode_ids: [episode.id] }, code)} />
       <MenuItem
         prefix={episode.monitored ? <Bookmark aria-hidden className="size-4" /> : <BookmarkCheck aria-hidden className="size-4" />}
         onSelect={() => actions.monitor([episode], !episode.monitored)}
@@ -310,7 +320,7 @@ export function EpisodeMenu({ actions, episode, onOpenChange }: { actions: Episo
 }
 
 /**
- * A season row's ⋯ menu, season-wide: Search All Wanted in Season N, Select All Episodes (it opens the season, `onSelectAll`), Stop
+ * A season row's ⋯ menu, season-wide: Search All Wanted in Season N, Manual Search (<Slot>)… per Version, Select All Episodes (it opens the season, `onSelectAll`), Stop
  * Monitoring Season N (Monitor while it is not) and the delete items of its files. A Version's own actions are its cell's menu.
  */
 export function SeasonMenu({ actions, season, episodes, monitored, onSelectAll }: { actions: EpisodeActions; season: number; episodes: Episode[]; monitored: boolean; onSelectAll: () => void }) {
@@ -328,6 +338,7 @@ export function SeasonMenu({ actions, season, episodes, monitored, onSelectAll }
       >
         {`Search All Wanted in ${name}`}
       </MenuItem>
+      <ManualSlotItems versions={versions} onPick={(v) => actions.manual(v, { season }, name)} />
       <MenuItem prefix={<ListChecks aria-hidden className="size-4" />} disabled={episodes.length === 0} onSelect={() => (all ? selection.clear() : onSelectAll())}>
         {all ? 'Deselect All Episodes' : 'Select All Episodes'}
       </MenuItem>

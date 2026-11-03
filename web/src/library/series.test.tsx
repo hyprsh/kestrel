@@ -133,7 +133,7 @@ describe('the episode list', () => {
     expect(within(pilot).getByRole('button', { name: 'S01E01 Standard: Have' })).toBeInTheDocument()
     expect(within(pilot).getByRole('button', { name: 'S01E01 4K: Wanted' })).toBeInTheDocument()
     const cat = within(grid).getByRole('row', { name: /Cat's in the Bag/ })
-    expect(within(cat).getByRole('img', { name: 'S01E02 Standard: Not out yet' })).toBeInTheDocument()
+    expect(within(cat).getByRole('button', { name: 'S01E02 Standard: Not out yet' })).toBeInTheDocument()
     // The Versions are the columns of the table's head, not of the list.
     const table = screen.getByRole('table', { name: 'Versions and seasons' })
     expect(

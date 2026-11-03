@@ -66,7 +66,7 @@ describe('a Series with four Slots', () => {
     ).toEqual(expect.arrayContaining(['Standard', '4K', 'German', 'Remux']))
     const dead = within(table).getByRole('row', { name: /Dead Freight/ })
     for (const label of ['S01E05 4K: Wanted', 'S01E05 Remux: Downloading']) expect(within(dead).getByRole('button', { name: label })).toBeInTheDocument()
-    for (const label of ['S01E05 Standard: Have', 'S01E05 German: Have']) expect(within(dead).getByRole('img', { name: label })).toBeInTheDocument()
+    for (const label of ['S01E05 Standard: Have', 'S01E05 German: Have']) expect(within(dead).getByRole('button', { name: label })).toBeInTheDocument()
 
     const off = within(table).getByRole('row', { name: /Hazard Pay/ })
     expect(off).toHaveAttribute('data-monitored', 'off')
@@ -84,7 +84,7 @@ describe('a Series with four Slots', () => {
     for (const n of names) expect(within(table).getByRole('columnheader', { name: n })).toBeInTheDocument()
     expect(within(table).getAllByRole('columnheader', { name: /^(Standard|4K|German|Remux)$/ })).toHaveLength(names.length)
     const pilot = within(table).getByRole('row', { name: /Pilot/ })
-    expect(within(pilot).getByRole('img', { name: 'S01E01 Standard: Have' })).toBeInTheDocument()
+    expect(within(pilot).getByRole('button', { name: 'S01E01 Standard: Have' })).toBeInTheDocument()
     if (names.length > 1) expect(within(pilot).getByRole('button', { name: 'S01E01 4K: Wanted' })).toBeInTheDocument()
   })
 
@@ -150,8 +150,8 @@ describe('a Series with four Slots', () => {
     ]
     const table = await show()
     const row = within(seasonRowOf(table, 1))
-    expect(row.getByRole('img', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument()
-    expect(row.getByRole('img', { name: 'Season 1, German: 2 of 2' })).toBeInTheDocument()
+    expect(row.getByRole('button', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument()
+    expect(row.getByRole('button', { name: 'Season 1, German: 2 of 2' })).toBeInTheDocument()
     expect(row.getByRole('button', { name: 'Season 1, 4K: 1 Wanted' })).toHaveTextContent('1 Wanted')
     expect(row.getByRole('button', { name: 'Season 1, Remux: 1 Wanted' })).toBeInTheDocument()
     await userEvent.click(row.getByRole('button', { name: 'Season 1, 4K: 1 Wanted' }))
@@ -177,7 +177,7 @@ describe('the menus of the Versions that hold no file', () => {
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
 
-    expect(pilot.getByRole('img', { name: 'S01E01 German: Not out yet' })).toBeInTheDocument()
+    expect(pilot.getByRole('button', { name: 'S01E01 German: Not out yet' })).toBeInTheDocument()
 
     await userEvent.click(pilot.getByRole('button', { name: 'S01E01 4K: Not monitored' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: /^Monitor S01E01/ }))

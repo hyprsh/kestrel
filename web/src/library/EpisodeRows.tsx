@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Episode } from '../api/queries'
 import type { QueueItem } from '../api/queue'
 import { usePhone } from '../responsive'
-import { CellButton, CellStatic } from './CellButton'
+import { CellButton } from './CellButton'
 import { RowDeleteConfirm } from './DeleteFiles'
 import { EpisodeMenu, EpisodeTick, type EpisodeActions } from './EpisodeActions'
 import { EpisodeFilePopover } from './EpisodeFilePopover'
@@ -214,6 +214,8 @@ function EpisodeRow({
 }) {
   const code = episodeCode(episode)
   const off = !episode.monitored
+  // Only the text of a row that is not monitored is dimmed, never its cells or ⋯; an episode not out yet is not dimmed at all.
+  const dim = off && !slots.some((s) => cellOf(episode, s.key)?.state === 'unreleased')
   const [menuOpen, setMenuOpen] = useState(false)
   const items = useCellItems(actions)
   const grid = gridOf(slots.length, phone)
@@ -235,6 +237,7 @@ function EpisodeRow({
             cell={cell}
             file={file}
             onUpgrade={() => actions.upgrade(version, episode)}
+            onManual={() => actions.manual(version, { season: episode.season, episode_ids: [episode.id] }, code)}
             trigger={
               <Button variant="tertiary" size="small" svgOnly aria-label={`${label}: Have`} title={`${s.name}: Have`} data-cell="" tabIndex={-1} onFocus={onFocus}>
                 <Check aria-hidden className="size-3.5 text-gray-600" />
@@ -243,25 +246,21 @@ function EpisodeRow({
           />
         )
       } else {
-        const menu = items.episode(version, episode, view)
-        body =
-          menu.length > 0 ? (
-            <CellButton
-              kind={view.kind}
-              text={view.text}
-              count={view.count}
-              label={`${label}: ${view.say}`}
-              title={`${code} · ${s.name}`}
-              status={view.say}
-              items={menu}
-              phone={phone}
-              small
-              tabIndex={-1}
-              onFocus={onFocus}
-            />
-          ) : (
-            <CellStatic kind={view.kind} text={view.text} count={view.count} label={`${label}: ${view.say}`} phone={phone} />
-          )
+        body = (
+          <CellButton
+            kind={view.kind}
+            text={view.text}
+            count={view.count}
+            label={`${label}: ${view.say}`}
+            title={`${code} · ${s.name}`}
+            status={view.say}
+            items={items.episode(version, episode, view)}
+            phone={phone}
+            small
+            tabIndex={-1}
+            onFocus={onFocus}
+          />
+        )
       }
     }
     return (
@@ -287,16 +286,16 @@ function EpisodeRow({
         style={grid.style}
         className={`group/row ${grid.className} min-h-12 border-t border-gray-alpha-100 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus-color) ${
           found ? 'bg-blue-alpha-100 ring-2 ring-blue-700 ring-inset' : ticked ? 'bg-gray-alpha-200' : 'bg-gray-alpha-100'
-        } ${off ? 'opacity-75' : ''}`}
+        }`}
       >
         <span role="rowheader" className={`flex min-w-0 items-center gap-2.5 py-1.5 ${phone ? 'gap-1.5 pr-1 pl-7' : 'pr-2 pl-5'}`}>
           {(!phone || actions.selection.active) && <EpisodeTick actions={actions} episode={episode} tabIndex={-1} onFocus={onFocus} />}
-          <span className={`label-12-mono shrink-0 text-gray-900 ${phone ? '' : 'w-[26px]'}`}>E{String(episode.number).padStart(2, '0')}</span>
+          <span className={`label-12-mono shrink-0 ${dim ? 'opacity-75' : ''} ${phone ? '' : 'w-[26px]'}`}>E{String(episode.number).padStart(2, '0')}</span>
           <span className="flex min-w-0 flex-col gap-px">
-            <span className={`label-13 min-w-0 truncate ${off ? 'text-gray-700' : ''}`}>
+            <span className={`label-13 min-w-0 truncate ${dim ? 'text-gray-700 opacity-75' : ''}`}>
               <EpisodeName episode={episode} />
             </span>
-            {!phone && <span className="label-12 text-gray-900">{episode.air_date ? airedText(episode.air_date) : '—'}</span>}
+            {!phone && <span className={`label-12 text-gray-900 ${dim ? 'opacity-75' : ''}`}>{episode.air_date ? airedText(episode.air_date) : '—'}</span>}
           </span>
         </span>
         {cells}

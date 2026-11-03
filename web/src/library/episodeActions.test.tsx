@@ -85,12 +85,14 @@ describe('the monitoring of an episode', () => {
     const row = within(grid).getByRole('row', { name: /Pilot/ })
     row.focus()
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(row).getByRole('button', { name: 'S01E01 4K: Wanted' })).toHaveFocus() // the Standard cell is a plain check
-    await userEvent.keyboard('{ArrowLeft}')
+    expect(within(row).getByRole('button', { name: 'S01E01 Standard: Have' })).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(within(row).getByRole('button', { name: 'S01E01 4K: Wanted' })).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
     expect(row).toHaveFocus()
 
     await userEvent.keyboard('{Enter}')
-    expect(await screen.findByRole('menuitem', { name: 'Search S01E01 for 4K' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Manual Search S01E01 (Standard)…' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     expect(within(grid).queryAllByRole('checkbox', { checked: true })).toHaveLength(0)
   })
@@ -103,7 +105,7 @@ describe('searching from the episode list', () => {
     const { grid } = await openSeries()
     await userEvent.click(within(grid).getByRole('button', { name: 'S01E01 Actions' }))
     const menu = screen.getByRole('menu', { name: 'S01E01 Actions' })
-    const items = ['Search All Versions', 'Stop Monitoring Episode', 'Show in Log', 'Delete Standard Files…', 'Delete 4K Files…']
+    const items = ['Search All Versions', 'Manual Search (Standard)…', 'Manual Search (4K)…', 'Stop Monitoring Episode', 'Show in Log', 'Delete Standard Files…', 'Delete 4K Files…']
     expect(
       within(menu)
         .getAllByRole('menuitem')
@@ -160,6 +162,46 @@ describe('searching from the episode list', () => {
     const pane = await screen.findByRole('region', { name: 'Manual search' })
     await waitFor(() => expect(manual).toEqual([{ version: 52, body: { season: 1, episode_ids: [2] } }]))
     expect(within(pane).getByText('S01E01')).toBeInTheDocument()
+  })
+
+  it('opens Manual search from the cell of an episode not out yet, and from both ⋯ menus of its row', async () => {
+    const { grid, manual } = await openSeries()
+
+    // S01E02 has not aired: its cells are buttons all the same.
+    await userEvent.click(cellOf(grid, 'S01E02', 'Standard', 'Not out yet'))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Manual Search S01E02 (Standard)…' }))
+    await screen.findByRole('region', { name: 'Manual search' })
+    await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1, episode_ids: [3] } }]))
+  })
+
+  it('opens Manual search for an episode not out yet from the ⋯ menu of its row, in the Version picked', async () => {
+    const { grid, manual } = await openSeries()
+
+    await choose(grid, 'S01E02 Actions', 'Manual Search (4K)…')
+
+    await screen.findByRole('region', { name: 'Manual search' })
+    await waitFor(() => expect(manual).toEqual([{ version: 52, body: { season: 1, episode_ids: [3] } }]))
+  })
+
+  it('opens Manual search from the popover of a cell with a file', async () => {
+    const state = fakeSeries()
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 120, file), '4k': cell('unreleased') } })]
+    const manual: Posted[] = []
+    server.use(
+      http.post('/versions/{id}/releases', async ({ params, request, response }) => {
+        manual.push({ version: Number(params.id), body: await request.json() })
+        return response(200).json(releaseList())
+      }),
+    )
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
+
+    await userEvent.click(cellOf(grid, 'S01E01', 'Standard', 'Have'))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'S01E01 Standard file' })).getByRole('button', { name: 'Manual Search…' }))
+
+    await screen.findByRole('region', { name: 'Manual search' })
+    await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1, episode_ids: [2] } }]))
   })
 
   it('runs an automatic Upgrade search from the popover of a cell with a file, in that Slot only', async () => {
@@ -231,6 +273,15 @@ describe('searching from the episode list', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Manual Search Season 1 (4K)…' }))
     await waitFor(() => expect(manual).toEqual([{ version: 52, body: { season: 1 } }]))
     expect(within(await screen.findByRole('region', { name: 'Manual search' })).getByText('Season 1')).toBeInTheDocument()
+  })
+
+  it('opens Manual search for a whole season from the ⋯ menu of its row, though nothing in it is Wanted', async () => {
+    const { manual } = await openSeries()
+
+    await choose(null, 'Season 1 Actions', 'Manual Search (Standard)…')
+
+    await screen.findByRole('region', { name: 'Manual search' })
+    await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1 } }]))
   })
 
   it('ticks episodes, a range with shift-click, and searches them together from the bar', async () => {

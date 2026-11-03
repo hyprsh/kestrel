@@ -87,7 +87,7 @@ function suite(phone: boolean) {
 
     await userEvent.click(within(two).getByRole('button', { name: 'Season 2 Actions' }))
     const menu = screen.getByRole('menu', { name: 'Season 2 Actions' })
-    expect(names(menu).slice(0, 3)).toEqual(['Search All Wanted in Season 2', 'Select All Episodes', 'Stop Monitoring Season 2'])
+    expect(names(menu).slice(0, 5)).toEqual(['Search All Wanted in Season 2', 'Manual Search (Standard)…', 'Manual Search (4K)…', 'Select All Episodes', 'Stop Monitoring Season 2'])
     expect(within(menu).getByRole('menuitem', { name: /^Delete Standard Season/ })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
 
