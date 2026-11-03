@@ -1,6 +1,5 @@
 // chrome: domain-visual
-import { Button, Note, Skeleton, Tabs } from '@hyprsh/design'
-import { Search } from 'lucide-react'
+import { Note, Skeleton, Tabs } from '@hyprsh/design'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQueue } from '../api/queue'
 import { ApiError, useEpisodes, type Episode, type Profile, type TitleDetail } from '../api/queries'
@@ -8,10 +7,9 @@ import { useDisplay } from '../display/useDisplay'
 import { LoadingRegion } from '../loading'
 import { useUrlParam } from '../place'
 import { TickedBar, useEpisodeActions } from './EpisodeActions'
-import { FindEpisodeField, useEpisodeFind } from './EpisodeFind'
 import { EpisodeRows } from './EpisodeRows'
 import { useEpisodeView } from './episodeView'
-import { bySeason, defaultSeasons, episodeCode, isUnaired, matchesFilter, orderEpisodes, orderSeasons, type EpisodeFilter } from './episodes'
+import { bySeason, defaultSeasons, isUnaired, matchesFilter, orderEpisodes, orderSeasons, type EpisodeFilter } from './episodes'
 import { grabsByEpisode } from './cellDetail'
 import { SeasonRows } from './SeasonRows'
 import { useNow } from '../time'
@@ -84,7 +82,6 @@ export function SeriesSection({
     setShownParam(null)
   }, [title.id, setShownParam])
   const [folded, setFolded] = useState<Record<number, boolean>>({})
-  const [finding, setFinding] = useState(false)
   const shownOf = useMemo(() => {
     return (n: number) => {
       const inSeason = grouped.get(n) ?? noEpisodes
@@ -121,43 +118,14 @@ export function SeriesSection({
     setTicking(null)
   }, [ticking, open, shownOf, checkIds])
 
-  // The Find field: a code or part of a name goes to that episode's season (which opens) and highlights it.
+  // The episode an address names ("?season=&episode="), highlighted in its season.
   const inFoundSeason = view.season !== null ? (grouped.get(view.season) ?? noEpisodes) : noEpisodes
   const found = view.episode === null ? null : (inFoundSeason.find((e) => e.number === view.episode)?.id ?? null)
-  const find = useEpisodeFind(
-    episodes,
-    (hit) => {
-      if (hit) {
-        const target = (grouped.get(hit.season) ?? noEpisodes).find((e) => e.number === hit.number)
-        if (target && !matchesFilter(target, slots, filter)) setFilter('all')
-        view.found(
-          hit.season,
-          hit.number,
-          seasons.filter((n) => n === hit.season || open.has(n)),
-        )
-      } else view.set(view.season, null)
-    },
-    view.season !== null && view.episode !== null ? `S${String(view.season).padStart(2, '0')}E${String(view.episode).padStart(2, '0')}` : '',
-  )
-  // Another Series starts with an empty field.
-  const [fieldFor, setFieldFor] = useState(title.id)
-  useEffect(() => {
-    if (fieldFor === title.id) return
-    setFieldFor(title.id)
-    find.setText('')
-    find.setAt(0)
-  }, [fieldFor, title.id, find])
-  // Episodes loading after the address named one: the field shows it.
-  const code = found === null ? '' : episodeCode(inFoundSeason.find((e) => e.id === found)!)
-  useEffect(() => {
-    if (code && find.text === '') find.setText(code)
-  }, [code, find])
 
   const manual = onManualSearch ?? (() => {})
   // Whether there is a table of episodes to work with; until then the head shows its Versions over a note, a skeleton or the error.
   const ok = !query.isError && !!loaded && ready && episodes.length > 0
 
-  const allOpen = listed.length > 0 && listed.every((n) => open.has(n))
   const count = (f: EpisodeFilter) => episodes.filter((e) => matchesFilter(e, slots, f)).length
   const filterTabs: { value: EpisodeFilter; title: string }[] = [
     { value: 'all', title: `All ${count('all')}` },
@@ -165,7 +133,6 @@ export function SeriesSection({
     { value: 'downloading', title: `Downloading ${count('downloading')}` },
     { value: 'unaired', title: `Not aired ${count('unaired')}` },
   ]
-  const showField = finding || find.text !== ''
   const body = (n: number) => {
     const { unaired, folds, expanded, shown: rows } = shownOf(n)
     return rows.length === 0 && !folds ? (
@@ -200,29 +167,7 @@ export function SeriesSection({
     )
   return (
     <section aria-label="Versions" className="mt-6 flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <h3 className="heading-16 flex-1">Versions</h3>
-        {ok &&
-          (showField ? (
-            <div
-              className="w-56 max-sm:w-40"
-              onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget) && find.text === '') setFinding(false)
-              }}
-            >
-              <FindEpisodeField find={find} autoFocus />
-            </div>
-          ) : (
-            <Button variant="secondary" size="small" aria-label="Find an Episode" title="Find an Episode" prefix={<Search aria-hidden className="size-4" />} onClick={() => setFinding(true)}>
-              Find
-            </Button>
-          ))}
-        {ok && (
-          <Button variant="secondary" size="small" onClick={() => view.setOpen(seasons.filter((n) => (listed.includes(n) ? !allOpen : open.has(n))))}>
-            {allOpen ? 'Collapse All' : 'Expand All'}
-          </Button>
-        )}
-      </div>
+      <h3 className="heading-16">Versions</h3>
       {ok && <Tabs variant="secondary" aria-label="Show episodes" tabs={filterTabs} selected={filter} onChange={(v) => setFilter(v as EpisodeFilter)} />}
       <VersionTable
         title={title}
