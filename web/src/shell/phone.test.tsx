@@ -125,7 +125,8 @@ describe('the Library on a phone', () => {
     expect(screen.queryByRole('region', { name: 'Paddington' })).not.toBeInTheDocument() // no side-by-side pane
 
     await userEvent.click(await within(list).findByRole('option', { name: /heat/i }))
-    expect(await screen.findByRole('heading', { level: 2, name: 'Heat' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Heat' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'Heat' })).toHaveLength(1) // the TitleBar's, not a second one
     expect(screen.queryByRole('listbox', { name: /library/i })).not.toBeInTheDocument()
     expect(location.pathname).toBe('/library/2')
 
@@ -135,11 +136,23 @@ describe('the Library on a phone', () => {
     expect(location.pathname).toBe('/library')
   })
 
+  it.each([
+    ['Adoption', 'Adopt existing library'],
+    ['Clean up', 'Clean up Unmanaged files'],
+  ])('shows %s once, as the TitleBar heading', async (more, title) => {
+    history.replaceState(null, '', '/')
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'More' })).getByRole('button', { name: more }))
+    expect(await screen.findByRole('heading', { level: 1, name: title })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: title })).toHaveLength(1)
+  })
+
   it('goes back to the list with the browser Back', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
     await userEvent.click(await within(list).findByRole('option', { name: /paddington/i }))
-    expect(await screen.findByRole('heading', { level: 2, name: 'Paddington' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Paddington' })).toBeInTheDocument()
 
     history.back()
     await waitFor(() => expect(screen.getByRole('listbox', { name: /library/i })).toBeInTheDocument())
@@ -150,7 +163,7 @@ describe('the Library on a phone', () => {
     fakeLibrary(rows())
     history.replaceState(null, '', '/library/2')
     renderApp()
-    expect(await screen.findByRole('heading', { level: 2, name: 'Heat' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Heat' })).toBeInTheDocument()
   })
 
   it('shows the filter field with icon-only Filter and Sort buttons on one line, and no count line', async () => {

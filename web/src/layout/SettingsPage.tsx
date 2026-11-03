@@ -4,15 +4,17 @@ import type { ComponentProps, ReactNode } from 'react'
 
 /**
  * The top of a Settings page: its title (`heading-24`, focused when the page opens) and one line under it that says what
- * the page holds and states any problem ("1 indexer needs attention"). `hideTitle` keeps the heading for a screen reader
- * only, where a phone's Back header already shows it.
+ * the page holds and states any problem ("1 indexer needs attention"). `hideTitle` leaves the heading out, where a
+ * phone's Back header (the TitleBar's `h1`, see `focusPageHeading`) already shows it.
  */
 export function SettingsHeader({ id, title, summary, hideTitle = false }: { id: string; title: string; summary: ReactNode; hideTitle?: boolean }) {
   return (
     <header className="mb-6 flex flex-col gap-1">
-      <h2 id={id} tabIndex={-1} className={hideTitle ? 'sr-only' : 'heading-24'}>
-        {title}
-      </h2>
+      {!hideTitle && (
+        <h2 id={id} tabIndex={-1} className="heading-24">
+          {title}
+        </h2>
+      )}
       <p className="copy-14 text-gray-900">{summary}</p>
     </header>
   )

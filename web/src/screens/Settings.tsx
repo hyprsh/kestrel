@@ -148,6 +148,14 @@ const hashId = () => {
 /** The Part's anchor id, "settings-<id>": the page's own for the Part that shares its id. */
 const anchorOf = (id: string) => document.getElementById(`settings-${id}`)
 
+/** The heading of an open page that takes focus: the phone's TitleBar `h1` (the page has no heading of its own there), else the page's `h2`. */
+function focusPageHeading(pageId: string) {
+  const heading = document.querySelector<HTMLElement>(`#settings-${pageId}-bar h1`) ?? document.getElementById(`settings-${pageId}-title`)
+  if (!heading) return
+  heading.tabIndex = -1
+  heading.focus()
+}
+
 /** Opens a page: its heading takes focus (or the Part's anchor scrolls into view) and the address keeps the place, rather than the base URL's Overview. */
 function openSectionLink(event: MouseEvent<Element>, id: string, open: (id: string) => void) {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
@@ -159,7 +167,7 @@ function openSectionLink(event: MouseEvent<Element>, id: string, open: (id: stri
     // The page renders on the next paint.
     setTimeout(() => {
       const r = resolve(id)
-      if (r) document.getElementById(`settings-${r.page.id}-title`)?.focus()
+      if (r) focusPageHeading(r.page.id)
     }, 0)
   })
 }
@@ -261,17 +269,30 @@ export function Settings({
     const open = resolve(section)
     if (open)
       return (
-        <div key={open.page.id} className="flex min-h-0 flex-1 flex-col">
-          <TitleBar hideFrom={false} back={{ onClick: () => guardLeave(() => onCloseSection?.()) }} title={open.page.title} />
-          <div className="min-h-0 flex-1 overflow-auto p-4">
-            <PageView page={open.page} content={content} summary={summaries[open.page.id]} target={open.part?.id} headingHidden />
-          </div>
-        </div>
+        <PhonePage
+          key={open.page.id}
+          page={open.page}
+          onBack={() => guardLeave(() => onCloseSection?.())}
+          view={<PageView page={open.page} content={content} summary={summaries[open.page.id]} target={open.part?.id} headingHidden />}
+        />
       )
     return <PhoneList lines={lines} onOpen={(id) => onOpenSection?.(id)} />
   }
 
   return <DesktopSettings content={content} summaries={summaries} initial={section} />
+}
+
+/** An open page on a phone: the TitleBar is its heading, and takes the focus the page's own heading takes on a desktop. */
+function PhonePage({ page, onBack, view }: { page: Page; onBack: () => void; view: ReactNode }) {
+  useEffect(() => focusPageHeading(page.id), [page.id])
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div id={`settings-${page.id}-bar`} className="contents">
+        <TitleBar hideFrom={false} back={{ onClick: onBack }} title={page.title} />
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto p-4">{view}</div>
+    </div>
+  )
 }
 
 /** The phone's list: "Find a setting", then the sections in their groups, each with a line of status under it (amber when it needs attention). */
@@ -435,7 +456,7 @@ function DesktopSettings({ content, summaries, initial }: { content: Record<stri
 function PageView({ page, content, summary, target, headingHidden }: { page: Page; content: Record<string, ReactNode>; summary: string; target?: string; headingHidden?: boolean }) {
   useScrollToPart(target, page.id)
   return (
-    <section id={`settings-${page.id}`} aria-labelledby={`settings-${page.id}-title`} className="mb-8">
+    <section id={`settings-${page.id}`} aria-labelledby={headingHidden ? undefined : `settings-${page.id}-title`} aria-label={headingHidden ? page.title : undefined} className="mb-8">
       <SettingsHeader id={`settings-${page.id}-title`} title={page.title} summary={summary} hideTitle={headingHidden} />
       <DraftProvider>
         <div className="flex flex-col gap-7">

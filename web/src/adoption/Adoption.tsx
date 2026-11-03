@@ -24,6 +24,7 @@ import { useOpenCleanup } from '../cleanup/launch'
 import { LoadingRegion, SkeletonRows } from '../loading'
 import { useSlotNames, type SlotNames } from '../library/slots'
 import { PosterSkeleton, TitlePoster } from '../poster'
+import { usePhone } from '../responsive'
 import { TickBox } from '../library/TickBox'
 import { useSelection } from '../selection'
 import { useReport } from '../toasts'
@@ -119,6 +120,7 @@ function bulkReport(action: AdoptionRowsBulk['action'], items: AdoptionBulkRowRe
 }
 
 export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
+  const phone = usePhone() // the phone's TitleBar is the page's heading
   const plan = useAdoption()
   const scan = useScan()
   const commit = useCommit()
@@ -155,7 +157,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
       <div className={embedded ? '' : 'max-w-4xl p-4 sm:px-8 sm:py-6'}>
-        {!embedded && <h1 className="heading-20">Adopt existing library</h1>}
+        {!embedded && !phone && <h1 className="heading-20">Adopt existing library</h1>}
         <p className="copy-14 mt-1 text-gray-900">
           Kestrel scans your Movie and Series Root folders and plans how to manage the files already there without downloading them again. Nothing changes until you adopt the plan.
         </p>
