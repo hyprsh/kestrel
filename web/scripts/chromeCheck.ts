@@ -96,6 +96,8 @@ const ALIASES: Record<string, string> = {
   IndexerLine: 'Entity',
   SlotHead: 'Entity.List',
   SlotLine: 'Entity',
+  QualityList: 'Entity.List',
+  QualityItem: 'Entity',
   SlotChip: 'Pill',
   SlotChips: 'Pill',
   PhoneTopBar: 'TitleBar',
