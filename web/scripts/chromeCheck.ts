@@ -65,11 +65,17 @@ const ALIASES: Record<string, string> = {
   JumpNav: 'NavList',
   JumpGroup: 'NavList.Group',
   JumpLink: 'NavItem',
+  SidePanelView: 'NavItem',
   SectionList: 'NavList',
   SettingsNav: 'NavList',
   QueryHelp: 'QueryHelpButton',
   FilterHelp: 'QueryHelpButton',
   SparkBars: 'Sparkbars',
+  QualityBox: 'Checkbox',
+  SuggestionGroup: 'Entity.List',
+  SuggestionRow: 'Entity',
+  SuggestionMore: 'Collapse or ShowMore',
+  FactStrip: 'Description',
 }
 
 type Hit = { line: number; message: string; class?: string }

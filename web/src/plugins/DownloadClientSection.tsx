@@ -2,7 +2,7 @@ import { Button, Description, Note, Sheet } from '@hyprsh/design'
 import { useState } from 'react'
 import { useDownloadsStatus, useTestInstance } from '../api/downloads'
 import { usePluginInstances, usePlugins, type PluginInstance } from '../api/queries'
-import { SettingsBlock, SettingsSection, StatusLine } from '../layout/SettingsPage'
+import { DescriptionGrid, SettingsBlock, SettingsSection, StatusLine } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { ago, useNow } from '../time'
 import { useReport } from '../toasts'
@@ -148,12 +148,12 @@ export function DownloadClientSection() {
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 border-t border-gray-alpha-200 pt-3 sm:grid-cols-4">
+      <DescriptionGrid>
         <Description title="Address" ellipsis content={<span className="label-13-mono">{address || 'Not set'}</span>} />
         <Description title="Category" ellipsis content={category.length > 0 ? category.join(' · ') : 'Not set'} />
         <Description title="Queue" ellipsis content={status?.state === 'ok' && status.downloading !== null && status.queued !== null ? queueText(status.downloading, status.queued) : 'Unknown'} />
         <Description title="Free space" ellipsis content={status?.state === 'ok' && status.free_bytes !== null ? freeSpace(status.free_bytes) : 'Unknown'} />
-      </div>
+      </DescriptionGrid>
       {sheet}
     </SettingsBlock>,
   )

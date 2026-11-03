@@ -98,3 +98,8 @@ export function StatusLine({ state, tone = 'normal', children }: { state: DotSta
     </span>
   )
 }
+
+/** The placement of a card's `Description`s (address, category, queue, free space): in as many columns as fit, under a rule. */
+export function DescriptionGrid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-3 border-t border-gray-alpha-200 pt-3 sm:grid-cols-4">{children}</div>
+}

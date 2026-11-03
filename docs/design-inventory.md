@@ -13,6 +13,11 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `BarRow`, `Bar`, `ChartTable` for Top release groups (Overview) | `BarList` (`mono`, `unit="files imported"`) | Rows read "NTb, 18 files imported", as before. The bar colour is `--chart-series`. |
 | The Library filter's "/" key cap and key handler (placeholder trick, `Kbd` suffix, `useKey('/')`) | `QueryInput`/`QueryBar` `shortcut="/"` | The design focuses the field from anywhere, shows the key cap while the field is empty and sets `aria-keyshortcuts`. `FilterBar` takes a `shortcut` prop. |
 | The Library query help | `QueryHelpButton` (drawn by `QueryBar` itself) | The "?" button and popover were already the design's, drawn by `QueryBar`; there was no local copy to delete. |
+| `SidePanelView` (Log, Upcoming, Activity, Health Views) | `NavItem` with `onClick`, `current`, `icon`, `trailing` | A count is a number `trailing` (its words join the name: "Errors, 3"); a toned count (red Errors, amber Checks) is a `trailing` node with `trailingLabel`. `SidePanelViews` is now a `NavList` named "Views" with a "Views" group. `current` passes `'true'`. |
+| `QualityBox` (Profile sheet) | `Checkbox` | Name "Accept <quality>" kept; it is a native checkbox now, so `aria-checked` is gone. |
+| `SuggestionGroup`, `SuggestionRow`, `SuggestionMore` (Suggested) | `Entity` rows in `Entity.List`, `Collapse` | The Suggested section is a `Collapse` (open or closed by context) and "Other languages" an inline `Collapse`. The group heading with its `role="group"` is a few lines in `profiles/Suggested.tsx`; `Entity.List` has no heading. The language chip stays. |
+| `FactStrip`, `Fact` (download client card) | `Description` | Four `Description`s in `layout/DescriptionGrid`, which only places them. The accordion's separate `Fact` stays (see below). |
+| The Title's ⋯ menu | `Menu.Sub`, `Menu.SubTrigger` | Metadata (refresh, freeze), Open in (the links), Files (move, clean up). Add Version, Show in Log and Remove Title stay at the top. |
 | The filter field's clear "x" | `QueryInput`/`QueryBar` `clearable` (v0.19) | The design draws the × and names it `clearLabel="Clear filter"`; `layout/FieldEnd` is gone. |
 
 ## Layout module pieces (`web/src/layout/`)
@@ -30,9 +35,9 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `SettingsSection`, `SettingsCard`, `SettingsBlock` | `Fieldset` (title, subtitle, content, footer) is close | Kept | `Fieldset` has a footer for status and actions but no heading action slot or count. Worth trying; not a drop-in since the cards also hold rows with their own dividers. |
 | `SettingRow`, `SettingRowBody` | none | Kept | A label/help on the left and a control on the right, with a dirty-edge mark and a stacked form. |
 | `SettingsBar` | none (`Note` and `Banner` are inline, not floating) | Kept | A floating "N unsaved changes, Discard / Save" bar. |
-| `StatusLine` | `StatusDot` with `label` | Kept | A dot with a sentence and a muted/problem tone for the words. `StatusDot label` may cover most of it; the tone for the text does not exist. |
-| `FactStrip`, `Fact` | `Description` is a candidate | Kept | A caption-over-value grid that fills as many columns as fit. Not verified against `Description`. |
-| `SidePanel`, `PanelContent`, `SidePanelViews`, `SidePanelView` | `NavList`/`NavItem` for the rows; no panel | Views rows kept, Settings rows switched | The panel itself (title, filter, views, body and footer; phone variant) has no design component. `SidePanelView` (name, icon, count, `onSelect` button) is what `NavItem` with `onClick` and a numeric `trailing` now does: it can switch once the rows' look is checked on the Log, Upcoming and Library screens. |
+| `StatusLine` | `StatusDot` with `label` | Kept | `StatusDot label` draws the dot and its words, but the words have no tone: `StatusLine` makes them red for a problem, grey for a muted state and green for OK, and wraps long text. A text tone on `StatusDot` would let it go. |
+| `FactStrip`, `Fact` | `Description` | Switched | Deleted; see the table above. The accordion `Fact` in `library/accordion.tsx` stays: `Description` is 14px with a 500-weight value and an 8px gap, where the open rows use a 12px label over a 13px value in a tight, column-spanning grid. |
+| `SidePanel`, `PanelContent`, `SidePanelViews` | `NavList`/`NavItem` for the rows; no panel | Rows switched | The panel itself (title, filter, views, body and footer; phone variant) has no design component. `SidePanelView` is deleted; `SidePanelViews` wraps a `NavList`. |
 | `FilterChips` | none (`Pill`/`Badge` are static; `FilterParams` is a query-parameter bar) | Kept | Removable chips ("Remove Wanted"). `FilterParams` may fit; not checked. |
 | `SelectionBar` | none | Kept | A bar for ticked rows with select-all controls. |
 | `FloatingBar` | none | Kept | A floating or sticky toolbar over a list's foot. |
@@ -44,8 +49,7 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `RowList`, `stackedRow`, `stackedRight` | `Entity.List` | Kept as a thin wrapper | Rows that stack their right side when the list is narrow (container query). |
 | `IndexerHead`, `IndexerLine`, `SlotHead`, `SlotLine` | `Table` (resizable columns, reordering and pinned columns since v0.16/v0.17) | Kept | These are drag-sortable lists with a handle, switch and menu per row. `Table` has column reordering but not row reordering. |
 | `ProfileCard`, `ProfileFacts`, `DefaultsLine` | `Entity` for the head row | Kept | A card of a Profile: name, uses, action, chips and facts. Kestrel's own domain; the chips and facts are not general. |
-| `QualityChip`, `QualityChips`, `QualityList`, `QualityItem`, `QualityBox` | `Pill` or `Badge` for the chips; `Checkbox` for the box | Kept | The cutoff (dark) and "not accepted" (struck through) chip states. `QualityBox` is a hand-built checkbox look, which `Checkbox` should cover: a candidate for a follow-up. |
-| `SuggestionGroup`, `SuggestionRow`, `SuggestionMore` | `Entity` rows, `Collapse` or `ShowMore` for the disclosure | Kept | The pieces would map to `Entity` plus `Collapse`; not switched in this change (Settings: Slots and Profiles was merging). |
+| `QualityChip`, `QualityChips`, `QualityList`, `QualityItem` | `Pill` or `Badge` for the chips | Kept | The cutoff (dark) and "not accepted" (struck through) chip states. `QualityBox` is now a `Checkbox`. |
 | `columnWidths`, `columnOrder` | `Table` (resizing since v0.16; reordering with pinned columns and `Table.ColumnsMenu` since v0.17) | Removed | Both hooks were unused: no table kept a column layout. They are deleted. The design's `Table` reorders only in its data form, and the Episode table is built from parts (roving focus, a fold row, a delete-confirm row, a phone layout), so it can't use that reordering yet. `Table.ColumnsMenu` also has no hide/show. The Log's list is not a table. See #351. |
 
 ## Raw elements outside the layout module
@@ -76,7 +80,6 @@ The chart tokens (`chart-seq-*`, `chart-series`) are used through `ColumnChart` 
 ## What was not switched from the issue's list, and why
 
 - **Sparkbars:** no screen shows per-run histories (job runs, indexer requests) today, so there is nothing to replace.
-- **Menu.Sub:** the Title's ⋯ menu was not restructured; that is a redesign of a screen, outside this change's "swap only" scope.
 - **toast.update():** Kestrel's toasts (`web/src/toasts.ts`) report an outcome. Progress for a background rename or search needs a job-progress feed the SPA does not use yet.
 - **Table.ColumnsMenu and pinned columns:** not used. The Episode table is built from parts, and the design's reordering is for the data form only (#351).
 
