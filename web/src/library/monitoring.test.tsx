@@ -6,7 +6,7 @@ import { App } from '../App'
 import { http } from '../test/handlers'
 import { detail, fakeLibrary, row, type Sent } from '../test/library'
 import { queueItem } from '../test/queue'
-import { fakeSeries } from '../test/series'
+import { fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
 import { openTitleMenu } from '../test/titleHeader'
 
@@ -201,5 +201,26 @@ describe('a Series that is not monitored', () => {
     const search = screen.getByRole('button', { name: 'Search Wanted' })
     expect(search).toBeDisabled()
     expect(search).toHaveAttribute('title', 'Not monitored: turn monitoring on to search')
+  })
+})
+
+describe('a Series in mode Not monitored with a monitored episode', () => {
+  it('reads Monitored, as the server says, and choosing Not monitored again unmonitors every episode', async () => {
+    const fake = fakeSeries()
+    // The server counts a monitored episode as monitoring the Series, whatever its mode.
+    server.use(
+      http.get('/titles/{id}', ({ response }) =>
+        response(200).json(detail(seriesRow(5, 'Breaking Bad'), { kind: 'series', series_monitor: 'none', monitored: true, seasons: [{ number: 1, monitored: false }] })),
+      ),
+    )
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const button = await screen.findByRole('button', { name: 'Monitoring: monitored' })
+    expect(button).toHaveTextContent(/^Monitored$/)
+    expect(screen.getByRole('button', { name: 'Search Wanted' })).toBeEnabled()
+
+    await userEvent.click(button)
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: /^Not monitored/ }))
+    await waitFor(() => expect(fake.get().sent).toContainEqual({ path: 'titles', body: { series_monitor: 'none' } }))
   })
 })

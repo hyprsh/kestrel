@@ -26,8 +26,12 @@ const seriesModes: { value: SeriesMonitor; label: string; description: string; t
   { value: 'none', label: 'Not monitored', description: 'Keep the files, search nothing', tail: '' },
 ]
 
-/** Whether a Title is monitored: a Movie by its flag, a Series by its mode. */
-export const isMonitored = (title: Pick<TitleDetail, 'kind' | 'monitored' | 'series_monitor'>) => (title.kind === 'movie' ? title.monitored : title.series_monitor !== 'none')
+/**
+ * Whether a Title is monitored, as the server says: a Movie's flag, a Series' mode not being Not monitored or any of its seasons
+ * or episodes being monitored. A Series in mode Not monitored that still has a monitored episode is monitored: that episode is
+ * searched for when it airs. Choosing Not monitored in the menu again unmonitors every episode.
+ */
+export const isMonitored = (title: Pick<TitleDetail, 'monitored'>) => title.monitored
 
 // chrome-ok: the monitored/unmonitored bookmark glyph, not the design Icon wrapper
 function Icon({ monitored }: { monitored: boolean }) {
@@ -41,6 +45,7 @@ function monitorLabel(title: TitleDetail, short = false): ReactNode {
   if (title.kind === 'movie') return 'Monitored'
   const tail = seriesModes.find((m) => m.value === (title.series_monitor ?? 'all'))?.tail
   if (short) return tail ? tail.charAt(0).toUpperCase() + tail.slice(1) : 'Monitored'
+  if (!tail) return 'Monitored'
   return (
     <>
       Monitored <span className="font-normal">· {tail}</span>
@@ -85,7 +90,7 @@ export function MonitorButton({ title, size = 'medium', short = false }: { title
         showChevron
         disabled={pending}
         prefix={<Icon monitored={monitored} />}
-        aria-label={`Monitoring: ${monitored ? `monitored, ${seriesModes.find((m) => m.value === mode)?.tail}` : 'not monitored'}`}
+        aria-label={`Monitoring: ${monitored ? ['monitored', seriesModes.find((m) => m.value === mode)?.tail].filter(Boolean).join(', ') : 'not monitored'}`}
       >
         {monitorLabel(title, short)}
       </Menu.Button>
