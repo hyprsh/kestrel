@@ -7,12 +7,14 @@ import { useSlotNames } from '../library/slots'
 import { StatCard } from '../layout/StatCard'
 import { placePath } from '../place'
 import { Drill } from './Drill'
-import { ChartTable, Legend, mark, SegmentedBar } from './charts'
+import { ChartTable, Legend, mark } from './charts'
 import { bytesText } from './statsText'
 import { usedPercent } from './Tiles'
 
 const classes = ['Remux / BluRay', 'WEB-DL', 'WEBRip / lower'] as const
 const names = ['Remux or BluRay', 'WEB-DL', 'WEBRip or lower']
+// The chart-seq steps of mark.quality, darkest (best) first.
+const scales = ['seq-5', 'seq-3', 'seq-1'] as const
 
 const pct = (n: number, total: number) => `${Math.round((n / total) * 100)}%`
 
@@ -37,9 +39,22 @@ export function QualityCard({ stats }: { stats: Stats }) {
                   </Drill>
                   <span className="text-gray-900 tabular-nums">{plural(q.files, 'file')}</span>
                 </div>
-                <SegmentedBar
-                  alternative={`${label}: ${counts.map((n, i) => `${pct(n, q.files)} ${names[i]}`).join(', ')}`}
-                  parts={counts.map((n, i) => ({ name: names[i], className: mark.quality[i], n }))}
+                <Progress
+                  aria-label={`${label}: ${counts.map((n, i) => `${pct(n, q.files)} ${names[i]}`).join(', ')}`}
+                  max={q.files}
+                  height={12}
+                  gap
+                  segments={counts.map((n, i) => ({
+                    value: n,
+                    scale: scales[i],
+                    ariaLabel: `${names[i]}: ${n} (${pct(n, q.files)})`,
+                    tooltip: (
+                      <span className="flex items-center gap-2">
+                        <b className="tabular-nums">{n}</b>
+                        <span>{`${names[i]} · ${pct(n, q.files)}`}</span>
+                      </span>
+                    ),
+                  }))}
                 />
               </div>
             )
