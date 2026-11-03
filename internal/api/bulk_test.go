@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/metadata/metadatatest"
@@ -130,6 +131,7 @@ func TestSearchingInBulkSearchesTheTitlesWantedVersionsNow(t *testing.T) {
 	s.pass(t, jobs.Search) // the searches on add find nothing
 	s.valid("PATCH", fmt.Sprintf("/titles/%d", memento), `{"monitored":false}`)
 	s.publish(t, goodRelease)
+	s.in.clock.Advance(31 * time.Minute) // the empty answer of the search on add is too old to reuse
 	s.pass(t, jobs.Search)
 	if q := s.queue(t); len(q) != 0 {
 		t.Fatalf("the sweep searched before the bulk call: queue = %+v", q)

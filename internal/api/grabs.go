@@ -70,13 +70,15 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 	ctx, cancel := context.WithTimeout(ctx, s.searchTimeout())
 	defer cancel()
 	var scope library.Scope
+	fresh := false
 	if r.Body != nil {
+		fresh = r.Body.Refresh != nil && *r.Body.Refresh
 		scope.Season = r.Body.Season
 		if r.Body.EpisodeIds != nil {
 			scope.EpisodeIDs = *r.Body.EpisodeIds
 		}
 	}
-	res, err := s.acquire.SearchScope(ctx, r.Id, scope)
+	res, err := s.acquire.Releases(ctx, r.Id, scope, fresh)
 	switch {
 	case errors.Is(err, library.ErrNotFound):
 		return nil, problem(http.StatusNotFound, "not_found", "no such Version")
@@ -89,7 +91,7 @@ func (s *server) SearchVersionReleases(ctx context.Context, r oapi.SearchVersion
 	}
 	out := oapi.ReleaseList{
 		Items: make([]oapi.Release, 0, len(res.Items)), IndexerErrors: make([]oapi.IndexerError, 0, len(res.Failures)),
-		SearchedAt: res.SearchedAt, IndexersSearched: res.Indexers, Wanted: res.Wanted,
+		SearchedAt: res.SearchedAt, IndexersSearched: res.Indexers, Wanted: res.Wanted, Cached: res.Cached,
 	}
 	for _, f := range res.Items {
 		rel := oapi.Release{

@@ -1075,9 +1075,12 @@ export interface paths {
         put?: never;
         /**
          * Manual search for a Version
-         * @description Asks every enabled indexer in parallel, parses and evaluates every Release against the
-         *     Version's Profile and answers with all of them, acceptable ones first, then by `score`.
-         *     Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
+         * @description Lists the Releases for the Version, acceptable ones first, then by `score`, each parsed and
+         *     evaluated against the Version's Profile. When every indexer group has answered a search of the
+         *     Title for the same or a wider scope less than 30 min ago, those Releases are listed from memory:
+         *     no indexer is asked, `cached` is true and `searched_at` is when the indexers gave the answer
+         *     (a season answer never serves a whole-Series search). With nothing fresh to reuse, or with
+         *     `refresh` true, it asks every enabled indexer in parallel. Synchronous, with a server timeout of about 30 s: an indexer that has not answered by then
          *     is reported in `indexer_errors` and the rest still come back. The Releases stay grabbable
          *     for 6 h through their `release_id`. `fits` says whether the Release belongs to this Version's
          *     Slot; a Release for another Slot carries the `other_slot` rejection. A Series Version is
@@ -4006,6 +4009,14 @@ export interface components {
             season?: number | null;
             episode_ids?: number[];
         };
+        /**
+         * @description The body of the Release list: what `ReleaseSearch` narrows, and whether to ask the indexers
+         *     even when a recent answer could be listed.
+         */
+        ReleaseListRequest: components["schemas"]["ReleaseSearch"] & {
+            /** @description True asks every enabled indexer (Search again) instead of listing a recent answer. */
+            refresh?: boolean;
+        };
         /** @description The body of Search now: what `ReleaseSearch` narrows, and whether the search is for Upgrades. */
         SearchNow: components["schemas"]["ReleaseSearch"] & {
             /**
@@ -4159,9 +4170,11 @@ export interface components {
             indexer_errors: components["schemas"]["IndexerError"][];
             /**
              * Format: date-time
-             * @description When the search ran.
+             * @description When the search ran; when `cached`, when the indexers gave the answer listed.
              */
             searched_at: string;
+            /** @description True when the list is an earlier answer of the indexers and none was asked now. */
+            cached: boolean;
             /** @description How many enabled indexers the search asked, those in `indexer_errors` included. */
             indexers_searched: number;
             /** @description How many Units of the search's scope the Version Wants (its Wanted episodes, or 1 for a Wanted Movie). */
@@ -7371,7 +7384,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["ReleaseSearch"];
+                "application/json": components["schemas"]["ReleaseListRequest"];
             };
         };
         responses: {

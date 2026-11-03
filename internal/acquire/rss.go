@@ -219,6 +219,7 @@ func (s *Service) rssMovie(ctx context.Context, sub subject, items []feedItem) (
 		entries[entryKey(e.cand)] = e
 		in.Candidates = append(in.Candidates, e.cand)
 	}
+	s.cache.putFeed(now, d.ID, entryList(entries))
 	var out []Grab
 	plans, err := s.decide(ctx, in)
 	if err != nil {
@@ -307,6 +308,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		in.Candidates = append(in.Candidates, e.cand)
 	}
 
+	s.cache.putFeed(now, d.ID, entryList(entries))
 	planUnlisted(&in, d, episodes, now, library.Scope{})
 	var out []Grab
 	plans, err := s.decide(ctx, in)

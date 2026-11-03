@@ -108,6 +108,9 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 	}
 	s.markFit(ctx, sub, res, out)
 	s.cache.put(now, d.ID, g, out)
+	if len(res.Failures) == 0 {
+		s.cache.answered(now, d.ID, g, askedOf(scope))
+	}
 	return out, res.Failures, nil
 }
 

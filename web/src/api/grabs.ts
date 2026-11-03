@@ -1,5 +1,6 @@
 // Manual search, Search now and Grab: POST /versions/{id}/releases, POST /versions/{id}/search, POST /grabs and POST /blocklist.
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useRef } from 'react'
 import { api } from './client'
 import { ApiError } from './queries'
 import type { EpisodeScope } from './queries'
@@ -23,6 +24,8 @@ function failure(error: unknown, response: Response): ApiError {
  * never in the background.
  */
 export function useReleases(versionId: number, scope?: EpisodeScope) {
+  // The first run lists the answer of a search from the last 30 min when there is one; every later run asks the indexers.
+  const opened = useRef(false)
   return useQuery({
     queryKey: ['releases', versionId, scope ?? null],
     staleTime: Infinity,
@@ -30,7 +33,9 @@ export function useReleases(versionId: number, scope?: EpisodeScope) {
     retry: false,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      const { data, error, response } = await api.POST('/versions/{id}/releases', { params: { path: { id: versionId } }, body: scope })
+      const refresh = opened.current
+      opened.current = true
+      const { data, error, response } = await api.POST('/versions/{id}/releases', { params: { path: { id: versionId } }, body: refresh ? { ...scope, refresh } : scope })
       if (!data) throw failure(error, response)
       return data
     },

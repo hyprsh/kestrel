@@ -347,6 +347,8 @@ func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs 
 // searchAutomatic is searchTitle for the searches Kestrel starts on its own, which also say in the Log what they found.
 func (s *Service) searchAutomatic(ctx context.Context, titleID int64, versionIDs []int64, upgrade bool) (Outcome, error) {
 	ctx = context.WithValue(ctx, sweepMarkKey{}, true)
+	// Unlike a search by hand, it may answer from what the indexers said ReuseWindow ago.
+	ctx, _ = withReuse(ctx)
 	out, err := s.searchTitle(ctx, titleID, versionIDs, library.Scope{}, false, upgrade)
 	by := "Searched"
 	if upgrade {
