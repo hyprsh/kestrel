@@ -377,6 +377,10 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 					titleID: d.ID, versionID: versionOf[plan.Slot], also: also, e: e, copies: entryList(entries), slot: plan.Slot, media: downloads.Series,
 					episodes: ids, upgrade: plan.Upgrade, by: GrabbedBySearch,
 				})
+				if errors.Is(err, errNotSent) {
+					done = append(done, group...) // an active Grab already has it: not for the next group either
+					continue
+				}
 				if err != nil {
 					for _, p := range group {
 						failed = append(failed, failedSend{p, err})

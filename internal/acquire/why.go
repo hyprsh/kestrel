@@ -19,6 +19,9 @@ type Why struct {
 	ReplacesFiles int
 	// ScoreDelta is the average Score gain over the replaced files that had a Score; 0 when none had.
 	ScoreDelta int
+	// early is set when the Grab covers something not yet released, which a person or the RSS sweep may grab ahead
+	// of time; it is not stored.
+	early bool
 }
 
 // whyOf works out the Why of a Grab about to be sent. It reports false when the library cannot say,
@@ -40,6 +43,9 @@ func (s *Service) whyOf(ctx context.Context, o outgoing, score int) (Why, bool) 
 			if c.State == library.Wanted {
 				w.CoversWanted++
 			}
+			if c.State == library.Unreleased {
+				w.early = true
+			}
 			if c.HasFile {
 				w.ReplacesFiles++
 				if c.Score != nil {
@@ -58,6 +64,9 @@ func (s *Service) whyOf(ctx context.Context, o outgoing, score int) (Why, bool) 
 			}
 			if v.State == library.Wanted {
 				w.CoversWanted = 1
+			}
+			if v.State == library.Unreleased {
+				w.early = true
 			}
 			if v.File != nil {
 				w.ReplacesFiles = 1

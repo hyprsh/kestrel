@@ -219,6 +219,8 @@ func grabProblem(err error) error {
 		return problem(http.StatusNotFound, "not_found", "no such Version")
 	case errors.Is(err, acquire.ErrReleaseExpired):
 		return problem(http.StatusConflict, "release_expired", "That Release is no longer in the search results; search again")
+	case errors.Is(err, acquire.ErrAlreadyGrabbed):
+		return problem(http.StatusConflict, "conflict", "That Release is already downloading for this Version")
 	case errors.Is(err, acquire.ErrReleaseGone):
 		return problem(http.StatusConflict, "release_expired", "The indexer no longer has that Release; search again")
 	case errors.Is(err, downloads.ErrNoClient):
