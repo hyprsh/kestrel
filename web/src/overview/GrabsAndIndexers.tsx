@@ -100,7 +100,7 @@ export function IndexersCard({ stats, phone }: { stats: Stats; phone: boolean })
                 {!phone && (
                   <>
                     <span className="label-13 text-right text-gray-900 tabular-nums">{answerText(i.median_answer_ms)}</span>
-                    <span className={`label-13 text-right tabular-nums ${i.failed > 2 ? 'text-red-900' : 'text-gray-900'}`}>{i.failed}</span>
+                    <span className={`label-13 text-right tabular-nums ${i.failed > 2 ? 'text-[var(--red-900)]' : 'text-gray-900'}`}>{i.failed}</span>
                   </>
                 )}
               </BarRow>
