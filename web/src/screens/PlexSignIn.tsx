@@ -1,7 +1,8 @@
-import { Button, Note, Select, Textarea, Toggle, Input } from '@hyprsh/design'
+import { Button, Note, Select, SettingRow, Textarea, Toggle, Input } from '@hyprsh/design'
 import { useState, type FormEvent } from 'react'
 import { usePlexSignIn, useSavePlexSignIn, type PlexSignIn } from '../api/plex'
 import { ApiError, usePluginInstances, useSettings } from '../api/queries'
+import { SettingsCard } from '../layout/SettingsPage'
 import { SkeletonForm } from '../loading'
 
 type Row = { user: string; movies: string | null; series: string | null }
@@ -73,7 +74,7 @@ function Form({ saved, instances, folders }: { saved: PlexSignIn; instances: str
       : []
 
   return (
-    <form onSubmit={submit} className="flex max-w-sm flex-col gap-4">
+    <form onSubmit={submit} className="flex max-w-xl flex-col gap-4">
       <fieldset disabled={declared} className="contents">
         <Toggle checked={enabled} onChange={setEnabled} labelCasing="normal">
           Let people sign in with Plex
@@ -130,29 +131,25 @@ function Form({ saved, instances, folders }: { saved: PlexSignIn; instances: str
         </div>
         <div className="flex flex-col gap-3">
           <h4 className="label-13 text-gray-900">Watchlists and marks in Plex</h4>
-          <Toggle checked={watchlist} onChange={setWatchlist} labelCasing="normal">
-            Make Requests from Watchlists
-          </Toggle>
-          <Toggle checked={watchAhead} onChange={setWatchAhead} labelCasing="normal">
-            Watch-ahead for Series
-          </Toggle>
-          <Toggle checked={labels} onChange={setLabels} labelCasing="normal">
-            Requested labels in Plex
-          </Toggle>
-          <Toggle checked={posterBadge} onChange={setPosterBadge} labelCasing="normal">
-            Requested poster badge in Plex
-          </Toggle>
-          <Input
-            size="small"
-            label="Poster badge days"
-            type="number"
-            className="w-24"
-            placeholder="30"
-            value={badgeDays}
-            onChange={(e) => setBadgeDays(e.target.value)}
-            hint={badgeError ? undefined : 'How long the badge stays on a poster. Leave empty for 30 days.'}
-            error={badgeError}
-          />
+          <SettingsCard>
+            <SettingRow label="Make Requests from Watchlists">
+              <Toggle checked={watchlist} onChange={setWatchlist} />
+            </SettingRow>
+            <SettingRow label="Watch-ahead for Series">
+              <Toggle checked={watchAhead} onChange={setWatchAhead} />
+            </SettingRow>
+            <SettingRow label="Requested labels in Plex">
+              <Toggle checked={labels} onChange={setLabels} />
+            </SettingRow>
+            <SettingRow label="Requested poster badge in Plex">
+              <Toggle checked={posterBadge} onChange={setPosterBadge} />
+            </SettingRow>
+            {posterBadge && (
+              <SettingRow label="Poster badge days" help={badgeError ? undefined : 'How long the badge stays on a poster. Leave empty for 30 days.'}>
+                <Input size="small" type="number" placeholder="30" wrapperClassName="w-24" value={badgeDays} onChange={(e) => setBadgeDays(e.target.value)} error={badgeError} />
+              </SettingRow>
+            )}
+          </SettingsCard>
         </div>
         {unmatched.map((f) => (
           <Note key={`${f.field}-${f.message}`} variant="error" size="small">
