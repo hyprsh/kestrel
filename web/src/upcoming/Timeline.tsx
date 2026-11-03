@@ -20,7 +20,7 @@ export function AgendaTimeline({ compact, children }: { compact: boolean; childr
 /** A day on a desktop: its date at the left, the card of its rows at the right. */
 export function DayBlock({ day, num, away, isToday, children, ...rest }: { day: string; num: number; away: string; isToday: boolean; children: ReactNode } & Record<`data-${string}`, string>) {
   return (
-    <li className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4" {...rest}>
+    <li className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-4 [contain-intrinsic-size:auto_120px] [content-visibility:auto]" {...rest}>
       <div aria-hidden className="flex flex-col items-start pt-2.5">
         <span className={`label-12 font-semibold uppercase ${isToday ? 'text-gray-1000' : 'text-gray-900'}`}>{weekdayShort(day)}</span>
         <span className="heading-24 tabular-nums">{num}</span>
@@ -34,7 +34,7 @@ export function DayBlock({ day, num, away, isToday, children, ...rest }: { day: 
 /** A phone's day section: the date and how far away it is over its rows. */
 export function PhoneDay({ heading, away, children, ...rest }: { heading: string; away: string; children: ReactNode } & Record<`data-${string}`, string>) {
   return (
-    <li {...rest}>
+    <li className="[contain-intrinsic-size:auto_120px] [content-visibility:auto]" {...rest}>
       <h2 className="label-13 px-4 pt-3 pb-1.5 font-semibold">
         {heading} <span className="font-normal text-gray-900">{away}</span>
       </h2>

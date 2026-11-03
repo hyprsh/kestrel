@@ -187,6 +187,8 @@ type Library interface {
 	NextSearchesOf(ctx context.Context, versionIDs []int64) (map[int64]library.NextSearch, error)
 	LongMissing(ctx context.Context, view library.View) ([]library.LongMissingItem, error)
 	UpcomingWith(ctx context.Context, view library.View, from, to time.Time, opts library.UpcomingOptions) (library.Agenda, error)
+	LoadAgenda(ctx context.Context) (*library.AgendaData, error)
+	UpcomingFrom(ctx context.Context, data *library.AgendaData, view library.View, from, to time.Time, opts library.UpcomingOptions) (library.Agenda, error)
 	RecentImports(ctx context.Context, n int) ([]library.RecentImport, error)
 	FillTimes(ctx context.Context, view library.View, from, to time.Time) ([]library.Fill, error)
 	CountRecentImports(ctx context.Context, now time.Time) (int, error)

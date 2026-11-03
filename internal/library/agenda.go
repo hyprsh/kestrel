@@ -156,50 +156,96 @@ type UpcomingOptions struct {
 	Unmonitored bool
 }
 
-// UpcomingWith is Upcoming with the options.
-func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Time, opts UpcomingOptions) (Agenda, error) {
-	from, to = dayOf(from), dayOf(to)
-	today := dayOf(view.Now)
+// AgendaData is everything Upcoming reads from the database, grouped for building agendas. It is read-only once loaded, so
+// one load serves any number of windows (the Upcoming screen asks for a month at a time, all at once) until the database changes.
+type AgendaData struct {
+	titles   []db.Title
+	versions map[int64][]db.Version
+	hasFile  map[int64]bool
+	dates    map[int64][]db.TitleReleaseDate
+	eps      map[int64][]db.Episode
+	held     heldMap
+	filed    map[int64]time.Time
+}
+
+// LoadAgenda reads the tables Upcoming builds from.
+func (s *Service) LoadAgenda(ctx context.Context) (*AgendaData, error) {
 	q := db.New(s.st.Read())
 	titles, err := q.ListTitles(ctx)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
 	versions, err := q.ListVersions(ctx)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
 	files, err := q.ListFileSizes(ctx)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
 	misfits, err := misfitSet(ctx, q)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
 	dates, err := q.ListAllReleaseDates(ctx)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
 	allEps, err := q.ListEpisodes(ctx)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
 	fileEps, err := q.ListFileEpisodes(ctx)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
 	firstFiled, err := q.ListFirstFiled(ctx)
 	if err != nil {
-		return Agenda{}, err
+		return nil, err
 	}
-
-	hasFile := map[int64]bool{}
+	d := &AgendaData{
+		titles: titles, versions: map[int64][]db.Version{}, hasFile: map[int64]bool{},
+		dates: map[int64][]db.TitleReleaseDate{}, eps: map[int64][]db.Episode{},
+	}
 	for _, f := range files {
 		if !misfits[f.ID] {
-			hasFile[f.VersionID] = true
+			d.hasFile[f.VersionID] = true
 		}
 	}
+	for _, v := range versions {
+		d.versions[v.TitleID] = append(d.versions[v.TitleID], v)
+	}
+	for _, r := range dates {
+		d.dates[r.TitleID] = append(d.dates[r.TitleID], r)
+	}
+	for _, e := range allEps {
+		d.eps[e.TitleID] = append(d.eps[e.TitleID], e)
+	}
+	var fe []fileEp
+	for _, r := range fileEps {
+		fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
+	}
+	d.held = heldOf(fe)
+	d.filed = filedOf(firstFiled)
+	return d, nil
+}
+
+// UpcomingWith is Upcoming with the options.
+func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Time, opts UpcomingOptions) (Agenda, error) {
+	data, err := s.LoadAgenda(ctx)
+	if err != nil {
+		return Agenda{}, err
+	}
+	return s.UpcomingFrom(ctx, data, view, from, to, opts)
+}
+
+// UpcomingFrom is UpcomingWith over tables already loaded.
+func (s *Service) UpcomingFrom(ctx context.Context, data *AgendaData, view View, from, to time.Time, opts UpcomingOptions) (Agenda, error) {
+	from, to = dayOf(from), dayOf(to)
+	today := dayOf(view.Now)
+	q := db.New(s.st.Read())
+	titles, hasFile, versionsOf, datesOf, epsOf, heldBy, filed := data.titles, data.hasFile, data.versions, data.dates, data.eps, data.held, data.filed
+
 	// What each Filled entry carries is a parse of up to a kilobyte of JSON: asked for when the entry is made, since a
 	// Library of thousands holds far more files than the agenda shows.
 	var parseErr error
@@ -210,34 +256,19 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 		return r.String
 	}
 	movieFile := func(versionID int64) string { return asked(q.GetVersionFileRelease(ctx, versionID)) }
-	versionsOf := map[int64][]db.Version{}
-	for _, v := range versions {
-		versionsOf[v.TitleID] = append(versionsOf[v.TitleID], v)
-	}
-	datesOf := map[int64][]db.TitleReleaseDate{}
-	for _, d := range dates {
-		datesOf[d.TitleID] = append(datesOf[d.TitleID], d)
-	}
-	epsOf := map[int64][]db.Episode{}
-	for _, e := range allEps {
-		epsOf[e.TitleID] = append(epsOf[e.TitleID], e)
-	}
-	var fe []fileEp
-	for _, r := range fileEps {
-		fe = append(fe, fileEp{r.VersionID, r.EpisodeID, r.Score})
-	}
-	heldBy := heldOf(fe)
 	parsedOf := func(versionID, episodeID int64) string {
 		return asked(q.GetFileEpisodeRelease(ctx, db.GetFileEpisodeReleaseParams{VersionID: versionID, EpisodeID: episodeID}))
 	}
-	filed := filedOf(firstFiled)
 
 	// slotOfState turns a Unit's state at now into an entry's.
-	slotOfState := func(v db.Version, st State, since *time.Time, parsed string) EntrySlot {
+	slotOfState := func(v db.Version, st State, since *time.Time, parsed func() string) EntrySlot {
 		es := EntrySlot{Slot: slotOf(v.Slot), VersionID: v.ID, State: EntryNotOut}
 		switch st {
 		case Filled:
-			es.State, es.ParsedRelease = EntryImported, parsed
+			es.State = EntryImported
+			if parsed != nil {
+				es.ParsedRelease = parsed()
+			}
 		case Wanted:
 			es.State, es.WantedSince, es.LongMissing = EntryWanted, since, IsLongMissing(st, since, view.Now)
 		}
@@ -265,7 +296,7 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 				var slots []EntrySlot
 				for _, v := range vs {
 					st, since := StateAt(Unit{Monitored: titleMonitored, HasFile: hasFile[v.ID], AddedAt: parseTime(v.AddedAt), Released: movieReleased(rel, view.Country, t.ReleaseSeenAt)}, view.Now)
-					slots = append(slots, slotOfState(v, st, since, movieFile(v.ID)))
+					slots = append(slots, slotOfState(v, st, since, func() string { return movieFile(v.ID) }))
 				}
 				return slots
 			}
@@ -353,7 +384,7 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 			for _, v := range vs {
 				_, held := heldBy[v.ID][e.ID]
 				st, since := StateAt(Unit{Monitored: monitored, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]}, view.Now)
-				ent.Slots = append(ent.Slots, slotOfState(v, st, since, parsedOf(v.ID, e.ID)))
+				ent.Slots = append(ent.Slots, slotOfState(v, st, since, func() string { return parsedOf(v.ID, e.ID) }))
 			}
 			out.Entries = append(out.Entries, ent)
 		}
@@ -370,13 +401,13 @@ func (s *Service) UpcomingWith(ctx context.Context, view View, from, to time.Tim
 					units = append(units, Unit{Monitored: true, HasFile: held, AddedAt: parseTime(v.AddedAt), Released: released[e.ID]})
 				}
 				st, since := SeriesState(units, view.Now)
-				undated.Slots = append(undated.Slots, slotOfState(v, st, since, ""))
+				undated.Slots = append(undated.Slots, slotOfState(v, st, since, nil))
 			}
 			out.Undated = append(out.Undated, undated)
 		case t.TvdbStatus == "upcoming":
 			undated.Reason = Announced
 			for _, v := range vs {
-				undated.Slots = append(undated.Slots, slotOfState(v, Unreleased, nil, ""))
+				undated.Slots = append(undated.Slots, slotOfState(v, Unreleased, nil, nil))
 			}
 			out.Undated = append(out.Undated, undated)
 		}

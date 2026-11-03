@@ -46,7 +46,12 @@ export function MonthView({
   onOpenTitle: (id: number) => void
 }) {
   const byDay = new Map<string, UpcomingItem[]>()
-  for (const i of items) byDay.set(localDay(i), [...(byDay.get(localDay(i)) ?? []), i])
+  for (const i of items) {
+    const day = localDay(i)
+    const list = byDay.get(day)
+    if (list) list.push(i)
+    else byDay.set(day, [i])
+  }
   const inMonth = (day: string) => day.slice(0, 7) === month.slice(0, 7)
   const here = items.filter((i) => inMonth(localDay(i)))
   const searching = here.filter((i) => entryStatus(i, queue).kind === 'searching').length
