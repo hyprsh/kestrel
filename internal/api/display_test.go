@@ -33,7 +33,7 @@ func TestDisplayDefaultsMatchTodaysBehaviorAndSave(t *testing.T) {
 	b := newInstance(t, "").setUp()
 
 	d := decode[displaySettings](t, b.valid("GET", "/settings", "")).Display
-	if d.SeasonOrder != "oldest_first" || d.SeasonsOpen != "latest_and_wanted" || d.ManualSearchSort != "best_first" || d.UpcomingDisplay != "agenda" || d.UpcomingFilters.Kind != "all" || d.UpcomingFilters.WantedOnly || d.UpcomingFilters.HideImported {
+	if d.SeasonOrder != "oldest_first" || d.SeasonsOpen != "none" || d.ManualSearchSort != "best_first" || d.UpcomingDisplay != "agenda" || d.UpcomingFilters.Kind != "all" || d.UpcomingFilters.WantedOnly || d.UpcomingFilters.HideImported {
 		t.Errorf("defaults = %+v", d)
 	}
 	r := b.valid("PATCH", "/settings", `{"display":{"season_order":"newest_first","manual_search_sort":"size_desc","upcoming_display":"month","upcoming_filters":{"wanted_only":true}}}`)
@@ -41,7 +41,7 @@ func TestDisplayDefaultsMatchTodaysBehaviorAndSave(t *testing.T) {
 		t.Fatalf("PATCH = %d %s", r.Status, r.Body)
 	}
 	d = decode[displaySettings](t, b.valid("GET", "/settings", "")).Display
-	if d.SeasonOrder != "newest_first" || d.SeasonsOpen != "latest_and_wanted" || d.ManualSearchSort != "size_desc" || d.UpcomingDisplay != "month" || !d.UpcomingFilters.WantedOnly || d.UpcomingFilters.Kind != "all" {
+	if d.SeasonOrder != "newest_first" || d.SeasonsOpen != "none" || d.ManualSearchSort != "size_desc" || d.UpcomingDisplay != "month" || !d.UpcomingFilters.WantedOnly || d.UpcomingFilters.Kind != "all" {
 		t.Errorf("saved = %+v", d)
 	}
 }

@@ -12,7 +12,7 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 function fakeLongSeries(wantedInOne = false) {
   const filled = { standard: cell('filled', 100), '4k': cell('filled', 100) }
   const has = (season: number) => (wantedInOne && season === 1 ? {} : { cells: filled })
-  const state = fakeSeries()
+  const state = fakeSeries(false)
   state.episodes.splice(
     0,
     state.episodes.length,
@@ -45,8 +45,8 @@ const rowsOf = (grid: HTMLElement) =>
 beforeEach(() => localStorage.clear())
 
 describe('season order in the episode table', () => {
-  it('lists Specials, then Season 1, 2 and 3 in the Seasons, opens the newest and the one with something Wanted, and the oldest episode first, by default', async () => {
-    serveDisplay()
+  it('lists Specials, then Season 1, 2 and 3 in the Seasons, opens the newest and the one with something Wanted with that setting, and the oldest episode first', async () => {
+    serveDisplay({ seasons_open: 'latest_and_wanted' })
     fakeLongSeries(true)
     await openGrid()
     expect(await tabsOf()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
@@ -57,7 +57,7 @@ describe('season order in the episode table', () => {
   })
 
   it('lists Season 3 first, then 2, 1 and Specials, with the newest episode first, with newest first', async () => {
-    serveDisplay({ season_order: 'newest_first' })
+    serveDisplay({ season_order: 'newest_first', seasons_open: 'latest_and_wanted' })
     fakeLongSeries()
     const grid = await openGrid()
     expect(await tabsOf()).toEqual(['Season 3', 'Season 2', 'Season 1', 'Specials'])
@@ -65,7 +65,7 @@ describe('season order in the episode table', () => {
   })
 
   it('moves with j and k in the order shown', async () => {
-    serveDisplay({ season_order: 'newest_first' })
+    serveDisplay({ season_order: 'newest_first', seasons_open: 'latest_and_wanted' })
     fakeLongSeries()
     const grid = await openGrid()
     const row = (n: number) =>
@@ -145,7 +145,7 @@ describe('Settings, Display', () => {
   it('saves Open the newest season and Upcoming starts on with the other Display settings', async () => {
     const state = serveDisplay()
     const section = await openDisplay()
-    expect(within(section).getByRole('switch', { name: 'Open the newest season' })).toBeChecked()
+    expect(within(section).getByRole('switch', { name: 'Open the newest season' })).not.toBeChecked()
     expect(within(section).getByRole('combobox', { name: 'Upcoming starts on' })).toHaveValue('agenda')
     await userEvent.click(within(section).getByRole('switch', { name: 'Open the newest season' }))
     await userEvent.selectOptions(within(section).getByRole('combobox', { name: 'Upcoming starts on' }), 'month')
@@ -153,8 +153,8 @@ describe('Settings, Display', () => {
     const bar = screen.getByRole('region', { name: 'Unsaved changes' })
     expect(bar).toHaveTextContent('2 unsaved changes · Open the newest season, Upcoming starts on')
     await userEvent.click(within(bar).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(state.patched).toEqual([{ display: { seasons_open: 'none', upcoming_display: 'month' } }]))
-    await waitFor(() => expect(within(section).getByRole('switch', { name: 'Open the newest season' })).not.toBeChecked())
+    await waitFor(() => expect(state.patched).toEqual([{ display: { seasons_open: 'latest_and_wanted', upcoming_display: 'month' } }]))
+    await waitFor(() => expect(within(section).getByRole('switch', { name: 'Open the newest season' })).toBeChecked())
   })
 
   it('shows the switch off for any seasons_open but latest_and_wanted, and the new rows read-only when declared', async () => {
@@ -167,11 +167,15 @@ describe('Settings, Display', () => {
     expect(within(section).getByText(/The Config File sets/)).toBeInTheDocument()
   })
 
-  it('opens a Series on its first season with Open the newest season off', async () => {
-    serveDisplay({ seasons_open: 'none' })
-    fakeLongSeries()
-    const grid = await openGrid()
-    expect(rowsOf(grid)).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
+  it('opens a Series with every season closed with Open the newest season off, the default', async () => {
+    serveDisplay()
+    fakeLongSeries(true)
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('region', { name: 'Seasons' })
+    expect(await tabsOf()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
+    expect(screen.queryByRole('button', { name: /^(Season \d+|Specials):/, expanded: true })).not.toBeInTheDocument()
+    expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
   })
 
   it('opens the season a link names even with Open the newest season off', async () => {

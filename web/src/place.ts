@@ -88,7 +88,7 @@ export function currentPlace(): Place {
 }
 
 /** The address-bar parameters a screen's view keeps beside the filter: the page, the sort and the Overview's range. */
-const viewParams = ['page', 'sort', 'range']
+const viewParams = ['page', 'sort', 'range', 'show']
 
 const placeURL = (path: string) => {
   const url = new URL(path === '/overview' ? '' : path.replace(/^\/+/, ''), new URL(root(), location.origin))
@@ -130,10 +130,10 @@ export function pushPlace(path: string): void {
 }
 
 /**
- * One view parameter of the address bar (`page`, `sort` or the Overview's `range`), kept with `replaceState` so it adds no history entry.
+ * One view parameter of the address bar (`page`, `sort`, the Overview's `range` or a Series' `show` filter), kept with `replaceState` so it adds no history entry.
  * `null` removes it. The Shell keeps it while the screen stays the same and drops it on another screen.
  */
-export function useUrlParam(name: 'page' | 'sort' | 'range'): [string | null, (value: string | null) => void] {
+export function useUrlParam(name: 'page' | 'sort' | 'range' | 'show'): [string | null, (value: string | null) => void] {
   const search = useSyncExternalStore(subscribeUrl, () => location.search)
   const set = useCallback(
     (value: string | null) => {

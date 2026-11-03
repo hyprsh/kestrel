@@ -7,7 +7,7 @@ export type Display = Settings['display']
 /** What a household that never opened Display has: how the views behaved before the setting existed. */
 const defaultDisplay: Display = {
   season_order: 'oldest_first',
-  seasons_open: 'latest_and_wanted',
+  seasons_open: 'none',
   manual_search_sort: 'best_first',
   upcoming_display: 'agenda',
   upcoming_filters: { kind: 'all', wanted_only: false, hide_imported: false },

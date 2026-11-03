@@ -161,40 +161,109 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 0 episode 1' })).toBeInTheDocument()
   })
 
-  it('counts the open season’s episodes in its filter: All, Wanted, Downloading and Not aired', async () => {
-    const state = fakeSeries()
-    const eps = state.get().episodes
-    eps[1] = { ...eps[1], cells: { standard: cell('filled', 120), '4k': cell('filled', 120) } }
-    eps.push(episode(4, 1, 3, 'Grey Matter', { cells: { standard: cell('downloading'), '4k': cell('wanted') } }))
-    eps.push(episode(5, 1, 4, 'Crazy Handful', { cells: { standard: cell('wanted'), '4k': cell('wanted') } }))
-    renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    await screen.findByRole('grid', { name: 'Episodes' })
+  describe('the filter above the Seasons', () => {
+    const wanted = { standard: cell('wanted'), '4k': cell('wanted') }
+    const downloading = { standard: cell('downloading'), '4k': cell('wanted') }
+    const unaired = { standard: cell('unreleased'), '4k': cell('unreleased') }
+    /** S1: filled, wanted (2 episodes); S2: filled only; S3: downloading, not aired. Specials: unmonitored. */
+    async function openFiltered(address = '/') {
+      const state = fakeSeries(false)
+      state.get().episodes = [
+        episode(1, 0, 1, 'Special'),
+        episode(2, 1, 1, 'Pilot', { cells: filled }),
+        episode(3, 1, 2, 'Cat', { cells: wanted }),
+        episode(4, 2, 1, 'Seven', { cells: filled }),
+        episode(5, 3, 1, 'Grey Matter', { cells: downloading }),
+        episode(6, 3, 2, 'Crazy Handful', { air_date: '2026-11-16', cells: unaired }),
+      ]
+      history.replaceState(null, '', address)
+      const view = renderApp()
+      await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+      await screen.findByRole('region', { name: 'Seasons' })
+      return view
+    }
+    const tabs = () => screen.getByRole('tablist', { name: 'Show episodes' })
+    const listed = () =>
+      within(screen.getByRole('region', { name: 'Seasons' }))
+        .queryAllByRole('button', { name: /^(Season \d+|Specials):/ })
+        .map((b) => b.getAttribute('aria-label')!.split(':')[0])
+    const ticks = (season: number) =>
+      within(screen.getByRole('region', { name: `Season ${season} episodes` }))
+        .getAllByRole('checkbox', { name: /^Tick Season/ })
+        .map((c) => c.getAttribute('aria-label'))
 
-    const tabs = screen.getByRole('tablist', { name: /^Show/ })
-    expect(
-      within(tabs)
-        .getAllByRole('tab')
-        .map((t) => t.textContent),
-    ).toEqual(['All 4', 'Wanted 2', 'Downloading 1', 'Not aired 1'])
-    expect(screen.getByTitle(/^Standard 1 of 3/)).toHaveTextContent('1/3')
+    it('counts the whole Series: All, Wanted, Downloading and Not aired', async () => {
+      await openFiltered()
+      expect(
+        within(tabs())
+          .getAllByRole('tab')
+          .map((t) => t.textContent),
+      ).toEqual(['All 6', 'Wanted 2', 'Downloading 1', 'Not aired 1'])
+      expect(within(tabs()).getByRole('tab', { selected: true })).toHaveTextContent('All')
+      // One filter for the Series: no season has its own.
+      expect(screen.getAllByRole('tablist', { name: /^Show/ })).toHaveLength(1)
+    })
 
-    await userEvent.click(within(tabs).getByRole('tab', { name: 'Wanted 2' }))
-    expect(
-      within(episodeGrid())
-        .getAllByRole('checkbox', { name: /^Tick Season 1/ })
-        .map((c) => c.getAttribute('aria-label')),
-    ).toEqual(['Tick Season 1 episode 3', 'Tick Season 1 episode 4'])
-    await userEvent.click(within(tabs).getByRole('tab', { name: 'Not aired 1' }))
-    expect(
-      within(episodeGrid())
-        .getAllByRole('checkbox', { name: /^Tick Season 1/ })
-        .map((c) => c.getAttribute('aria-label')),
-    ).toEqual(['Tick Season 1 episode 2'])
+    it('starts with every season collapsed under the default setting', async () => {
+      await openFiltered()
+      expect(listed()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
+      expect(screen.queryByRole('button', { name: /^(Season \d+|Specials):/, expanded: true })).not.toBeInTheDocument()
+      expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
+    })
 
-    // Another season starts on All again.
-    await pickSeason('Specials')
-    expect(within(screen.getByRole('tablist', { name: /^Show/ })).getByRole('tab', { selected: true })).toHaveTextContent('All 1')
+    it('Wanted lists the seasons with something Wanted and shows only those episodes in the open ones', async () => {
+      await openFiltered()
+      await userEvent.click(screen.getByRole('button', { name: /^Season 1:/ }))
+      expect(ticks(1)).toEqual(['Tick Season 1 episode 1', 'Tick Season 1 episode 2'])
+      await userEvent.click(within(tabs()).getByRole('tab', { name: 'Wanted 2' }))
+      expect(listed()).toEqual(['Season 1', 'Season 3'])
+      expect(ticks(1)).toEqual(['Tick Season 1 episode 2'])
+      // The row keeps counting the whole season.
+      expect(screen.getByRole('button', { name: /^Season 1:/ }).getAttribute('aria-label')).toMatch(/Standard 1 of 2, 1 Wanted/)
+    })
+
+    it('Downloading lists the seasons with a download and Not aired those with an episode not out', async () => {
+      await openFiltered()
+      await userEvent.click(within(tabs()).getByRole('tab', { name: 'Downloading 1' }))
+      expect(listed()).toEqual(['Season 3'])
+      await userEvent.click(screen.getByRole('button', { name: /^Season 3:/ }))
+      expect(ticks(3)).toEqual(['Tick Season 3 episode 1'])
+      await userEvent.click(within(tabs()).getByRole('tab', { name: 'Not aired 1' }))
+      expect(listed()).toEqual(['Season 3'])
+      expect(ticks(3)).toEqual(['Tick Season 3 episode 2'])
+      await userEvent.click(within(tabs()).getByRole('tab', { name: 'All 6' }))
+      expect(listed()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
+      expect(screen.getByRole('button', { name: /^Season 3:/, expanded: true })).toBeInTheDocument() // seasons keep their state
+    })
+
+    it('says so under the filter when nothing matches', async () => {
+      const state = fakeSeries(false)
+      state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: filled })]
+      renderApp()
+      await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+      await screen.findByRole('region', { name: 'Seasons' })
+      await userEvent.click(within(tabs()).getByRole('tab', { name: 'Wanted 0' }))
+      expect(listed()).toEqual([])
+      expect(screen.getByText('No episodes match.')).toBeInTheDocument()
+      expect(within(tabs()).getByRole('tab', { name: 'All 1' })).toBeInTheDocument()
+    })
+
+    it('is kept in the address and survives a reload', async () => {
+      const view = await openFiltered()
+      await userEvent.click(within(tabs()).getByRole('tab', { name: 'Wanted 2' }))
+      await waitFor(() => expect(params().get('show')).toBe('wanted'))
+      view.unmount()
+      await openFiltered(location.pathname + location.search)
+      expect(within(tabs()).getByRole('tab', { selected: true })).toHaveTextContent('Wanted')
+      expect(listed()).toEqual(['Season 1', 'Season 3'])
+      await userEvent.click(within(tabs()).getByRole('tab', { name: 'All 6' }))
+      await waitFor(() => expect(params().get('show')).toBeNull())
+    })
+
+    it('still opens the season a link names, and one with a found episode', async () => {
+      await openFiltered('/library?open=2')
+      expect(screen.getByRole('button', { name: /^Season 2:/, expanded: true })).toBeInTheDocument()
+    })
   })
 
   it('folds the episodes not aired yet into one row that expands, and shows them under Not aired', async () => {
@@ -223,7 +292,7 @@ describe('the Seasons at a glance on the Title page', () => {
     await userEvent.click(within(episodeGrid()).getByRole('button', { name: 'Hide the episodes not aired yet' }))
     expect(within(episodeGrid()).queryByRole('checkbox', { name: 'Tick Season 1 episode 4' })).not.toBeInTheDocument()
 
-    await userEvent.click(within(screen.getByRole('tablist', { name: /^Show/ })).getByRole('tab', { name: 'Not aired 3' }))
+    await userEvent.click(within(screen.getByRole('tablist', { name: 'Show episodes' })).getByRole('tab', { name: 'Not aired 3' }))
     expect(within(episodeGrid()).getByRole('checkbox', { name: 'Tick Season 1 episode 4' })).toBeInTheDocument()
     expect(within(episodeGrid()).queryByRole('button', { name: /more, not aired yet/ })).not.toBeInTheDocument()
   })
@@ -251,8 +320,9 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(screen.queryByRole('button', { name: 'Table options' })).not.toBeInTheDocument()
 
     const body = screen.getByRole('region', { name: 'Season 1 episodes' })
-    // The tools row: the filters, Search season and the season's menu, none nested in another button.
-    expect(within(body).getByRole('tablist', { name: /^Show/ })).toBeInTheDocument()
+    // The tools row: Search season and the season's menu, none nested in another button; the filter is above the Seasons.
+    expect(within(body).queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: 'Show episodes' })).toBeInTheDocument()
     expect(within(body).getByRole('button', { name: 'Search season' })).toBeEnabled()
     await userEvent.click(within(body).getByRole('button', { name: 'Season 1 actions' }))
     const menu = screen.getByRole('menu', { name: 'Season 1 actions' })
