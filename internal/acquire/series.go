@@ -78,6 +78,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 	for _, a := range d.Aliases {
 		names[normalize(a.Title)] = true
 	}
+	check := newShowCheck(d, episodes, now)
 
 	var out []*entry
 	for _, r := range res.Releases {
@@ -88,6 +89,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		if !r.ByID && !slices.ContainsFunc(parsedTitles(parsed), func(t string) bool { return names[normalize(t)] }) {
 			continue // a text hit for some other Series
 		}
+		orig := parsed
 		parsed, ok := resolveDaily(parsed, episodes)
 		if !ok || !scopeWants(scope, parsed, episodes) {
 			continue
@@ -100,6 +102,7 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 		if err != nil {
 			return nil, nil, err
 		}
+		e.reject(check.rejections(r, orig, parsed))
 		out = append(out, e)
 	}
 	s.markFit(ctx, sub, res, out)

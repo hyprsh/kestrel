@@ -30,6 +30,9 @@ var rejectionMessages = map[scoring.Rejection]string{
 	acquire.RejectOtherSlot:               "Fits another Slot",
 	acquire.RejectEpisodeNotListed:        "Names an episode TheTVDB does not list yet",
 	acquire.RejectSeasonNotListed:         "Names a season TheTVDB does not list",
+	acquire.RejectYearOutsideRun:          "Names a year outside the Series' run",
+	acquire.RejectAliasOnly:               "Matches only an alias of the Series: likely another show",
+	acquire.RejectEpisodeTitle:            "Its episode title differs from the Series' episode: likely another show",
 	scoring.RejectSize:                    "Outside the size limit",
 	scoring.RejectOriginalOnly:            "Only in the Title's Original Language: the Profile offers it instead of grabbing it",
 }

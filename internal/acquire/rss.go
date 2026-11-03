@@ -284,6 +284,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		return nil, nil
 	}
 
+	check := newShowCheck(d, episodes, now)
 	entries := map[string]*entry{}
 	for _, it := range items {
 		parsed, ok := resolveDaily(it.parsed, episodes)
@@ -298,6 +299,7 @@ func (s *Service) rssSeries(ctx context.Context, sub subject, items []feedItem) 
 		if err != nil {
 			return nil, err
 		}
+		e.reject(check.rejections(it.raw, it.parsed, parsed))
 		entries[entryKey(e.cand)] = e
 		in.Candidates = append(in.Candidates, e.cand)
 	}
