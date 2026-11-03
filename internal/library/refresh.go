@@ -286,12 +286,22 @@ func (s *Service) refreshEpisodes(ctx context.Context, q *db.Queries, id int64, 
 	for _, n := range seasonNums {
 		known[n] = true
 	}
+	// A season that is already monitored takes its new episodes monitored, whatever the mode (a Request monitors seasons
+	// of a Series in mode none). Seasons added by this refresh are not in it: they follow the mode and the new-seasons option.
+	seasonRows, err := q.ListSeasonsOfTitle(ctx, id)
+	if err != nil {
+		return err
+	}
+	seasonOn := map[int]bool{}
+	for _, se := range seasonRows {
+		seasonOn[int(se.Number)] = se.Monitored == 1
+	}
 	versions, err := q.ListVersionsOfTitle(ctx, id)
 	if err != nil {
 		return err
 	}
 	for _, f := range added {
-		on := mode.Valid() && mode.Monitors(opts, f.Season, f.Aired, now, !known[int64(f.Season)])
+		on := seasonOn[f.Season] || mode.Valid() && mode.Monitors(opts, f.Season, f.Aired, now, !known[int64(f.Season)])
 		if err := q.InsertEpisode(ctx, db.InsertEpisodeParams{
 			TitleID: id, Season: int64(f.Season), Number: int64(f.Number), TvdbID: nullInt(f.ID), Name: f.Name, AirDate: airOf(f), Monitored: boolInt(on),
 			PrimaryName: f.PrimaryName, Overview: f.Overview,

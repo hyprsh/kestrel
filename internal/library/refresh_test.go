@@ -176,3 +176,58 @@ func TestARefreshLeavesANewSeasonUnmonitoredWhenNewSeasonsIsOff(t *testing.T) {
 		t.Errorf("monitored = %v", got)
 	}
 }
+
+// #381: a Series in mode none with a monitored season (what a Request leaves) counts as monitored, and a refresh adds the
+// new episodes of that season monitored and those of the other seasons unmonitored.
+func TestARefreshMonitorsNewEpisodesOfAMonitoredSeasonInAModeNoneSeries(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	aired := func(m time.Month, d int) *time.Time { x := time.Date(2026, m, d, 0, 0, 0, 0, time.UTC); return &x }
+	tmdb := metadata.SeriesDetails{TMDBID: 7003, TVDBID: 5003, Title: "Night Show", OriginalTitle: "Night Show", OriginalLanguage: "en", Year: 2024}
+	id, err := lib.AddSeries(ctx, library.AddSeries{
+		TMDB: tmdb,
+		TVDB: metadata.TVDBSeries{ID: 5003, Episodes: []metadata.Episode{
+			{ID: 1, Season: 1, Number: 1, Name: "Dusk", Aired: aired(1, 5)},
+			{ID: 2, Season: 2, Number: 1, Name: "Dawn", Aired: aired(2, 5)},
+		}},
+		PrimaryLanguage: "en", Monitor: library.MonitorNone, RootFolder: "/data/media/tv",
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := library.View{Country: "US", Now: now}
+	if d, _ := lib.Get(ctx, id, view); d.Monitored {
+		t.Fatal("a mode-none Series with no monitored season is monitored")
+	}
+	if rows, _ := lib.List(ctx, view, library.Filter{}); len(rows) != 1 || rows[0].Monitored {
+		t.Fatalf("rows = %+v", rows)
+	}
+	if err := lib.SetSeasonMonitored(ctx, id, 1, true); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := lib.Get(ctx, id, view); !d.Monitored {
+		t.Error("detail: a Series with a monitored season is unmonitored")
+	}
+	if rows, _ := lib.List(ctx, view, library.Filter{}); len(rows) != 1 || !rows[0].Monitored {
+		t.Errorf("list: rows = %+v", rows)
+	}
+
+	_, err = lib.RefreshSeries(ctx, id, library.SeriesRefresh{
+		TMDB: tmdb,
+		TVDB: metadata.TVDBSeries{ID: 5003, Episodes: []metadata.Episode{
+			{ID: 1, Season: 1, Number: 1, Name: "Dusk", Aired: aired(1, 5)},
+			{ID: 3, Season: 1, Number: 2, Name: "Midnight", Aired: aired(1, 12)},
+			{ID: 2, Season: 2, Number: 1, Name: "Dawn", Aired: aired(2, 5)},
+			{ID: 4, Season: 2, Number: 2, Name: "Sunrise", Aired: aired(2, 12)},
+		}},
+		PrimaryLanguage: "en",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := monitoredByEpisode(t, lib, id)
+	if !got["Midnight"] || got["Sunrise"] || got["Dawn"] {
+		t.Errorf("monitored = %v", got)
+	}
+}
