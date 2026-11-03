@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { useAbout, useNotices } from '../api/about'
 import { Button, Code, Description, Fieldset, KeyboardInput, Link, Skeleton } from '@hyprsh/design'
 import { LoadingRegion } from '../loading'
+import { versionLabel } from './versionLabel'
 import tmdbLogo from '../assets/tmdb-blue-short.svg'
 
 // The docs site (docs.yml publishes it on every release).
@@ -42,7 +43,7 @@ export function About() {
       <Card title="Kestrel">
         {a ? (
           <div className="flex flex-col gap-1.5">
-            <Description layout="horizontal" termWidth="9.25rem" title="Version" content={<span className="copy-14-mono">{a.version}</span>} />
+            <Description layout="horizontal" termWidth="9.25rem" title="Version" content={<span className="copy-14-mono">{versionLabel(a.version, a.commit)}</span>} />
             <Description layout="horizontal" termWidth="9.25rem" title="Licence" content={`${a.license} (GNU General Public License v3.0)`} />
             <Description
               layout="horizontal"

@@ -62,7 +62,7 @@ describe('the empty shell', () => {
   })
 
   it('shows Health as a rail button, linking to Health, and not the version', async () => {
-    server.use(http.get('/system', ({ response }) => response(200).json({ version: '9.9.9', api_major: 1, base_url: '' })))
+    server.use(http.get('/system', ({ response }) => response(200).json({ version: '9.9.9', commit: '', api_major: 1, base_url: '' })))
     renderApp()
     const pill = await within(await screen.findByRole('navigation')).findByRole('button', { name: /health · all checks ok/i })
     await userEvent.click(pill)

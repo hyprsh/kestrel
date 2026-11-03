@@ -14,6 +14,7 @@ type About = components['schemas']['About']
 
 const about = (over: Partial<About> = {}): About => ({
   version: '0.2.0',
+  commit: '',
   license: 'GPL-3.0-only',
   trash_commit: '14a4166673996301e588a4f70d03b9cfb760b50f',
   check_github_updates: true,
@@ -23,6 +24,15 @@ const about = (over: Partial<About> = {}): About => ({
 })
 
 describe('About', () => {
+  it('shows the commit an edge build was made from next to the version', async () => {
+    server.use(http.get('/about', ({ response }) => response(200).json(about({ version: 'edge', commit: '34e3846' }))))
+    history.replaceState(null, '', '/about')
+    renderApp()
+
+    const kestrel = await screen.findByRole('region', { name: 'Kestrel' })
+    expect(await within(kestrel).findByText('edge (34e3846)')).toBeInTheDocument()
+  })
+
   it('shows the version, licence, TRaSH commit, attribution, shortcuts and the update', async () => {
     server.use(
       http.get('/about', ({ response }) =>

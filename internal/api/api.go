@@ -33,6 +33,8 @@ const apiRoot = "/api/v1"
 // Options configures the HTTP surface. The modules it calls come in as Deps.
 type Options struct {
 	Version string
+	// Commit is the short commit hash of the build, "" when unknown.
+	Commit string
 	// BaseURL is the routing prefix ("" or e.g. "/kestrel", no trailing slash).
 	BaseURL string
 	// Store holds the API's own tables (sessions, the admin account, the API
@@ -171,7 +173,7 @@ type server struct {
 var _ oapi.StrictServerInterface = (*server)(nil)
 
 func (s *server) GetSystem(_ context.Context, _ oapi.GetSystemRequestObject) (oapi.GetSystemResponseObject, error) {
-	return oapi.GetSystem200JSONResponse{Version: s.opts.Version, ApiMajor: Major, BaseUrl: s.opts.BaseURL}, nil
+	return oapi.GetSystem200JSONResponse{Version: s.opts.Version, Commit: s.opts.Commit, ApiMajor: Major, BaseUrl: s.opts.BaseURL}, nil
 }
 
 // ping backs the Docker HEALTHCHECK: 200 with no body while the database answers.

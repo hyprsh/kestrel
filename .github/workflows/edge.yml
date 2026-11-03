@@ -30,6 +30,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Short commit hash
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - name: Build and push the multi-arch image
         id: image
         uses: docker/build-push-action@v6
@@ -40,6 +43,7 @@ jobs:
           tags: ghcr.io/hyprsh/kestrel:edge
           build-args: |
             VERSION=edge
+            COMMIT=${{ steps.sha.outputs.short }}
             TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
             TVDB_API_KEY=${{ secrets.TVDB_API_KEY }}
           labels: |

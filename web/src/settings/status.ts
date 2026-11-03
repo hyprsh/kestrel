@@ -4,6 +4,7 @@ import { useStatus } from '../api/attention'
 import { useAuth, usePluginInstances, useProfiles, useSettings } from '../api/queries'
 import { usePlexSignIn } from '../api/plex'
 import { plural } from '../format'
+import { versionLabel } from '../about/versionLabel'
 
 export type Line = { text: string; warn: boolean }
 
@@ -91,8 +92,8 @@ export function useSectionLines(): Record<string, Line> {
   if (plex.data) out.access = { text: plex.data.enabled ? 'Plex sign-in on' : 'Plex sign-in off', warn: false }
   if (about.data)
     out.about = status.data?.update
-      ? { text: `Kestrel ${about.data.version} · ${status.data.update.version} available`, warn: true }
-      : { text: `Kestrel ${about.data.version} · up to date`, warn: false }
+      ? { text: `Kestrel ${versionLabel(about.data.version, about.data.commit)} · ${status.data.update.version} available`, warn: true }
+      : { text: `Kestrel ${versionLabel(about.data.version, about.data.commit)} · up to date`, warn: false }
   for (const id of ['general', 'slots-profiles', 'library', 'downloads', 'media-servers', 'account', 'access', 'about']) out[id] ??= none
   return out
 }
