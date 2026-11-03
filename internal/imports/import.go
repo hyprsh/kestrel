@@ -41,6 +41,8 @@ const (
 	ReasonResolution = "resolution"
 	ReasonLanguage   = "language"
 	ReasonNotUpgrade = "not_upgrade"
+	// ReasonIncompleteArchive: no video but archive parts or "-missing.txt" markers, so the client's unpack failed.
+	ReasonIncompleteArchive = "incomplete_archive"
 )
 
 // Stalled reasons that callers and tests name.
@@ -449,6 +451,9 @@ func (s *Service) importGrab(ctx context.Context, g Grab) Result {
 		return rejected(ReasonInvalid)
 	}
 	if src.video == "" {
+		if src.archives {
+			return rejected(ReasonIncompleteArchive)
+		}
 		return stalled(StalledNoVideo)
 	}
 
