@@ -10,7 +10,9 @@
 //
 // THE PIECES
 // One file per piece, except where noted: a file that exports two pieces lists both.
-//   FilterButton.tsx      FilterButton, FacetFilterButton and    <FilterButton count={n}>{checkable items}</FilterButton>
+//   DrillLink.tsx         a figure or line that opens the      <DrillLink to="/library?q=is:wanted" label="Open Wanted in the Library"><span>9</span></DrillLink>
+//                         screen behind it (Overview)
+//   FilterButton.tsx      FilterButton,FacetFilterButton and    <FilterButton count={n}>{checkable items}</FilterButton>
 //                         SortButton: the one Filter button      <FacetFilterButton query onQuery qualifiers />
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>

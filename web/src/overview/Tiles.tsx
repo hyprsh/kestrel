@@ -4,7 +4,10 @@ import { Progress } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
 import { plural } from '../format'
 import { StatTile } from '../layout/StatCard'
+import { placePath } from '../place'
 import { span } from '../time'
+import { Drill } from './Drill'
+import { activityQuery } from './drillDown'
 import { bytesText, fillDelta, fullInText, grabsTotal, rangeOf } from './statsText'
 
 const value = 'heading-24 max-sm:heading-20'
@@ -23,17 +26,43 @@ export function Tiles({ stats, phone }: { stats: Stats; phone: boolean }) {
     <section aria-label="At a glance" className="grid grid-cols-2 gap-3 @3xl:grid-cols-5 max-sm:gap-2.5">
       {!phone && (
         <StatTile label="Library">
-          <span className={value}>{plural(library.titles, 'Title')}</span>
+          <Drill to={placePath('library')} label="Open the Library" className={value}>
+            {plural(library.titles, 'Title')}
+          </Drill>
           <span className={note}>{[bytesText(library.bytes), plural(library.movies, 'Movie'), `${library.series} Series`].join(' · ')}</span>
         </StatTile>
       )}
       <StatTile label="Wanted">
-        <span className={`${value} ${wanted.count > 0 ? 'text-amber-900' : ''}`}>{wanted.count}</span>
-        <span className={wanted.long_missing > 0 ? 'label-12 text-red-900' : note}>{wanted.long_missing} Long Missing</span>
+        <Drill to={placePath('library', 'is:wanted')} label="Open Wanted in the Library" className={`${value} ${wanted.count > 0 ? 'text-amber-900' : ''}`}>
+          {wanted.count}
+        </Drill>
+        <Drill to={placePath('library', 'is:long_missing sort:wanted_since')} label="Open Long Missing in the Library" className={wanted.long_missing > 0 ? 'label-12 text-red-900' : note}>
+          {wanted.long_missing} Long Missing
+        </Drill>
       </StatTile>
       <StatTile label={`Grabs · ${rangeOf(stats.range).short}`}>
-        <span className={value}>{total}</span>
-        <span className={note}>{total === 0 ? 'None finished' : `${Math.round((grabs.imported / total) * 100)}% imported · ${grabs.failed} failed`}</span>
+        {total === 0 ? (
+          <>
+            <span className={value}>{total}</span>
+            <span className={note}>None finished</span>
+          </>
+        ) : (
+          <>
+            <Drill to={placePath('activity', activityQuery({ from: stats.from, to: stats.to }))} label="Open these Grabs in Activity" className={value}>
+              {total}
+            </Drill>
+            <span className={note}>
+              {`${Math.round((grabs.imported / total) * 100)}% imported · `}
+              {grabs.failed > 0 ? (
+                <Drill to={placePath('activity', activityQuery({ from: stats.from, to: stats.to, stage: 'failed' }))} label="Open the failed Grabs in Activity">
+                  {`${grabs.failed} failed`}
+                </Drill>
+              ) : (
+                '0 failed'
+              )}
+            </span>
+          </>
+        )}
       </StatTile>
       <StatTile label="Time to fill">
         <span className={value}>{fill.median_seconds === null ? '—' : span(fill.median_seconds * 1000)}</span>

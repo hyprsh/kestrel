@@ -5,6 +5,8 @@ import type { Stats } from '../api/stats'
 import { plural } from '../format'
 import { useSlotNames } from '../library/slots'
 import { StatCard } from '../layout/StatCard'
+import { placePath } from '../place'
+import { Drill } from './Drill'
 import { ChartTable, Legend, mark, SegmentedBar } from './charts'
 import { bytesText } from './statsText'
 import { usedPercent } from './Tiles'
@@ -30,7 +32,9 @@ export function QualityCard({ stats }: { stats: Stats }) {
             return (
               <div key={q.slot} className="flex flex-col gap-1.5">
                 <div className="label-13 flex justify-between">
-                  <span className="font-medium">{label}</span>
+                  <Drill to={placePath('library', `slot:${q.slot}`)} label={`Open ${label} in the Library`} className="font-medium">
+                    {label}
+                  </Drill>
                   <span className="text-gray-900 tabular-nums">{plural(q.files, 'file')}</span>
                 </div>
                 <SegmentedBar
