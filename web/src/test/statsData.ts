@@ -10,6 +10,18 @@ export function grabDays(n: number, imported: number[] = [], failed: number[] = 
   })
 }
 
+/** Fills in `columns` of a Grabs section as the server cuts them: a column per day for 7 days, per week ending on the last day for more. */
+export function withColumns(g: Omit<Stats['grabs'], 'columns'>): Stats['grabs'] {
+  const days = g.per_day
+  const size = days.length <= 7 ? 1 : 7
+  const columns: Stats['grabs']['columns'] = []
+  for (let end = days.length; end > 0; end -= size) {
+    const part = days.slice(Math.max(0, end - size), end)
+    columns.unshift({ from: part[0].day, to: part[part.length - 1].day, imported: part.reduce((a, d) => a + d.imported, 0), failed: part.reduce((a, d) => a + d.failed, 0) })
+  }
+  return { ...g, columns }
+}
+
 const speedDays = (speeds: (number | null)[]) => speeds.map((s, i) => ({ day: new Date(Date.UTC(2026, 9, 18 + i)).toISOString().slice(0, 10), bytes_per_second: s === null ? null : s * 1_000_000 }))
 
 /** A month at the Overview of a library of six Titles; `over` replaces whole sections. */
@@ -22,7 +34,7 @@ export function stats(over: Partial<Stats> = {}): Stats {
     to: '2026-10-31',
     library: { titles: 6, movies: 2, series: 3, bytes: 440 * 1024 ** 3 },
     wanted: { count: 9, long_missing: 1 },
-    grabs: { imported: imported.reduce((a, b) => a + b, 0), failed: 1, per_day: grabDays(30, imported, failed) },
+    grabs: withColumns({ imported: imported.reduce((a, b) => a + b, 0), failed: 1, per_day: grabDays(30, imported, failed) }),
     time_to_fill: { median_seconds: 2 * 3600 + 14 * 60, previous_median_seconds: 3 * 3600 + 12 * 60, fills: 13 },
     indexers: [
       { id: 1, name: 'NZBgeek', imported: 34, failed: 1, searches: 50, hit_rate: 0.81, median_answer_ms: 600 },
@@ -80,7 +92,7 @@ export const emptyStats = (range: Stats['range'] = '30d'): Stats =>
     range,
     library: { titles: 0, movies: 0, series: 0, bytes: 0 },
     wanted: { count: 0, long_missing: 0 },
-    grabs: { imported: 0, failed: 0, per_day: grabDays(range === '7d' ? 7 : range === '90d' ? 90 : 30) },
+    grabs: withColumns({ imported: 0, failed: 0, per_day: grabDays(range === '7d' ? 7 : range === '90d' ? 90 : 30) }),
     time_to_fill: { median_seconds: null, previous_median_seconds: null, fills: 0 },
     indexers: [],
     best_indexer_id: null,

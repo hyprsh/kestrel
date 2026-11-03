@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { grabDays, stats } from '../test/statsData'
+import { grabDays, stats, withColumns } from '../test/statsData'
 import { answerText, bytesText, speedText, fillDelta, fullInText, grabsAlternative, hitText, standOut } from './statsText'
 import { growthLine } from './LibraryCards'
 import { speedRange } from './ClientCard'
@@ -70,28 +70,28 @@ describe('what stands out', () => {
   })
 
   it('leaves the busiest day out when there are fewer than 5 Grabs or no day with 3', () => {
-    const few = stats({ grabs: { imported: 3, failed: 0, per_day: grabDays(30, [3]) } })
+    const few = stats({ grabs: withColumns({ imported: 3, failed: 0, per_day: grabDays(30, [3]) }) })
     expect(standOut({ ...few, indexers: [] })).toBeNull()
-    const spread = stats({ grabs: { imported: 8, failed: 0, per_day: grabDays(30, [2, 2, 2, 2]) } })
+    const spread = stats({ grabs: withColumns({ imported: 8, failed: 0, per_day: grabDays(30, [2, 2, 2, 2]) }) })
     expect(standOut({ ...spread, indexers: [] })).toBeNull()
   })
 
   it('names no indexer unless one has two failures and more than any other', () => {
-    const none = stats({ grabs: { imported: 0, failed: 0, per_day: grabDays(30) }, indexers: stats().indexers.map((i) => ({ ...i, failed: 1 })) })
+    const none = stats({ grabs: withColumns({ imported: 0, failed: 0, per_day: grabDays(30) }), indexers: stats().indexers.map((i) => ({ ...i, failed: 1 })) })
     expect(standOut(none)).toBeNull()
-    const tie = stats({ grabs: { imported: 0, failed: 0, per_day: grabDays(30) }, indexers: stats().indexers.map((i) => ({ ...i, failed: 3 })) })
+    const tie = stats({ grabs: withColumns({ imported: 0, failed: 0, per_day: grabDays(30) }), indexers: stats().indexers.map((i) => ({ ...i, failed: 3 })) })
     expect(standOut(tie)).toBeNull()
   })
 
   it('says a failure cluster alone when the days are thin', () => {
-    const s = stats({ grabs: { imported: 1, failed: 0, per_day: grabDays(30, [1]) } })
+    const s = stats({ grabs: withColumns({ imported: 1, failed: 0, per_day: grabDays(30, [1]) }) })
     expect(standOut(s)).toBe('Failures cluster on altHUB.')
   })
 
   it('sums the chart up for a screen reader, with the busiest day', () => {
     const s = stats()
-    expect(grabsAlternative(s)).toMatch(/^Grabs per day over the last 30 days: \d+ imported, 1 failed; busiest day .+ with 8 Grabs\.$/)
-    const empty = stats({ grabs: { imported: 0, failed: 0, per_day: grabDays(7) }, range: '7d' })
+    expect(grabsAlternative(s)).toMatch(/^Grabs per week over the last 30 days: \d+ imported, 1 failed; busiest day .+ with 8 Grabs\.$/)
+    const empty = stats({ grabs: withColumns({ imported: 0, failed: 0, per_day: grabDays(7) }), range: '7d' })
     expect(grabsAlternative(empty)).toBe('Grabs per day over the last 7 days: 0 imported, 0 failed.')
   })
 })

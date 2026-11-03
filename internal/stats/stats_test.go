@@ -453,3 +453,41 @@ func TestBelowCutoffComesFromTheProfilesAndIsZeroWithoutThem(t *testing.T) {
 		t.Fatalf("with a source: %d, %v", res.BelowCutoff, err)
 	}
 }
+
+func TestGrabColumnsAreDaysForSevenAndWeeksEndingOnTheLastDayForThirtyAndNinety(t *testing.T) {
+	t.Parallel()
+	r := newRig(t)
+	r.grab(1, "imported", "", at(0, -1), 1, "", "")
+	r.grab(2, "failed", "download_failed", at(0, -2), 1, "", "")
+	r.grab(1, "imported", "", at(-8, 0), 1, "", "")
+	for _, c := range []struct {
+		rng        string
+		columns    int
+		firstStart string
+		firstEnds  string
+	}{{"7d", 7, "2026-10-25", "2026-10-25"}, {"30d", 5, "2026-10-02", "2026-10-03"}, {"90d", 13, "2026-08-03", "2026-08-08"}} {
+		res := r.compute(c.rng)
+		if len(res.Columns) != c.columns {
+			t.Fatalf("%s: %d columns, want %d", c.rng, len(res.Columns), c.columns)
+		}
+		first, last := res.Columns[0], res.Columns[len(res.Columns)-1]
+		if first.From.Format("2006-01-02") != c.firstStart || first.To.Format("2006-01-02") != c.firstEnds {
+			t.Errorf("%s: first column %v to %v", c.rng, first.From, first.To)
+		}
+		if last.To != res.Window.To.AddDate(0, 0, -1) {
+			t.Errorf("%s: last column ends %v, want the last day of the range", c.rng, last.To)
+		}
+		var imported, failed int
+		for _, col := range res.Columns {
+			imported += col.Imported
+			failed += col.Failed
+		}
+		if imported != res.Imported || failed != res.Failed {
+			t.Errorf("%s: columns add up to %d and %d, the range has %d and %d", c.rng, imported, failed, res.Imported, res.Failed)
+		}
+	}
+	res := r.compute("30d")
+	if n := len(res.Columns); res.Columns[n-1].Imported != 1 || res.Columns[n-1].Failed != 1 || res.Columns[n-2].Imported != 1 {
+		t.Errorf("weeks = %+v", res.Columns[len(res.Columns)-2:])
+	}
+}

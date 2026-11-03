@@ -26,6 +26,12 @@ type statsJSON struct {
 			Imported int    `json:"imported"`
 			Failed   int    `json:"failed"`
 		} `json:"per_day"`
+		Columns []struct {
+			From     string `json:"from"`
+			To       string `json:"to"`
+			Imported int    `json:"imported"`
+			Failed   int    `json:"failed"`
+		} `json:"columns"`
 	} `json:"grabs"`
 	TimeToFill struct {
 		Median *int `json:"median_seconds"`
@@ -83,6 +89,9 @@ func TestStatsDefaultsToThirtyDaysAndCountsWantedAndFinishedGrabs(t *testing.T) 
 	s := w.stats(t, "")
 	if s.Range != "30d" || len(s.Grabs.PerDay) != 30 || s.To != now.Format("2006-01-02") {
 		t.Errorf("range %s over %d days to %s", s.Range, len(s.Grabs.PerDay), s.To)
+	}
+	if n := len(s.Grabs.Columns); n != 5 || s.Grabs.Columns[n-1].To != s.To || s.Grabs.Columns[n-1].From != now.AddDate(0, 0, -6).Format("2006-01-02") {
+		t.Errorf("30d columns = %+v, want five weeks ending on %s", s.Grabs.Columns, s.To)
 	}
 	if s.Wanted.Count != 2 || s.Wanted.LongMissing != 1 || s.Library.Titles != 2 || s.Library.Movies != 2 {
 		t.Errorf("wanted %+v library %+v, want 2 Wanted with 1 Long Missing in a Library of 2 Movies", s.Wanted, s.Library)

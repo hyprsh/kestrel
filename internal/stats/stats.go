@@ -82,6 +82,34 @@ func WindowOf(now time.Time, r Range) Window {
 	return Window{From: from, To: to, PrevFrom: from.AddDate(0, 0, -r.Days), PrevTo: from}
 }
 
+// PeriodDays is how many days a chart column covers in the range: one for 7 days, a week for 30 and 90.
+func (r Range) PeriodDays() int {
+	if r.Days <= 7 {
+		return 1
+	}
+	return 7
+}
+
+// Period is a run of whole UTC days: From is its first day, To its last (both inclusive).
+type Period struct{ From, To time.Time }
+
+// Periods cut the window into the chart columns of its range, oldest first. They are aligned to the end of the
+// range, so every period but the oldest is a full one and the oldest is the part of a period the range starts in.
+// Grabs per day and the download client's speed share them, so both charts have the same columns.
+func (w Window) Periods(r Range) []Period {
+	n := r.PeriodDays()
+	var out []Period
+	for end := w.To; end.After(w.From); end = end.AddDate(0, 0, -n) {
+		start := end.AddDate(0, 0, -n)
+		if start.Before(w.From) {
+			start = w.From
+		}
+		out = append(out, Period{From: start, To: end.AddDate(0, 0, -1)})
+	}
+	slices.Reverse(out)
+	return out
+}
+
 func dayOf(t time.Time) time.Time {
 	t = t.UTC()
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
@@ -99,6 +127,12 @@ func parse(s string) time.Time {
 // Day is one UTC day of finished Grabs.
 type Day struct {
 	Day              time.Time
+	Imported, Failed int
+}
+
+// Column is one chart column of finished Grabs: a Period of the range's days added up.
+type Column struct {
+	Period
 	Imported, Failed int
 }
 
@@ -179,10 +213,12 @@ type Storage struct {
 
 // Result is everything the database can say.
 type Result struct {
-	Range    Range
-	Window   Window
-	Library  Library
+	Range   Range
+	Window  Window
+	Library Library
+	// Days are the range's UTC days; Columns are the same Grabs grouped by the range's Periods.
 	Days     []Day
+	Columns  []Column
 	Imported int
 	Failed   int
 	Indexers []Indexer
@@ -219,6 +255,17 @@ func (s *Service) Compute(ctx context.Context, now time.Time, r Range, disks []D
 		res.Days = append(res.Days, Day{Day: day, Imported: int(d.Imported), Failed: int(d.Failed)})
 		res.Imported += int(d.Imported)
 		res.Failed += int(d.Failed)
+	}
+
+	for _, p := range w.Periods(r) {
+		c := Column{Period: p}
+		for _, d := range res.Days {
+			if !d.Day.Before(p.From) && !d.Day.After(p.To) {
+				c.Imported += d.Imported
+				c.Failed += d.Failed
+			}
+		}
+		res.Columns = append(res.Columns, c)
 	}
 
 	if res.Indexers, err = s.indexers(ctx, q, from, to); err != nil {
