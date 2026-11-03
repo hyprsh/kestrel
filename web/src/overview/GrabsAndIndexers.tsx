@@ -77,7 +77,7 @@ export function IndexersCard({ stats }: { stats: Stats }) {
             valueHeader="Grabs imported"
             unit="imported"
             columns={[
-              { key: 'hit', label: 'Hit', priority: 1 },
+              { key: 'hit', label: 'Hit', priority: 1, hideable: false },
               { key: 'answer', label: 'Answer', priority: 2 },
               { key: 'failed', label: 'Failed', priority: 3 },
             ]}
