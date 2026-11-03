@@ -140,7 +140,27 @@ const (
 	MonitoringChanged Kind = "monitoring"
 )
 
-var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true, OriginalOffered: true, FileRescored: true}
+// Kinds for indexer state and for searches that were due but did not run (#400). An indexer entry is one transition,
+// never one per request; Data carries the indexer's id and name. A skipped-search entry is one per reason per sweep
+// pass, with the count and the Titles named.
+const (
+	// IndexerPaused: an indexer hit its request limit (a 500, 501 or 429), so its searches or Grabs wait until the
+	// time in the reason.
+	IndexerPaused Kind = "indexer_paused"
+	// IndexerBackedOff: an indexer failed and is left alone for a while, longer with each failure in a row.
+	IndexerBackedOff Kind = "indexer_backed_off"
+	// IndexerSlow: slow answers widened the gap between searches to an indexer; Data carries the gap in seconds.
+	IndexerSlow Kind = "indexer_slow"
+	// IndexerSweepStopped: an indexer's searches today reached 80 % of its budget, so sweeps leave it alone.
+	IndexerSweepStopped Kind = "indexer_sweep_stopped"
+	// IndexerRecovered: a pause, back-off, wide gap or sweep stop ended; Data.was says which.
+	IndexerRecovered Kind = "indexer_recovered"
+	// SearchSkipped: searches that were due did not run, or ran and sent nothing, for the reason (Data.why:
+	// "budget", "paused", "active_grab", "pause_grabs"). Data carries the count and the Titles (routine).
+	SearchSkipped Kind = "search_skipped"
+)
+
+var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true, OriginalOffered: true, FileRescored: true, SearchSkipped: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.
 func IsRoutine(k Kind) bool { return routine[k] }

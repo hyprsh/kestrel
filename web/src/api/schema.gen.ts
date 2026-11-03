@@ -5483,7 +5483,7 @@ export interface components {
             id: number;
             /** Format: date-time */
             at: string;
-            /** @description A growing set: bulk, title_added, title_removed, version_added, version_removed, monitoring, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, placeholder, file_misfit, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered, file_rescored, and the configuration kinds profile_created, profile_changed, profile_deleted, slot_created, slot_changed, slot_deleted, slots_preset, settings_changed, grabs_paused, grabs_resumed, blocklist_removed. */
+            /** @description A growing set: bulk, title_added, title_removed, version_added, version_removed, monitoring, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, placeholder, file_misfit, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered, file_rescored, and the configuration kinds profile_created, profile_changed, profile_deleted, slot_created, slot_changed, slot_deleted, slots_preset, settings_changed, grabs_paused, grabs_resumed, blocklist_removed, and the indexer kinds indexer_paused, indexer_backed_off, indexer_slow, indexer_sweep_stopped, indexer_recovered, and the routine search_skipped. */
             kind: string;
             routine: boolean;
             /** Format: int64 */

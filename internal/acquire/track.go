@@ -318,6 +318,7 @@ type Outcome struct {
 func (s *Service) SearchWanted(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
 	ctx = indexers.WithSweep(ctx)
 	if !s.idx.CanSweep(ctx) {
+		s.noteSweepBlocked(ctx, titleID, versionIDs)
 		return Outcome{}, nil // nothing was searched: the Versions stay due
 	}
 	return s.searchAutomatic(sweepCause(ctx, reasonDue), titleID, versionIDs, false)
@@ -337,6 +338,7 @@ func (s *Service) SearchNew(ctx context.Context, titleID int64, versionIDs []int
 func (s *Service) SearchUpgrades(ctx context.Context, titleID int64, versionIDs []int64) (Outcome, error) {
 	ctx = indexers.WithSweep(ctx)
 	if !s.idx.CanSweep(ctx) {
+		s.noteSweepBlocked(ctx, titleID, versionIDs)
 		return Outcome{}, nil
 	}
 	return s.searchAutomatic(sweepCause(ctx, reasonUpgrade), titleID, versionIDs, true)
@@ -398,8 +400,13 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 	var out Outcome
 	var in Input
 	slotVersion := map[Slot]int64{}
+	activeGrab := 0
 	for _, v := range sub.detail.Versions {
-		if !slices.Contains(versionIDs, v.ID) || !searchable(sub.detail, v, want, s.clock()) || busy[v.ID] {
+		if !slices.Contains(versionIDs, v.ID) || !searchable(sub.detail, v, want, s.clock()) {
+			continue
+		}
+		if busy[v.ID] {
+			activeGrab++
 			continue
 		}
 		out.Searched = append(out.Searched, v.ID)
@@ -413,6 +420,7 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 		slotVersion[v.Slot] = v.ID
 		in.Versions = append(in.Versions, Version{Slot: v.Slot, Units: []Unit{u}})
 	}
+	s.noteSkipped(ctx, SkipActiveGrab, sub.detail.ID, activeGrab, nil)
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
@@ -428,6 +436,7 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 	byRelease := map[string]*entry{}
 	left := in.Versions
 	paused, checked := false, false
+	heldBack := map[Slot]bool{}
 	for _, g := range s.groupsOf(ctx) {
 		found, failures, err := s.candidates(ctx, sub, library.Scope{}, g, fromCache)
 		if err != nil {
@@ -453,6 +462,11 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 			checked = true
 		}
 		done := got
+		if paused {
+			for _, p := range got {
+				heldBack[p.Slot] = true
+			}
+		}
 		if !paused {
 			done = nil
 			for _, group := range sharedPlans(got) {
@@ -485,6 +499,7 @@ func (s *Service) runSearch(ctx context.Context, titleID int64, versionIDs []int
 		}
 	}
 	out.found(entries)
+	s.noteSkipped(ctx, SkipPauseGrabs, sub.detail.ID, len(heldBack), nil)
 	errs := sendErrors(failed, sent)
 	errs = append(errs, s.noteOffers(ctx, sub.detail, slotVersion, in, byRelease, nil))
 	return out, errors.Join(errs...)

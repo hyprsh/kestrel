@@ -368,6 +368,9 @@ func searchDue(ctx context.Context, r *Runner, d Deps) error {
 	t.begin(now, missing)
 	ctx = acquire.WithObserver(ctx, t)
 	defer func() { t.end(d.Clock()) }()
+	// The searches this pass leaves undone are told to the Log once per reason when it ends, not one by one.
+	ctx, skips := acquire.WithSkips(ctx)
+	defer acquire.FlushSkips(ctx, skips)
 	var fresh, due []library.Due
 	for _, m := range missing {
 		if m.Fresh {

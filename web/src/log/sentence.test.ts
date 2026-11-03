@@ -89,7 +89,7 @@ describe('the sentence of each kind the server records', () => {
 
   it('has a name and a sentence for every kind of the server', () => {
     const kinds = Object.keys(kindNames)
-    expect(kinds).toHaveLength(27)
+    expect(kinds).toHaveLength(33)
     for (const kind of kinds) expect(sentence(ev(kind, 'x'), 'T').verb).not.toBe('')
   })
 

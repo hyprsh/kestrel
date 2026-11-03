@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	idb "github.com/hyprsh/kestrel/internal/indexers/db"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
@@ -133,6 +134,9 @@ type state struct {
 	failures     int
 	backoffUntil time.Time
 	last         *plugin.Error
+
+	shown      [numConds]bool // which conditions the Log has been told of (see observe)
+	cfgChanged bool           // the connection changed since the Log was last told
 }
 
 func (s *Service) stateOf(inst instances.Instance) *state {
@@ -143,7 +147,7 @@ func (s *Service) stateOf(inst instances.Instance) *state {
 		s.states[inst.ID] = st
 	}
 	if st.cfg != fp { // the admin changed the connection: start afresh
-		*st = state{cfg: fp, used: st.used, day: st.day, searchUntil: st.searchUntil, grabUntil: st.grabUntil, reported: st.reported, reportedAt: st.reportedAt,
+		*st = state{cfg: fp, shown: st.shown, cfgChanged: true, used: st.used, day: st.day, searchUntil: st.searchUntil, grabUntil: st.grabUntil, reported: st.reported, reportedAt: st.reportedAt,
 			lastStart: st.lastStart, widened: st.widened, usual: st.usual, answers: st.answers}
 	}
 	return st
@@ -226,9 +230,11 @@ func pausedErr(limit string, until, now time.Time, msg string) *plugin.Error {
 // queues behind it. RSS reads keep no gap.
 func (s *Service) gateSearch(ctx context.Context, inst instances.Instance, q indexer.SearchQuery) (wait time.Duration, err *plugin.Error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	now := s.clock()
 	st := s.stateOf(inst)
+	var told []history.Event
+	defer func() { s.mu.Unlock(); s.tell(ctx, told) }()
+	defer func() { told = s.observe(ctx, inst, st, now) }()
 	if st.searchUntil.After(now) {
 		return 0, pausedErr(plugin.LimitSearch, st.searchUntil, now, "searches are paused: the indexer's request limit was reached")
 	}
@@ -278,9 +284,11 @@ func manualGap(g time.Duration) time.Duration {
 // noteSearch records how one search request went.
 func (s *Service) noteSearch(ctx context.Context, inst instances.Instance, res indexer.SearchResult, err error, took time.Duration) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	now := s.clock()
 	st := s.stateOf(inst)
+	var told []history.Event
+	defer func() { s.mu.Unlock(); s.tell(ctx, told) }()
+	defer func() { told = s.observe(ctx, inst, st, now) }()
 	st.roll(now)
 	st.used++
 	if res.Limits.Reported {
@@ -353,10 +361,12 @@ func (s *Service) CanSweep(ctx context.Context) bool {
 		return true
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	now := s.clock()
+	var told []history.Event
+	defer func() { s.mu.Unlock(); s.tell(ctx, told) }()
 	for _, inst := range enabled {
 		st := s.stateOf(inst)
+		told = append(told, s.observe(ctx, inst, st, now)...)
 		if st.searchUntil.After(now) || (st.backoffUntil.After(now) && st.last != nil) {
 			continue
 		}
@@ -366,6 +376,33 @@ func (s *Service) CanSweep(ctx context.Context) bool {
 		return true
 	}
 	return false
+}
+
+// SweepBlock says why a sweep cannot search (see CanSweep): budget is true when every indexer that blocks it
+// does so by the 80 % stop and none by a pause or back-off, and names are those indexers, with the cause.
+func (s *Service) SweepBlock(ctx context.Context) (budget bool, names []string) {
+	enabled, err := s.inst.Enabled(ctx, indexer.Contract.ID)
+	if err != nil {
+		return false, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.clock()
+	budget = true
+	for _, inst := range enabled {
+		st := s.stateOf(inst)
+		switch used, max := st.budget(now, inst.Connection().Int("api_requests_per_day")); {
+		case st.searchUntil.After(now):
+			budget = false
+			names = append(names, inst.Name+" (paused)")
+		case st.backoffUntil.After(now) && st.last != nil:
+			budget = false
+			names = append(names, inst.Name+" (backed off)")
+		case max > 0 && used*100 >= max*sweepShare:
+			names = append(names, inst.Name+" (80 % of budget)")
+		}
+	}
+	return budget && len(names) > 0, names
 }
 
 // GrabsPaused reports whether the indexer's Grabs are paused now: by a 501 or

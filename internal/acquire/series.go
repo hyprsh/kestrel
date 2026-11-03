@@ -252,6 +252,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	in.SeasonsFinished = seasonsFinished(episodes, now)
 	versionOf := map[Slot]int64{}
 	searchedEpisodes := map[int64][]int64{}
+	activeGrab := 0
 	for _, v := range d.Versions {
 		// An Upgrade search of named episodes (Search now's Upgrade) looks at those episodes' cells whatever the Version
 		// as a whole is: a Version with a Wanted episode is Wanted, and its filled episodes can still be upgraded.
@@ -259,8 +260,12 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			continue
 		}
 		ver := Version{Slot: v.Slot}
+		heldByGrab := false
 		for _, ep := range episodes {
 			cell := ep.Cells[v.Slot]
+			if cell != nil && cell.State == want && covered[[2]int64{v.ID, ep.ID}] && !(upgrade && !ep.Monitored) && scope.Holds(ep) {
+				heldByGrab = true
+			}
 			if cell == nil || cell.State != want || covered[[2]int64{v.ID, ep.ID}] || (upgrade && !ep.Monitored) || !scope.Holds(ep) {
 				continue
 			}
@@ -275,12 +280,16 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			searchedEpisodes[v.ID] = append(searchedEpisodes[v.ID], ep.ID)
 		}
 		out.Searched = append(out.Searched, v.ID)
+		if len(ver.Units) == 0 && heldByGrab {
+			activeGrab++
+		}
 		if len(ver.Units) > 0 {
 			versionOf[v.Slot] = v.ID
 			in.Versions = append(in.Versions, ver)
 		}
 	}
 	out.scoped, out.episodes, out.library = scope.Narrow(), searchedEpisodes, episodes
+	s.noteSkipped(ctx, SkipActiveGrab, d.ID, activeGrab, nil)
 	if len(in.Versions) == 0 {
 		return out, nil
 	}
@@ -296,6 +305,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 	listed := episodes
 	left := in.Versions
 	paused, checked := false, false
+	heldBack := map[Slot]bool{}
 	for _, g := range s.groupsOf(ctx) {
 		round := Input{Versions: cloneVersions(left), SeasonsFinished: in.SeasonsFinished}
 		add := func(found []*entry) {
@@ -344,6 +354,11 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			checked = true
 		}
 		done := got
+		if paused {
+			for _, p := range got {
+				heldBack[p.Slot] = true
+			}
+		}
 		if !paused {
 			// Each round grabs what it plans, so a Grab that cannot be sent leaves its episodes to the next group.
 			done = nil
@@ -397,6 +412,7 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 		}
 	}
 	out.found(all)
+	s.noteSkipped(ctx, SkipPauseGrabs, d.ID, len(heldBack), nil)
 	if !upgrade {
 		planUnlisted(&in, d, listed, now, scope)
 	}

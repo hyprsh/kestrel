@@ -197,6 +197,7 @@ func New(opts Options) *App {
 
 	indexerHost := indexers.New(pluginInstances, st, opts.Clock)
 	indexerHost.SetLogger(opts.Logger)
+	indexerHost.SetHistory(hist)
 	downloadHost := downloads.New(pluginInstances)
 	downloadHost.SetKeep(func(ctx context.Context) ([]string, error) {
 		f, _, err := roots.Get(ctx)
