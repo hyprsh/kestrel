@@ -34,7 +34,7 @@ func (s *Service) Block(ctx context.Context, e BlockEntry) error {
 	if err == nil {
 		s.hist.Record(ctx, history.Event{
 			Kind: history.Blocklisted, TitleID: e.TitleID, VersionID: e.VersionID, GrabID: e.GrabID,
-			Message: "Blocklisted " + e.ReleaseName + ": " + e.Reason,
+			Message: "Blocklisted " + e.ReleaseName + ": " + e.Reason, Reason: e.Reason,
 		})
 	}
 	return err

@@ -280,6 +280,7 @@ func (c *Cleanup) Run(ctx context.Context, previewID string, cats []CleanupCateg
 		c.d.History.Record(ctx, history.Event{
 			Kind: history.CleanupDone, TitleID: id,
 			Message: fmt.Sprintf("Cleaned up %d Unmanaged file(s), %d bytes", tr.Deleted, tr.Bytes),
+			Reason:  "clean up: the Title folder held Unmanaged files and the plan was confirmed",
 		})
 		if c.d.FolderChanged != nil {
 			c.d.FolderChanged(ctx, sp.folders[id])

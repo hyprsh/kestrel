@@ -1667,7 +1667,7 @@ func (q *Queries) ListReleaseDatesOfTitle(ctx context.Context, titleID int64) ([
 }
 
 const listSearchStates = `-- name: ListSearchStates :many
-SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh FROM search_state ORDER BY id
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by FROM search_state ORDER BY id
 `
 
 func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
@@ -1688,6 +1688,7 @@ func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
 			&i.NextUpgradeAt,
 			&i.LastUpgradeAt,
 			&i.Fresh,
+			&i.RequestedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1703,7 +1704,7 @@ func (q *Queries) ListSearchStates(ctx context.Context) ([]SearchState, error) {
 }
 
 const listSearchStatesOfTitle = `-- name: ListSearchStatesOfTitle :many
-SELECT ss.id, ss.version_id, ss.season, ss.next_missing_at, ss.last_missing_at, ss.next_upgrade_at, ss.last_upgrade_at, ss.fresh FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id
+SELECT ss.id, ss.version_id, ss.season, ss.next_missing_at, ss.last_missing_at, ss.next_upgrade_at, ss.last_upgrade_at, ss.fresh, ss.requested_by FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id
 `
 
 // A Title's search_state rows.
@@ -1725,6 +1726,7 @@ func (q *Queries) ListSearchStatesOfTitle(ctx context.Context, titleID int64) ([
 			&i.NextUpgradeAt,
 			&i.LastUpgradeAt,
 			&i.Fresh,
+			&i.RequestedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -2053,7 +2055,7 @@ func (q *Queries) MarkReleaseSeen(ctx context.Context, arg MarkReleaseSeenParams
 }
 
 const markSearchStateMissing = `-- name: MarkSearchStateMissing :exec
-UPDATE search_state SET last_missing_at = ?, next_missing_at = ? WHERE id = ?
+UPDATE search_state SET last_missing_at = ?, next_missing_at = ?, requested_by = NULL WHERE id = ?
 `
 
 type MarkSearchStateMissingParams struct {
@@ -2250,16 +2252,17 @@ func (q *Queries) SetReplacedScore(ctx context.Context, arg SetReplacedScorePara
 }
 
 const setSearchStateNextMissing = `-- name: SetSearchStateNextMissing :exec
-UPDATE search_state SET next_missing_at = ? WHERE id = ?
+UPDATE search_state SET next_missing_at = ?, requested_by = ? WHERE id = ?
 `
 
 type SetSearchStateNextMissingParams struct {
 	NextMissingAt sql.NullString
+	RequestedBy   sql.NullString
 	ID            int64
 }
 
 func (q *Queries) SetSearchStateNextMissing(ctx context.Context, arg SetSearchStateNextMissingParams) error {
-	_, err := q.db.ExecContext(ctx, setSearchStateNextMissing, arg.NextMissingAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, setSearchStateNextMissing, arg.NextMissingAt, arg.RequestedBy, arg.ID)
 	return err
 }
 

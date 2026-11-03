@@ -613,6 +613,7 @@ func (a *Adoption) adoptSeriesRow(ctx context.Context, e *env, row Row) (err err
 	a.d.History.Record(ctx, history.Event{
 		Kind: history.AdoptionDone, TitleID: id,
 		Message: fmt.Sprintf("Adopted %s (%d) — %s", m.Title, m.Year, strings.Join(parts, ", ")),
+		Trigger: history.TriggerOr(ctx, adoptionJob), Reason: "adoption: the folder's files were matched to the Title and the plan was committed",
 	})
 	a.folderChanged(ctx, dir)
 	return nil

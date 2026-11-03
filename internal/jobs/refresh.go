@@ -191,6 +191,8 @@ func (r *Refresher) Refresh(ctx context.Context, id int64) error {
 		r.d.History.Record(ctx, history.Event{
 			Kind: history.Renamed, TitleID: id, Data: data,
 			Message: fmt.Sprintf("Renamed %q to %q (%d files)", d.Folder, renamed.Folder, renamed.Files),
+			Trigger: history.TriggerOr(ctx, history.Job(history.TriggerJob, "refresh")),
+			Reason:  "refresh: the Title's English title or year changed",
 		})
 	}
 	return nil
@@ -218,13 +220,16 @@ func (r *Refresher) Enqueue(id int64) {
 		defer r.wg.Done()
 		r.sem <- struct{}{}
 		defer func() { <-r.sem }()
-		if err := r.Refresh(context.WithoutCancel(context.Background()), id); err != nil {
+		// Detached from the call that queued it, so it carries its own trigger.
+		ctx := history.WithTrigger(context.WithoutCancel(context.Background()), history.Job(history.TriggerJob, "refresh"))
+		if err := r.Refresh(ctx, id); err != nil {
 			r.d.Logger.Warn("refreshing a Title failed", "title", id, "err", err)
 		}
 		// The live views reload the Title whether or not its names changed: the
 		// stream learns of it from the events log (ADR 0010).
-		r.d.History.Record(context.WithoutCancel(context.Background()), history.Event{
+		r.d.History.Record(ctx, history.Event{
 			Kind: history.TitleRefreshed, TitleID: id, Message: "Refreshed from the metadata providers",
+			Trigger: history.Job(history.TriggerJob, "refresh"), Reason: "refresh: the Title was queued for a metadata refresh",
 		})
 	}()
 }

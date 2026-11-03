@@ -3,7 +3,11 @@
 //
 // Recording is one line from any module that sits above history:
 //
-//	s.history.Record(ctx, history.Event{Kind: history.GrabSent, TitleID: id, GrabID: g})
+//	s.history.Record(ctx, history.Event{Kind: history.GrabSent, TitleID: id, GrabID: g, Reason: "chosen by a search"})
+//
+// Every event says why (Reason) and who or what started it (Trigger). The Trigger may be left to the context
+// (WithTrigger: an API request carries its person, a loop's pass its job); the Reason is always the caller's.
+// A test fails when an event has neither, in the Service or in the source (see TestEveryEventSaysWhy).
 //
 // To add a kind, declare a Kind constant, say in routine whether it is pruned
 // after 30 days, and map it to hints in internal/api/stream.go.
@@ -14,6 +18,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log/slog"
+	"testing"
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/history/db"
@@ -72,7 +77,10 @@ const (
 	HealthRaised Kind = "health_raised"
 	// HealthCleared: a Needs attention row cleared itself.
 	HealthCleared Kind = "health_cleared"
-	// Searched: a search started by hand (Search now) finished; the message says what it found (routine).
+	// BulkAction: a person ran one action over many Titles (the Library's bulk edit). One entry for the whole
+	// call; Data carries the action, how many Titles it named and how each came out.
+	BulkAction Kind = "bulk"
+	// Searched: one Version's search ended, whoever started it (the Trigger says); the message says what it found (routine).
 	Searched Kind = "search"
 	// OriginalOffered: a Release with the Title's Original Language only was offered for a Version, or
 	// replaced a lower-scoring offer (routine).
@@ -122,6 +130,11 @@ type Event struct {
 	GrabID    int64
 	RequestID int64
 	Message   string
+	// Trigger is who or what started the action. Left zero, Record takes the context's (WithTrigger).
+	Trigger Trigger
+	// Reason is why it happened, or why something was not done: "due: 3 days after it became Wanted",
+	// "retry: import of X rejected: language". Required.
+	Reason string
 	// Data is the kind's JSON payload, if it has one.
 	Data json.RawMessage
 }
@@ -148,9 +161,15 @@ func New(st *store.Store, clock func() time.Time, log *slog.Logger) *Service {
 // event's own are ignored. A failure is logged, never
 // returned: losing a hint must not fail the work that caused it. Safe on a nil
 // Service, so modules built without history in a test just skip it.
+//
+// An event with no Reason, or with no Trigger of its own or in ctx, is still written (the action it describes must
+// not fail for it) but logged as an error; under `go test` it panics, so a caller that leaves them empty fails its test.
 func (s *Service) Record(ctx context.Context, ev Event) {
 	if s == nil {
 		return
+	}
+	if ev.Trigger.IsZero() {
+		ev.Trigger = TriggerOf(ctx)
 	}
 	var data sql.NullString
 	if len(ev.Data) > 0 {
@@ -160,9 +179,16 @@ func (s *Service) Record(ctx context.Context, ev Event) {
 		At: s.clock().UTC().Format(time.RFC3339), Kind: string(ev.Kind), Routine: b2i(IsRoutine(ev.Kind)),
 		TitleID: nullID(ev.TitleID), VersionID: nullID(ev.VersionID), EpisodeID: nullID(ev.EpisodeID),
 		GrabID: nullID(ev.GrabID), RequestID: nullID(ev.RequestID), Message: ev.Message, Data: data,
+		TriggerKind: string(ev.Trigger.Kind), TriggerActor: ev.Trigger.Actor, TriggerVia: ev.Trigger.Via, Reason: ev.Reason,
 	})
 	if err != nil {
 		s.log.Error("recording an event failed", "kind", ev.Kind, "err", err)
+	}
+	if ev.Trigger.IsZero() || ev.Reason == "" {
+		s.log.Error("an event has no trigger or reason", "kind", ev.Kind, "message", ev.Message)
+		if testing.Testing() {
+			panic("history: event " + string(ev.Kind) + " (" + ev.Message + ") has no trigger or no reason")
+		}
 	}
 }
 
@@ -182,6 +208,7 @@ func eventsOf(rows []db.Event) []Event {
 		ev := Event{
 			ID: r.ID, At: at, Kind: Kind(r.Kind), Routine: r.Routine == 1, TitleID: r.TitleID.Int64, VersionID: r.VersionID.Int64,
 			EpisodeID: r.EpisodeID.Int64, GrabID: r.GrabID.Int64, RequestID: r.RequestID.Int64, Message: r.Message,
+			Trigger: Trigger{Kind: TriggerKind(r.TriggerKind), Actor: r.TriggerActor, Via: r.TriggerVia}, Reason: r.Reason,
 		}
 		if r.Data.Valid {
 			ev.Data = json.RawMessage(r.Data.String)

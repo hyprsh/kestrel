@@ -32,7 +32,7 @@ func (s *servers) env(t *testing.T) env {
 }
 
 func TestMediaServerRowComesAfterTwoFailedChecksInARowAndClearsOnAGoodOne(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	s := &servers{enabled: []health.Ref{plex}, result: &health.Failure{Message: "connection refused"}}
 	e := s.env(t)
 
@@ -67,7 +67,7 @@ func TestMediaServerRowComesAfterTwoFailedChecksInARowAndClearsOnAGoodOne(t *tes
 }
 
 func TestMediaServerAuthFailureRaisesAtTheFirstCheck(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	s := &servers{enabled: []health.Ref{plex}, result: &health.Failure{Auth: true, Message: "token revoked"}}
 	e := s.env(t)
 
@@ -79,7 +79,7 @@ func TestMediaServerAuthFailureRaisesAtTheFirstCheck(t *testing.T) {
 }
 
 func TestMediaServersAreCheckedEveryFifteenMinutesNotEveryLoop(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	s := &servers{enabled: []health.Ref{plex}}
 	e := s.env(t)
 
@@ -99,7 +99,7 @@ func TestMediaServersAreCheckedEveryFifteenMinutesNotEveryLoop(t *testing.T) {
 }
 
 func TestMediaServerRowGoesWhenTheServerIsDisabledOrDeleted(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	s := &servers{enabled: []health.Ref{plex}, result: &health.Failure{Auth: true, Message: "token revoked"}}
 	e := s.env(t)
 	_ = e.h.RunChecks(ctx)
@@ -135,7 +135,7 @@ func (p *providers) mod() func(*health.Deps) {
 }
 
 func TestIdleMetadataProviderWithARevokedKeyRaisesItsRowWithinTheHour(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	p := &providers{result: &health.Failure{Auth: true, Message: "invalid key"}}
 	p.e = newEnv(t, p.mod())
 	e := p.e
@@ -160,7 +160,7 @@ func TestIdleMetadataProviderWithARevokedKeyRaisesItsRowWithinTheHour(t *testing
 }
 
 func TestMetadataProviderWithARealCallInTheHourGetsNoProbe(t *testing.T) {
-	ctx := context.Background()
+	ctx := testCtx()
 	p := &providers{}
 	p.e = newEnv(t, p.mod())
 	e := p.e
@@ -189,7 +189,7 @@ func TestMediaServerRowDoesNotRepeatWhatThePluginMessageAlreadySays(t *testing.T
 		{"timeout", &health.Failure{Message: "cannot reach Jellyfin: context deadline exceeded (timeout)"}, "cannot reach Jellyfin: context deadline exceeded (timeout)"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := testCtx()
 			s := &servers{enabled: []health.Ref{jellyfin}, result: c.f}
 			e := s.env(t)
 			_ = e.h.RunChecks(ctx)

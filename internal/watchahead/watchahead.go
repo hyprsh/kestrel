@@ -291,6 +291,8 @@ func (s *Service) advance(ctx context.Context, ask requests.WatchAhead) (added i
 		s.d.History.Record(ctx, history.Event{
 			Kind: history.WatchAheadAdded, TitleID: ask.TitleID, RequestID: ask.RequestID,
 			Message: fmt.Sprintf("Watch-ahead added season %d", next),
+			Trigger: history.Job(history.TriggerRule, "watch ahead"),
+			Reason:  fmt.Sprintf("watch ahead: season %d is the next after the one being watched", next),
 		})
 	}
 }

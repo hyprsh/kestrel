@@ -21,7 +21,25 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/hyprsh/kestrel/internal/history"
 )
+
+// triggerOf is the trigger of what a loop's pass records in the Log: the sweep, RSS and the Import loop by their
+// own kinds, the rest as jobs named by the loop.
+func triggerOf(loop string) history.Trigger {
+	switch loop {
+	case Search:
+		return history.Job(history.TriggerSweep, "")
+	case RSS:
+		return history.Job(history.TriggerRSS, "")
+	case Import:
+		return history.Job(history.TriggerImport, "")
+	case WatchAhead:
+		return history.Job(history.TriggerRule, "watch ahead")
+	}
+	return history.Job(history.TriggerJob, loop)
+}
 
 // Loop is one periodic reconciler.
 type Loop struct {
@@ -214,6 +232,7 @@ func (r *Runner) Reconcile(ctx context.Context) {
 	r.mu.Lock()
 	steps := slices.Clone(r.startup)
 	r.mu.Unlock()
+	ctx = history.WithTrigger(ctx, history.Job(history.TriggerStartup, ""))
 	for _, s := range steps {
 		if err := s.run(ctx); err != nil {
 			r.log.Error("startup reconciliation failed", "step", s.name, "err", err)
@@ -251,7 +270,7 @@ func (r *Runner) Pass(ctx context.Context, name string) error {
 	r.mu.Lock()
 	l.state.started, l.state.progress = start, nil
 	r.mu.Unlock()
-	err := l.Run(withReporter(ctx, r, l))
+	err := l.Run(withReporter(history.WithTrigger(ctx, triggerOf(l.Name)), r, l))
 	end := r.clock()
 	p := &PassResult{StartedAt: start, FinishedAt: end, Took: end.Sub(start)}
 	if err != nil {

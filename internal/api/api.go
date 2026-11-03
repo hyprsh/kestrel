@@ -94,7 +94,7 @@ func New(opts Options, d Deps) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ping", s.ping)
 
-	strict := oapi.NewStrictHandlerWithOptions(s, []oapi.StrictMiddlewareFunc{s.emitHints}, oapi.StrictHTTPServerOptions{
+	strict := oapi.NewStrictHandlerWithOptions(s, []oapi.StrictMiddlewareFunc{s.recordActor, s.emitHints}, oapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
 			writeProblem(w, http.StatusBadRequest, "validation", err.Error())
 		},

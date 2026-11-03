@@ -97,6 +97,7 @@ func (s *Service) Move(ctx context.Context, titleID int64, root string) (Moved, 
 	s.record(ctx, history.Event{
 		Kind: history.Moved, TitleID: titleID, Data: jsonOf(map[string]string{"from": out.From, "to": out.To}),
 		Message: "Moved from " + out.From + " to " + out.To,
+		Reason:  "moved to another Root folder",
 	})
 	return out, nil
 }

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library/db"
 	"github.com/hyprsh/kestrel/internal/slot"
 )
@@ -58,6 +59,7 @@ type sweepRow struct {
 	since                    time.Time // when it became Wanted: the latest among a season's Wanted episodes
 	released                 time.Time // when a Movie came out in the household's country; zero if unknown or a Series
 	versionFilled            bool      // the Version as a whole is Filled: it is up for Upgrades
+	requestedBy              string    // the history.Trigger key of who made the row due now by hand, else ""
 }
 
 func optTime(n sql.NullString) *time.Time {
@@ -158,7 +160,7 @@ func (s *Service) sweepRows(ctx context.Context, now time.Time) ([]sweepRow, err
 			id: st.ID, versionID: st.VersionID, titleID: v.TitleID,
 			nextMissing: optTime(st.NextMissingAt), lastMissing: optTime(st.LastMissingAt),
 			nextUpgrade: optTime(st.NextUpgradeAt), lastUpgrade: optTime(st.LastUpgradeAt),
-			fresh: st.Fresh == 1 && !st.LastMissingAt.Valid,
+			fresh: st.Fresh == 1 && !st.LastMissingAt.Valid, requestedBy: st.RequestedBy.String,
 		}
 		added := parseTime(v.AddedAt)
 		if Kind(t.Kind) == Movie {
@@ -247,6 +249,7 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 		released  time.Time
 		requested bool
 		fresh     bool
+		by        string
 	}
 	// A Series Version's search covers every Wanted episode it has, due season or not.
 	episodes := map[int64]int{}
@@ -265,10 +268,13 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 				found[i].released = k
 			}
 			found[i].fresh = found[i].fresh && r.fresh
+			if found[i].by == "" {
+				found[i].by = r.requestedBy
+			}
 			continue
 		}
 		index[r.versionID] = len(found)
-		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID, Episodes: episodes[r.versionID]}, r.recency(), requested[r.versionID], r.fresh})
+		found = append(found, entry{Due{VersionID: r.versionID, TitleID: r.titleID, Episodes: episodes[r.versionID]}, r.recency(), requested[r.versionID], r.fresh, r.requestedBy})
 	}
 	slices.SortStableFunc(found, func(a, b entry) int {
 		if a.requested != b.requested {
@@ -283,6 +289,7 @@ func (s *Service) DueMissing(ctx context.Context, now time.Time) ([]Due, error) 
 	for i, f := range found {
 		out[i] = f.Due
 		out[i].Fresh = f.fresh
+		out[i].RequestedBy = f.by
 	}
 	return out, nil
 }
@@ -463,13 +470,18 @@ func (s *Service) searchWanted(ctx context.Context, title func(int64) bool) (map
 		return nil, err
 	}
 	q := db.New(s.st.Write())
+	// The sweep that runs the search names whoever asked for it (a person's bulk Search, Search all Wanted).
+	var requestedBy sql.NullString
+	if t := history.TriggerOf(ctx); t.Kind == history.TriggerPerson || t.Kind == history.TriggerAPIKey {
+		requestedBy = sql.NullString{String: t.Key(), Valid: true}
+	}
 	versions := map[int64]map[int64]bool{}
 	for _, r := range rows {
 		if !r.wanted || !title(r.titleID) {
 			continue
 		}
 		if err := q.SetSearchStateNextMissing(ctx, db.SetSearchStateNextMissingParams{
-			NextMissingAt: sql.NullString{String: ts(now), Valid: true}, ID: r.id,
+			NextMissingAt: sql.NullString{String: ts(now), Valid: true}, RequestedBy: requestedBy, ID: r.id,
 		}); err != nil {
 			return nil, err
 		}

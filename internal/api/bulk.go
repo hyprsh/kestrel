@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hyprsh/kestrel/internal/api/oapi"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/plugin"
@@ -68,7 +70,38 @@ func (s *server) BulkTitles(ctx context.Context, r oapi.BulkTitlesRequestObject)
 	if err != nil {
 		return nil, err
 	}
+	s.recordBulk(ctx, action, ids, items)
 	return oapi.BulkTitles200JSONResponse(oapi.TitlesBulkResult{Items: items}), nil
+}
+
+// recordBulk writes the one Log entry of a bulk action: who, which action, how many Titles and how they came out.
+// The action's own effects (a search, a refresh) record theirs besides.
+func (s *server) recordBulk(ctx context.Context, action string, ids []int64, items []oapi.TitleBulkOutcome) {
+	counts := map[oapi.TitleBulkOutcomeOutcome]int{}
+	for _, it := range items {
+		counts[it.Outcome]++
+	}
+	data, _ := json.Marshal(map[string]any{
+		"action": action, "titles": len(ids),
+		"changed": counts[oapi.TitleBulkOutcomeOutcomeChanged], "skipped": counts[oapi.TitleBulkOutcomeOutcomeSkipped], "failed": counts[oapi.TitleBulkOutcomeOutcomeFailed],
+	})
+	noun := "Titles"
+	if len(ids) == 1 {
+		noun = "Title"
+	}
+	s.history.Record(ctx, history.Event{
+		Kind: history.BulkAction, Data: data,
+		Message: fmt.Sprintf("%s on %d %s: %d changed, %d skipped, %d failed", bulkActionName(action), len(ids), noun,
+			counts[oapi.TitleBulkOutcomeOutcomeChanged], counts[oapi.TitleBulkOutcomeOutcomeSkipped], counts[oapi.TitleBulkOutcomeOutcomeFailed]),
+		Reason: fmt.Sprintf("bulk: %s chosen for %d selected %s in the Library", bulkActionName(action), len(ids), noun),
+	})
+}
+
+// bulkActionName is an action as the Log words it ("switch_profile" reads "Switch Profile").
+func bulkActionName(action string) string {
+	words := strings.Split(action, "_")
+	words[0] = strings.ToUpper(words[0][:1]) + words[0][1:]
+	return strings.Join(words, " ")
 }
 
 // bulkArm decodes the action's parameters and runs it.

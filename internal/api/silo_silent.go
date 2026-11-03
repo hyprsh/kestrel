@@ -91,6 +91,6 @@ func (s *server) EndRequest(ctx context.Context, r oapi.EndRequestRequestObject)
 	if req.Source == siloSource {
 		msg += ": Silo stopped asking about it, so it may have been cancelled in Silo"
 	}
-	s.history.Record(ctx, history.Event{Kind: history.RequestEnded, TitleID: req.TitleID, RequestID: req.ID, Message: msg})
+	s.history.Record(ctx, history.Event{Kind: history.RequestEnded, TitleID: req.TitleID, RequestID: req.ID, Message: msg, Reason: "ended by hand from the Requests screen"})
 	return oapi.EndRequest204Response{}, nil
 }

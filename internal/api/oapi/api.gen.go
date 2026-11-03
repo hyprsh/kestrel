@@ -2858,13 +2858,19 @@ type Event struct {
 	GrabId    *int64                  `json:"grab_id"`
 	Id        int64                   `json:"id"`
 
-	// Kind A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered.
-	Kind      string `json:"kind"`
-	Message   string `json:"message"`
+	// Kind A growing set: bulk, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered.
+	Kind    string `json:"kind"`
+	Message string `json:"message"`
+
+	// Reason Why it happened, or why something was not done, such as `due: its next search time came`. Empty for an entry from before reasons were recorded.
+	Reason    string `json:"reason"`
 	RequestId *int64 `json:"request_id"`
 	Routine   bool   `json:"routine"`
 	TitleId   *int64 `json:"title_id"`
-	VersionId *int64 `json:"version_id"`
+
+	// Trigger Who or what started it. Null for an entry from before triggers were recorded.
+	Trigger   *EventTrigger `json:"trigger"`
+	VersionId *int64        `json:"version_id"`
 }
 
 // EventKindCount defines model for EventKindCount.
@@ -2879,6 +2885,18 @@ type EventKindCount struct {
 // EventList defines model for EventList.
 type EventList struct {
 	Items []Event `json:"items"`
+}
+
+// EventTrigger defines model for EventTrigger.
+type EventTrigger struct {
+	// Actor The person's name, for `person`.
+	Actor *string `json:"actor"`
+
+	// Kind A growing set. An actor: `person`, `api_key`. A job or rule: `sweep`, `rss`, `import`, `retry`, `request`, `rule`, `startup`, and `job` for any other background loop.
+	Kind string `json:"kind"`
+
+	// Via The API call an actor made (its operation id), the Request's source, or the rule's or loop's name.
+	Via *string `json:"via"`
 }
 
 // EventsBucket defines model for EventsBucket.

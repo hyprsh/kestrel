@@ -1,14 +1,13 @@
 package api_test
 
 import (
-	"context"
 	"testing"
 	"time"
 )
 
 func TestARevokedMediaServerTokenRaisesTheRowAtTheNextCheckAndClearsWhenItAnswersAgain(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := jobCtx()
 	s, _ := newMediaSearch(t)
 	inst := decode[struct {
 		Items []instanceJSON `json:"items"`
@@ -55,7 +54,7 @@ func TestARevokedMediaServerTokenRaisesTheRowAtTheNextCheckAndClearsWhenItAnswer
 
 func TestAGoodTestFromSettingsClearsTheMediaServerRowAtOnce(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := jobCtx()
 	s, _ := newMediaSearch(t)
 	inst := decode[struct {
 		Items []instanceJSON `json:"items"`

@@ -67,17 +67,21 @@ type EpisodeSearch struct {
 }
 
 type Event struct {
-	ID        int64
-	At        string
-	Kind      string
-	Routine   int64
-	TitleID   sql.NullInt64
-	VersionID sql.NullInt64
-	EpisodeID sql.NullInt64
-	GrabID    sql.NullInt64
-	RequestID sql.NullInt64
-	Message   string
-	Data      sql.NullString
+	ID           int64
+	At           string
+	Kind         string
+	Routine      int64
+	TitleID      sql.NullInt64
+	VersionID    sql.NullInt64
+	EpisodeID    sql.NullInt64
+	GrabID       sql.NullInt64
+	RequestID    sql.NullInt64
+	Message      string
+	Data         sql.NullString
+	TriggerKind  string
+	TriggerActor string
+	TriggerVia   string
+	Reason       string
 }
 
 type File struct {
@@ -332,6 +336,7 @@ type SearchState struct {
 	NextUpgradeAt sql.NullString
 	LastUpgradeAt sql.NullString
 	Fresh         int64
+	RequestedBy   sql.NullString
 }
 
 type Season struct {

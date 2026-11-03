@@ -194,6 +194,7 @@ func (s *Service) Raise(ctx context.Context, is Issue) error {
 		s.hist.Record(ctx, history.Event{
 			Kind: history.HealthRaised, TitleID: is.Subject.TitleID, VersionID: is.Subject.VersionID, GrabID: is.Subject.GrabID,
 			Message: is.Message, Data: eventData(is),
+			Reason: "raised by the " + string(is.Kind) + " check",
 		})
 		return nil
 	case err != nil:
@@ -261,7 +262,8 @@ func (s *Service) ClearRecovered(ctx context.Context, key string, rec Recovery) 
 	}
 	s.hist.Record(ctx, history.Event{
 		Kind: history.HealthCleared, Message: "Cleared: " + row.Message,
-		Data: s.clearedData(ctx, row, rec),
+		Data:   s.clearedData(ctx, row, rec),
+		Reason: "the " + row.Kind + " check no longer finds the problem",
 	})
 	return nil
 }

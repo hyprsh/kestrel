@@ -88,7 +88,9 @@ func (s *Service) StartSearch(ctx context.Context, versionID int64, scope librar
 	if err != nil {
 		return err
 	}
+	cause := s.handCause(ctx, "Search now", label)
 	s.searches.run(func(ctx context.Context) {
+		ctx = cause(ctx)
 		out, err := s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, false)
 		// A search cancelled at shutdown still says so in the Log.
 		ctx = context.WithoutCancel(ctx)
@@ -125,11 +127,13 @@ func (s *Service) StartUpgradeSearch(ctx context.Context, versionID int64, scope
 	if err != nil {
 		return false, err
 	}
+	cause := s.handCause(ctx, "Search for Upgrades", label)
 	if !can {
-		s.hist.Record(ctx, s.searchedEvent(ctx, by, titleID, versionID, label, where, Outcome{}, nil, nothingToUpgrade))
+		s.hist.Record(ctx, s.searchedEvent(cause(ctx), by, titleID, versionID, label, where, Outcome{}, nil, nothingToUpgrade))
 		return false, nil
 	}
 	s.searches.run(func(ctx context.Context) {
+		ctx = cause(ctx)
 		out, err := s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, true)
 		ctx = context.WithoutCancel(ctx)
 		nothing := noBetterRelease
@@ -142,6 +146,20 @@ func (s *Service) StartUpgradeSearch(ctx context.Context, versionID int64, scope
 		}
 	})
 	return true, nil
+}
+
+// handCause is what a search started by hand carries into its background run: the person (or key) who asked, taken
+// from the call's context now because the search outlives the call, and the reason, which names the action and the
+// scope ("by hand: Search now for Season 2").
+func (s *Service) handCause(ctx context.Context, action, label string) func(context.Context) context.Context {
+	trigger := history.TriggerOr(ctx, history.Job(history.TriggerJob, "search now"))
+	reason := "by hand: " + action
+	if label != "" {
+		reason += " for " + label
+	}
+	return func(ctx context.Context) context.Context {
+		return history.WithTrigger(withReason(ctx, reason), trigger)
+	}
 }
 
 // upgradable says whether an Upgrade search of the Version within scope has anything to look for: a filled, monitored
@@ -251,7 +269,7 @@ func (s *Service) searchedEvent(ctx context.Context, by string, titleID, version
 		}
 	}
 	return history.Event{
-		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Message: s.searchedMessage(ctx, by, label, slot.Label(stored, where), own, err, nothing),
+		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Reason: reasonOf(ctx), Message: s.searchedMessage(ctx, by, label, slot.Label(stored, where), own, err, nothing),
 		Data: searchedData(label, slot.Label(stored, where), own, s.endOf(ctx, out, versionID, err)),
 	}
 }
@@ -260,17 +278,13 @@ func (s *Service) searchedEvent(ctx context.Context, by string, titleID, version
 // Upgrade sweep) asked the indexers for. They are routine, so the Log folds them and they are pruned after 30 days;
 // one event per Version searched keeps the volume to what the schedule allows (a day, three days, seven days, then
 // weekly).
-func (s *Service) noteAutomatic(ctx context.Context, titleID int64, upgrade bool, out Outcome, err error) {
+func (s *Service) noteAutomatic(ctx context.Context, titleID int64, by string, out Outcome, err error) {
 	if !out.asked || ctx.Err() != nil {
 		return
 	}
 	d, derr := s.lib.Get(ctx, titleID, library.View{Now: s.clock()})
 	if derr != nil {
 		return
-	}
-	by := "Searched"
-	if upgrade {
-		by = "Searched for Upgrades"
 	}
 	for _, v := range d.Versions {
 		if slices.Contains(out.Searched, v.ID) {

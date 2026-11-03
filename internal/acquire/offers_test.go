@@ -21,7 +21,7 @@ const betterEnglish = "Paddington.2014.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb"
 // Releases of English-original Titles.
 func (r *rig) offering(t *testing.T) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := byPerson()
 	ps := r.deps.Profiles.(*profiles.Service)
 	de := profiles.German
 	if _, err := ps.SetRegion(ctx, profiles.RegionPatch{Primary: &de}); err != nil {
@@ -65,7 +65,7 @@ func (r *rig) offers(t *testing.T) []acquire.Offer {
 }
 
 func TestAnOriginalOnlyReleaseIsOfferedInsteadOfGrabbed(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	count := r.withHistory(t)
 	r.offering(t)
@@ -103,7 +103,7 @@ func TestAnOriginalOnlyReleaseIsOfferedInsteadOfGrabbed(t *testing.T) {
 // A named-language Profile offers as a Primary-Language one does, judged against its own language: in an English
 // household, a German Profile that offers holds back the English Release of an English Title.
 func TestANamedLanguageProfileOffersTheOriginalLanguageNotItsOwn(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	ps := r.deps.Profiles.(*profiles.Service)
 	all, err := ps.List(ctx)
@@ -131,7 +131,7 @@ func TestANamedLanguageProfileOffersTheOriginalLanguageNotItsOwn(t *testing.T) {
 }
 
 func TestOnlyAnOfferingProfileOffers(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	reject := scoring.OriginalReject
@@ -148,7 +148,7 @@ func TestOnlyAnOfferingProfileOffers(t *testing.T) {
 }
 
 func TestAPrimaryLanguageReleaseIsGrabbedAndTheOfferGoes(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	r.publish(t, hd1080, time.Hour)
@@ -167,7 +167,7 @@ func TestAPrimaryLanguageReleaseIsGrabbedAndTheOfferGoes(t *testing.T) {
 }
 
 func TestAcceptGrabsTheOfferedReleaseHoweverOldTheOffer(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	r.publish(t, hd1080, time.Hour)
@@ -193,7 +193,7 @@ func TestAcceptGrabsTheOfferedReleaseHoweverOldTheOffer(t *testing.T) {
 }
 
 func TestAcceptingAReleaseTheIndexerLostDropsTheOffer(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	r.publish(t, hd1080, time.Hour)
@@ -212,7 +212,7 @@ func TestAcceptingAReleaseTheIndexerLostDropsTheOffer(t *testing.T) {
 }
 
 func TestADismissedOfferStaysDismissedUntilABetterOriginalComes(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	ver := r.versions[slot.Standard]
@@ -248,7 +248,7 @@ func TestADismissedOfferStaysDismissedUntilABetterOriginalComes(t *testing.T) {
 }
 
 func TestASeriesOfferListsItsEpisodesAndAcceptGrabsThemAll(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
@@ -286,7 +286,7 @@ func TestASeriesOfferListsItsEpisodesAndAcceptGrabsThemAll(t *testing.T) {
 }
 
 func TestAnAcceptedOriginalIsReplacedByAnyPrimaryLanguageRelease(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	if _, err := r.lib.ReplaceFile(ctx, r.titleID, "Paddington (2014)", library.NewFile{
@@ -303,7 +303,7 @@ func TestAnAcceptedOriginalIsReplacedByAnyPrimaryLanguageRelease(t *testing.T) {
 }
 
 func TestAnOriginalNamingAnEpisodeTheSeriesDoesNotHaveIsNotOffered(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	id, ver := r.nightShow(t, library.MonitorAll)
@@ -334,7 +334,7 @@ func (r *rig) offerOf(t *testing.T, ver int64) acquire.Offer {
 }
 
 func TestASeriesOfferIsDismissedPerEpisodeAndANewEpisodeShowsOnlyItself(t *testing.T) {
-	ctx := context.Background()
+	ctx := byPerson()
 	r := newRig(t)
 	r.offering(t)
 	id, ver := r.nightShow(t, library.MonitorAll)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/health"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
 	mediaserver "github.com/hyprsh/kestrel/internal/plugin/mediaserver/v1"
@@ -153,7 +154,7 @@ func NewRefresher(d RefresherDeps) *Refresher {
 	if d.RetryMax <= 0 {
 		d.RetryMax = RefreshRetryMax
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "media server refresh")))
 	return &Refresher{
 		servers: d.Servers, hl: d.Health, checks: d.Checks, feed: d.Feed, delay: d.Delay, log: d.Logger,
 		batch: d.Batch, inFlight: d.InFlight, retryBase: d.RetryBase, retryMax: d.RetryMax,

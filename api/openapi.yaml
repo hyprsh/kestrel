@@ -7691,13 +7691,13 @@ components:
         errors: { type: integer, format: int64 }
     Event:
       type: object
-      required: [id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, data]
+      required: [id, at, kind, routine, title_id, version_id, episode_id, grab_id, request_id, message, trigger, reason, data]
       properties:
         id: { type: integer, format: int64 }
         at: { type: string, format: date-time }
         kind:
           type: string
-          description: "A growing set: grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
+          description: "A growing set: bulk, grab, grab_failed, grab_canceled, import, import_rejected, import_stalled, import_episode, blocklist, request, request_ended, watch_ahead, rename, move, delete, adoption, cleanup, health_raised, health_cleared, and the routine grab_downloading, grab_completed, adoption_scanned, title_refreshed, search, original_offered."
         routine: { type: boolean }
         title_id: { type: integer, format: int64, nullable: true }
         version_id: { type: integer, format: int64, nullable: true }
@@ -7705,11 +7705,34 @@ components:
         grab_id: { type: integer, format: int64, nullable: true }
         request_id: { type: integer, format: int64, nullable: true }
         message: { type: string }
+        trigger:
+          allOf:
+            - $ref: "#/components/schemas/EventTrigger"
+          nullable: true
+          description: Who or what started it. Null for an entry from before triggers were recorded.
+        reason:
+          type: string
+          description: "Why it happened, or why something was not done, such as `due: its next search time came`. Empty for an entry from before reasons were recorded."
         data:
           type: object
           nullable: true
           additionalProperties: true
           description: The kind's payload, such as per-episode pack results.
+    EventTrigger:
+      type: object
+      required: [kind, actor, via]
+      properties:
+        kind:
+          type: string
+          description: "A growing set. An actor: `person`, `api_key`. A job or rule: `sweep`, `rss`, `import`, `retry`, `request`, `rule`, `startup`, and `job` for any other background loop."
+        actor:
+          type: string
+          nullable: true
+          description: The person's name, for `person`.
+        via:
+          type: string
+          nullable: true
+          description: The API call an actor made (its operation id), the Request's source, or the rule's or loop's name.
     BlocklistList:
       type: object
       required: [items]

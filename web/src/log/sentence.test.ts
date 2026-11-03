@@ -13,6 +13,8 @@ const ev = (kind: string, message: string, data: LogEvent['data'] = null, over: 
   grab_id: null,
   request_id: null,
   message,
+  trigger: null,
+  reason: '',
   data,
   ...over,
 })

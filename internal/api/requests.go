@@ -120,6 +120,8 @@ func (s *server) submitRequest(ctx context.Context, in requests.Input) (req requ
 	s.history.Record(ctx, history.Event{
 		Kind: history.RequestCreated, TitleID: res.Request.TitleID, RequestID: res.Request.ID,
 		Message: "Request from " + res.Request.RequesterName + " via " + requests.SourceName(res.Request.Source),
+		Trigger: history.Job(history.TriggerRequest, requests.SourceName(res.Request.Source)),
+		Reason:  "request: " + res.Request.RequesterName + " asked for it via " + requests.SourceName(res.Request.Source),
 	})
 	return res.Request, true, nil
 }
