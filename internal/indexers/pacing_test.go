@@ -13,6 +13,7 @@ import (
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
 	"github.com/hyprsh/kestrel/internal/plugin/indexer/v1/fake"
 	"github.com/hyprsh/kestrel/internal/plugin/instances"
+	"github.com/hyprsh/kestrel/internal/store"
 )
 
 // latent is a fake indexer that takes took of the test's clock to answer, may ignore
@@ -48,6 +49,7 @@ func (l *latent) requests() []indexer.SearchQuery {
 // pacingRig is one latent indexer with a search gap behind a Service on the test's clock.
 type pacingRig struct {
 	svc *indexers.Service
+	st  *store.Store
 	l   *latent
 	clk *clock
 	id  int64
@@ -65,7 +67,7 @@ func newPacingRig(t *testing.T, gap int) *pacingRig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := &pacingRig{l: l, clk: clk, id: i.ID, svc: indexers.New(r.inst, r.st, clk.now)}
+	p := &pacingRig{st: r.st, l: l, clk: clk, id: i.ID, svc: indexers.New(r.inst, r.st, clk.now)}
 	p.svc.SetSleep(func(_ context.Context, d time.Duration) error {
 		p.mu.Lock()
 		p.naps = append(p.naps, d)

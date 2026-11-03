@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	idb "github.com/hyprsh/kestrel/internal/indexers/db"
 	"github.com/hyprsh/kestrel/internal/plugin"
 	indexer "github.com/hyprsh/kestrel/internal/plugin/indexer/v1"
@@ -47,6 +48,7 @@ type Service struct {
 	states   map[int64]*state
 	sleep    func(ctx context.Context, d time.Duration) error
 	observer Observer
+	hist     *history.Service
 	log      *slog.Logger
 }
 
@@ -60,6 +62,14 @@ func (s *Service) SetLogger(l *slog.Logger) {
 	if l != nil {
 		s.log = l
 	}
+}
+
+// SetHistory sets where the Service records its indexers' state changes (paused, backed off, slow, sweeps stopped,
+// recovered); nil, the default, records none.
+func (s *Service) SetHistory(h *history.Service) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hist = h
 }
 
 // SetObserver sets the Observer; nil stops observing.

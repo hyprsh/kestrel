@@ -324,6 +324,12 @@ export const kindNames: Record<string, string> = {
   placeholder: 'Placeholder Episode',
   file_misfit: 'Misfit file',
   file_rescored: 'File re-scored',
+  indexer_paused: 'Indexer paused',
+  indexer_backed_off: 'Indexer backed off',
+  indexer_slow: 'Indexer slow',
+  indexer_sweep_stopped: 'Sweeps stopped',
+  indexer_recovered: 'Indexer recovered',
+  search_skipped: 'Search skipped',
 }
 
 /** What a row's one action does: open the event's Title, or go to a place of the SPA. */
