@@ -205,7 +205,7 @@ type Acquire interface {
 	Unblock(ctx context.Context, id int64) error
 	BlockRelease(ctx context.Context, versionID int64, releaseID, reason string) error
 	Stalled(ctx context.Context) ([]acquire.StalledImport, error)
-	SearchScope(ctx context.Context, versionID int64, scope library.Scope) (acquire.SearchResult, error)
+	Releases(ctx context.Context, versionID int64, scope library.Scope, fresh bool) (acquire.SearchResult, error)
 	RetryStalled(ctx context.Context, reason string) (int, error)
 	RetryImport(ctx context.Context, grabID int64) error
 	LastFailures(ctx context.Context) (map[int64]string, error)

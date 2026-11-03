@@ -231,6 +231,30 @@ describe('manual search', () => {
     await waitFor(() => expect(state.searches).toBe(2))
   })
 
+  it('opens with the cached list and its age, and Search again asks the indexers', async () => {
+    const bodies: unknown[] = []
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    server.use(
+      http.post('/versions/{id}/releases', async ({ request, response }) => {
+        const text = await request.clone().text()
+        const body = (text ? JSON.parse(text) : {}) as { refresh?: boolean }
+        bodies.push(body)
+        return response(200).json(
+          body.refresh ? releaseList({ items: releases(), cached: false }) : releaseList({ items: releases().slice(0, 1), cached: true, searched_at: new Date(Date.now() - 4 * 60_000).toISOString() }),
+        )
+      }),
+    )
+    await openManualSearch()
+
+    const line = await screen.findByText(/From a search/)
+    expect(line).toHaveTextContent('From a search 4 min ago · Search again · 1 release · 1 fit the Profile')
+    expect(bodies).toEqual([{}])
+
+    await userEvent.click(within(line).getByRole('button', { name: 'Search again' }))
+    await screen.findByText(/1 indexer searched/)
+    expect(bodies).toEqual([{}, { refresh: true }])
+  })
+
   it('filters by Fits, Season packs, Episodes and Rejected for a Series, and only Fits and Rejected for a Movie', async () => {
     fakeSearch(releases())
     await openManualSearch()

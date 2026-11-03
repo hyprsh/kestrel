@@ -108,6 +108,9 @@ func (s *Service) gatherSeries(ctx context.Context, sub subject, scope library.S
 	}
 	s.markFit(ctx, sub, res, out)
 	s.cache.put(now, d.ID, g, out)
+	if len(res.Failures) == 0 {
+		s.cache.answered(now, d.ID, g, askedOf(scope))
+	}
 	return out, res.Failures, nil
 }
 
@@ -337,6 +340,11 @@ func (s *Service) searchSeries(ctx context.Context, sub subject, versionIDs []in
 			if err != nil {
 				return out, err
 			}
+			feed, err := s.withFeed(ctx, d.ID, g, nil)
+			if err != nil {
+				return out, err
+			}
+			add(feed)
 		}
 		if !upgrade {
 			planUnlisted(&round, d, episodes, now, scope)

@@ -270,7 +270,7 @@ func (s *Service) searchedEvent(ctx context.Context, by string, titleID, version
 		}
 	}
 	return history.Event{
-		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Reason: reasonOf(ctx), Message: s.searchedMessage(ctx, by, label, slot.Label(stored, where), own, err, nothing),
+		Kind: history.Searched, TitleID: titleID, VersionID: versionID, Reason: joinReason(reasonOf(ctx), reuseOf(ctx).note(s.clock())), Message: s.searchedMessage(ctx, by, label, slot.Label(stored, where), own, err, nothing),
 		Data: searchedData(label, slot.Label(stored, where), own, s.endOf(ctx, out, versionID, err)),
 	}
 }
@@ -378,4 +378,15 @@ func (b *background) stop() {
 	b.mu.Unlock()
 	b.cancel()
 	b.wg.Wait()
+}
+
+// joinReason is a search's reason with what it adds, "due: its next search time came; answered from a search 12 min ago".
+func joinReason(reason, more string) string {
+	switch {
+	case reason == "":
+		return more
+	case more == "":
+		return reason
+	}
+	return reason + "; " + more
 }

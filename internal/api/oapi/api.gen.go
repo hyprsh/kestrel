@@ -4441,17 +4441,29 @@ type ReleaseDateEntryType string
 
 // ReleaseList defines model for ReleaseList.
 type ReleaseList struct {
+	// Cached True when the list is an earlier answer of the indexers and none was asked now.
+	Cached        bool           `json:"cached"`
 	IndexerErrors []IndexerError `json:"indexer_errors"`
 
 	// IndexersSearched How many enabled indexers the search asked, those in `indexer_errors` included.
 	IndexersSearched int       `json:"indexers_searched"`
 	Items            []Release `json:"items"`
 
-	// SearchedAt When the search ran.
+	// SearchedAt When the search ran; when `cached`, when the indexers gave the answer listed.
 	SearchedAt time.Time `json:"searched_at"`
 
 	// Wanted How many Units of the search's scope the Version Wants (its Wanted episodes, or 1 for a Wanted Movie).
 	Wanted int `json:"wanted"`
+}
+
+// ReleaseListRequest The body of the Release list: what `ReleaseSearch` narrows, and whether to ask the indexers
+// even when a recent answer could be listed.
+type ReleaseListRequest struct {
+	EpisodeIds *[]int64 `json:"episode_ids,omitempty"`
+
+	// Refresh True asks every enabled indexer (Search again) instead of listing a recent answer.
+	Refresh *bool `json:"refresh,omitempty"`
+	Season  *int  `json:"season,omitempty"`
 }
 
 // ReleaseSearch Narrows the search of a Series Version to a season and, within it, episodes. Movie searches
@@ -6556,7 +6568,7 @@ type AddVersionJSONRequestBody = VersionRef
 type PatchVersionJSONRequestBody = VersionPatch
 
 // SearchVersionReleasesJSONRequestBody defines body for SearchVersionReleases for application/json ContentType.
-type SearchVersionReleasesJSONRequestBody = ReleaseSearch
+type SearchVersionReleasesJSONRequestBody = ReleaseListRequest
 
 // SearchVersionJSONRequestBody defines body for SearchVersion for application/json ContentType.
 type SearchVersionJSONRequestBody = SearchNow

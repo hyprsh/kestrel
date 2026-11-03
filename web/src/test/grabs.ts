@@ -133,5 +133,6 @@ export const releaseList = (over: Partial<ReleaseList> = {}): ReleaseList => ({
   searched_at: new Date().toISOString(),
   indexers_searched: 1,
   wanted: 0,
+  cached: false,
   ...over,
 })

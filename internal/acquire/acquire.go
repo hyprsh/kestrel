@@ -184,14 +184,11 @@ func New(d Deps) (*Service, error) {
 	}
 	svc := &Service{
 		st: d.Store, clock: d.Clock, lib: d.Library, prof: d.Profiles, idx: d.Indexers, dl: d.Downloads,
-		snap: d.Scoring, cache: &cache{m: map[string]*entry{}, asked: map[int64]map[group]time.Time{}}, live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
+		snap: d.Scoring, cache: newCache(), live: &liveSet{m: map[int64]Live{}}, hist: d.History, misses: &missCount{m: map[int64]int{}},
 		pause: d.Pause, slots: d.Slots, searches: newBackground(2), searching: newKeyedLock(), granting: newKeyedLock(),
 	}
 	d.Scoring.OnSwap(func() {
-		svc.cache.mu.Lock()
-		svc.cache.m = map[string]*entry{}
-		svc.cache.asked = map[int64]map[group]time.Time{}
-		svc.cache.mu.Unlock()
+		svc.cache.reset()
 	})
 	return svc, nil
 }
@@ -294,6 +291,8 @@ type SearchResult struct {
 	// SearchedAt is when the search ran and Indexers how many indexers it asked.
 	SearchedAt time.Time
 	Indexers   int
+	// Cached is set when the list is an earlier answer of the indexers, given at SearchedAt, and no indexer was asked.
+	Cached bool
 	// Wanted is how many Units of the scope the Version searched Wants: the Wanted episodes, or 1 for a Wanted Movie.
 	Wanted int
 }
@@ -306,6 +305,9 @@ type entry struct {
 	at      time.Time
 	raw     indexers.Release
 	cand    Candidate
+	// rss is set for a Release an RSS read matched to the Title; it came from no search, and at is when the feed
+	// first showed it.
+	rss bool
 }
 
 type cache struct {
@@ -314,6 +316,20 @@ type cache struct {
 	// asked is when each group of indexers was last searched for a Title, so a retry from the cache knows which
 	// groups' answers it holds even when a group found nothing.
 	asked map[int64]map[group]time.Time
+	// answers are the searches of a group that all its indexers answered, by Title, for a later search to reuse
+	// (ReuseWindow). A failed group and the Releases of RSS are not in it.
+	answers map[int64]map[group][]answer
+}
+
+func newCache() *cache {
+	return &cache{m: map[string]*entry{}, asked: map[int64]map[group]time.Time{}, answers: map[int64]map[group][]answer{}}
+}
+
+// reset forgets every Release and answer.
+func (c *cache) reset() {
+	c.mu.Lock()
+	c.m, c.asked, c.answers = map[string]*entry{}, map[int64]map[group]time.Time{}, map[int64]map[group][]answer{}
+	c.mu.Unlock()
 }
 
 // put caches the Releases a search of the group g found for a Title.
@@ -344,6 +360,28 @@ func (c *cache) put(now time.Time, titleID int64, g group, es []*entry) {
 	c.asked[titleID][g] = now
 }
 
+// putFeed caches the Releases an RSS read matched to a Title. A feed is not a full answer, so no group or scope
+// counts as asked; a Release the cache already holds for the Title (from a search, or an earlier read) is kept as it is.
+func (c *cache) putFeed(now time.Time, titleID int64, es []*entry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	have := map[string]bool{}
+	for id, e := range c.m {
+		if now.Sub(e.at) >= CacheTTL {
+			delete(c.m, id)
+		} else if e.titleID == titleID {
+			have[entryKey(e.cand)] = true
+		}
+	}
+	for _, e := range es {
+		if k := entryKey(e.cand); !have[k] {
+			have[k] = true
+			e.rss = true
+			c.m[e.id] = e
+		}
+	}
+}
+
 func (c *cache) get(now time.Time, id string) (*entry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -366,7 +404,7 @@ func (s *Service) cachedFor(ctx context.Context, titleID int64, g group) ([]*ent
 	var all []*entry
 	some := false
 	for _, e := range c.m {
-		if e.titleID == titleID && now.Sub(e.at) < CacheTTL {
+		if e.titleID == titleID && !e.rss && now.Sub(e.at) < CacheTTL {
 			some = true
 			if g.holds(e) {
 				all = append(all, e)
@@ -390,7 +428,42 @@ func (s *Service) cachedFor(ctx context.Context, titleID int64, g group) ([]*ent
 			out = append(out, e)
 		}
 	}
-	return out, held, nil
+	if !held {
+		return out, false, nil
+	}
+	// The Releases RSS saw join the answer; they never make a Title count as asked.
+	out, err := s.withFeed(ctx, titleID, g, out)
+	return out, true, err
+}
+
+// withFeed adds to es the Releases RSS matched to the Title that g holds, fresh and off the Blocklist now, those
+// es does not have already (by guid and indexer).
+func (s *Service) withFeed(ctx context.Context, titleID int64, g group, es []*entry) ([]*entry, error) {
+	now := s.clock()
+	have := map[string]bool{}
+	for _, e := range es {
+		have[entryKey(e.cand)] = true
+	}
+	var feed []*entry
+	s.cache.mu.Lock()
+	for _, e := range s.cache.m {
+		if e.rss && e.titleID == titleID && now.Sub(e.at) < CacheTTL && g.holds(e) && !have[entryKey(e.cand)] {
+			feed = append(feed, e)
+		}
+	}
+	s.cache.mu.Unlock()
+	slices.SortFunc(feed, func(a, b *entry) int { return a.at.Compare(b.at) })
+	for _, e := range feed {
+		blocked, err := s.blocklisted(ctx, e.raw)
+		if err != nil {
+			return nil, err
+		}
+		if !blocked && !have[entryKey(e.cand)] {
+			have[entryKey(e.cand)] = true
+			es = append(es, e)
+		}
+	}
+	return es, nil
 }
 
 // candidates is gather that, when fromCache is set and the cache holds the
@@ -402,7 +475,13 @@ func (s *Service) candidates(ctx context.Context, sub subject, scope library.Sco
 			return es, nil, err
 		}
 	}
-	return s.gather(ctx, sub, scope, g)
+	found, failures, err := s.gather(ctx, sub, scope, g)
+	if err != nil {
+		return nil, nil, err
+	}
+	// What RSS saw is a candidate of every search, whether the indexers or the cache answered.
+	found, err = s.withFeed(ctx, sub.detail.ID, g, found)
+	return found, failures, err
 }
 
 func newID() string {
@@ -453,7 +532,13 @@ func (s *Service) subjectOf(ctx context.Context, titleID int64) (subject, error)
 // gather searches the indexers of the group g for the Title and scores each
 // Release under the Profile of every Version the Title has. The entries go
 // into the candidate cache. Search on add, sweeps and retries reuse it.
+//
+// With reuse allowed (withReuse) a recent answer of the group for the same or a wider scope is returned instead of
+// asking the indexers.
 func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope, g group) ([]*entry, []indexers.Failure, error) {
+	if es, ok, err := s.reused(ctx, sub, scope, g); err != nil || ok {
+		return es, nil, err
+	}
 	d := sub.detail
 	if d.Kind == library.Series {
 		return s.gatherSeries(ctx, sub, scope, g)
@@ -492,6 +577,9 @@ func (s *Service) gather(ctx context.Context, sub subject, scope library.Scope, 
 	}
 	s.markFit(ctx, sub, res, out)
 	s.cache.put(now, d.ID, g, out)
+	if len(res.Failures) == 0 {
+		s.cache.answered(now, d.ID, g, askedOf(library.Scope{}))
+	}
 	return out, res.Failures, nil
 }
 
@@ -584,6 +672,13 @@ func (s *Service) Search(ctx context.Context, versionID int64) (SearchResult, er
 // SearchScope is Search narrowed, for a Series Version, to a season or to
 // episodes of it. A Movie Version ignores the scope.
 func (s *Service) SearchScope(ctx context.Context, versionID int64, scope library.Scope) (SearchResult, error) {
+	return s.Releases(ctx, versionID, scope, true)
+}
+
+// Releases is SearchScope for Interactive search. Unless fresh, an answer of the indexers younger than ReuseWindow
+// for the same or a wider scope is listed instead of asking again (SearchedAt says when it was given, Cached that it
+// was); with none it searches as SearchScope does.
+func (s *Service) Releases(ctx context.Context, versionID int64, scope library.Scope, fresh bool) (SearchResult, error) {
 	defer s.snap.Hold()()
 	titleID, err := s.lib.TitleOfVersion(ctx, versionID)
 	if err != nil {
@@ -597,7 +692,13 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 	if !ok {
 		return SearchResult{}, library.ErrNotFound
 	}
-	entries, failures, err := s.gather(indexers.WithManual(ctx), sub, scope, everyIndexer)
+	ctx = indexers.WithManual(ctx)
+	var rec *reuse
+	if !fresh {
+		ctx, rec = withReuse(ctx)
+		rec.listing = true
+	}
+	entries, failures, err := s.gather(ctx, sub, scope, everyIndexer)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -606,6 +707,9 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 		return SearchResult{}, err
 	}
 	out := SearchResult{Failures: failures, SearchedAt: s.clock(), Indexers: s.idx.Enabled(ctx), Wanted: wantedIn(sub.detail, eps, slot, scope)}
+	if rec != nil && rec.hits > 0 {
+		out.Cached, out.SearchedAt = true, rec.oldest
+	}
 	for _, e := range entries {
 		v := e.cand.Verdicts[slot]
 		f := Found{
@@ -922,7 +1026,7 @@ func (s *Service) send(ctx context.Context, o outgoing) (Grab, error) {
 	g.VersionIDs = append(g.VersionIDs, o.also...)
 	s.hist.Record(ctx, history.Event{
 		Kind: history.GrabSent, TitleID: o.titleID, VersionID: o.versionID, GrabID: g.ID, Message: "Sent " + g.ReleaseName + " to the download client",
-		Reason: grabReason(ctx, o.by),
+		Reason: grabReason(ctx, o.by, o.e, s.clock()),
 		Data:   grabSentData(o.by),
 	})
 	return g, nil
@@ -1086,17 +1190,22 @@ func (s *Service) plan(in Input) []GrabPlan {
 
 // grabReason is why a Grab was made: the search's reason when a search chose the Release ("retry: import of X
 // rejected: language", "new: the first search of a Version just added"), else who else chose it.
-func grabReason(ctx context.Context, by string) string {
+func grabReason(ctx context.Context, by string, e *entry, now time.Time) string {
+	why := "chosen by a search"
 	switch by {
 	case GrabbedByHand:
-		return "chosen by hand"
+		why = "chosen by hand"
 	case GrabbedByRSS:
 		return "RSS: a new Release matched what the Version is missing"
+	default:
+		if r := reasonOf(ctx); r != "" {
+			why += " (" + r + ")"
+		}
 	}
-	if r := reasonOf(ctx); r != "" {
-		return "chosen by a search (" + r + ")"
+	if e != nil && e.rss {
+		why += "; found in RSS " + ago(now.Sub(e.at))
 	}
-	return "chosen by a search"
+	return why
 }
 
 // grabCanceledData is the `grab_canceled` event's payload: the Grab as it was before its row went, and whether its

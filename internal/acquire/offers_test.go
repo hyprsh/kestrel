@@ -230,6 +230,7 @@ func TestADismissedOfferStaysDismissedUntilABetterOriginalComes(t *testing.T) {
 		t.Fatalf("offers = %+v, want one dismissed", o)
 	}
 	// Found again: still dismissed.
+	r.clock.now = r.clock.now.Add(31 * time.Minute) // the earlier answer is too old to reuse
 	if _, err := r.svc.SearchNew(ctx, r.titleID, []int64{ver}); err != nil {
 		t.Fatal(err)
 	}
@@ -238,6 +239,7 @@ func TestADismissedOfferStaysDismissedUntilABetterOriginalComes(t *testing.T) {
 	}
 
 	r.publish(t, betterEnglish, time.Hour)
+	r.clock.now = r.clock.now.Add(31 * time.Minute) // the earlier answer is too old to reuse
 	if _, err := r.svc.SearchNew(ctx, r.titleID, []int64{ver}); err != nil {
 		t.Fatal(err)
 	}
@@ -347,6 +349,7 @@ func TestASeriesOfferIsDismissedPerEpisodeAndANewEpisodeShowsOnlyItself(t *testi
 	}
 
 	r.publishShow(t, nightEp2, "1", "2")
+	r.clock.now = r.clock.now.Add(31 * time.Minute) // the earlier answer is too old to reuse
 	if _, err := r.svc.SearchNew(ctx, id, []int64{ver}); err != nil {
 		t.Fatal(err)
 	}

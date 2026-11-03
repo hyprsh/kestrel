@@ -46,6 +46,7 @@ type releaseListJSON struct {
 	SearchedAt       string        `json:"searched_at"`
 	IndexersSearched int           `json:"indexers_searched"`
 	Wanted           int           `json:"wanted"`
+	Cached           bool          `json:"cached"`
 	Items            []releaseJSON `json:"items"`
 	IndexerErrors    []struct {
 		Indexer    string `json:"indexer"`
@@ -151,7 +152,13 @@ func (s search) publish(t *testing.T, name string) {
 
 func (s search) releases(t *testing.T, version int64) releaseListJSON {
 	t.Helper()
-	r := s.valid("POST", fmt.Sprintf("/versions/%d/releases", version), "")
+	return s.releasesBody(t, version, `{"refresh":true}`)
+}
+
+// releasesBody lists the Releases with the given request body.
+func (s search) releasesBody(t *testing.T, version int64, body string) releaseListJSON {
+	t.Helper()
+	r := s.valid("POST", fmt.Sprintf("/versions/%d/releases", version), body)
 	if r.Status != 200 {
 		t.Fatalf("search = %d %s", r.Status, r.Body)
 	}
@@ -345,5 +352,26 @@ func TestSearchAndGrabNeedALogin(t *testing.T) {
 		if r := anon.do(p.method, p.path, "{}"); r.Status != 401 {
 			t.Errorf("%s %s = %d, want 401", p.method, p.path, r.Status)
 		}
+	}
+}
+
+func TestTheReleaseListIsTheCachedAnswerUntilSearchAgainAsksTheIndexers(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+
+	first := s.releasesBody(t, s.hd, "")
+	if first.Cached || len(first.Items) != 1 {
+		t.Fatalf("first = cached %v, %d items, want a search", first.Cached, len(first.Items))
+	}
+	s.publish(t, uhdRelease)
+	s.in.clock.Advance(4 * time.Minute)
+
+	cached := s.releasesBody(t, s.hd, "")
+	if !cached.Cached || len(cached.Items) != 1 || cached.SearchedAt != first.SearchedAt {
+		t.Fatalf("second = %+v, want the cached list from %s", cached, first.SearchedAt)
+	}
+	if again := s.releasesBody(t, s.hd, `{"refresh":true}`); again.Cached || len(again.Items) != 2 {
+		t.Fatalf("Search again = cached %v, %d items, want the indexers asked", again.Cached, len(again.Items))
 	}
 }

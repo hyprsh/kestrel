@@ -298,8 +298,21 @@ export function ManualSearch({
     'Searching your indexers…'
   ) : search.data ? (
     <>
-      {`${nIndexers} ${nIndexers === 1 ? 'indexer' : 'indexers'} searched `}
-      <SearchedAgo at={search.data.searched_at} />
+      {search.data.cached ? (
+        <>
+          {'From a search '}
+          <SearchedAgo at={search.data.searched_at} />
+          {' · '}
+          <Link as="button" onClick={() => void search.refetch()}>
+            Search again
+          </Link>
+        </>
+      ) : (
+        <>
+          {`${nIndexers} ${nIndexers === 1 ? 'indexer' : 'indexers'} searched `}
+          <SearchedAgo at={search.data.searched_at} />
+        </>
+      )}
       {` · ${all.length} ${all.length === 1 ? 'release' : 'releases'} · ${counts.fits} fit the Profile`}
       {errors.map((e) => (
         <Fragment key={`${e.indexer_id}-${e.indexer}`}>{` · ${e.indexer}: ${e.message}${e.retry_after ? ` (retry in ${e.retry_after} s)` : ''}`}</Fragment>

@@ -116,6 +116,7 @@ func TestTheNextGroupIsAskedWhenTheFirstGroupsIndexerIsPaused(t *testing.T) {
 	if _, err := r.svc.Cancel(ctx, out.Grabbed[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
+	r.clock.now = r.clock.now.Add(31 * time.Minute) // the earlier answer is too old to reuse
 	before := r.asked2.Load()
 	if out, err = r.svc.SearchNew(ctx, r.titleID, r.wanted(t, slot.Standard)); err != nil || len(out.Grabbed) != 1 || out.Grabbed[0].IndexerName != "Beta" {
 		t.Fatalf("second search = %+v, %v", out, err)
