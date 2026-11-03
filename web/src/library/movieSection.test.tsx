@@ -72,9 +72,9 @@ describe("a Movie's Versions on its Title page", () => {
     const item = row_.closest('[role=listitem]') as HTMLElement
     for (const k of ['Quality', 'Video', 'Audio', 'Custom Format Score', 'Size', 'Path']) expect(within(item).getByText(k)).toBeInTheDocument()
     expect(within(item).getAllByText('Imported')).toHaveLength(2) // the chip and the fact
-    // Opened, the row keeps its line: the size shows in the header and in the facts; the file name only in the Path fact.
+    // Opened, the row keeps its header: the size and the file name show there and in the facts (the Path adds the folder).
     expect(within(item).getAllByText('1.6 GB')).toHaveLength(2)
-    expect(within(item).getAllByText(/Paddington \(2014\)/)).toHaveLength(1)
+    expect(within(item).getAllByText(/Paddington \(2014\)/)).toHaveLength(2)
     expect(within(item).getByText('Quality').nextSibling).not.toHaveTextContent('H.264')
     expect(within(item).getByText('+100')).toBeInTheDocument()
     expect(within(item).getByRole('button', { name: 'Search for an Upgrade' })).toBeEnabled()

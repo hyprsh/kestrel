@@ -234,7 +234,8 @@ describe('the Version rows', () => {
     const pane = await openTitle(/paddington/i)
 
     const hd = within(pane).getByRole('listitem', { name: 'Standard' })
-    expect(await within(hd).findByText('Not out yet')).toBeInTheDocument()
+    // The header's summary and the body's facts both say it.
+    expect((await within(hd).findAllByText('Not out yet')).length).toBeGreaterThan(0)
   })
 
   it('show a Movie Version’s file as quality, codec, audio, languages and size, with when it was imported and the path behind File details', async () => {
