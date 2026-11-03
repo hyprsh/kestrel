@@ -5,10 +5,11 @@
 // opens the stream and tells everyone to refetch (nothing is replayed).
 import type { QueryClient } from '@tanstack/react-query'
 import { apiBaseUrl } from '../api/client'
+import { publishSearchFinished, type SearchFinished } from './searchFinished'
 
 const LOCK = 'kestrel-live-stream'
 const CHANNEL = 'kestrel-live'
-const EVENTS = ['changed', 'queue', 'activity', 'attention', 'search', 'jobs'] as const
+const EVENTS = ['changed', 'queue', 'activity', 'attention', 'search', 'jobs', 'search_finished'] as const
 
 /** A frame as relayed between tabs; `reset` means "refetch everything you show". */
 type Frame = { event: (typeof EVENTS)[number] | 'reset'; data?: unknown; /** A reset with `at` spares the queries that were updated at or after it. */ at?: number }
@@ -69,6 +70,10 @@ function applyFrame(qc: QueryClient, f: Frame) {
     case 'search':
     case 'jobs':
       qc.setQueryData([f.event], f.data)
+      return
+    case 'search_finished':
+      // Not cached state: the tab that started the search toasts it.
+      publishSearchFinished(f.data as SearchFinished)
       return
     case 'attention':
       // The frame only says the count moved; the rows and the strip beside them are refetched.

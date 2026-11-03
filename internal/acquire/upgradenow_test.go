@@ -79,7 +79,7 @@ func TestAMovieAtItsCutoffHasNothingToUpgrade(t *testing.T) {
 	if can, err := acquire.UpgradeSearchable(r.svc, ctx, r.titleID, ver, slot.Standard, library.Scope{}); err != nil || can {
 		t.Errorf("a Movie at its Cutoff: upgradable = %v, %v, want false", can, err)
 	}
-	if started, err := r.svc.StartUpgradeSearch(ctx, ver, library.Scope{}); err != nil || started {
+	if started, err := r.svc.StartUpgradeSearch(ctx, ver, library.Scope{}, nil); err != nil || started {
 		t.Errorf("StartUpgradeSearch at the Cutoff = %v, %v, want not started", started, err)
 	}
 

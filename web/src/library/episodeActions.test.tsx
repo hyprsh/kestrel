@@ -1,12 +1,13 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { http } from '../test/handlers'
 import { cell, episode, episodeFile, fakeSeries, pickSeason } from '../test/series'
 import { server } from '../test/server'
-import { findToast } from '../test/toasts'
+import { findToast, toastRegion } from '../test/toasts'
+import { publishSearchFinished, type SearchFinished } from '../live/searchFinished'
 import { releaseList } from '../test/grabs'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -27,7 +28,7 @@ async function openSeries() {
   server.use(
     http.post('/versions/{id}/search', async ({ params, request, response }) => {
       searched.push({ version: Number(params.id), body: await read(request) })
-      return response(202).empty()
+      return response(202).json({ search_id: 'search-1' })
     }),
     http.post('/versions/{id}/releases', async ({ params, request, response }) => {
       manual.push({ version: Number(params.id), body: await read(request) })
@@ -172,7 +173,7 @@ describe('searching from the episode list', () => {
     server.use(
       http.post('/versions/{id}/search', async ({ params, request, response }) => {
         searched.push({ version: Number(params.id), body: await request.json() })
-        return response(202).empty()
+        return response(202).json({ search_id: 'search-1' })
       }),
       http.post('/versions/{id}/releases', async ({ params, request, response }) => {
         manual.push({ version: Number(params.id), body: await request.json() })
@@ -205,7 +206,7 @@ describe('searching from the episode list', () => {
     server.use(
       http.post('/versions/{id}/search', async ({ params, request, response }) => {
         searched.push({ version: Number(params.id), body: await request.json() })
-        return answer === 200 ? response(200).empty() : response(202).empty()
+        return answer === 200 ? response(200).empty() : response(202).json({ search_id: 'search-1' })
       }),
     )
     renderApp()
@@ -351,5 +352,76 @@ describe('searching from the episode list', () => {
 
     await screen.findByRole('region', { name: 'Manual search' })
     await waitFor(() => expect(manual).toEqual([{ version: 52, body: { season: 1, episode_ids: [2] } }]))
+  })
+})
+
+describe('the Toast at the end of a search started here', () => {
+  afterEach(() => localStorage.clear())
+
+  const finished = (over: Partial<SearchFinished>): SearchFinished => ({
+    search_id: 'search-1',
+    version_id: 51,
+    title_id: 5,
+    title: 'Breaking Bad',
+    upgrade: true,
+    outcome: 'none',
+    grabbed: [],
+    ...over,
+  })
+
+  async function openUpgrade() {
+    const state = fakeSeries()
+    state.get().episodes = [episode(2, 1, 1, 'Pilot', { cells: { standard: cell('filled', 120, file), '4k': cell('unreleased') } })]
+    server.use(http.post('/versions/{id}/search', ({ response }) => response(202).json({ search_id: 'search-1' })))
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+    await userEvent.click(within(grid).getByRole('button', { name: 'Upgrade S01E01' }))
+    await findToast('Upgrade search started for S01E01 in Standard')
+  }
+
+  it('says No better Release found when an Upgrade search ended without a grab, with a link to Manual search', async () => {
+    await openUpgrade()
+
+    act(() => publishSearchFinished(finished({})))
+
+    expect(await findToast('No better Release found for S01E01 in Standard')).toBeInTheDocument()
+    await userEvent.click(within(await toastRegion()).getByRole('button', { name: 'Manual search' }))
+    expect(await screen.findByRole('region', { name: 'Manual search' })).toBeInTheDocument()
+  })
+
+  it('names the Release an Upgrade search grabbed, with a link to the Log', async () => {
+    await openUpgrade()
+
+    act(() => publishSearchFinished(finished({ outcome: 'grabbed', grabbed: ['Breaking.Bad.S01E01.2160p.BluRay-GRP'] })))
+
+    expect(await findToast('Grabbed Breaking.Bad.S01E01.2160p.BluRay-GRP for S01E01 in Standard')).toBeInTheDocument()
+    await userEvent.click(within(await toastRegion()).getByRole('button', { name: 'Open Log' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Log' })).toBeInTheDocument()
+  })
+
+  it('says a failed search failed, and ignores a search another tab started', async () => {
+    await openUpgrade()
+
+    act(() => publishSearchFinished(finished({ search_id: 'elsewhere', outcome: 'grabbed', grabbed: ['Other.Release'] })))
+    act(() => publishSearchFinished(finished({ outcome: 'failed', error: 'No indexer is enabled' })))
+
+    expect(await findToast('Search for S01E01 in Standard failed: No indexer is enabled')).toBeInTheDocument()
+    expect(within(await toastRegion()).queryByText(/Other.Release/)).not.toBeInTheDocument()
+  })
+
+  it('says what a Search now on a Wanted episode grabbed, or that it found nothing', async () => {
+    const { grid } = await openSeries()
+
+    await userEvent.click(within(grid).getByRole('button', { name: 'Search S01E01' }))
+    await findToast('Search started for S01E01 in 4K')
+    act(() => publishSearchFinished(finished({ version_id: 52, upgrade: false, outcome: 'grabbed', grabbed: ['Breaking.Bad.S01E01.1080p.WEB-DL-GRP'] })))
+
+    expect(await findToast('Grabbed Breaking.Bad.S01E01.1080p.WEB-DL-GRP for S01E01 in 4K')).toBeInTheDocument()
+
+    await userEvent.click(within(grid).getByRole('button', { name: 'Search S01E01' }))
+    act(() => publishSearchFinished(finished({ search_id: 'search-1', version_id: 52, upgrade: false, outcome: 'none' })))
+
+    expect(await findToast('No Release found to grab for S01E01 in 4K')).toBeInTheDocument()
   })
 })

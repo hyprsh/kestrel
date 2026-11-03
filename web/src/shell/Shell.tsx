@@ -13,6 +13,7 @@ import { CleanupLauncher } from '../cleanup/launch'
 import { plural } from '../format'
 import { MOD } from '../keys'
 import { useSearchAllWanted } from '../api/wanted'
+import { useSearchResultToasts } from '../activity/searchResultToast'
 import { useSearchPassToast, useWatchSearch } from '../activity/searchToast'
 import { startLiveStream } from '../live/stream'
 import { useTrashOutcomeToasts } from '../trash/toasts'
@@ -330,6 +331,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     },
     [phone, openSearch],
   )
+  useSearchResultToasts(goPath)
   // An opened Title is shown, so the Library's filter must not hide it.
   const openTitle = useCallback(
     (id: number) => {

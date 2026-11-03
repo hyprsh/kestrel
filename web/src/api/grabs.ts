@@ -4,6 +4,7 @@ import { api } from './client'
 import { ApiError } from './queries'
 import type { EpisodeScope } from './queries'
 import type { components } from './schema.gen'
+import { watchSearchResult, type SearchWatch } from '../activity/searchResultToast'
 
 export type Release = components['schemas']['Release']
 export type GrabCreate = components['schemas']['GrabCreate']
@@ -77,13 +78,15 @@ export function useBlocklistRelease() {
  * `scope`), started at once in the background. With `upgrade` it searches the
  * filled episodes for a better Release instead; `started` is then false when
  * nothing in scope was left to upgrade (answered 200, not 202). What it grabs reaches the
- * views through the live stream and shows in the Log.
+ * views through the live stream and shows in the Log. `watch` asks for a Toast when the search ends.
  */
 export function useSearchNow() {
   return useMutation({
-    mutationFn: async ({ versionId, scope, upgrade }: { versionId: number; scope?: EpisodeScope; upgrade?: boolean }): Promise<{ started: boolean }> => {
-      const { error, response } = await api.POST('/versions/{id}/search', { params: { path: { id: versionId } }, body: upgrade ? { ...scope, upgrade } : scope })
+    mutationFn: async ({ versionId, scope, upgrade, watch }: { versionId: number; scope?: EpisodeScope; upgrade?: boolean; watch?: SearchWatch }): Promise<{ started: boolean }> => {
+      const { data, error, response } = await api.POST('/versions/{id}/search', { params: { path: { id: versionId } }, body: upgrade ? { ...scope, upgrade } : scope })
       if (!response.ok) throw failure(error, response)
+      // With `watch`, a Toast says what the search found when the stream reports it done.
+      if (watch && data?.search_id) watchSearchResult(data.search_id, watch)
       return { started: response.status !== 200 } // 200: an Upgrade search with nothing to upgrade
     },
   })

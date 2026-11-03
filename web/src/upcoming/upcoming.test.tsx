@@ -317,7 +317,7 @@ describe('Upcoming: where each entry stands', () => {
     server.use(
       http.post('/versions/{id}/search', async ({ params, request, response }) => {
         searched.push({ id: String(params.id), body: await request.json() })
-        return response(202).empty()
+        return response(202).json({ search_id: 'search-1' })
       }),
     )
     await openUpcoming()
@@ -343,7 +343,7 @@ describe('Upcoming: search', () => {
   it('has one Search now for a Title with both Slots Wanted, searching each Version', async () => {
     fakeAgenda([movie({ date: day(-1), slots: [slot('wanted'), slot('wanted', { slot: '4k', version_id: 12 })] })])
     const searched: string[] = []
-    server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).empty())))
+    server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).json({ search_id: 'search-1' }))))
     await openUpcoming()
     await userEvent.click(within(rowOf('Paddington')).getByRole('button', { name: /search now/i }))
     expect(searched.sort()).toEqual(['11', '12'])

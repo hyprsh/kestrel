@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, it } from 'vitest'
+import { onSearchFinished, type SearchFinished } from './searchFinished'
 import { startLiveStream, type LiveDeps } from './stream'
 
 class FakeSource {
@@ -89,6 +90,22 @@ describe('the live stream', () => {
     await flush()
     expect(a.getQueryData(['queue'])).toEqual([{ grab_id: 9 }])
     expect(b.getQueryData(['queue'])).toEqual([{ grab_id: 9 }])
+  })
+
+  it('hands each tab the search_finished frame, so the tab that started the search can toast it', async () => {
+    const deps = fakeBrowser()
+    startLiveStream(tab(), deps)
+    startLiveStream(tab(), deps)
+    await flush()
+    const got: SearchFinished[] = []
+    const stop = onSearchFinished((f) => got.push(f))
+    const frame: SearchFinished = { search_id: 'abc', version_id: 3, title_id: 1, title: 'Dune', upgrade: false, outcome: 'none', grabbed: [] }
+
+    open()[0].emit('search_finished', frame)
+    await flush()
+    stop()
+
+    expect(got).toEqual([frame, frame]) // this tab, then the other one through the channel
   })
 
   it('at start-up refetches what resolved before the stream opened and spares what resolved after', async () => {

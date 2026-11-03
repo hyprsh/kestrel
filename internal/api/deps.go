@@ -220,11 +220,11 @@ type Acquire interface {
 	DiscardStalled(ctx context.Context, reason string) (int, error)
 	Discard(ctx context.Context, grabID int64) error
 	Blocklist(ctx context.Context, titleID int64) ([]acquire.Blocked, error)
-	// StartSearch is Search now: it checks the scope, then searches in the background.
-	StartSearch(ctx context.Context, versionID int64, scope library.Scope) error
+	// StartSearch is Search now: it checks the scope, then searches in the background and calls finished with what it found.
+	StartSearch(ctx context.Context, versionID int64, scope library.Scope, finished func(acquire.Finished)) error
 	// StartUpgradeSearch is Search now for an Upgrade: the filled episodes within scope are searched for a better Release.
-	// It reports false when nothing in scope can be upgraded, and then searches nothing.
-	StartUpgradeSearch(ctx context.Context, versionID int64, scope library.Scope) (bool, error)
+	// It reports false when nothing in scope can be upgraded, and then searches nothing; else it calls finished as StartSearch does.
+	StartUpgradeSearch(ctx context.Context, versionID int64, scope library.Scope, finished func(acquire.Finished)) (bool, error)
 	// BlockGrab puts a Grab's Release on the Blocklist (a deleted file's).
 	BlockGrab(ctx context.Context, grabID int64, reason string) error
 	// Original Offers: every one, a Title's by Version, and the two actions on one.

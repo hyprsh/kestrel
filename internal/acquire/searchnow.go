@@ -39,15 +39,47 @@ func (s *Service) searchUpgradeNow(ctx context.Context, versionID int64, scope l
 	return s.searchTitle(ctx, titleID, []int64{versionID}, scope, false, true)
 }
 
+// Finished is what a search started by hand came to, for the caller's `finished` function.
+type Finished struct {
+	TitleID, VersionID int64
+	// Title is the Title's name.
+	Title string
+	// Upgrade is set for an Upgrade search.
+	Upgrade bool
+	// End is how the search of the Version ended.
+	End SearchEnd
+	// Grabbed are the names of the Releases grabbed for the Version.
+	Grabbed []string
+	// Err is why the search failed, or nil.
+	Err error
+}
+
+// finishedOf reads what the search of the Version came to.
+func (s *Service) finishedOf(ctx context.Context, titleID, versionID int64, upgrade bool, out Outcome, err error) Finished {
+	f := Finished{TitleID: titleID, VersionID: versionID, Upgrade: upgrade, End: s.endOf(ctx, out, versionID, err), Grabbed: []string{}}
+	for _, g := range out.Grabbed {
+		if g.VersionID == versionID {
+			f.Grabbed = append(f.Grabbed, g.ReleaseName)
+		}
+	}
+	if len(f.Grabbed) == 0 {
+		f.Err = err
+	}
+	if d, derr := s.lib.Get(ctx, titleID, library.View{Now: s.clock()}); derr == nil {
+		f.Title = d.Title
+	}
+	return f
+}
+
 // StartSearch checks the Version and scope as searchNow does, then runs
 // searchNow in the background and returns at once. When the search is done it
 // records a Searched event saying what came of it in the Version's Slot (each
-// Grab records its own).
+// Grab records its own), then calls finished (when not nil) with what it found.
 // The search lives as long as Kestrel does: StopSearches cancels it, and after
 // StopSearches no search starts. This in-memory pool is ADR 0007's exception:
 // a season or episode scope cannot be stored in search_state, so a restart
 // forgets a search that had not finished.
-func (s *Service) StartSearch(ctx context.Context, versionID int64, scope library.Scope) error {
+func (s *Service) StartSearch(ctx context.Context, versionID int64, scope library.Scope, finished func(Finished)) error {
 	titleID, label, err := s.checkScope(ctx, versionID, scope)
 	if err != nil {
 		return err
@@ -61,6 +93,9 @@ func (s *Service) StartSearch(ctx context.Context, versionID int64, scope librar
 		// A search cancelled at shutdown still says so in the Log.
 		ctx = context.WithoutCancel(ctx)
 		s.hist.Record(ctx, s.searchedEvent(ctx, "Searched by hand", titleID, versionID, label, where, out, err, nothingToGrab))
+		if finished != nil {
+			finished(s.finishedOf(ctx, titleID, versionID, false, out, err))
+		}
 	})
 	return nil
 }
@@ -74,8 +109,9 @@ const (
 // StartUpgradeSearch is StartSearch for an Upgrade: the Version's filled episodes within scope (or a filled Movie) are
 // searched for a better Release. It reports started false when nothing in scope can be upgraded (every episode is at its
 // Cutoff, unmonitored, not filled or being downloaded): no search runs, and the Log says "nothing to upgrade" at once.
-// Otherwise the search runs in the background and the Log says what came of it, "no better Release found" included.
-func (s *Service) StartUpgradeSearch(ctx context.Context, versionID int64, scope library.Scope) (started bool, err error) {
+// Otherwise the search runs in the background and the Log says what came of it, "no better Release found" included;
+// finished (when not nil) is then called with what it found.
+func (s *Service) StartUpgradeSearch(ctx context.Context, versionID int64, scope library.Scope, finished func(Finished)) (started bool, err error) {
 	titleID, label, err := s.checkScope(ctx, versionID, scope)
 	if err != nil {
 		return false, err
@@ -101,6 +137,9 @@ func (s *Service) StartUpgradeSearch(ctx context.Context, versionID int64, scope
 			nothing = nothingToUpgrade
 		}
 		s.hist.Record(ctx, s.searchedEvent(ctx, by, titleID, versionID, label, where, out, err, nothing))
+		if finished != nil {
+			finished(s.finishedOf(ctx, titleID, versionID, true, out, err))
+		}
 	})
 	return true, nil
 }

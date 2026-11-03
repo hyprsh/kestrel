@@ -74,7 +74,7 @@ describe('a Wanted Version’s search facts', () => {
   it('searches from the open row', async () => {
     wantedMovie(none, hoursAhead(4))
     const searched: string[] = []
-    server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).empty())))
+    server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).json({ search_id: 'search-1' }))))
     const card = await openMovie()
 
     await userEvent.click(await card.findByRole('button', { name: 'Search now' }))

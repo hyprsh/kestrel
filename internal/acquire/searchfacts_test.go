@@ -204,7 +204,7 @@ func TestASearchNowEventCarriesWhatItCheckedAndGrabbed(t *testing.T) {
 	r.publish(t, hd1080, time.Hour)
 	r.publish(t, german, time.Hour)
 
-	if err := svc.StartSearch(ctx, r.versions[slot.Standard], library.Scope{}); err != nil {
+	if err := svc.StartSearch(ctx, r.versions[slot.Standard], library.Scope{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	var data struct {

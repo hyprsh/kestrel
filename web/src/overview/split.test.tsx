@@ -102,7 +102,7 @@ describe('Happening now, split in two cards', () => {
   it('searches the Version at once from the Search button, and says so in a Toast', async () => {
     fakeLibrary([wanted(1, 'Paddington 2', 3)])
     const sent: string[] = []
-    server.use(http.post('/versions/{id}/search', ({ params, response }) => (sent.push(String(params.id)), response(202).empty())))
+    server.use(http.post('/versions/{id}/search', ({ params, response }) => (sent.push(String(params.id)), response(202).json({ search_id: 'search-1' }))))
     renderApp()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Search Paddington 2' }))
