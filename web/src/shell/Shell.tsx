@@ -3,7 +3,7 @@
 import { useRunningNow, type Running } from '../activity/running'
 import { Button, Separator, StatusDot, ThemeSwitcher, Tooltip, useToasts } from '@hyprsh/design'
 import { Activity as ActivityIcon, CalendarClock, Eraser, FolderInput, HeartPulse, Inbox, LibraryBig, ListPlus, Plus, ScrollText, Search, Settings } from 'lucide-react'
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAttention } from '../api/attention'
 import { useAuth, useLogout } from '../api/queries'
@@ -179,7 +179,15 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   }, [libraryId])
   const shownView = screen === 'library' ? episodeView : noEpisodeView
   const address = { q: query, section: screen === 'health' ? healthSection : section }
-  useEffect(() => showPlace(placePath(screen, address.q, address.section, shownView, searchShown)), [screen, address.q, address.section, shownView, searchShown])
+  // Another screen is a new history entry, so Back returns to the one before; a change within the screen (a filter letter, a section) replaces it.
+  const shownScreen = useRef(screen)
+  useEffect(() => {
+    const path = placePath(screen, address.q, address.section, shownView, searchShown)
+    if (shownScreen.current !== screen) {
+      shownScreen.current = screen
+      pushPlace(path)
+    } else showPlace(path)
+  }, [screen, address.q, address.section, shownView, searchShown])
   // A first load at "/health/jobs" scrolls to that section.
   useEffect(() => {
     if (start.screen === 'health' && start.section) document.getElementById(`health-${start.section}`)?.scrollIntoView?.()
@@ -188,7 +196,9 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   useEffect(() => {
     const onPop = () => {
       const place = currentPlace()
+      // The root address is the Overview.
       if (isPlace(place.screen)) setScreen(place.screen)
+      else if (place.screen === '') setScreen('overview')
       if (place.screen === 'health') setHealthSection(place.section)
       setFilter({ screen: place.screen, q: place.q })
       setTitleOpen(isTitleId(place.section))

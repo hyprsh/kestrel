@@ -9,6 +9,7 @@ import { useRecentRequests } from '../api/requests'
 import { useRecent, useUpcoming } from '../api/upcoming'
 import { useListNav } from '../keys'
 import { SidePanel } from '../layout/SidePanel'
+import { useUrlParam } from '../place'
 import { usePhone } from '../responsive'
 import { ClientCard } from './ClientCard'
 import { ClientLine } from './ClientLine'
@@ -33,7 +34,10 @@ export function Overview({
   onOpenAdoption?: () => void
 }) {
   const phone = usePhone()
-  const [range, setRange] = useState<StatsRange>('30d')
+  // The range lives in the address ("?range=7d"), so Back from a drill-down and a reload keep it; Last 30 days leaves the address clean.
+  const [rangeParam, setRangeParam] = useUrlParam('range')
+  const range: StatsRange = ranges.find((r) => r.value === rangeParam)?.value ?? '30d'
+  const setRange = (r: StatsRange) => setRangeParam(r === '30d' ? null : r)
   const stats = useStats(range)
   const happening = useHappeningNow(onOpen, onOpenTitle, onOpenAdoption)
   const recentItems = firstThree(useRecent().data?.items ?? [])
