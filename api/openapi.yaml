@@ -7483,7 +7483,7 @@ components:
           description: Files that fit their Version and are below their Profile's cutoff, so Upgrades are wanted for them.
         release_groups:
           type: array
-          description: The five groups with the most files, most first.
+          description: The groups with the most files, most first, ties by name, at most 50.
           items: {$ref: '#/components/schemas/StatsReleaseGroup'}
         requests: {$ref: '#/components/schemas/StatsRequests'}
         storage: {$ref: '#/components/schemas/StatsStorage'}

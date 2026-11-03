@@ -309,7 +309,7 @@ func (s *Service) Compute(ctx context.Context, now time.Time, r Range, disks []D
 			groups[g]++
 		}
 	}
-	res.Groups = TopGroups(groups, 5)
+	res.Groups = TopGroups(groups, MaxGroups)
 	if res.Requests, err = s.requests(ctx, q, from, to); err != nil {
 		return res, err
 	}
@@ -534,6 +534,9 @@ func (s *Service) quality(ctx context.Context, q *db.Queries) ([]Quality, error)
 	}
 	return out, nil
 }
+
+// MaxGroups caps the release groups the stats list: the Overview shows five and expands in place to the rest.
+const MaxGroups = 50
 
 // TopGroups are the n release groups with the most files, most first, ties by name.
 func TopGroups(counts map[string]int, n int) []Group {

@@ -344,6 +344,25 @@ func TestLibraryQualityAndStorageFromFiles(t *testing.T) {
 	}
 }
 
+func TestGroupsListMoreThanFiveUpToTheCap(t *testing.T) {
+	t.Parallel()
+	r := newRig(t)
+	movie, _ := r.library()
+	for i := range stats.MaxGroups + 5 {
+		// Groups bring 1 to 3 files each, so the cap cuts among ties by name.
+		for range i%3 + 1 {
+			r.file(movie, 1, "x", parsed(fmt.Sprintf("G%02d", i), "webdl", "none"), at(-1, 0), true)
+		}
+	}
+	res := r.compute("30d")
+	if len(res.Groups) != stats.MaxGroups {
+		t.Fatalf("groups = %d, want %d", len(res.Groups), stats.MaxGroups)
+	}
+	if res.Groups[0].Files != 3 || res.Groups[0].Name != "G02" || res.Groups[1].Name != "G05" {
+		t.Errorf("groups = %+v, want most files first, ties by name", res.Groups[:3])
+	}
+}
+
 func TestStorageHasNoGrowthWhenNothingCameIn(t *testing.T) {
 	t.Parallel()
 	r := newRig(t)

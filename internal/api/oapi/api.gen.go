@@ -5250,7 +5250,7 @@ type Stats struct {
 	Quality []StatsQuality `json:"quality"`
 	Range   StatsRange     `json:"range"`
 
-	// ReleaseGroups The five groups with the most files, most first.
+	// ReleaseGroups The groups with the most files, most first, ties by name, at most 50.
 	ReleaseGroups []StatsReleaseGroup `json:"release_groups"`
 	Requests      StatsRequests       `json:"requests"`
 	Storage       StatsStorage        `json:"storage"`

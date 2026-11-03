@@ -1,21 +1,26 @@
 // "Top release groups" (a bar list of the files each group brought) and "Requests" (how many, how fast they were filled, how many
 // are still searching, and who asked for what).
 import { BarList } from '@hyprsh/design'
+import { useState } from 'react'
 import type { Stats } from '../api/stats'
 import { plural } from '../format'
 import { StatCard } from '../layout/StatCard'
 import { span } from '../time'
+import { firstFive, ViewAllHere } from './Section'
 import { rangeOf } from './statsText'
 
 export function GroupsCard({ stats }: { stats: Stats }) {
   const groups = stats.release_groups
+  const [all, setAll] = useState(false)
+  const shown = all ? groups : firstFive(groups)
   return (
     <StatCard title="Top release groups" aside={<span className="label-13 text-gray-900">imported</span>}>
       {groups.length === 0 ? (
         <p className="label-13 m-0 text-gray-900">No files were imported in this range.</p>
       ) : (
-        <BarList mono unit="files imported" aria-label="Top release groups" items={groups.map((g) => ({ label: g.name, value: g.files }))} />
+        <BarList mono unit="files imported" aria-label="Top release groups" items={shown.map((g) => ({ label: g.name, value: g.files }))} />
       )}
+      {groups.length > 5 && <ViewAllHere count={groups.length} open={all} onToggle={() => setAll(!all)} />}
     </StatCard>
   )
 }
