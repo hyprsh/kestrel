@@ -223,10 +223,28 @@ func TestDeclaredSlotsAreAppliedAndReadOnly(t *testing.T) {
 		t.Errorf("after the refused writes: %+v", after)
 	}
 
+	// The first start relabeled Standard, which queued a background rename job; its writes are not the second start's.
+	in.settled()
 	before := in.writes()
 	in.mustDeclare(declaredSlots)
+	in.settled()
 	if after := in.writes(); after != before {
 		t.Errorf("the second start changed %d rows", after-before)
+	}
+}
+
+// The check above counts every write, so it must see a second start that really changes a Slot.
+func TestARelabeledDeclaredSlotCountsAsAChangedRow(t *testing.T) {
+	t.Parallel()
+	in := newInstance(t, "")
+	in.setUp()
+	in.mustDeclare(declaredSlots)
+	in.settled()
+	before := in.writes()
+	in.mustDeclare(strings.Replace(declaredSlots, "Everyday", "Daily", 1))
+	in.settled()
+	if in.writes() == before {
+		t.Error("declaring a Slot's new label changed no rows")
 	}
 }
 

@@ -61,6 +61,20 @@ func (in *instance) writes() int64 {
 	return n
 }
 
+// settled waits for the Slot rename jobs a relabel queued to finish. They run in the background and write
+// (progress, a Health row, the job's own row) until the last one deletes its row, so a count of writes taken
+// before that includes them.
+func (in *instance) settled() {
+	in.t.Helper()
+	eventually(in.t, "the Slot rename jobs to finish", func() bool {
+		var n int
+		if err := in.st.Read().QueryRowContext(context.Background(), "SELECT count(*) FROM slot_renames").Scan(&n); err != nil {
+			in.t.Fatal(err)
+		}
+		return n == 0
+	})
+}
+
 const declaredAccount = "account:\n  username: admin\n  password_env: KESTREL_ADMIN_PASSWORD\n"
 
 func TestADeclaredAccountIsCreatedOnAFreshStart(t *testing.T) {
