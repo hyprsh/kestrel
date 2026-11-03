@@ -1,10 +1,8 @@
 // The filter field of a list screen with a dropdown per qualifier that has a `label`, GitHub-style.
 // The query text is the only state: the menus read their rows off it and write back to it. On a
 // phone they flow onto rows under the field.
-import { Button, QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
-import { X } from 'lucide-react'
+import { QueryBar, type FilterMenuItemProps } from '@hyprsh/design'
 import type { KeyboardEvent, ReactNode } from 'react'
-import { FieldEnd } from '../layout/FieldEnd'
 import { usePhone } from '../responsive'
 import type { Facet } from './qualifiers'
 
@@ -54,51 +52,29 @@ export function FilterBar({
     ),
   )
 
-  // The × at the field's right edge while it has text: it clears the whole query and keeps focus in the field.
-  const clear =
-    value !== '' ? (
-      <FieldEnd id={id}>
-        <Button
-          svgOnly
-          size="tiny"
-          variant="tertiary"
-          type="button"
-          aria-label="Clear filter"
-          title="Clear filter"
-          onClick={() => {
-            onChange('')
-            document.getElementById(id)?.focus()
-          }}
-        >
-          <X />
-        </Button>
-      </FieldEnd>
-    ) : null
-
   return (
-    <>
-      <QueryBar
-        id={id}
-        aria-label={label}
-        size={phone ? 'large' : 'small'}
-        placeholder={placeholder}
-        shortcut={shortcut}
-        value={value}
-        onChange={onChange}
-        qualifiers={qualifiers}
-        onKeyDown={(e) => {
-          onKeyDown?.(e)
-          if (e.defaultPrevented) return
-          // Escape clears a field with text and stays in it; in an empty one it leaves the field, as before.
-          if (e.key === 'Escape' && value !== '') {
-            e.preventDefault()
-            onChange('')
-          } else if (e.key === 'Escape' || e.key === 'Enter') e.currentTarget.blur()
-        }}
-      >
-        {showMenus && items}
-      </QueryBar>
-      {clear}
-    </>
+    <QueryBar
+      id={id}
+      aria-label={label}
+      size={phone ? 'large' : 'small'}
+      placeholder={placeholder}
+      shortcut={shortcut}
+      clearable
+      clearLabel="Clear filter"
+      value={value}
+      onChange={onChange}
+      qualifiers={qualifiers}
+      onKeyDown={(e) => {
+        onKeyDown?.(e)
+        if (e.defaultPrevented) return
+        // Escape clears a field with text and stays in it; in an empty one it leaves the field, as before.
+        if (e.key === 'Escape' && value !== '') {
+          e.preventDefault()
+          onChange('')
+        } else if (e.key === 'Escape' || e.key === 'Enter') e.currentTarget.blur()
+      }}
+    >
+      {showMenus && items}
+    </QueryBar>
   )
 }

@@ -13,7 +13,7 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `BarRow`, `Bar`, `ChartTable` for Top release groups (Overview) | `BarList` (`mono`, `unit="files imported"`) | Rows read "NTb, 18 files imported", as before. The bar colour is `--chart-series`. |
 | The Library filter's "/" key cap and key handler (placeholder trick, `Kbd` suffix, `useKey('/')`) | `QueryInput`/`QueryBar` `shortcut="/"` | The design focuses the field from anywhere, shows the key cap while the field is empty and sets `aria-keyshortcuts`. `FilterBar` takes a `shortcut` prop. |
 | The Library query help | `QueryHelpButton` (drawn by `QueryBar` itself) | The "?" button and popover were already the design's, drawn by `QueryBar`; there was no local copy to delete. |
-| The filter field's clear "x" | still Kestrel's, now in `layout/FieldEnd` | See the gap "QueryInput suffix" below. |
+| The filter field's clear "x" | `QueryInput`/`QueryBar` `clearable` (v0.19) | The design draws the × and names it `clearLabel="Clear filter"`; `layout/FieldEnd` is gone. |
 
 ## Layout module pieces (`web/src/layout/`)
 
@@ -47,7 +47,6 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `QualityChip`, `QualityChips`, `QualityList`, `QualityItem`, `QualityBox` | `Pill` or `Badge` for the chips; `Checkbox` for the box | Kept | The cutoff (dark) and "not accepted" (struck through) chip states. `QualityBox` is a hand-built checkbox look, which `Checkbox` should cover: a candidate for a follow-up. |
 | `SuggestionGroup`, `SuggestionRow`, `SuggestionMore` | `Entity` rows, `Collapse` or `ShowMore` for the disclosure | Kept | The pieces would map to `Entity` plus `Collapse`; not switched in this change (Settings: Slots and Profiles was merging). |
 | `columnWidths`, `columnOrder` | `Table` (resizing since v0.16; reordering with pinned columns and `Table.ColumnsMenu` since v0.17) | Removed | Both hooks were unused: no table kept a column layout. They are deleted. The design's `Table` reorders only in its data form, and the Episode table is built from parts (roving focus, a fold row, a delete-confirm row, a phone layout), so it can't use that reordering yet. `Table.ColumnsMenu` also has no hide/show. The Log's list is not a table. See #351. |
-| `layout/FieldEnd` (new) | none | New | `QueryInput` no longer takes a `suffix` from the app (v0.18 sets it from `shortcut` only); the x of the filter field goes into the field's box through this piece. |
 
 ## Raw elements outside the layout module
 
@@ -85,9 +84,8 @@ The chart tokens (`chart-seq-*`, `chart-series`) are used through `ColumnChart` 
 
 1. `ColumnChart`: a per-column and per-mark `onClick`/`href` and an "open" accessible name (Grabs per day).
 2. `BarList`: extra columns with a header, and a row `onClick` (Indexers); `href` only suits a real URL.
-3. `QueryInput`: a `suffix` that survives `shortcut` (v0.18 drops the app's suffix), or a built-in clear button. Kestrel's × now goes in through `FieldEnd`, which depends on the `.hy-input` class.
-4. A clickable `Pill`/`Badge` with a state dot (Slot chips).
-5. A split-view pane layout, phone title bar, desktop icon rail and a floating action bar.
+3. A clickable `Pill`/`Badge` with a state dot (Slot chips).
+4. A split-view pane layout, phone title bar, desktop icon rail and a floating action bar.
 6. A settings row (label/help on the left, control on the right) with a dirty mark, and a floating "unsaved changes" bar.
 7. A month grid that lists entries per day.
 8. A disclosure row (a whole-row button with `aria-expanded`) for Activity's rows.
