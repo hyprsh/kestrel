@@ -1,6 +1,6 @@
 // chrome: domain-visual
 // What a Movie adds to its Title page: its Versions as an accordion, one row per Slot. A row is one line saying the Slot and its
-// Profile, a mono line (the file's quality, the last search or the release being fetched), a status chip and the size. Opened, a
+// Profile, what it holds over its file name, a status chip and the size, the same open or closed. Opened, a
 // row adds what its state needs: a file's facts, a download's progress, or why nothing was grabbed yet, with that Slot's actions.
 import { Button, Progress } from '@hyprsh/design'
 import { useEffect, useState } from 'react'
@@ -142,10 +142,12 @@ function SlotRow({
   const grab = downloads?.items[0]
   const total = grab ? downloads!.items.reduce((n, i) => n + i.bytes_total, 0) : 0
   const sizeText = f ? size(f.size) : total > 0 ? size(total) : '\u2014'
-  // The row is one line, open or closed: name and Profile, then a mono line (the file's quality, the release being fetched or the
-  // last search), the status chip and the size. The facts below carry the detail.
+  // The header is the same open or closed: name and Profile, then what the Slot holds (the file's quality and audio, or the
+  // download or Wanted state) over the file's name (the release being fetched, or the last search), the status chip and the size.
+  // The facts below carry the detail.
   const ls = v.last_search
-  const middle = f ? [qualityLine(f, false), audioFormat(f)].filter(Boolean).join(' \u00b7 ') : grab ? grab.release_name : ls ? `Last search ${ago(ls.at, now)} \u00b7 ${foundText(ls)}` : 'No file yet'
+  const summary = f ? [qualityLine(f, false), audioFormat(f)].filter(Boolean).join(' \u00b7 ') : line.text
+  const fileName = f ? baseName(f.path) : grab ? grab.release_name : ls ? `Last search ${ago(ls.at, now)} \u00b7 ${foundText(ls)}` : 'No file yet'
   const chip = <SlotChips chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: line.chip, tip: `${name}: ${line.text}` }]} max={1} />
   const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   return (
@@ -165,16 +167,18 @@ function SlotRow({
             <>
               <SizeCell text={sizeText} />
               <span className="col-start-2 col-end-4 mt-1 flex min-w-0 items-center gap-2">
-                <span title={f?.path} className="label-12-mono pointer-events-none min-w-0 flex-1 truncate text-gray-900">
-                  {middle}
-                </span>
+                <span className="label-12-mono pointer-events-none min-w-0 flex-1 truncate">{summary}</span>
                 <span className="relative">{chip}</span>
+              </span>
+              <span title={f?.path ?? grab?.release_name} className="label-12-mono pointer-events-none col-start-2 col-end-4 mt-1 min-w-0 truncate text-gray-900">
+                {fileName}
               </span>
             </>
           ) : (
             <>
-              <span title={f?.path ?? grab?.release_name} className="label-12-mono pointer-events-none min-w-0 truncate text-right text-gray-900">
-                {middle}
+              <span title={f?.path ?? grab?.release_name} className="pointer-events-none flex min-w-0 flex-1 flex-col items-end">
+                <span className="label-12-mono max-w-full truncate">{summary}</span>
+                <span className="label-12-mono max-w-full truncate text-gray-900">{fileName}</span>
               </span>
               <span className="relative flex shrink-0 justify-end">{chip}</span>
               <SizeCell text={sizeText} />
