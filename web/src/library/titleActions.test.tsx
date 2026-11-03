@@ -8,7 +8,7 @@ import { detail, fakeLibrary, row } from '../test/library'
 import { fakeQueue, queueItem } from '../test/queue'
 import { cell, episode, fakeSeries, seriesRow } from '../test/series'
 import { server } from '../test/server'
-import { chooseTitleItem, openTitleMenu } from '../test/titleHeader'
+import { chooseTitleItem, openTitleMenu, openTitleSubmenu } from '../test/titleHeader'
 import { findToast } from '../test/toasts'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
@@ -68,7 +68,7 @@ describe('the Title page header', () => {
     const names = within(menu)
       .getAllByRole('menuitem')
       .map((i) => i.textContent)
-    expect(names).toEqual(['Add Version…', 'Refresh metadata', 'Freeze metadata', 'Open in TMDBTMDB 101', 'Open in IMDbtt000001', 'Show in Log', 'Move…', 'Clean up…', 'Remove Title…'])
+    expect(names).toEqual(['Add Version…', 'Metadata', 'Open in', 'Show in Log', 'Files', 'Remove Title…'])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Remove Title…' }))
 
     const confirm = screen.getByRole('alertdialog', { name: 'Remove Title' })
@@ -110,22 +110,22 @@ describe('the Title page header', () => {
     )
     const pane = await openTitle(/paddington/i)
 
-    await chooseTitleItem(pane, 'Refresh metadata')
+    await chooseTitleItem(pane, 'Refresh metadata', 'Metadata')
     await waitFor(() => expect(state.refreshes).toBe(1))
     expect(await findToast('Refreshing metadata… The Title updates when it is done.')).toBeInTheDocument()
 
-    await chooseTitleItem(pane, 'Freeze metadata')
+    await chooseTitleItem(pane, 'Freeze metadata', 'Metadata')
     await waitFor(() => expect(state.sent).toEqual([{ metadata_frozen: true }]))
-    const menu = await openTitleMenu(pane)
+    const menu = await openTitleSubmenu(pane, 'Metadata')
     expect(await within(menu).findByRole('menuitem', { name: 'Unfreeze metadata' })).toBeInTheDocument()
     const refresh = within(menu).getByRole('menuitem', { name: /Refresh metadata/ })
     expect(refresh).toHaveAttribute('aria-disabled', 'true')
     expect(refresh).toHaveAccessibleDescription('Metadata is frozen: unfreeze it to refresh')
-    await userEvent.keyboard('{Escape}')
+    await userEvent.keyboard('{Escape}{Escape}') // the submenu, then the menu
 
-    await chooseTitleItem(pane, 'Unfreeze metadata')
+    await chooseTitleItem(pane, 'Unfreeze metadata', 'Metadata')
     await waitFor(() => expect(state.sent[1]).toEqual({ metadata_frozen: false }))
-    const again = await openTitleMenu(pane)
+    const again = await openTitleSubmenu(pane, 'Metadata')
     await waitFor(() => expect(within(again).getByRole('menuitem', { name: 'Refresh metadata' })).not.toHaveAttribute('aria-disabled', 'true'))
   })
 })

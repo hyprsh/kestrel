@@ -101,7 +101,7 @@ describe('Clean up', () => {
     expect(previews).toEqual([{}])
 
     await user.click(screen.getByRole('button', { name: 'Library' }))
-    await chooseTitleItem(document.body, 'Clean up…')
+    await chooseTitleItem(document.body, 'Clean up…', 'Files')
     await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
     expect(previews).toEqual([{}, { title_ids: [7] }])
   })

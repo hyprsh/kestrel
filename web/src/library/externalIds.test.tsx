@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { App } from '../App'
 import { fakeLibrary, row } from '../test/library'
 import { fakeSeries } from '../test/series'
-import { openTitleMenu } from '../test/titleHeader'
+import { openTitleSubmenu } from '../test/titleHeader'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -14,7 +14,7 @@ async function openTitle(name: string) {
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name })
   await within(pane).findByRole('heading', { name })
-  return openTitleMenu(pane)
+  return openTitleSubmenu(pane, 'Open in')
 }
 
 const opensInNewTab = (link: HTMLElement) => {

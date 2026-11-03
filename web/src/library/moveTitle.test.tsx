@@ -51,7 +51,7 @@ function fakeMovie(refuse?: Refusal) {
 
 async function openPicker() {
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  await chooseTitleItem(document.body, 'Move…')
+  await chooseTitleItem(document.body, 'Move…', 'Files')
   return screen.findByRole('dialog', { name: 'Move Title' })
 }
 
