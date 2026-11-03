@@ -98,17 +98,23 @@ func hintsOf(ev history.Event) []hint {
 	return append(out, hintOf(resLog, 0))
 }
 
-// hub carries the hints handlers emit for changes made through the API itself
-// to the open streams of this process. It holds no state beyond the listeners.
-type hub struct {
-	mu   sync.Mutex
-	subs map[chan hint]struct{}
+// frame is one event for the open streams: a `changed` hint, or a one-off such as `search_finished`.
+type frame struct {
+	event string
+	data  any
 }
 
-func newHub() *hub { return &hub{subs: map[chan hint]struct{}{}} }
+// hub carries the hints handlers emit for changes made through the API itself, and one-off events such as
+// `search_finished`, to the open streams of this process. It holds no state beyond the listeners.
+type hub struct {
+	mu   sync.Mutex
+	subs map[chan frame]struct{}
+}
 
-func (h *hub) subscribe() (<-chan hint, func()) {
-	ch := make(chan hint, 64)
+func newHub() *hub { return &hub{subs: map[chan frame]struct{}{}} }
+
+func (h *hub) subscribe() (<-chan frame, func()) {
+	ch := make(chan frame, 64)
 	h.mu.Lock()
 	h.subs[ch] = struct{}{}
 	h.mu.Unlock()
@@ -122,10 +128,19 @@ func (h *hub) subscribe() (<-chan hint, func()) {
 // publish never blocks: a stream that fell 64 hints behind misses some, and the
 // next reconnect refetches everything anyway.
 func (h *hub) publish(hs ...hint) {
+	fs := make([]frame, len(hs))
+	for i, x := range hs {
+		fs[i] = frame{event: "changed", data: x}
+	}
+	h.send(fs...)
+}
+
+// send is publish for frames of any event.
+func (h *hub) send(fs ...frame) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for ch := range h.subs {
-		for _, x := range hs {
+		for _, x := range fs {
 			select {
 			case ch <- x:
 			default:
@@ -290,7 +305,7 @@ func (r streamResponse) VisitStreamResponse(w http.ResponseWriter) error {
 			return nil
 		case x := <-hints:
 			sentAny = time.Now()
-			if !send("changed", x) {
+			if !send(x.event, x.data) {
 				return nil
 			}
 		case <-events.C:

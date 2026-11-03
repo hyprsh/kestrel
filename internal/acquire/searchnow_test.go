@@ -37,7 +37,7 @@ func TestStoppingTheSearchesCancelsASearchNowAndWaitsForIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.StartSearch(ctx, r.versions[slot.Standard], library.Scope{}); err != nil {
+	if err := svc.StartSearch(ctx, r.versions[slot.Standard], library.Scope{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	<-hang.started
@@ -53,7 +53,7 @@ func TestStoppingTheSearchesCancelsASearchNowAndWaitsForIt(t *testing.T) {
 	if !hang.cancelled.Load() {
 		t.Error("StopSearches returned before the running search ended")
 	}
-	if err := svc.StartSearch(ctx, r.versions[slot.Standard], library.Scope{}); err != nil {
+	if err := svc.StartSearch(ctx, r.versions[slot.Standard], library.Scope{}, nil); err != nil {
 		t.Errorf("a Search now after the stop = %v, want it accepted and not run", err)
 	}
 }

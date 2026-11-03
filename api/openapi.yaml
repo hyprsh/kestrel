@@ -1482,8 +1482,9 @@ paths:
         Only Wanted Movies and episodes without an active Grab are searched. A Series Version is
         searched once per season with a Wanted episode, narrowed by `season` and `episode_ids` in the
         body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
-        The answer comes at once; when the search is done, a `search` event in the Log says what it
-        grabbed, and Grabs record their own events.
+        The answer comes at once, with a `search_id`; when the search is done, a `search` event in the Log
+        says what it grabbed, Grabs record their own events, and the stream sends `search_finished` with
+        the same `search_id` and what came of it.
         With `upgrade: true` it is an Upgrade search instead: it looks for a better Release for the
         filled episodes in scope (or a filled Movie) and grabs only one the Version's Profile ranks
         above the file held, by the rules of the Upgrade sweep (Cutoff, minimum Score, Blocklist, Pause
@@ -1506,6 +1507,10 @@ paths:
           description: An Upgrade search had nothing to upgrade, so none was started.
         "202":
           description: The search started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchStarted"
         "404":
           $ref: "#/components/responses/Problem"
         "422":
@@ -2732,6 +2737,11 @@ paths:
           whenever it changes.
         - `jobs`: the background loops with their last and next run (`JobList`, same as `GET /jobs`),
           on connect and whenever it changes.
+        - `search_finished`: a search started by hand (`POST /versions/{id}/search`, Search now or
+          Upgrade) has ended: `SearchFinished`, carrying the `search_id` that call answered with and
+          what came of it (the Releases grabbed, none better found, or a failure). It is sent once, to
+          every open stream, when the search ends; it has no snapshot and is not replayed, so a client
+          that missed it reads the Log.
 
         A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
         There is no replay: after a reconnect the client refetches whatever it shows, and every
@@ -5611,6 +5621,43 @@ components:
               description: |
                 Search the filled episodes in scope (or a filled Movie) for a better Release instead of
                 the Wanted ones.
+    SearchStarted:
+      type: object
+      required: [search_id]
+      properties:
+        search_id:
+          type: string
+          description: Names the search in its `search_finished` event on the stream.
+    SearchFinished:
+      type: object
+      description: |
+        The `search_finished` frame: a search started by hand has ended. `outcome` is `grabbed` (one or
+        more Releases were grabbed, named in `grabbed`), `none` (the indexers answered and no Release
+        was fit to grab, or for an Upgrade none better than the file held) or `failed` (the search
+        failed, or no indexer could answer; `error` says why). The Log has its own `search` event.
+      required: [search_id, version_id, title_id, upgrade, outcome, grabbed]
+      properties:
+        search_id:
+          type: string
+        version_id:
+          type: integer
+          format: int64
+        title_id:
+          type: integer
+          format: int64
+        upgrade:
+          type: boolean
+          description: True for an Upgrade search.
+        outcome:
+          type: string
+          enum: [grabbed, none, failed]
+        grabbed:
+          type: array
+          description: The names of the Releases grabbed for the Version.
+          items:
+            type: string
+        error:
+          type: string
     RejectionCode:
       type: string
       description: |

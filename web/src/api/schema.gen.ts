@@ -1114,8 +1114,9 @@ export interface paths {
          *     Only Wanted Movies and episodes without an active Grab are searched. A Series Version is
          *     searched once per season with a Wanted episode, narrowed by `season` and `episode_ids` in the
          *     body (none searches the whole Series; `episode_ids` may span seasons). A Movie ignores both.
-         *     The answer comes at once; when the search is done, a `search` event in the Log says what it
-         *     grabbed, and Grabs record their own events.
+         *     The answer comes at once, with a `search_id`; when the search is done, a `search` event in the Log
+         *     says what it grabbed, Grabs record their own events, and the stream sends `search_finished` with
+         *     the same `search_id` and what came of it.
          *     With `upgrade: true` it is an Upgrade search instead: it looks for a better Release for the
          *     filled episodes in scope (or a filled Movie) and grabs only one the Version's Profile ranks
          *     above the file held, by the rules of the Upgrade sweep (Cutoff, minimum Score, Blocklist, Pause
@@ -2203,6 +2204,11 @@ export interface paths {
          *       whenever it changes.
          *     - `jobs`: the background loops with their last and next run (`JobList`, same as `GET /jobs`),
          *       on connect and whenever it changes.
+         *     - `search_finished`: a search started by hand (`POST /versions/{id}/search`, Search now or
+         *       Upgrade) has ended: `SearchFinished`, carrying the `search_id` that call answered with and
+         *       what came of it (the Releases grabbed, none better found, or a failure). It is sent once, to
+         *       every open stream, when the search ends; it has no snapshot and is not replayed, so a client
+         *       that missed it reads the Log.
          *
          *     A comment line (`: heartbeat`) every 15 s keeps proxies from closing the connection.
          *     There is no replay: after a reconnect the client refetches whatever it shows, and every
@@ -3997,6 +4003,30 @@ export interface components {
              *     the Wanted ones.
              */
             upgrade?: boolean;
+        };
+        SearchStarted: {
+            /** @description Names the search in its `search_finished` event on the stream. */
+            search_id: string;
+        };
+        /**
+         * @description The `search_finished` frame: a search started by hand has ended. `outcome` is `grabbed` (one or
+         *     more Releases were grabbed, named in `grabbed`), `none` (the indexers answered and no Release
+         *     was fit to grab, or for an Upgrade none better than the file held) or `failed` (the search
+         *     failed, or no indexer could answer; `error` says why). The Log has its own `search` event.
+         */
+        SearchFinished: {
+            search_id: string;
+            /** Format: int64 */
+            version_id: number;
+            /** Format: int64 */
+            title_id: number;
+            /** @description True for an Upgrade search. */
+            upgrade: boolean;
+            /** @enum {string} */
+            outcome: "grabbed" | "none" | "failed";
+            /** @description The names of the Releases grabbed for the Version. */
+            grabbed: string[];
+            error?: string;
         };
         /**
          * @description Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
@@ -7311,7 +7341,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SearchStarted"];
+                };
             };
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];

@@ -789,22 +789,22 @@ func (e JobOutcomeKind) Valid() bool {
 
 // Defines values for LastSearchOutcome.
 const (
-	Error      LastSearchOutcome = "error"
-	Grabbed    LastSearchOutcome = "grabbed"
-	NoIndexer  LastSearchOutcome = "no_indexer"
-	NothingFit LastSearchOutcome = "nothing_fit"
+	LastSearchOutcomeError      LastSearchOutcome = "error"
+	LastSearchOutcomeGrabbed    LastSearchOutcome = "grabbed"
+	LastSearchOutcomeNoIndexer  LastSearchOutcome = "no_indexer"
+	LastSearchOutcomeNothingFit LastSearchOutcome = "nothing_fit"
 )
 
 // Valid indicates whether the value is a known member of the LastSearchOutcome enum.
 func (e LastSearchOutcome) Valid() bool {
 	switch e {
-	case Error:
+	case LastSearchOutcomeError:
 		return true
-	case Grabbed:
+	case LastSearchOutcomeGrabbed:
 		return true
-	case NoIndexer:
+	case LastSearchOutcomeNoIndexer:
 		return true
-	case NothingFit:
+	case LastSearchOutcomeNothingFit:
 		return true
 	default:
 		return false
@@ -1282,6 +1282,27 @@ func (e RequestSlotStatus) Valid() bool {
 	case RequestSlotStatusFailed:
 		return true
 	case RequestSlotStatusQueued:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFinishedOutcome.
+const (
+	SearchFinishedOutcomeFailed  SearchFinishedOutcome = "failed"
+	SearchFinishedOutcomeGrabbed SearchFinishedOutcome = "grabbed"
+	SearchFinishedOutcomeNone    SearchFinishedOutcome = "none"
+)
+
+// Valid indicates whether the value is a known member of the SearchFinishedOutcome enum.
+func (e SearchFinishedOutcome) Valid() bool {
+	switch e {
+	case SearchFinishedOutcomeFailed:
+		return true
+	case SearchFinishedOutcomeGrabbed:
+		return true
+	case SearchFinishedOutcomeNone:
 		return true
 	default:
 		return false
@@ -4644,6 +4665,27 @@ type RunningPass struct {
 	StartedAt time.Time `json:"started_at"`
 }
 
+// SearchFinished The `search_finished` frame: a search started by hand has ended. `outcome` is `grabbed` (one or
+// more Releases were grabbed, named in `grabbed`), `none` (the indexers answered and no Release
+// was fit to grab, or for an Upgrade none better than the file held) or `failed` (the search
+// failed, or no indexer could answer; `error` says why). The Log has its own `search` event.
+type SearchFinished struct {
+	Error *string `json:"error,omitempty"`
+
+	// Grabbed The names of the Releases grabbed for the Version.
+	Grabbed  []string              `json:"grabbed"`
+	Outcome  SearchFinishedOutcome `json:"outcome"`
+	SearchId string                `json:"search_id"`
+	TitleId  int64                 `json:"title_id"`
+
+	// Upgrade True for an Upgrade search.
+	Upgrade   bool  `json:"upgrade"`
+	VersionId int64 `json:"version_id"`
+}
+
+// SearchFinishedOutcome defines model for SearchFinished.Outcome.
+type SearchFinishedOutcome string
+
 // SearchIndexer defines model for SearchIndexer.
 type SearchIndexer struct {
 	// Held Why sweeps leave the indexer alone now, null when they don't: `request_limit` (it said its
@@ -4723,6 +4765,12 @@ type SearchPassResult struct {
 
 	// Upgrades The Upgrade searches it made.
 	Upgrades int `json:"upgrades"`
+}
+
+// SearchStarted defines model for SearchStarted.
+type SearchStarted struct {
+	// SearchId Names the search in its `search_finished` event on the stream.
+	SearchId string `json:"search_id"`
 }
 
 // SearchStatus defines model for SearchStatus.
@@ -17147,12 +17195,18 @@ func (response SearchVersion200Response) VisitSearchVersionResponse(w http.Respo
 	return nil
 }
 
-type SearchVersion202Response struct {
-}
+type SearchVersion202JSONResponse SearchStarted
 
-func (response SearchVersion202Response) VisitSearchVersionResponse(w http.ResponseWriter) error {
+func (response SearchVersion202JSONResponse) VisitSearchVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(202)
-	return nil
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type SearchVersion404ApplicationProblemPlusJSONResponse struct {
