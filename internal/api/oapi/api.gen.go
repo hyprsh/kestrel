@@ -1086,9 +1086,11 @@ func (e QueueItemPhase) Valid() bool {
 
 // Defines values for RejectionCode.
 const (
+	RejectionCodeAliasOnly               RejectionCode = "alias_only"
 	RejectionCodeBelowMinScore           RejectionCode = "below_min_score"
 	RejectionCodeBlocklisted             RejectionCode = "blocklisted"
 	RejectionCodeEpisodeNotListed        RejectionCode = "episode_not_listed"
+	RejectionCodeEpisodeTitleMismatch    RejectionCode = "episode_title_mismatch"
 	RejectionCodeLanguage                RejectionCode = "language"
 	RejectionCodeOriginalLanguageUnknown RejectionCode = "original_language_unknown"
 	RejectionCodeOriginalOnly            RejectionCode = "original_only"
@@ -1097,16 +1099,21 @@ const (
 	RejectionCodeResolution              RejectionCode = "resolution"
 	RejectionCodeSeasonNotListed         RejectionCode = "season_not_listed"
 	RejectionCodeSize                    RejectionCode = "size"
+	RejectionCodeYearOutsideRun          RejectionCode = "year_outside_run"
 )
 
 // Valid indicates whether the value is a known member of the RejectionCode enum.
 func (e RejectionCode) Valid() bool {
 	switch e {
+	case RejectionCodeAliasOnly:
+		return true
 	case RejectionCodeBelowMinScore:
 		return true
 	case RejectionCodeBlocklisted:
 		return true
 	case RejectionCodeEpisodeNotListed:
+		return true
+	case RejectionCodeEpisodeTitleMismatch:
 		return true
 	case RejectionCodeLanguage:
 		return true
@@ -1123,6 +1130,8 @@ func (e RejectionCode) Valid() bool {
 	case RejectionCodeSeasonNotListed:
 		return true
 	case RejectionCodeSize:
+		return true
+	case RejectionCodeYearOutsideRun:
 		return true
 	default:
 		return false
@@ -4279,7 +4288,11 @@ type RecentList struct {
 type Rejection struct {
 	// Code Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
 	// is a Release with the Title's Original Language but no Primary-Language audio under a Profile
-	// that offers such Releases.
+	// that offers such Releases. `year_outside_run` is a Series Release naming a year outside the Series'
+	// run (the year before it first aired to the year after it last aired, or this year while it
+	// continues); `alias_only` a text hit matching only an alias of the Series with no year in its run and
+	// no matching episode title; `episode_title_mismatch` one whose episode title clearly differs from the
+	// Series' title for that episode. All three are overridable.
 	Code    RejectionCode `json:"code"`
 	Message string        `json:"message"`
 
@@ -4289,14 +4302,22 @@ type Rejection struct {
 
 // RejectionCode Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
 // is a Release with the Title's Original Language but no Primary-Language audio under a Profile
-// that offers such Releases.
+// that offers such Releases. `year_outside_run` is a Series Release naming a year outside the Series'
+// run (the year before it first aired to the year after it last aired, or this year while it
+// continues); `alias_only` a text hit matching only an alias of the Series with no year in its run and
+// no matching episode title; `episode_title_mismatch` one whose episode title clearly differs from the
+// Series' title for that episode. All three are overridable.
 type RejectionCode string
 
 // RejectionCount defines model for RejectionCount.
 type RejectionCount struct {
 	// Code Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
 	// is a Release with the Title's Original Language but no Primary-Language audio under a Profile
-	// that offers such Releases.
+	// that offers such Releases. `year_outside_run` is a Series Release naming a year outside the Series'
+	// run (the year before it first aired to the year after it last aired, or this year while it
+	// continues); `alias_only` a text hit matching only an alias of the Series with no year in its run and
+	// no matching episode title; `episode_title_mismatch` one whose episode title clearly differs from the
+	// Series' title for that episode. All three are overridable.
 	Code  RejectionCode `json:"code"`
 	Count int           `json:"count"`
 

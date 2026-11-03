@@ -4040,10 +4040,14 @@ export interface components {
         /**
          * @description Why a Release cannot go to a Version. Clients tolerate codes they do not know. `original_only`
          *     is a Release with the Title's Original Language but no Primary-Language audio under a Profile
-         *     that offers such Releases.
+         *     that offers such Releases. `year_outside_run` is a Series Release naming a year outside the Series'
+         *     run (the year before it first aired to the year after it last aired, or this year while it
+         *     continues); `alias_only` a text hit matching only an alias of the Series with no year in its run and
+         *     no matching episode title; `episode_title_mismatch` one whose episode title clearly differs from the
+         *     Series' title for that episode. All three are overridable.
          * @enum {string}
          */
-        RejectionCode: "below_min_score" | "resolution" | "quality" | "language" | "original_language_unknown" | "blocklisted" | "other_slot" | "episode_not_listed" | "season_not_listed" | "original_only" | "size";
+        RejectionCode: "below_min_score" | "resolution" | "quality" | "language" | "original_language_unknown" | "blocklisted" | "other_slot" | "episode_not_listed" | "season_not_listed" | "original_only" | "size" | "year_outside_run" | "alias_only" | "episode_title_mismatch";
         Rejection: {
             code: components["schemas"]["RejectionCode"];
             message: string;

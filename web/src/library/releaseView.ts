@@ -193,6 +193,9 @@ const codeLabels: Record<string, string> = {
   season_not_listed: 'naming an unlisted season',
   original_only: 'in the original language only',
   size: 'outside the size limit',
+  year_outside_run: "naming a year outside the Series' run",
+  alias_only: 'matching only an alias of the Series',
+  episode_title_mismatch: "with an episode title the Series' episode does not have",
 }
 
 /** How the rejected Releases group by their first rejection: "23 German only", "6 below the cutoff"; the biggest group first. */
