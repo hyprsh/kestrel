@@ -8,12 +8,15 @@
 import { Tooltip } from '@hyprsh/design'
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 
-/** The colour classes of the marks. Green and red are status (imported, failed); blue is the one hue for everything else. */
+/**
+ * The colour classes of the marks, as the design's chart tokens: imported and failed take the success and error tones (as ColumnChart
+ * does), one series takes `chart-series`, and Library quality takes the `chart-seq` ramp from its darkest (best) step.
+ */
 export const mark = {
-  imported: 'bg-green-700',
-  failed: 'bg-red-700',
-  blue: 'bg-blue-700',
-  quality: ['bg-blue-900', 'bg-blue-700', 'bg-blue-400'],
+  imported: 'bg-[var(--green-700)]',
+  failed: 'bg-[var(--red-800)]',
+  blue: 'bg-[var(--chart-series)]',
+  quality: ['bg-[var(--chart-seq-5)]', 'bg-[var(--chart-seq-3)]', 'bg-[var(--chart-seq-1)]'],
 } as const
 
 /** A legend swatch: the mark's colour beside text in the text token. */
