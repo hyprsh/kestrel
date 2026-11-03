@@ -35,8 +35,8 @@ export function byDay<T extends Ended>(rows: readonly T[], now: number): { day: 
 }
 
 /** The columns of a History row after its time and poster, and of the head: the Entity's own gap is 12px, and a trailing 20px holds its chevron. */
-const columns = 'grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_190px_64px_56px] items-center gap-x-3'
-const headColumns = 'grid grid-cols-[52px_28px_minmax(0,1.1fr)_minmax(0,1fr)_190px_64px_56px_20px] items-center gap-x-3'
+const columns = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_190px_64px_56px] items-center gap-x-3'
+const headColumns = 'grid grid-cols-[52px_28px_minmax(0,1fr)_minmax(0,1.6fr)_190px_64px_56px_20px] items-center gap-x-3'
 
 /** The Result cell and its tooltip: a green dot and "Imported", or a red one and "Failed · why". */
 function result(e: Ended): { failed: boolean; text: string; why: string } {

@@ -130,6 +130,24 @@ describe('Activity', () => {
     expect(within(history.getByRole('list', { name: heads[2]! })).getByText('Old.One-GRP')).toBeInTheDocument()
   })
 
+  it('names the episode in the Title cell of a History row, so two rows of one Series read apart without the Release', async () => {
+    fakeGrabs([
+      grabEntry({ grab_id: 2, title: 'Breaking Bad', episodes: ['S02E07'], release_name: 'Breaking.Bad.S02E07.1080p.WEB-DL.DDP5.1.H.264-NTb', updated_at: ago(5) }),
+      grabEntry({ grab_id: 1, title: 'Breaking Bad', episodes: ['S03E01'], release_name: 'Breaking.Bad.S03E01.1080p.WEB-DL.DDP5.1.H.264-NTb', updated_at: ago(30) }),
+    ])
+    await openActivity()
+
+    const rows = within(await screen.findByRole('region', { name: 'History' })).getAllByRole('listitem')
+    for (const [row, title, episode, release] of [
+      [rows[0], 'Breaking Bad', 'S02E07', 'Breaking.Bad.S02E07.1080p.WEB-DL.DDP5.1.H.264-NTb'],
+      [rows[1], 'Breaking Bad', 'S03E01', 'Breaking.Bad.S03E01.1080p.WEB-DL.DDP5.1.H.264-NTb'],
+    ] as const) {
+      const cell = within(row).getByText(title).parentElement!
+      expect(cell).toHaveTextContent(episode)
+      expect(cell).not.toHaveTextContent(release)
+    }
+  })
+
   it('shows a History row as its time, Title with what it covers, Release, Result, Size and Score, failures in red with the reason in the tooltip', async () => {
     fakeGrabs([
       grabEntry({

@@ -130,7 +130,7 @@ export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQue
   return (
     <div className="flex min-h-0 flex-1 max-sm:flex-col">
       <SidePanel {...panel} />
-      <PanelContent reading>
+      <PanelContent>
         <Pipeline
           data={pipeline}
           onOpenTitle={onOpenTitle}
