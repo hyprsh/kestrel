@@ -50,6 +50,9 @@ type EpisodeCell struct {
 	HasFile bool
 	// File is that file; nil when HasFile is false.
 	File *EpisodeFile
+	// LongMissing is true for a Wanted cell that has been Wanted for more than
+	// LongMissingAfter. A cell a Grab in flight covers is Downloading, not this.
+	LongMissing bool
 }
 
 // EpisodeFile is a file holding one or more episodes of a Version.
@@ -397,15 +400,16 @@ func (s *Service) Episodes(ctx context.Context, titleID int64, view View) ([]Epi
 		}
 		for _, v := range versions {
 			score, has := heldBy[v.ID][e.ID]
-			st, _ := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.Released, AddedAt: parseTime(v.AddedAt)}, view.Now)
+			st, since := StateAt(Unit{Monitored: ep.Monitored, HasFile: has, Released: ep.Released, AddedAt: parseTime(v.AddedAt)}, view.Now)
 			if st == Wanted && grabbing[[2]int64{v.ID, e.ID}] {
 				st = Downloading // a Grab in flight is filling it
 			}
+			long := IsLongMissing(st, since, view.Now)
 			f := fileOf[[2]int64{v.ID, e.ID}]
 			if ep.Cells == nil {
 				ep.Cells = map[slot.Slot]*EpisodeCell{}
 			}
-			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: f != nil, File: f}
+			ep.Cells[slotOf(v.Slot)] = &EpisodeCell{State: st, Score: score, HasFile: f != nil, File: f, LongMissing: long}
 		}
 		out = append(out, ep)
 	}

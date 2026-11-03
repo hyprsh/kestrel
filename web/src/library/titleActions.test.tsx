@@ -149,6 +149,10 @@ describe('the Version rows', () => {
     const row = within(hd).getByRole('button', { name: /^Standard: 228 of 240 episodes/ })
     expect(within(hd).getByRole('img', { name: /^Standard: 228 of 240 episodes/ })).toHaveTextContent(/228\/240/)
     expect(hd.querySelector('[data-bar="filled"]')).not.toBeNull()
+    // Long Missing is its own red segment after Wanted, and counts once: 8 Wanted less 2 Long Missing leaves 6 Wanted.
+    expect(Array.from(hd.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'wanted', 'long_missing', 'unmonitored'])
+    expect(hd.querySelector('[data-bar="wanted"]')).toHaveStyle({ flex: '6 0 0' })
+    expect(hd.querySelector('[data-bar="long_missing"]')).toHaveStyle({ flex: '2 0 0' })
     // Opened (a lone Slot with something Wanted opens itself), each fact shows once: the facts say the coverage and size, the header does not.
     expect(row).toHaveAttribute('aria-expanded', 'true')
     expect(within(hd).getByText('Coverage').nextSibling).toHaveTextContent('228 of 240 episodes · 8 Wanted · 2 Long Missing · 4 not monitored')

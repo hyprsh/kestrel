@@ -45,15 +45,18 @@ function coverageLine(v: Version, dl: SlotDownloads | null): { text: string; ton
   return { text: parts.length > 0 ? parts.join(' \u00b7 ') : 'Complete', tone: c.long_missing > 0 ? 'text-red-900' : c.wanted > 0 ? 'text-amber-900' : 'text-gray-900' }
 }
 
-/** A bar of a Version's episodes: Have gray, downloading blue, Wanted amber, not monitored light gray; thin when it is complete. */
+/** A bar of a Version's episodes: Have gray, downloading blue, Wanted amber, Long Missing red, not monitored light gray; thin when it is complete. */
 function CoverageBar({ v }: { v: Version }) {
   const c = v.coverage
   if (!c) return null
-  const wanted = Math.max(0, c.wanted - c.downloading)
+  // The segments are disjoint: Long Missing counts once, here, not again as Wanted (a Grab in flight makes it downloading).
+  const long = Math.max(0, c.long_missing - c.downloading_long_missing)
+  const wanted = Math.max(0, c.wanted - c.downloading - long)
   const parts = [
     { key: 'filled', n: c.filled, color: barColor.filled },
     { key: 'downloading', n: c.downloading, color: barColor.downloading },
     { key: 'wanted', n: wanted, color: barColor.wanted },
+    { key: 'long_missing', n: long, color: barColor.longMissing },
     { key: 'unmonitored', n: c.unmonitored, color: barColor.quiet },
   ]
   return <StateBar parts={parts} complete={c.filled > 0 && c.wanted === 0 && c.downloading === 0 && c.unmonitored === 0} />

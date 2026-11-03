@@ -44,9 +44,10 @@ type seriesTitleJSON struct {
 }
 
 type cellJSON struct {
-	State string `json:"state"`
-	Score *int   `json:"score"`
-	File  *struct {
+	State       string `json:"state"`
+	LongMissing bool   `json:"long_missing"`
+	Score       *int   `json:"score"`
+	File        *struct {
 		ID         int64   `json:"id"`
 		Path       string  `json:"path"`
 		Size       int64   `json:"size"`

@@ -81,19 +81,18 @@ export const cellOf = (e: Pick<Episode, 'cells'>, key: string): Cell | null => e
 
 /**
  * The state of an episode across all its Slots as one square: `filled` (every Slot has it), `partial` (some Slots have
- * it, some Wanted), `wanted` (all Wanted), `downloading` (any Slot is downloading), `unreleased` (not aired) or
- * `unmonitored`.
+ * it, some Wanted), `wanted` (all Wanted), `long_missing` (Long Missing in any Slot and not downloading: it counts
+ * here once, not also as Wanted), `downloading` (any Slot is downloading), `unreleased` (not aired) or `unmonitored`.
  */
-export type Combined = 'filled' | 'partial' | 'wanted' | 'downloading' | 'unreleased' | 'unmonitored'
+export type Combined = 'filled' | 'partial' | 'wanted' | 'long_missing' | 'downloading' | 'unreleased' | 'unmonitored'
 
 export function combinedState(e: Pick<Episode, 'cells' | 'monitored'>, keys: readonly string[]): Combined {
-  const states = keys.flatMap((k) => {
-    const c = cellOf(e, k)
-    return c ? [c.state as string] : []
-  })
+  const cells = keys.flatMap((k) => cellOf(e, k) ?? [])
+  const states = cells.map((c) => c.state as string)
   const live = states.filter((s) => s !== 'unmonitored')
   if (live.length === 0) return 'unmonitored'
   if (live.includes('downloading')) return 'downloading'
+  if (cells.some((c) => c.state === 'wanted' && c.long_missing)) return 'long_missing'
   const have = live.filter((s) => s === 'filled').length
   const wanted = live.filter((s) => s === 'wanted').length
   if (wanted > 0) return have > 0 ? 'partial' : 'wanted'

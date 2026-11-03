@@ -113,7 +113,7 @@ func (s *server) ListEpisodes(ctx context.Context, r oapi.ListEpisodesRequestObj
 		if c == nil {
 			return nil
 		}
-		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score}
+		out := &oapi.EpisodeCell{State: oapi.SlotState(c.State), Score: c.Score, LongMissing: c.LongMissing}
 		if ls, ok := searches[[2]int64{versionOf[sl], episodeID}]; ok {
 			l := lastSearchToAPI(ls)
 			out.LastSearch = &l

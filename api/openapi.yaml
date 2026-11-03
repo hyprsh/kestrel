@@ -4895,10 +4895,13 @@ components:
           type: boolean
     EpisodeCell:
       type: object
-      required: [state, score, file]
+      required: [state, long_missing, score, file]
       properties:
         state:
           $ref: "#/components/schemas/SlotState"
+        long_missing:
+          type: boolean
+          description: The episode is Wanted in this Version and has been for more than 90 days. A cell with a Grab in flight is `downloading`, so never both.
         score:
           type: integer
           nullable: true
