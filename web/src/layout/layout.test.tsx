@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
-import { MenuItem } from '@hyprsh/design'
+import { MenuItem, NavItem } from '@hyprsh/design'
 const slotKeys = ['standard', '4k']
 import type { Facet } from '../filter/qualifiers'
 import { FacetFilterButton, FilterButton, SortButton } from './FilterButton'
@@ -12,7 +12,7 @@ import { PaneFooter, PaneHeader } from './Pane'
 import { PhoneBackHeader } from './PhoneBackHeader'
 import { Rail, RailSpacer } from './Rail'
 import { SectionBlock } from './SectionBlock'
-import { FilterChips, SidePanel, SidePanelPhoneContext, SidePanelView, SidePanelViews } from './SidePanel'
+import { FilterChips, SidePanel, SidePanelPhoneContext, SidePanelViews } from './SidePanel'
 import { PhoneTopBar } from './TopBar'
 import { WidePage } from './WidePage'
 
@@ -114,9 +114,9 @@ describe('SidePanel', () => {
       chips={<FilterChips chips={[{ key: 'a', label: 'Wanted', onRemove }]} />}
       views={
         <SidePanelViews>
-          <SidePanelView current count={3} onSelect={() => {}}>
+          <NavItem current="true" trailing={3} onClick={() => {}}>
             Everything
-          </SidePanelView>
+          </NavItem>
         </SidePanelViews>
       }
       footer={<span>3 of 6</span>}

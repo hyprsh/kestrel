@@ -186,7 +186,7 @@ describe('Health screen', () => {
 
     const checks = within(screen.getByRole('navigation', { name: 'Views' })).getByRole('button', { name: /^Checks/ })
     await waitFor(() => expect(checks).toHaveTextContent('1'))
-    expect(within(checks).getByText('1')).toHaveAttribute('data-tone', 'failing')
+    expect(checks.querySelector('[data-tone]')).toHaveAttribute('data-tone', 'failing')
   })
 
   it('hides the Checks count while all is well', async () => {

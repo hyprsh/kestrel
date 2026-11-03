@@ -1,6 +1,4 @@
 // chrome: layout
-import { Entity } from '@hyprsh/design'
-import { Check } from 'lucide-react'
 import type { HTMLAttributes, ReactNode } from 'react'
 
 /** The head of the indexer list: the column names over the rows, in the rows' grid. */
@@ -156,44 +154,6 @@ export function DefaultsLine({ label, action, children }: { label: string; actio
   )
 }
 
-/** A titled group of suggestions: its heading, then an `Entity` row each (a name, what it holds and a button). */
-export function SuggestionGroup({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <div role="group" aria-label={name} className="flex flex-col gap-1">
-      <h4 className="label-13 text-gray-900">{name}</h4>
-      <Entity.List>{children}</Entity.List>
-    </div>
-  )
-}
-
-/** One suggestion in a `SuggestionGroup`. */
-export function SuggestionRow({ name, holds, chip, action }: { name: string; holds: ReactNode; chip?: ReactNode; action: ReactNode }) {
-  return (
-    <Entity right={action}>
-      <Entity.Content
-        fill
-        title={name}
-        description={
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 whitespace-normal">
-            <span>{holds}</span>
-            {chip}
-          </span>
-        }
-      />
-    </Entity>
-  )
-}
-
-/** A disclosure for a list or the rest of one, closed unless `open`: its `summary` is the toggle. Pass `open` with `onToggle` to keep the state. */
-export function SuggestionMore({ summary, open, onToggle, strong, children }: { summary: string; open?: boolean; onToggle?: (open: boolean) => void; strong?: boolean; children: ReactNode }) {
-  return (
-    <details open={open} onToggle={onToggle ? (e) => onToggle(e.currentTarget.open) : undefined} className="flex flex-col gap-2.5 [&>summary]:cursor-pointer">
-      <summary className={strong ? 'label-14 font-medium' : 'label-13 text-gray-900'}>{summary}</summary>
-      <div className="flex flex-col gap-2.5 pt-2.5">{children}</div>
-    </details>
-  )
-}
-
 /** The checklist in the Profile sheet: rows of a quality with a tick. */
 export function QualityList({ children }: { children: ReactNode }) {
   return <ul className="flex flex-col overflow-hidden rounded-md shadow-border [&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-gray-alpha-200">{children}</ul>
@@ -209,22 +169,5 @@ export function QualityItem({
     <li {...rest} className={`label-13 flex items-center gap-2.5 px-3 py-2 ${cutoff ? 'bg-gray-100' : ''} ${dragging ? 'opacity-50' : ''}`}>
       {children}
     </li>
-  )
-}
-
-/** The tick box of a quality in the Profile sheet: dark with a check when the Profile accepts the quality. */
-export function QualityBox({ checked, label, disabled, onToggle }: { checked: boolean; label: string; disabled?: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onToggle}
-      className={`inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] ${checked ? 'bg-gray-1000 text-background-100' : 'shadow-[inset_0_0_0_1px_var(--gray-alpha-500)]'}`}
-    >
-      {checked && <Check aria-hidden className="size-3" />}
-    </button>
   )
 }

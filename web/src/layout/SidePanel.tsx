@@ -1,5 +1,5 @@
 // chrome: layout
-import { Button, Pill } from '@hyprsh/design'
+import { NavList, Pill } from '@hyprsh/design'
 import { X } from 'lucide-react'
 import { createContext, useContext, type ReactNode } from 'react'
 import { usePhone } from '../responsive'
@@ -125,38 +125,13 @@ export function FilterChips({ chips }: { chips: readonly FilterChip[] }) {
 }
 
 /**
- * The look of one row of a panel's list (Views, Settings' sections): 34px, left aligned, the name at the left and the count
- * at the right edge, the current one raised. A row is a Button (or ButtonLink) with these props, so every panel's rows match.
+ * The "Views" section of a panel: a short list of named pages or presets of the screen (Log's Errors, Upcoming's This week). Its
+ * rows are the design's `NavItem` with an `icon`, `current`, an `onClick` and a `trailing` count (a number joins the row's name).
  */
-export const panelRowClass = String.raw`h-[34px] justify-start font-normal aria-[current=true]:font-medium [&_.hy-btn\_\_label]:flex [&_.hy-btn\_\_label]:min-w-0 [&_.hy-btn\_\_label]:flex-1 [&_.hy-btn\_\_label]:items-center [&_.hy-btn\_\_label]:justify-between [&_.hy-btn\_\_label]:gap-2 [&_.hy-btn\_\_label]:text-left`
-
-/** The title over a run of a panel's rows ("Views", or a Settings group): small and muted. */
-export const panelRowsTitleClass = 'label-12 px-2.5 py-1 text-gray-900'
-
-/** The "Views" section of a panel: a short list of named pages or presets of the screen (Log's Errors, Upcoming's This week). */
 export function SidePanelViews({ children }: { children: ReactNode }) {
   return (
-    <nav aria-label="Views" className="flex flex-col gap-0.5">
-      <span className={panelRowsTitleClass}>Views</span>
-      {children}
-    </nav>
-  )
-}
-
-/**
- * One row of SidePanelViews: an optional icon, the name at the left, and a count at the right edge; `current` marks the chosen
- * one (the Button's raised look, with `aria-current`). The count is part of the row's name, so a screen reader hears "Errors, 3".
- */
-export function SidePanelView({ icon, count, current = false, onSelect, children }: { icon?: ReactNode; count?: ReactNode; current?: boolean; onSelect: () => void; children: ReactNode }) {
-  return (
-    <Button variant={current ? 'secondary' : 'tertiary'} size="small" width="100%" aria-current={current ? 'true' : undefined} prefix={icon} className={panelRowClass} onClick={onSelect}>
-      <span className="truncate">{children}</span>
-      {count !== undefined && (
-        <span className="label-12 shrink-0 tabular-nums text-gray-900">
-          <span className="sr-only">, </span>
-          {count}
-        </span>
-      )}
-    </Button>
+    <NavList aria-label="Views">
+      <NavList.Group title="Views">{children}</NavList.Group>
+    </NavList>
   )
 }

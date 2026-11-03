@@ -7,9 +7,20 @@ export async function openTitleMenu(pane: HTMLElement) {
   return screen.findByRole('menu', { name: 'Title actions' })
 }
 
-/** Picks an item of the Title menu. */
-export async function chooseTitleItem(pane: HTMLElement, name: string | RegExp) {
+/** Opens one of the Title menu's submenus ("Metadata", "Files", "Open in") and returns it. */
+export async function openTitleSubmenu(pane: HTMLElement, group: string) {
   const menu = await openTitleMenu(pane)
+  await userEvent.click(within(menu).getByRole('menuitem', { name: group }))
+  return screen.findByRole('menu', { name: group })
+}
+
+/** Picks an item of the Title menu; `group` names the submenu it sits in ("Metadata", "Files", "Open in"). */
+export async function chooseTitleItem(pane: HTMLElement, name: string | RegExp, group?: string) {
+  let menu = await openTitleMenu(pane)
+  if (group) {
+    await userEvent.click(within(menu).getByRole('menuitem', { name: group }))
+    menu = await screen.findByRole('menu', { name: group })
+  }
   await userEvent.click(within(menu).getByRole('menuitem', { name }))
 }
 

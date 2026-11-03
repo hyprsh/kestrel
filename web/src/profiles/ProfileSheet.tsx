@@ -1,10 +1,10 @@
-import { Button, DestructiveActionModal, Input, Note, Select, Sheet, Toggle } from '@hyprsh/design'
+import { Button, Checkbox, DestructiveActionModal, Input, Note, Select, Sheet, Toggle } from '@hyprsh/design'
 import { GripVertical } from 'lucide-react'
 import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { ProfileDetail } from '../api/downloads'
 import { ApiError, useDeleteProfile, usePatchProfile, type Profile, type ProfilePatch } from '../api/queries'
 import { plural } from '../format'
-import { QualityBox, QualityItem, QualityList } from '../layout/SettingsLists'
+import { QualityItem, QualityList } from '../layout/SettingsLists'
 import { useReport } from '../toasts'
 import { fromGb, moved, qualityLabel, sameLadder, toGb, type Kind, type ProfileOverlay, type ProfileQuality } from './ladder'
 
@@ -243,7 +243,7 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
                     >
                       <GripVertical />
                     </Button>
-                    <QualityBox checked={q.accepted} label={`Accept ${label}`} disabled={declared} onToggle={() => toggle(index)} />
+                    <Checkbox checked={q.accepted} aria-label={`Accept ${label}`} disabled={declared} onChange={() => toggle(index)} />
                     <span className={`min-w-0 flex-1 ${q.accepted ? '' : 'text-gray-700'}`}>{label}</span>
                     <span className="label-12 text-gray-900">{isCutoff ? 'cutoff' : q.accepted ? '' : 'not accepted'}</span>
                   </QualityItem>

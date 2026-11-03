@@ -1,8 +1,8 @@
-import { Button, Note, Sheet } from '@hyprsh/design'
+import { Button, Description, Note, Sheet } from '@hyprsh/design'
 import { useState } from 'react'
 import { useDownloadsStatus, useTestInstance } from '../api/downloads'
 import { usePluginInstances, usePlugins, type PluginInstance } from '../api/queries'
-import { Fact, FactStrip, SettingsBlock, SettingsSection, StatusLine } from '../layout/SettingsPage'
+import { DescriptionGrid, SettingsBlock, SettingsSection, StatusLine } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { ago, useNow } from '../time'
 import { useReport } from '../toasts'
@@ -148,14 +148,12 @@ export function DownloadClientSection() {
           </Button>
         </div>
       </div>
-      <FactStrip>
-        <Fact label="Address" mono>
-          {address || 'Not set'}
-        </Fact>
-        <Fact label="Category">{category.length > 0 ? category.join(' · ') : 'Not set'}</Fact>
-        <Fact label="Queue">{status?.state === 'ok' && status.downloading !== null && status.queued !== null ? queueText(status.downloading, status.queued) : 'Unknown'}</Fact>
-        <Fact label="Free space">{status?.state === 'ok' && status.free_bytes !== null ? freeSpace(status.free_bytes) : 'Unknown'}</Fact>
-      </FactStrip>
+      <DescriptionGrid>
+        <Description title="Address" ellipsis content={<span className="label-13-mono">{address || 'Not set'}</span>} />
+        <Description title="Category" ellipsis content={category.length > 0 ? category.join(' · ') : 'Not set'} />
+        <Description title="Queue" ellipsis content={status?.state === 'ok' && status.downloading !== null && status.queued !== null ? queueText(status.downloading, status.queued) : 'Unknown'} />
+        <Description title="Free space" ellipsis content={status?.state === 'ok' && status.free_bytes !== null ? freeSpace(status.free_bytes) : 'Unknown'} />
+      </DescriptionGrid>
       {sheet}
     </SettingsBlock>,
   )
