@@ -1,4 +1,4 @@
-// The Library's Status section of the Filter menu (All, Wanted, Long Missing, Downloading, Unreleased, Not monitored,
+// The Library's Status section of the Filter menu (All, Wanted, Long Missing, Downloading, Not out yet, Not monitored,
 // each with its count) and the panel's actions: the "…" menu with the Library-wide maintenance (Adopt, Clean Up) and
 // Add Title.
 import { Button, DotsMenu, MenuItem, MenuSection } from '@hyprsh/design'
@@ -7,7 +7,7 @@ import { usePhone } from '../responsive'
 import { stateTabs, type StateTab } from './filter'
 
 /**
- * The Status section of the Filter menu: All, Wanted, Long Missing, Downloading, Unreleased and Not monitored, each with
+ * The Status section of the Filter menu: All, Wanted, Long Missing, Downloading, Not out yet and Not monitored, each with
  * its count. A status is the filter's `is:` term (see ./filter.ts), so it is kept in the address bar like the rest; All
  * takes the term out. `selected` is '' when the filter's `is:` is no status of this list.
  */

@@ -4602,7 +4602,7 @@ type RequestSlot struct {
 	// was removed later; a failed download never shows as failed (it is blocklisted and retried).
 	Status RequestSlotStatus `json:"status"`
 
-	// StatusLabel `Not released yet` or `Searching` while queued.
+	// StatusLabel `Not out yet` or `Searching` while queued.
 	StatusLabel string `json:"status_label"`
 
 	// VersionId `null` when there is no Version: the Request was rejected, or the Version was removed since.

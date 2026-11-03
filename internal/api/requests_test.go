@@ -547,3 +547,18 @@ func TestARequestSlotWhoseDownloadTheClientPausedSaysSo(t *testing.T) {
 		t.Errorf("slot = %+v, want a stalled download", got.Slots[0])
 	}
 }
+
+func TestAQueuedRequestForAMovieNotOutYetSaysNotOutYet(t *testing.T) {
+	t.Parallel()
+	s := newSearchBare(t)
+	req := decode[requestJSON](t, s.valid("POST", "/requests", requestBody("r-1", "movie", 116149, `[{"slot":"standard","profile":null}]`, "null")))
+	if _, err := s.in.st.Write().Exec(`DELETE FROM title_release_dates WHERE title_id = ?`, *req.TitleID); err != nil {
+		t.Fatal(err)
+	}
+
+	got := decode[requestJSON](t, s.valid("GET", fmt.Sprintf("/requests/%d", req.ID), ""))
+
+	if st, label, _, _ := got.slot(t, "standard"); st != "queued" || label != "Not out yet" {
+		t.Errorf("status = %s %q, want queued, Not out yet", st, label)
+	}
+}

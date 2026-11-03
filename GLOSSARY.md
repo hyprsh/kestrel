@@ -60,6 +60,10 @@ _Avoid_: Multi-audio, DL or MULTi (unexpanded)
 **Upgrade**:
 Replacing a Version's file with a better-scoring Release. A monitored Version keeps upgrading until its file reaches its Profile's Cutoff; a Profile with no Cutoff never stops. An unmonitored Title, or an unmonitored episode of a Series, is not Upgraded.
 
+**Not out yet**:
+The state of a monitored Version, or episode of a Series Version, that has no file and is not released yet (see Wanted for when something counts as released). The Library's Status filter, rows, Slot Pills, Title page and Requests all say "Not out yet" (the filter value is `not_out_yet`; `unreleased` is the old value and still works). An unmonitored Version reads Not monitored even when it is also not out yet. Upcoming's "Wanted when out" names what Kestrel will do, not the state.
+_Avoid_: Unreleased, Not released yet (in anything a person reads)
+
 **Wanted**:
 A monitored, released Version, or episode of a Series Version, that has no file or whose file no longer fits its Profile. An episode counts as released once it has aired (at its air time in its network's time zone, else from the start of its air date), once it is a Placeholder Episode, or, without an air date, once a later episode of its Series is out. A Movie with no release date anywhere counts as released once a Release for it has been seen. Unmonitored and unreleased ones are not Wanted, and a filled Version waiting for an Upgrade is not Wanted either.
 _Avoid_: Missing (for the whole set), cutoff unmet

@@ -131,7 +131,7 @@ export function SlotPills({
 }
 
 /** "Wanted 7 d" and so on: what a state is called in a tooltip. */
-export const stateWord: Record<string, string> = { filled: 'Have', wanted: 'Wanted', downloading: 'Downloading', unreleased: 'Not aired', unmonitored: 'Not monitored' }
+export const stateWord: Record<string, string> = { filled: 'Have', wanted: 'Wanted', downloading: 'Downloading', unreleased: 'Not out yet', unmonitored: 'Not monitored' }
 
 /**
  * One Slot's chip outside a list of them (a Grab, a Request, an entry of the Overview): the Slot's short label, `text` after it

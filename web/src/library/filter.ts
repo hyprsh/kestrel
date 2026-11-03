@@ -14,7 +14,13 @@ type Version = TitleRow['slot_states'][number]
 /** A Profile as the filter needs it: Versions name it by key, people by name. */
 type Profile = { key: string; name: string }
 
-const states = ['wanted', 'filled', 'downloading', 'unmonitored', 'unreleased'] as const
+const states = ['wanted', 'filled', 'downloading', 'unmonitored', 'not_out_yet'] as const
+
+/** Old links: `is:unreleased` is now `is:not_out_yet`. */
+const stateAliases: Record<string, string> = { unreleased: 'not_out_yet' }
+
+/** The state of a Version (the API's word) that an `is:` value names: Not out yet is `unreleased` there. */
+const versionState = (v: string) => ((stateAliases[v] ?? v) === 'not_out_yet' ? 'unreleased' : v)
 
 /** A Profile as the menu offers it: its name, and a line saying what it takes. */
 type ProfileChoice = { name: string; description?: string }
@@ -55,14 +61,14 @@ export function libraryQualifiers(profiles: readonly ProfileChoice[], slots: Slo
     {
       name: 'is',
       help: 'Titles with a Version in that state, or Long Missing',
-      values: [...states, 'long_missing'],
+      values: [...states, 'long_missing', ...Object.keys(stateAliases)],
       excludable: true,
       options: {
         wanted: { label: 'Wanted', description: 'No file, or one that no longer fits its Profile' },
         filled: { label: 'Filled', description: 'Has a file' },
         downloading: { label: 'Downloading', description: 'A Grab is on its way' },
         unmonitored: { label: 'Not monitored', description: 'Not searched for' },
-        unreleased: { label: 'Unreleased', description: 'Not out yet' },
+        not_out_yet: { label: 'Not out yet', description: 'Release or air date still to come' },
         long_missing: { label: 'Long Missing', description: 'Wanted for more than 90 days' },
       },
     },
@@ -92,7 +98,7 @@ export const stateTabs = [
   { value: 'wanted', label: 'Wanted' },
   { value: 'long_missing', label: 'Long Missing' },
   { value: 'downloading', label: 'Downloading' },
-  { value: 'unreleased', label: 'Unreleased' },
+  { value: 'not_out_yet', label: 'Not out yet' },
   { value: 'unmonitored', label: 'Not monitored' },
 ] as const
 
@@ -104,7 +110,7 @@ export function tabOf(q: Query): StateTab | '' {
   if (is.length === 0) return 'all'
   const [t] = is
   if (is.length > 1 || t.excluded || t.values.length !== 1) return ''
-  return stateTabs.find((s) => s.value === t.values[0])?.value ?? ''
+  return stateTabs.find((s) => s.value === (stateAliases[t.values[0]] ?? t.values[0]))?.value ?? ''
 }
 
 /** The query on another tab: every `is:` term goes, and a tab other than All adds its own. Other terms and text stay. */
@@ -128,7 +134,7 @@ function has(r: TitleRow, name: string, v: string, profiles: readonly Profile[],
     case 'is':
       if (v === 'downloading' && grabbing.has(r.id)) return true
       if (v === 'unmonitored') return !r.monitored // the Title's flag, whatever its files say
-      return versions(r).some((s) => (v === 'long_missing' ? s.long_missing : s.state === v))
+      return versions(r).some((s) => (v === 'long_missing' ? s.long_missing : s.state === versionState(v)))
     case 'slot':
       return r.slot_states.some((s) => s.slot === v)
     case 'profile': {

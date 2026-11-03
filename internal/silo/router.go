@@ -430,7 +430,7 @@ func statusOf(req kestrelRequest, tier string, sl slot.Slot) *pluginv1.TargetSta
 	case "failed":
 		out.Message = "The Version was removed from Kestrel"
 	case "queued":
-		if s.StatusLabel == "Not released yet" {
+		if s.StatusLabel == "Not out yet" {
 			out.Wording = &pluginv1.RequestStatusWording{Label: "Not out yet", Detail: "Kestrel adds it once it is out."}
 		}
 	case "downloading":
