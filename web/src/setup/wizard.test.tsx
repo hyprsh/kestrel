@@ -372,8 +372,8 @@ describe('the Slots step', () => {
     const step = within(await slotsStep())
     await userEvent.click(await step.findByRole('button', { name: 'Use German + Original' }))
 
-    expect(await step.findByRole('group', { name: 'German' })).toBeInTheDocument()
-    expect(step.getByRole('group', { name: 'Original' })).toBeInTheDocument()
+    expect(await step.findByRole('listitem', { name: 'German' })).toBeInTheDocument()
+    expect(step.getByRole('listitem', { name: 'Original' })).toBeInTheDocument()
     expect(sent.map((s) => s.path)).toContain('POST /slots/presets/language-plus-original')
   })
 
@@ -386,7 +386,7 @@ describe('the Slots step', () => {
     const step = within(await slotsStep())
     await userEvent.click(await step.findByRole('button', { name: 'Use One copy' }))
     expect(await step.findByRole('alert')).toHaveTextContent('HD French has no backing TRaSH profile')
-    expect(step.getByRole('group', { name: 'Standard' })).toBeInTheDocument()
+    expect(step.getByRole('listitem', { name: 'Standard' })).toBeInTheDocument()
   })
 
   it('shows only the editor once the library holds a Version', async () => {
@@ -396,7 +396,7 @@ describe('the Slots step', () => {
     renderApp()
 
     const step = within(await slotsStep())
-    expect(await step.findByRole('group', { name: 'Standard' })).toBeInTheDocument()
+    expect(await step.findByRole('listitem', { name: 'Standard' })).toBeInTheDocument()
     expect(step.queryByRole('button', { name: /^Use / })).not.toBeInTheDocument()
   })
 
