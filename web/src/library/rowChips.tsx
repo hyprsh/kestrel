@@ -22,6 +22,9 @@ function entryState(v: Pick<Entry, 'state' | 'long_missing' | 'upgrade_wanted'>)
   return v.upgrade_wanted && v.state === 'filled' ? 'upgrade' : dotState(v.state, v.long_missing)
 }
 
+/** Whether a Version shown as Not monitored is also not out yet, which its tooltip adds as a second fact. */
+const notOut = (r: TitleRow, v: Entry) => v.state === 'unmonitored' && r.slot_states.find((s) => s.slot === v.slot)?.state === 'unreleased'
+
 /** "12 days", "5 h": how long a Version has been Wanted. */
 const wantedFor = (since: string, now: number) => {
   const hours = Math.max(0, Math.floor((now - Date.parse(since)) / 3_600_000))
@@ -69,7 +72,7 @@ export function rowChips(
       short: opts.single ? '' : (opts.slots?.short(v.slot) ?? v.label),
       state,
       text,
-      tip: `${v.label}: ${detail}`,
+      tip: `${v.label}: ${detail}${notOut(r, v) ? ' · not out yet' : ''}`,
       more: { name: v.label, profile: opts.profileName?.(v.profile), text: counted ?? progress ?? word },
       onOpen: opts.onOpen ? () => opts.onOpen!(v.slot) : undefined,
     }

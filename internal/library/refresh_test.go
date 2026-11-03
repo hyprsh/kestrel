@@ -231,3 +231,39 @@ func TestARefreshMonitorsNewEpisodesOfAMonitoredSeasonInAModeNoneSeries(t *testi
 		t.Errorf("monitored = %v", got)
 	}
 }
+
+// A Series in mode none with only a monitored episode is monitored: the episode is searched for when it airs.
+func TestAModeNoneSeriesWithOnlyAMonitoredEpisodeIsMonitored(t *testing.T) {
+	ctx := context.Background()
+	lib, _ := newLibrary(t)
+	aired := func(m time.Month, d int) *time.Time { x := time.Date(2026, m, d, 0, 0, 0, 0, time.UTC); return &x }
+	id, err := lib.AddSeries(ctx, library.AddSeries{
+		TMDB: metadata.SeriesDetails{TMDBID: 7004, TVDBID: 5004, Title: "Late Show", OriginalTitle: "Late Show", OriginalLanguage: "en", Year: 2024},
+		TVDB: metadata.TVDBSeries{ID: 5004, Episodes: []metadata.Episode{
+			{ID: 1, Season: 1, Number: 1, Name: "Dusk", Aired: aired(1, 5)},
+			{ID: 2, Season: 1, Number: 2, Name: "Dawn", Aired: aired(12, 5)},
+		}},
+		PrimaryLanguage: "en", Monitor: library.MonitorNone, RootFolder: "/data/media/tv",
+		Versions: []library.VersionSpec{{Slot: slot.Standard, Profile: "hd-primary"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := library.View{Country: "US", Now: now}
+	if d, _ := lib.Get(ctx, id, view); d.Monitored {
+		t.Fatal("a mode-none Series with nothing monitored is monitored")
+	}
+	eps, err := lib.Episodes(ctx, id, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.SetEpisodesMonitored(ctx, id, []int64{eps[1].ID}, true); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := lib.Get(ctx, id, view); !d.Monitored {
+		t.Error("detail: a Series with a monitored episode is unmonitored")
+	}
+	if rows, _ := lib.List(ctx, view, library.Filter{}); len(rows) != 1 || !rows[0].Monitored {
+		t.Errorf("list: rows = %+v", rows)
+	}
+}

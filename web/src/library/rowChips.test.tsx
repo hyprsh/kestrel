@@ -55,6 +55,21 @@ describe('Library rows: Slot chips', () => {
     expect(popover).toHaveTextContent('Kids')
   })
 
+  it('draws an unmonitored, not out yet Title as Not monitored on its row and chip, with not out yet in the tooltip', async () => {
+    fakeLibrary([
+      row(1, 'Saul', 'Saul', { kind: 'series', monitored: false, slot_states: [entry('standard', 'Standard', 'unreleased')] }),
+      row(2, 'Glass', 'Glass', { kind: 'series', monitored: true, slot_states: [entry('standard', 'Standard', 'unreleased')] }),
+    ])
+    const list = await openLibrary()
+    const saul = await within(list).findByRole('option', { name: /saul/i })
+    expect(saul).toHaveTextContent('Not monitored')
+    expect(saul.querySelector('[data-slot]')).toHaveAttribute('data-state', 'unmonitored')
+    expect(within(saul).getByRole('button', { name: 'Standard: Not monitored · not out yet' })).toHaveAttribute('data-state', 'unmonitored')
+    const glass = within(list).getByRole('option', { name: /glass/i })
+    expect(glass).toHaveTextContent('Not out yet')
+    expect(glass.querySelector('[data-slot]')).toHaveAttribute('data-state', 'unreleased')
+  })
+
   it('names the Slot in every chip while any Title has a second one', async () => {
     fakeLibrary([row(1, 'Heat', 'Heat'), row(2, 'Zodiac', 'Zodiac', { slot_states: [entry('standard', 'Standard', 'filled'), entry('4k', '4K', 'filled')] })])
     const list = await openLibrary()

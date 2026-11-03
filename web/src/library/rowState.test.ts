@@ -85,4 +85,14 @@ describe('the state line of a Library row', () => {
     expect(stateLine(row(3, 'Glass', 'Glass', { slots: { standard: slot('unreleased'), '4k': null }, wanted_since: null }), [], now).text).toBe('Not out yet')
     expect(stateLine(row(4, 'Wren', 'Wren', { slots: { standard: slot('unmonitored'), '4k': null }, wanted_since: null }), [], now).text).toBe('Not monitored')
   })
+
+  it('ranks Not monitored over Not out yet in the row and its Slots, and leaves a monitored one Not out yet', () => {
+    const slots = { standard: slot('unreleased'), '4k': null }
+    const off = row(1, 'Saul', 'Saul', { kind: 'series', monitored: false, slots, wanted_since: null })
+    expect(stateLine(off, [], now).text).toBe('Not monitored')
+    expect(shownSlots(off, []).map((v) => v.state)).toEqual(['unmonitored'])
+    const on = row(2, 'Glass', 'Glass', { monitored: true, slots, wanted_since: null })
+    expect(stateLine(on, [], now).text).toBe('Not out yet')
+    expect(shownSlots(on, []).map((v) => v.state)).toEqual(['unreleased'])
+  })
 })

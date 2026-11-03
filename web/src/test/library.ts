@@ -77,7 +77,8 @@ export const detail = (r: TitleRow & Partial<Pick<FixtureRow, 'slots'>>, over: P
   overview: `About ${r.title}.`,
   runtime: 95,
   has_poster: r.has_poster,
-  monitored: true,
+  // As the server says: a Series in mode none with nothing monitored is not monitored.
+  monitored: over.monitored ?? over.series_monitor !== 'none',
   metadata_frozen: false,
   root_folder: '/data/media/movies',
   folder: null,
