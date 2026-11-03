@@ -42,8 +42,8 @@ describe('history between screens', () => {
     await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Range' }), 'Last 7 days')
     expect(location.search).toBe('?range=7d')
 
-    const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    await userEvent.click(within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })[0])
+    const card = await screen.findByRole('region', { name: 'Grabs per week' })
+    await userEvent.click(within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+ – .*: / })[0])
     await screen.findByRole('complementary', { name: 'Activity' })
     expect(location.pathname).toBe('/activity')
     expect(location.search).not.toContain('range')

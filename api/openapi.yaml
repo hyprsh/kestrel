@@ -7501,7 +7501,7 @@ components:
         long_missing: {type: integer, description: Versions Wanted for more than 90 days.}
     StatsGrabs:
       type: object
-      required: [imported, failed, per_day]
+      required: [imported, failed, per_day, columns]
       properties:
         imported: {type: integer}
         failed: {type: integer}
@@ -7509,6 +7509,20 @@ components:
           type: array
           description: One entry per UTC day of the range, oldest first, zero for a day without a Grab.
           items: {$ref: '#/components/schemas/StatsGrabDay'}
+        columns:
+          type: array
+          description: |
+            The columns of the Grabs chart, oldest first: one per UTC day for 7 days, one per week for 30 and 90
+            days. The weeks end on the last day of the range, so the oldest column may be shorter than a week.
+          items: {$ref: '#/components/schemas/StatsGrabColumn'}
+    StatsGrabColumn:
+      type: object
+      required: [from, to, imported, failed]
+      properties:
+        from: {type: string, format: date, description: First UTC day of the column.}
+        to: {type: string, format: date, description: Last UTC day of the column (the same as `from` for a day).}
+        imported: {type: integer}
+        failed: {type: integer}
     StatsGrabDay:
       type: object
       required: [day, imported, failed]

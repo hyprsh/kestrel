@@ -5270,6 +5270,25 @@ export interface components {
             failed: number;
             /** @description One entry per UTC day of the range, oldest first, zero for a day without a Grab. */
             per_day: components["schemas"]["StatsGrabDay"][];
+            /**
+             * @description The columns of the Grabs chart, oldest first: one per UTC day for 7 days, one per week for 30 and 90
+             *     days. The weeks end on the last day of the range, so the oldest column may be shorter than a week.
+             */
+            columns: components["schemas"]["StatsGrabColumn"][];
+        };
+        StatsGrabColumn: {
+            /**
+             * Format: date
+             * @description First UTC day of the column.
+             */
+            from: string;
+            /**
+             * Format: date
+             * @description Last UTC day of the column (the same as `from` for a day).
+             */
+            to: string;
+            imported: number;
+            failed: number;
         };
         StatsGrabDay: {
             /** Format: date */

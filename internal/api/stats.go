@@ -83,6 +83,10 @@ func (s *server) GetStats(ctx context.Context, r oapi.GetStatsRequestObject) (oa
 	for _, d := range res.Days {
 		out.Grabs.PerDay = append(out.Grabs.PerDay, oapi.StatsGrabDay{Day: openapi_types.Date{Time: d.Day}, Imported: d.Imported, Failed: d.Failed})
 	}
+	out.Grabs.Columns = make([]oapi.StatsGrabColumn, 0, len(res.Columns))
+	for _, c := range res.Columns {
+		out.Grabs.Columns = append(out.Grabs.Columns, oapi.StatsGrabColumn{From: openapi_types.Date{Time: c.From}, To: openapi_types.Date{Time: c.To}, Imported: c.Imported, Failed: c.Failed})
+	}
 	for i, ix := range res.Indexers {
 		out.Indexers = append(out.Indexers, oapi.StatsIndexer{
 			Id: ix.ID, Name: ix.Name, Imported: ix.Imported, Failed: ix.Failed, Searches: ix.Searches, HitRate: ix.HitRate, MedianAnswerMs: millis(ix.MedianAnswer),

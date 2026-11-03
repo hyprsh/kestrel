@@ -5296,6 +5296,18 @@ type StatsDownloadClient struct {
 // StatsDownloadClientState `none` without an enabled download client.
 type StatsDownloadClientState string
 
+// StatsGrabColumn defines model for StatsGrabColumn.
+type StatsGrabColumn struct {
+	Failed int `json:"failed"`
+
+	// From First UTC day of the column.
+	From     openapi_types.Date `json:"from"`
+	Imported int                `json:"imported"`
+
+	// To Last UTC day of the column (the same as `from` for a day).
+	To openapi_types.Date `json:"to"`
+}
+
 // StatsGrabDay defines model for StatsGrabDay.
 type StatsGrabDay struct {
 	Day      openapi_types.Date `json:"day"`
@@ -5305,8 +5317,11 @@ type StatsGrabDay struct {
 
 // StatsGrabs defines model for StatsGrabs.
 type StatsGrabs struct {
-	Failed   int `json:"failed"`
-	Imported int `json:"imported"`
+	// Columns The columns of the Grabs chart, oldest first: one per UTC day for 7 days, one per week for 30 and 90
+	// days. The weeks end on the last day of the range, so the oldest column may be shorter than a week.
+	Columns  []StatsGrabColumn `json:"columns"`
+	Failed   int               `json:"failed"`
+	Imported int               `json:"imported"`
 
 	// PerDay One entry per UTC day of the range, oldest first, zero for a day without a Grab.
 	PerDay []StatsGrabDay `json:"per_day"`

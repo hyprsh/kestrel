@@ -79,9 +79,15 @@ export function standOut(s: Stats): string | null {
   return parts.length ? parts.join(' ') : null
 }
 
-/** "Grabs per day over the last 30 days: 62 imported, 6 failed; busiest day Oct 18 with 8 Grabs." */
+/** What one chart column spans: the Grabs chart has a column per day for 7 days and per week for 30 and 90. */
+export const periodWord = (r: StatsRange) => (r === '7d' ? 'day' : 'week')
+
+/** "Oct 18" for a day, "Oct 12 – Oct 18" for a week. */
+export const periodText = (from: string, to: string) => (from === to ? dayText(from) : `${dayText(from)} – ${dayText(to)}`)
+
+/** "Grabs per week over the last 30 days: 62 imported, 6 failed; busiest day Oct 18 with 8 Grabs." */
 export function grabsAlternative(s: Stats): string {
-  const base = `Grabs per day over the last ${rangeOf(s.range).days} days: ${s.grabs.imported} imported, ${s.grabs.failed} failed`
+  const base = `Grabs per ${periodWord(s.range)} over the last ${rangeOf(s.range).days} days: ${s.grabs.imported} imported, ${s.grabs.failed} failed`
   const busiest = s.grabs.per_day.reduce((a, b) => (b.imported + b.failed > a.imported + a.failed ? b : a), s.grabs.per_day[0])
   const n = busiest ? busiest.imported + busiest.failed : 0
   return n > 0 ? `${base}; busiest day ${dayText(busiest.day)} with ${plural(n, 'Grab')}.` : `${base}.`

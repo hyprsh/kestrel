@@ -6,15 +6,15 @@ import { StatCard } from '../layout/StatCard'
 import { placePath, useOpenPlace } from '../place'
 import { Legend, mark } from './charts'
 import { activityQuery } from './drillDown'
-import { answerText, dayText, grabsAlternative, grabsTotal, hitText, standOut } from './statsText'
+import { answerText, grabsAlternative, grabsTotal, hitText, periodText, periodWord, standOut } from './statsText'
 
 export function GrabsCard({ stats }: { stats: Stats }) {
   const openPlace = useOpenPlace()
-  const days = stats.grabs.per_day
+  const columns = stats.grabs.columns
   const sentence = standOut(stats)
   return (
     <StatCard
-      title="Grabs per day"
+      title={`Grabs per ${periodWord(stats.range)}`}
       aside={
         <Legend
           items={[
@@ -36,11 +36,12 @@ export function GrabsCard({ stats }: { stats: Stats }) {
               { key: 'imported', label: 'Imported', tone: 'success' },
               { key: 'failed', label: 'Failed', tone: 'error' },
             ]}
-            data={days.map((d) => ({ label: dayText(d.day), values: { imported: d.imported, failed: d.failed } }))}
+            data={columns.map((c) => ({ label: periodText(c.from, c.to), values: { imported: c.imported, failed: c.failed } }))}
             onOpen={(datum, seriesKey) => {
-              const day = days.find((d) => dayText(d.day) === datum.label)
-              if (!day) return
-              openPlace(placePath('activity', activityQuery({ day: day.day, stage: seriesKey ? (seriesKey === 'failed' ? 'failed' : 'done') : null })))
+              const col = columns.find((c) => periodText(c.from, c.to) === datum.label)
+              if (!col) return
+              const stage = seriesKey ? (seriesKey === 'failed' ? 'failed' : 'done') : null
+              openPlace(placePath('activity', activityQuery(col.from === col.to ? { day: col.from, stage } : { from: col.from, to: col.to, stage })))
             }}
           />
           {sentence && <p className="label-12 m-0 text-gray-900">{sentence}</p>}

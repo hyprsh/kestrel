@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PlaceOpener, placeOf } from '../place'
 import { Overview } from './Overview'
 import { fakeStats } from '../test/stats'
-import { emptyStats, grabDays, stats } from '../test/statsData'
+import { emptyStats, grabDays, stats, withColumns } from '../test/statsData'
 
 const renderOverview = (open: (path: string) => void = () => {}) =>
   render(
@@ -77,14 +77,14 @@ describe('the range', () => {
   it('asks for 30 days at first and refetches every chart and figure for the range chosen', async () => {
     const asked = fakeStats((range) => {
       const days = { '7d': 7, '30d': 30, '90d': 90 }[range]
-      return stats({ range, grabs: { imported: days, failed: 0, per_day: grabDays(days, Array(days).fill(1)) } })
+      return stats({ range, grabs: withColumns({ imported: days, failed: 0, per_day: grabDays(days, Array(days).fill(1)) }) })
     })
     renderOverview()
 
     const select = await screen.findByRole('combobox', { name: 'Range' })
     expect(select).toHaveValue('30d')
     expect(await screen.findByRole('group', { name: 'Grabs · 30 d' })).toHaveTextContent('30')
-    expect(screen.getByRole('group', { name: /^Grabs per day over the last 30 days: 30 imported/ })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /^Grabs per week over the last 30 days: 30 imported/ })).toBeInTheDocument()
 
     await userEvent.selectOptions(select, 'Last 7 days')
 
@@ -94,7 +94,7 @@ describe('the range', () => {
 
     await userEvent.selectOptions(select, 'Last 90 days')
     await waitFor(() => expect(asked).toEqual(['30d', '7d', '90d']))
-    expect(await screen.findByRole('group', { name: /^Grabs per day over the last 90 days: 90 imported/ })).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: /^Grabs per week over the last 90 days: 90 imported/ })).toBeInTheDocument()
   })
 
   it('offers 7, 30 and 90 days', async () => {
@@ -109,23 +109,23 @@ describe('the range', () => {
   })
 })
 
-describe('Grabs per day', () => {
-  it('has a legend with totals, a summary, a column and a table row per day, and a tooltip on hover', async () => {
+describe('Grabs per week and per day', () => {
+  it('has a legend with totals, a summary, a column and a table row per week, and a tooltip on hover', async () => {
     const s = stats()
     fakeStats(() => s)
     renderOverview()
 
-    const card = await screen.findByRole('region', { name: 'Grabs per day' })
+    const card = await screen.findByRole('region', { name: 'Grabs per week' })
     expect(card).toHaveTextContent(`Imported${s.grabs.imported}`)
     expect(card).toHaveTextContent('Failed1')
 
-    const chart = within(card).getByRole('group', { name: /^Grabs per day over the last 30 days/ })
-    const columns = within(chart).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })
-    expect(columns).toHaveLength(30)
-    const busiest = within(chart).getByRole('button', { name: /^Open Oct 16: 7 Imported, 1 Failed$/ })
+    const chart = within(card).getByRole('group', { name: /^Grabs per week over the last 30 days/ })
+    const columns = within(chart).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+ – [A-Z][a-z]{2} \d+: / })
+    expect(columns).toHaveLength(5)
+    const busiest = within(chart).getByRole('button', { name: /^Open Oct 11 – Oct 17: / })
 
-    const table = within(card).getByRole('table', { name: /^Grabs per day over the last 30 days/ })
-    expect(within(table).getAllByRole('row')).toHaveLength(31)
+    const table = within(card).getByRole('table', { name: /^Grabs per week over the last 30 days/ })
+    expect(within(table).getAllByRole('row')).toHaveLength(6)
 
     // The design's tooltip is hidden from assistive technology (the column's name carries the same figures), so count its Total row.
     const totals = () => within(card).queryAllByText('Total', { ignore: 'th' }).length
@@ -134,11 +134,31 @@ describe('Grabs per day', () => {
     expect(totals()).toBe(before + 1)
   })
 
+  it('draws the whole range as a column per week for 30 and 90 days, and per day for 7', async () => {
+    fakeStats((range) => {
+      const days = { '7d': 7, '30d': 30, '90d': 90 }[range]
+      return stats({ range, grabs: withColumns({ imported: days, failed: 0, per_day: grabDays(days, Array(days).fill(1)) }) })
+    })
+    renderOverview()
+    const select = await screen.findByRole('combobox', { name: 'Range' })
+    let card = await screen.findByRole('region', { name: 'Grabs per week' })
+    expect(within(card).getAllByRole('button', { name: /^Open .*: \d+ Imported/ })).toHaveLength(5)
+
+    await userEvent.selectOptions(select, 'Last 90 days')
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Grabs per week' })).toHaveTextContent('Imported90'))
+    card = screen.getByRole('region', { name: 'Grabs per week' })
+    expect(within(card).getAllByRole('button', { name: /^Open .*: \d+ Imported/ })).toHaveLength(13)
+
+    await userEvent.selectOptions(select, 'Last 7 days')
+    card = await screen.findByRole('region', { name: 'Grabs per day' })
+    expect(within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: 1 Imported/ })).toHaveLength(7)
+  })
+
   it('shows the same tooltip for a column reached with the keyboard', async () => {
     fakeStats()
     renderOverview()
-    const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    const columns = within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })
+    const card = await screen.findByRole('region', { name: 'Grabs per week' })
+    const columns = within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+ – [A-Z][a-z]{2} \d+: / })
 
     const totals = () => within(card).queryAllByText('Total', { ignore: 'th' }).length
     const before = totals()
@@ -148,26 +168,30 @@ describe('Grabs per day', () => {
     expect(columns[columns.length - 2]).toHaveFocus()
   })
 
-  it('opens Activity on the day, and on the day and status from a segment', async () => {
+  it('opens Activity on the week, and on the week and status from a segment', async () => {
     const open = vi.fn()
     fakeStats()
     renderOverview(open)
-    const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    const busiest = within(card).getByRole('button', { name: /^Open Oct 16: 7 Imported, 1 Failed$/ })
+    const card = await screen.findByRole('region', { name: 'Grabs per week' })
+    const oldest = within(card).getByRole('button', { name: /^Open Oct 2 – Oct 3: / })
 
-    await userEvent.click(busiest)
-    expect(filterOf(open)).toBe('activity?day:2026-10-16')
+    await userEvent.click(oldest)
+    expect(filterOf(open)).toBe('activity?from:2026-10-02 to:2026-10-03')
 
-    await userEvent.click(within(card).getByRole('button', { name: 'Open Oct 16 Failed: 1' }))
-    expect(filterOf(open)).toBe('activity?stage:failed day:2026-10-16')
-    await userEvent.click(within(card).getByRole('button', { name: 'Open Oct 16 Imported: 7' }))
-    expect(filterOf(open)).toBe('activity?stage:done day:2026-10-16')
+    const newest = within(card).getByRole('button', { name: /^Open Oct 25 – Oct 31: / })
+    await userEvent.click(newest)
+    expect(filterOf(open)).toBe('activity?from:2026-10-25 to:2026-10-31')
+    await userEvent.click(within(card).getByRole('button', { name: /^Open Oct 11 – Oct 17 Failed: / }))
+    expect(filterOf(open)).toBe('activity?stage:failed from:2026-10-11 to:2026-10-17')
+    await userEvent.click(within(card).getByRole('button', { name: /^Open Oct 25 – Oct 31 Imported: / }))
+    expect(filterOf(open)).toBe('activity?stage:done from:2026-10-25 to:2026-10-31')
   })
 
-  it('opens a day from the keyboard', async () => {
+  it('opens a single day from the 7 day chart, from the keyboard too', async () => {
     const open = vi.fn()
-    fakeStats()
+    fakeStats((range) => stats({ range, from: '2026-10-25', grabs: withColumns({ imported: 7, failed: 0, per_day: grabDays(7, Array(7).fill(1)) }) }))
     renderOverview(open)
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Range' }), 'Last 7 days')
     const card = await screen.findByRole('region', { name: 'Grabs per day' })
     const columns = within(card).getAllByRole('button', { name: /^Open [A-Z][a-z]{2} \d+: / })
     act(() => columns[columns.length - 1].focus())
@@ -176,17 +200,17 @@ describe('Grabs per day', () => {
     expect(filterOf(open)).toBe('activity?day:2026-10-31')
   })
 
-  it('says what stands out, and leaves the sentence out when the data is thin', async () => {
+  it('says what stands out per day, and leaves the sentence out when the data is thin', async () => {
     fakeStats()
     renderOverview()
-    const card = await screen.findByRole('region', { name: 'Grabs per day' })
-    expect(card).toHaveTextContent(/Busiest: .+, 8 Grabs\. Failures cluster on altHUB\./)
+    const card = await screen.findByRole('region', { name: 'Grabs per week' })
+    expect(card).toHaveTextContent(/Busiest: Oct 16, 8 Grabs\. Failures cluster on altHUB\./)
   })
 
   it('has no sentence for a quiet month', async () => {
-    fakeStats(() => stats({ grabs: { imported: 3, failed: 0, per_day: grabDays(30, [1, 1, 1]) }, indexers: stats().indexers.map((i) => ({ ...i, failed: 0 })) }))
+    fakeStats(() => stats({ grabs: withColumns({ imported: 3, failed: 0, per_day: grabDays(30, [1, 1, 1]) }), indexers: stats().indexers.map((i) => ({ ...i, failed: 0 })) }))
     renderOverview()
-    const card = await screen.findByRole('region', { name: 'Grabs per day' })
+    const card = await screen.findByRole('region', { name: 'Grabs per week' })
     expect(card).not.toHaveTextContent('Busiest')
     expect(card).not.toHaveTextContent('Failures cluster')
   })
@@ -361,7 +385,7 @@ describe('on a phone', () => {
 
     expect(await screen.findByRole('group', { name: 'Wanted' })).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Library' })).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Grabs per day' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Grabs per week' })).toBeInTheDocument()
     const ix = screen.getByRole('region', { name: 'Indexers' })
     // The design's list hides columns by the list's own width, which jsdom does not measure: Hit survives longest.
     expect(within(ix).getByRole('button', { name: 'NZBgeek' }).closest('tr')).toHaveTextContent('81%')
