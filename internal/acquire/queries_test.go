@@ -54,7 +54,7 @@ func TestASeriesSearchWithAWholeSeriesHitForEveryWantedSeasonSendsNoPerSeasonQue
 	}
 }
 
-func TestEpisodeReleasesOfASeasonCountAsItsCandidate(t *testing.T) {
+func TestEpisodeReleasesAloneDoNotSpareASeasonItsOwnSearch(t *testing.T) {
 	ctx := byPerson()
 	r := newRig(t)
 	id, ver := r.twoSeasons(t)
@@ -66,8 +66,8 @@ func TestEpisodeReleasesOfASeasonCountAsItsCandidate(t *testing.T) {
 	if _, err := r.svc.SearchWanted(acquire.WithObserver(ctx, obs), id, []int64{ver}); err != nil {
 		t.Fatal(err)
 	}
-	if got := obs.n.Load(); got != 1 {
-		t.Errorf("%d queries, want 1", got)
+	if got := obs.n.Load(); got != 3 {
+		t.Errorf("%d queries, want the whole Series and each season: an episode is not the season's pack", got)
 	}
 }
 

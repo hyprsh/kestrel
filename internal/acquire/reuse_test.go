@@ -70,7 +70,7 @@ func TestSearchNowAlwaysAsksTheIndexers(t *testing.T) {
 	}
 }
 
-func TestASeasonAnswerNeverAnswersAWholeSeriesSearchButAWholeAnswerAnswersASeason(t *testing.T) {
+func TestASeasonAnswerNeverAnswersAWholeSeriesSearchButAWholeSeriesManualSearchAnswersASeason(t *testing.T) {
 	ctx := byPerson()
 	r := newRig(t)
 	_, ver := r.nightShow(t, library.MonitorAll)
@@ -84,8 +84,11 @@ func TestASeasonAnswerNeverAnswersAWholeSeriesSearchButAWholeAnswerAnswersASeaso
 	r.clock.now = r.clock.now.Add(5 * time.Minute)
 
 	res, err := r.svc.Releases(ctx, ver, library.Scope{}, false)
-	if err != nil || res.Cached || len(res.Items) != 2 {
-		t.Fatalf("whole-Series search after a season answer = cached %v, %d items, %v; want the indexers asked", res.Cached, len(res.Items), err)
+	if err != nil || len(res.Items) != 2 {
+		t.Fatalf("whole-Series search after a season answer = %d items, %v; want the indexers asked for the whole Series", len(res.Items), err)
+	}
+	if got := r.tap.calls(); len(got) != 2 || got[1] != "" {
+		t.Fatalf("searches %q, want the season, then the whole Series; season 1's answer is still fresh", got)
 	}
 	r.publishShow(t, nightS2, "2", "1")
 	r.clock.now = r.clock.now.Add(5 * time.Minute)
@@ -94,8 +97,8 @@ func TestASeasonAnswerNeverAnswersAWholeSeriesSearchButAWholeAnswerAnswersASeaso
 	if err != nil || !res.Cached || len(res.Items) != 2 {
 		t.Fatalf("season search after a whole answer = cached %v, %d items, %v; want the two season 1 Releases from the answer", res.Cached, len(res.Items), err)
 	}
-	if want := r.clock.now.Add(-5 * time.Minute); !res.SearchedAt.Equal(want) {
-		t.Errorf("searched_at = %v, want when the indexers answered, %v", res.SearchedAt, want)
+	if want := r.clock.now.Add(-10 * time.Minute); !res.SearchedAt.Equal(want) {
+		t.Errorf("searched_at = %v, want when the indexers answered season 1, %v", res.SearchedAt, want)
 	}
 }
 

@@ -1,6 +1,7 @@
 package indexers
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"slices"
@@ -65,6 +66,16 @@ func printOf(rels []indexer.Release) uint64 {
 	}
 	return h.Sum64()
 }
+
+type spreadKey struct{}
+
+// WithSeasonSpread marks ctx as a manual search that asks a whole Series and then each of its seasons. For an indexer that
+// ignores the season the season searches then share the one whole-Series answer instead of repeating it.
+func WithSeasonSpread(ctx context.Context) context.Context {
+	return context.WithValue(ctx, spreadKey{}, true)
+}
+
+func isSpread(ctx context.Context) bool { v, _ := ctx.Value(spreadKey{}).(bool); return v }
 
 // IgnoresSeason says whether the host has seen the indexer return the same
 // Releases for different seasons of one Series.
