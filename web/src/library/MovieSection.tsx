@@ -13,6 +13,7 @@ import { ago, span, until, useNow } from '../time'
 import { dotState, stateName, type SlotDotState } from '../ui/slotState'
 import { size } from './bits'
 import { baseName } from './cellDetail'
+import { VersionActions } from './VersionActions'
 import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid, lastSearchWords, lineRow, phoneRow, RowName, SizeCell } from './accordion'
 import { useEpisodeView } from './episodeView'
 import { importedOn, EndOfPath } from './EpisodeFilePopover'
@@ -252,16 +253,19 @@ function SlotBody({
           <Fact k="Why">{g.is_upgrade ? `Upgrade${g.score_delta !== null ? ` · +${g.score_delta} points` : ''}` : `Wanted · Score ${g.score.toLocaleString()}`}</Fact>
           <Fact k="Replaces">{g.is_upgrade && f ? baseName(f.path) : 'nothing'}</Fact>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="tertiary" size="small" onClick={() => openPlace(placePath('activity'))}>
-            Open in Activity
-          </Button>
-          <span className="flex-1" />
-          <Button variant="tertiary" size="small" disabled={cancel.pending} onClick={() => void cancel.run(downloads.items, true)}>
-            Cancel and block
-          </Button>
-          {more}
-        </div>
+        <VersionActions
+          primary={
+            <Button variant="tertiary" size="small" onClick={() => openPlace(placePath('activity'))}>
+              Open in Activity
+            </Button>
+          }
+          secondary={
+            <Button variant="tertiary" size="small" disabled={cancel.pending} onClick={() => void cancel.run(downloads.items, true)}>
+              Cancel and Block
+            </Button>
+          }
+          more={more}
+        />
       </div>
     )
   }
@@ -292,16 +296,19 @@ function SlotBody({
           </Fact>
         </div>
         {f.misfit && <span className="label-12 text-red-900">No longer fits this Profile</span>}
-        <div className="flex items-center gap-2">
-          <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
-            Search for an Upgrade
-          </Button>
-          <Button variant="tertiary" size="small" onClick={onManualSearch}>
-            Manual search
-          </Button>
-          <span className="flex-1" />
-          {more}
-        </div>
+        <VersionActions
+          primary={
+            <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
+              Search for an Upgrade
+            </Button>
+          }
+          secondary={
+            <Button variant="tertiary" size="small" onClick={onManualSearch}>
+              Manual Search
+            </Button>
+          }
+          more={more}
+        />
       </div>
     )
   }
@@ -317,16 +324,19 @@ function SlotBody({
           <Fact k="Why none fit">{(ls && whyNoneFit(ls)) || '—'}</Fact>
           <Fact k="Next search">{v.next_search_at ? until(v.next_search_at, now) : '—'}</Fact>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
-            Search now
-          </Button>
-          <Button variant="tertiary" size="small" onClick={onManualSearch}>
-            Manual search
-          </Button>
-          <span className="flex-1" />
-          {more}
-        </div>
+        <VersionActions
+          primary={
+            <Button variant="default" size="small" disabled={!title.monitored || search.mutation.isPending} onClick={() => search.run([v.id])}>
+              Search Now
+            </Button>
+          }
+          secondary={
+            <Button variant="tertiary" size="small" onClick={onManualSearch}>
+              Manual Search
+            </Button>
+          }
+          more={more}
+        />
       </div>
     )
   }
@@ -340,13 +350,14 @@ function SlotBody({
             ? 'Not monitored: Kestrel searches nothing for it.'
             : stateName[dotState(v.state, false) ?? 'unmonitored']}
       </span>
-      <div className="flex items-center gap-2">
-        <Button variant="tertiary" size="small" onClick={onManualSearch}>
-          Manual search
-        </Button>
-        <span className="flex-1" />
-        {more}
-      </div>
+      <VersionActions
+        secondary={
+          <Button variant="tertiary" size="small" onClick={onManualSearch}>
+            Manual Search
+          </Button>
+        }
+        more={more}
+      />
     </div>
   )
 }

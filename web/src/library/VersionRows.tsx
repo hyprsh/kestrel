@@ -24,6 +24,7 @@ import { OriginalOfferNote } from './OriginalOfferNote'
 import { slotsOf, useSlotNames } from './slots'
 import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
+import { VersionActions } from './VersionActions'
 import { useSearchVersion } from './VersionSearch'
 import { WantedLine } from './WantedLine'
 
@@ -238,16 +239,19 @@ function SlotBody({ title, profiles, profileName, onManualSearch, version: v, do
           </Fact>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <Button variant="default" size="small" disabled={unmonitored(title) || search.pending || !(c ? c.wanted > 0 : wanted)} onClick={search.run}>
-          Search Wanted
-        </Button>
-        <Button variant="tertiary" size="small" onClick={manual}>
-          Manual search
-        </Button>
-        <span className="flex-1" />
-        <VersionMenu {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads} onWhy={() => setWhyOpen(true)} more />
-      </div>
+      <VersionActions
+        primary={
+          <Button variant="default" size="small" disabled={unmonitored(title) || search.pending || !(c ? c.wanted > 0 : wanted)} onClick={search.run}>
+            Search Wanted
+          </Button>
+        }
+        secondary={
+          <Button variant="tertiary" size="small" onClick={manual}>
+            Manual Search
+          </Button>
+        }
+        more={<VersionMenu {...{ title, profiles, profileName, onManualSearch }} version={v} downloads={downloads} onWhy={() => setWhyOpen(true)} more />}
+      />
     </div>
   )
 }

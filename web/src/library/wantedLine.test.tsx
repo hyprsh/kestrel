@@ -86,7 +86,7 @@ describe('a Wanted Version’s search facts', () => {
     server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).json({ search_id: 'search-1' }))))
     const card = await openMovie()
 
-    await userEvent.click(await card.findByRole('button', { name: 'Search now' }))
+    await userEvent.click(await card.findByRole('button', { name: 'Search Now' }))
 
     await waitFor(() => expect(searched).toHaveLength(1))
   })
@@ -97,7 +97,7 @@ describe('a Wanted Version’s search facts', () => {
     const card = await openMovie()
 
     expect(card.queryByText('Last search')).not.toBeInTheDocument()
-    expect(card.queryByRole('button', { name: 'Search now' })).not.toBeInTheDocument()
+    expect(card.queryByRole('button', { name: 'Search Now' })).not.toBeInTheDocument()
   })
 
   it('puts the same line on a Series card that has Wanted episodes', async () => {
