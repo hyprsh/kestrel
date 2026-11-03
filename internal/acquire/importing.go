@@ -38,7 +38,7 @@ const (
 // ImportOutcome is what the imports module reported for a Grab.
 type ImportOutcome struct {
 	Status ImportStatus
-	// Reason is the rejection code (invalid, resolution, language, not_upgrade)
+	// Reason is the rejection code (invalid, resolution, language, not_upgrade, incomplete_archive)
 	// or the stalled reason.
 	Reason string
 	// Path is the imported file, for the Log; Paths are every Version's file of a Grab that filled several.

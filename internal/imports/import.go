@@ -42,7 +42,7 @@ const (
 	ReasonLanguage   = "language"
 	ReasonNotUpgrade = "not_upgrade"
 	// ReasonIncompleteArchive: no video but archive parts or "-missing.txt" markers, so the client's unpack failed.
-	ReasonIncompleteArchive = "incomplete archive"
+	ReasonIncompleteArchive = "incomplete_archive"
 )
 
 // Stalled reasons that callers and tests name.
