@@ -187,6 +187,33 @@ describe('Log', () => {
     expect(rowsOf().map((row) => row.textContent)).toEqual([expect.stringContaining('no video file'), expect.stringContaining('sample')])
   })
 
+  it.each(['person', 'sweep', 'retry', 'rss', 'request', 'rule', 'import', 'api_key', 'startup', 'job'])('sends by:%s as a trigger filter', async (kind) => {
+    const sent = events()
+    const user = await openLog()
+    await ready()
+
+    await user.type(filter(), `by:${kind}`)
+
+    await expect.poll(() => sent.at(-1)?.getAll('trigger')).toEqual([kind])
+    expect(sent.at(-1)?.has('exclude_trigger')).toBe(false)
+  })
+
+  it('sends several triggers and excluded triggers apart, and suggests the trigger kinds', async () => {
+    const sent = events()
+    const user = await openLog()
+    await ready()
+
+    await user.type(filter(), 'by:person,sweep -by:retry')
+
+    await expect.poll(() => sent.at(-1)?.getAll('trigger')).toEqual(['person', 'sweep'])
+    expect(sent.at(-1)?.getAll('exclude_trigger')).toEqual(['retry'])
+
+    await user.clear(filter())
+    await user.type(filter(), 'by:')
+    const options = within(screen.getByRole('listbox', { name: 'Suggestions' })).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(expect.arrayContaining(['person', 'sweep', 'retry', 'rss', 'request', 'rule']))
+  })
+
   it('suggests the values of the qualifier being typed, and Library Titles for title:', async () => {
     fakeLibrary([row(1, 'Breaking Bad', 'Breaking Bad'), row(3, 'Paddington', 'Paddington')])
     events()

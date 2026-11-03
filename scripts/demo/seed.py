@@ -485,7 +485,12 @@ ctl("releases=1")
 try:
     found = call("POST", f"/versions/{peru}/releases", {})["items"]
     pick = next(r for r in found if r["fits"] and "BluRay.x264" in r["name"])
-    call("POST", "/grabs", {"version_id": peru, "release_id": pick["release_id"]})
+    try:
+        call("POST", "/grabs", {"version_id": peru, "release_id": pick["release_id"]})
+    except SystemExit as e:
+        # The search above may already have grabbed it (the Grab is what this wants either way).
+        if "already downloading" not in str(e):
+            raise
 finally:
     ctl("releases=0")
 
@@ -512,12 +517,36 @@ gp = next(g for g in grabs if g[1] == tid[116149]) if any(g[1] == tid[116149] fo
 log = []
 
 
+def trigger_of(kind, message, data):
+    # Who or what started the entry and why, as the app writes them: (trigger_kind, trigger_actor, trigger_via, reason).
+    if kind == "search":
+        if "by hand" in message:
+            return ("person", "demo", "searchVersion", "chosen by hand: Search now on the Title page")
+        return ("sweep", "", "", "due: its next search time came")
+    if kind == "grab":
+        by = (data or {}).get("by")
+        if by == "by_hand":
+            return ("person", "demo", "grabRelease", "chosen by hand: picked in Manual search")
+        if by == "by_rss":
+            return ("rss", "", "", "a new Release in the feed matched a Wanted Version")
+        return ("sweep", "", "", "due: its next search time came and it found this Release")
+    if kind in ("import", "grab_failed", "import_rejected", "import_stalled"):
+        return ("import", "", "", "the download finished")
+    if kind == "request":
+        return ("request", "", "Plex", "asked for in Plex, added to the Library")
+    if kind == "adoption":
+        return ("person", "demo", "adoptFiles", "chosen by hand: Adoption")
+    if kind in ("title_refreshed", "health_raised", "health_cleared"):
+        return ("job", "", "refresh" if kind == "title_refreshed" else "health check", "scheduled run")
+    return ("", "", "", "")
+
+
 def ev(days_ago, hour, minute, kind, message, title=None, grab=None, routine=0, data=None):
     when = at_day(days_ago, hour, minute)
     if when > datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=2):
         return
     log.append((iso(when), kind, routine, tid[title] if title else None,
-                ver[(tid[title], "standard")] if title else None, grab, message, json.dumps(data) if data else None))
+                ver[(tid[title], "standard")] if title else None, grab, message, json.dumps(data) if data else None) + trigger_of(kind, message, data))
 
 
 names = {1396: "Breaking Bad", 116149: "Paddington", 346648: "Paddington 2", 559969: "El Camino", 516729: "Paddington in Peru"}
@@ -528,7 +557,7 @@ for d in range(7, -1, -1):
             grabbed = (d, burst, i) in ((5, 1, 3), (1, 0, 2), (0, 1, 4))
             res = "grabbed 1 Release" if grabbed else "nothing to grab"
             scope = " for S05" if t == 1396 else ""
-            ev(d, hour, i * 2, "search", f"Searched by hand{scope} in Standard: {res}", title=t, routine=1,
+            ev(d, hour, i * 2, "search", f"Searched{' by hand' if (i + d) % 2 else ''}{scope} in Standard: {res}", title=t, routine=1,
                data={"scope": "S05" if t == 1396 else "", "slot": "Standard", "releases": rnd.randint(11, 37), "grabbed": int(grabbed),
                      "result": "grabbed" if grabbed else "nothing_fit"})
     ev(d, 9, 15, "title_refreshed", "Refreshed from the metadata providers", title=1396, routine=1)
@@ -551,7 +580,7 @@ ev(0, 0, 55, "health_raised", "Plex refused the connection", data={"key": "media
 # Events get ids in the order they are written and the Log lists by id, so the ones the API wrote a moment ago make way.
 db.execute("DELETE FROM events")
 for row in sorted(log):
-    db.execute("INSERT INTO events(at,kind,routine,title_id,version_id,grab_id,message,data) VALUES (?,?,?,?,?,?,?,?)", row)
+    db.execute("INSERT INTO events(at,kind,routine,title_id,version_id,grab_id,message,data,trigger_kind,trigger_actor,trigger_via,reason) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", row)
 db.commit()
 db.close()
 

@@ -304,6 +304,10 @@ type Filter struct {
 	// or Version stays.
 	ExcludeTitleIDs []int64
 	ExcludeSlots    []string
+	// Triggers keeps the events started by one of these trigger kinds; ExcludeTriggers leaves them out. An entry from
+	// before triggers were recorded has no kind, so it is in neither list.
+	Triggers        []TriggerKind
+	ExcludeTriggers []TriggerKind
 	// GrabID keeps only the events about that Grab; zero is every Grab.
 	GrabID int64
 	// Routine includes routine events, which the Log hides by default.
@@ -322,6 +326,7 @@ func (s *Service) List(ctx context.Context, f Filter) ([]Event, error) {
 	}
 	p.Kinds, p.ExcludeKinds, p.TitleIds, p.Slots = jsonList(f.Kinds), jsonList(f.ExcludeKinds), jsonList(f.TitleIDs), jsonList(f.Slots)
 	p.ExcludeTitleIds, p.ExcludeSlots = jsonList(f.ExcludeTitleIDs), jsonList(f.ExcludeSlots)
+	p.Triggers, p.ExcludeTriggers = jsonList(f.Triggers), jsonList(f.ExcludeTriggers)
 	if f.Before != 0 {
 		p.Before = f.Before
 	}

@@ -174,6 +174,36 @@ func TestTheLogLeavesOutExcludedSlotsAndTitles(t *testing.T) {
 	}
 }
 
+func TestTheLogFiltersByTheKindOfTriggerThatStartedAnEntry(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.forgetAdd(t)
+	for _, row := range []struct{ kind, trigger string }{{"grab", "person"}, {"search", "sweep"}, {"search", "retry"}, {"health_raised", ""}} {
+		if _, err := s.in.st.Write().Exec(`INSERT INTO events (at, kind, routine, message, trigger_kind) VALUES ('2026-10-17T12:00:00Z', ?, 0, ?, ?)`, row.kind, row.trigger, row.trigger); err != nil {
+			t.Fatal(err)
+		}
+	}
+	messages := func(query string) []string {
+		var out []string
+		for _, e := range s.events(t, query).Items {
+			out = append(out, e.Message)
+		}
+		return out
+	}
+	if got := messages("?trigger=person"); len(got) != 1 || got[0] != "person" {
+		t.Errorf("trigger=person = %v", got)
+	}
+	if got := messages("?trigger=sweep&trigger=retry"); len(got) != 2 {
+		t.Errorf("trigger=sweep,retry = %v, want both", got)
+	}
+	if got := messages("?exclude_trigger=sweep"); len(got) != 3 {
+		t.Errorf("exclude_trigger=sweep = %v, want the other three", got)
+	}
+	if got := messages("?trigger=rss"); len(got) != 0 {
+		t.Errorf("trigger=rss = %v, want none", got)
+	}
+}
+
 type blocklistJSON struct {
 	Items []struct {
 		ID          int64  `json:"id"`

@@ -1932,7 +1932,9 @@ paths:
         values; filters of different names must all match. `exclude_kind`, `exclude_title_id` and
         `exclude_slot` (each repeatable) leave those kinds, Titles and Slots out, even when `kind`,
         `title_id` or `slot` names them; an event about no Title or Version is never left out by the
-        last two. `before` pages: pass the smallest `id` seen.
+        last two. `trigger` and `exclude_trigger` (repeatable) keep or leave out the events whose
+        trigger `kind` is one of the values; an entry from before triggers were recorded matches no
+        `trigger` and is kept by `exclude_trigger`. `before` pages: pass the smallest `id` seen.
       tags: [system]
       parameters:
         - { name: kind, in: query, schema: { type: array, maxItems: 100, items: { type: string } } }
@@ -1941,6 +1943,8 @@ paths:
         - { name: exclude_title_id, in: query, schema: { type: array, maxItems: 100, items: { type: integer, format: int64 } } }
         - { name: slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
         - { name: exclude_slot, in: query, schema: { type: array, maxItems: 4, items: { $ref: "#/components/schemas/SlotId" } } }
+        - { name: trigger, in: query, schema: { type: array, maxItems: 100, items: { type: string } } }
+        - { name: exclude_trigger, in: query, schema: { type: array, maxItems: 100, items: { type: string } } }
         - { name: routine, in: query, schema: { type: boolean, default: false } }
         - { name: before, in: query, schema: { type: integer, format: int64 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 200 } }

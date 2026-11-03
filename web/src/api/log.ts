@@ -16,10 +16,13 @@ export type LogFilter = {
   excludeSlots: Slot[]
   titleIds: number[] | null
   excludeTitleIds: number[]
+  /** Trigger kinds (`by:person`): events started by one of them. */
+  triggers: string[] | null
+  excludeTriggers: string[]
   routine: boolean
 }
 
-const matchesNothing = (f: LogFilter) => [f.kinds, f.slots, f.titleIds].some((l) => l?.length === 0)
+const matchesNothing = (f: LogFilter) => [f.kinds, f.slots, f.titleIds, f.triggers].some((l) => l?.length === 0)
 
 type Problem = { code?: string; detail?: string; title?: string } | undefined
 
@@ -41,6 +44,8 @@ export async function fetchEvents(f: LogFilter, before?: number): Promise<LogEve
     ...(f.excludeSlots.length > 0 && { exclude_slot: f.excludeSlots }),
     ...(f.titleIds && { title_id: f.titleIds }),
     ...(f.excludeTitleIds.length > 0 && { exclude_title_id: f.excludeTitleIds }),
+    ...(f.triggers && { trigger: f.triggers }),
+    ...(f.excludeTriggers.length > 0 && { exclude_trigger: f.excludeTriggers }),
     ...(f.routine && { routine: true }),
     ...(before !== undefined && { before }),
     limit: EVENTS_PAGE,
@@ -60,7 +65,7 @@ export function useSameKind(kind: string | undefined) {
   return useQuery({
     queryKey: ['log', 'same', kind],
     enabled: kind !== undefined,
-    queryFn: () => fetchEvents({ kinds: [kind!], excludeKinds: [], slots: null, excludeSlots: [], titleIds: null, excludeTitleIds: [], routine: false }),
+    queryFn: () => fetchEvents({ kinds: [kind!], excludeKinds: [], slots: null, excludeSlots: [], titleIds: null, excludeTitleIds: [], triggers: null, excludeTriggers: [], routine: false }),
   })
 }
 

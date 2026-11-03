@@ -306,6 +306,18 @@ describe('an opened event', () => {
     expect(screen.queryByText('Affected')).not.toBeInTheDocument()
   })
 
+  it('says in an opened entry who or what started it and why', async () => {
+    serve(() => [event(5, 'search', 'Searched in Standard: nothing to grab', { trigger: { kind: 'sweep', actor: null, via: null }, reason: 'due: 3 days after it became Wanted' })])
+    const user = await openLog()
+    await ready()
+
+    await user.click(within(rowsOf()[0]).getByRole('button', { name: /^Open event/ }))
+
+    expect(await screen.findByText('Started by')).toBeInTheDocument()
+    expect(screen.getByText('The search sweep')).toBeInTheDocument()
+    expect(screen.getByText('due: 3 days after it became Wanted')).toBeInTheDocument()
+  })
+
   it('shows a Grab with its Release, indexer, Score with formats, why and where it stands now', async () => {
     fakeLibrary([row(3, 'Breaking Bad', 'Breaking Bad')])
     serve(() => [event(7, 'grab', 'Sent Breaking.Bad.S05.2160p-NTb to the download client', { title_id: 3, grab_id: 11, data: { by: 'by_search' } })])
