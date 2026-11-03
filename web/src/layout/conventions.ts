@@ -10,8 +10,6 @@
 //
 // THE PIECES
 // One file per piece, except where noted: a file that exports two pieces lists both.
-//   FieldEnd.tsx          FieldEnd: a button at the end of a design   <FieldEnd id="field-id"><Button svgOnly>{x}</Button></FieldEnd>
-//                         text field, inside its box
 //   FilterButton.tsx      FilterButton, FacetFilterButton and    <FilterButton count={n}>{checkable items}</FilterButton>
 //                         SortButton: the one Filter button      <FacetFilterButton query onQuery qualifiers />
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
