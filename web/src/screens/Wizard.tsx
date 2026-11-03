@@ -142,7 +142,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
               title="Profiles"
               need="optional"
               checked={sections.slots === 'done'}
-              description="Choose which Profiles to enable. The ones your Slots use are on and stay on, so you can skip this and add more later. Tick a Profile to enable it, or a suggestion to add it; More… lists every suggestion."
+              description="Choose which Profiles to enable. The ones your Slots use are on and stay on, so you can skip this and add more later. Tick a Profile to enable it, or a suggestion to add it."
             >
               <div className="flex flex-col gap-3">
                 <EnableProfiles />
