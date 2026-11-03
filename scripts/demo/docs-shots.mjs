@@ -172,8 +172,10 @@ async function app() {
         waitUntil: 'domcontentloaded',
       })
       await h.page
-        .getByText(/Failed · the download failed/)
+        .locator('.hy-entity')
+        .filter({ hasText: /Failed · the download failed/ })
         .first()
+        .locator('.hy-entity__cover')
         .click()
       await h.page.getByRole('list', { name: 'What happened' }).waitFor()
       await save(h.page, '10-grab-steps', theme)
