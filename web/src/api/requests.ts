@@ -48,3 +48,17 @@ export function useRecentRequests() {
     },
   })
 }
+
+/** One Request by its id (GET /requests/{id}); a Request that is gone fails with a 404. */
+export function useRequest(id: number | null) {
+  return useQuery({
+    queryKey: ['requests', 'one', id],
+    enabled: id !== null,
+    retry: false,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/requests/{id}', { params: { path: { id: id! } } })
+      if (!data) throw failure(error, response)
+      return data
+    },
+  })
+}

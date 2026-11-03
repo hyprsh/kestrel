@@ -14,10 +14,27 @@ import { SidePanel } from '../layout/SidePanel'
 import { useKey, useListNav } from '../keys'
 import { SkeletonRows } from '../loading'
 import { requestFilter, requestQualifiers } from './filter'
+import { RequestDetail } from './RequestDetail'
 import { RequestRow } from './RequestRow'
+import { PhoneBackHeader } from '../layout/PhoneBackHeader'
 
-/** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
-export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
+/**
+ * `query` is the filter field's text, kept by the Shell so it can live in the address bar. `requestId` is the Request the address
+ * names ("/requests/12"): shown in its detail above the list, and on a phone as a screen of its own that `onCloseRequest` leaves.
+ */
+export function Requests({
+  query,
+  onQuery,
+  requestId,
+  onCloseRequest,
+  onOpenTitle,
+}: {
+  query: string
+  onQuery: (query: string) => void
+  requestId: number | null
+  onCloseRequest: () => void
+  onOpenTitle: (id: number) => void
+}) {
   const [sel, setSel] = useState(0)
   // Requesters and sources are offered from what has been loaded: there is no list of them.
   const [seen, setSeen] = useState<{ requesters: string[]; sources: string[] }>({ requesters: [], sources: [] })
@@ -41,6 +58,18 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
     e.preventDefault()
     document.getElementById('requests-filter')?.focus()
   })
+
+  if (phone && requestId !== null) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PhoneBackHeader onBack={onCloseRequest}>Request</PhoneBackHeader>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <RequestDetail id={requestId} onOpenTitle={onOpenTitle} onClose={onCloseRequest} />
+        </div>
+      </div>
+    )
+  }
+  const detail = requestId !== null && <RequestDetail id={requestId} onOpenTitle={onOpenTitle} onClose={onCloseRequest} />
 
   const filter = (
     <FilterBar id="requests-filter" label="Filter Requests" placeholder="Filter, e.g. status:open requester:Anna …  /" value={query} onChange={onQuery} qualifiers={qualifiers} menus={false} />
@@ -71,6 +100,7 @@ export function Requests({ query, onQuery, onOpenTitle }: { query: string; onQue
         </>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
+        {detail}
         {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
         <div className="p-4">
           {list.isPending && <SkeletonRows count={6} poster="sm" label="Loading Requests" />}
