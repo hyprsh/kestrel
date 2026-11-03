@@ -7,9 +7,26 @@ body,
   height: 100%;
 }
 body {
+  /* The status bar and home indicator areas show the page's own surface. */
+  background: var(--background-200);
   font-feature-settings:
     'liga' 1,
     'calt' 1;
+}
+/*
+ * A screen's scroll container ends where the viewport does, and the floating TabBar (out of layout) is drawn over it. This
+ * spacer, as tall as the bar (--tab-bar-height, 0 without one), is its last child so the last row scrolls clear of the bar.
+ * It is a spacer rather than padding so the container's own padding is kept. An ActionBar reserves its own room above the
+ * bar, so a container that holds one needs no spacer.
+ */
+.tab-clear::after {
+  content: '';
+  display: block;
+  flex: none;
+  height: var(--tab-bar-height);
+}
+.tab-clear:has(.hy-action-bar)::after {
+  display: none;
 }
 .tabular {
   font-variant-numeric: tabular-nums;

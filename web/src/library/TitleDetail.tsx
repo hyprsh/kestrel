@@ -31,7 +31,7 @@ export const TitleDetail = forwardRef<HTMLElement, { row: TitleRow; onEscape: ()
           onEscape()
         }
       }}
-      className="min-w-0 flex-1 overflow-auto p-4 outline-none sm:px-8 sm:py-6"
+      className="min-w-0 flex-1 overflow-auto tab-clear p-4 outline-none sm:px-8 sm:py-6"
     >
       {isError ? (
         <Note variant="error" size="small">
@@ -100,7 +100,7 @@ function TitleSkeleton() {
 /** The Title pane while the Library list, which names the Title, is still on its way. */
 export function TitlePending() {
   return (
-    <section aria-busy="true" className="min-w-0 flex-1 overflow-auto p-4 sm:px-8 sm:py-6">
+    <section aria-busy="true" className="min-w-0 flex-1 overflow-auto tab-clear p-4 sm:px-8 sm:py-6">
       <p role="status" className="sr-only">
         Loading
       </p>

@@ -155,7 +155,7 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
   const failed = scan.error ?? commit.error ?? discard.error ?? retry.error ?? reopen.error
 
   return (
-    <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto'}>
+    <div className={embedded ? '' : 'min-h-0 flex-1 overflow-auto tab-clear'}>
       <div className={embedded ? '' : 'max-w-4xl p-4 sm:px-8 sm:py-6'}>
         {!embedded && !phone && <h1 className="heading-20">Adopt existing library</h1>}
         <p className="copy-14 mt-1 text-gray-900">

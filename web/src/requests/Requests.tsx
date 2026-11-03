@@ -77,7 +77,7 @@ export function Requests({
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <TitleBar hideFrom={false} back={{ onClick: onCloseRequest }} title="Request" />
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto tab-clear">
           <RequestDetail id={requestId} onOpenTitle={onOpenTitle} onClose={onCloseRequest} />
         </div>
       </div>
@@ -113,7 +113,7 @@ export function Requests({
           </FilterStrip>
         </>
       )}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto tab-clear">
         {detail}
         {list.isError && <Note variant="error">The Requests could not be loaded.</Note>}
         <div className="p-4">

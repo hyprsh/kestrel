@@ -18,7 +18,7 @@ export const SidePanelPhoneContext = createContext<ReactNode>(null)
 /**
  * The side panel of a screen: on a desktop the column right of the rail that holds what the full-width top bar once did.
  * The screen renders it as the first child of its own row, with its content after it. On a phone the same props become the
- * screen's top header: the name with Health and the actions, and under them the filter field with the controls as icons.
+ * screen's top header (sticky and opaque, clear of the status bar, like the design's TitleBar): the name with Health and the actions, and under them the filter field with the controls as icons.
  *
  * Top to bottom: the header (`title` as the h1, then `actions`, the icon buttons: a "…" menu, at most one primary "+"),
  * the `filter` field at full width, `controls` (a FilterButton, a SortButton) on a row, `chips` (FilterChips), `views`
@@ -52,7 +52,7 @@ export function SidePanel({
   const extras = useContext(SidePanelPhoneContext)
   if (phone)
     return (
-      <header className="flex shrink-0 flex-col gap-2.5 border-b border-gray-alpha-200 bg-background-200 px-4 pt-3 pb-2.5">
+      <header className="sticky top-0 z-10 flex shrink-0 flex-col gap-2.5 border-b border-gray-alpha-200 bg-background-200 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-2.5">
         <div className="flex h-8 items-center gap-2">
           <h1 className="heading-20 min-w-fit flex-1">{title}</h1>
           {extras}
@@ -93,7 +93,7 @@ export function SidePanel({
  */
 export function PanelContent({ reading = false, children }: { reading?: boolean; children: ReactNode }) {
   return (
-    <div className="relative min-h-0 min-w-0 flex-1 overflow-auto">
+    <div className="relative min-h-0 min-w-0 flex-1 overflow-auto tab-clear">
       <div className={`p-4 sm:px-8 sm:py-6 ${reading ? 'max-w-[880px]' : ''}`}>{children}</div>
     </div>
   )

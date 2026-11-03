@@ -29,7 +29,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
   const failed = preview.error ?? run.error
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 overflow-auto tab-clear">
       <div className="max-w-4xl p-4 sm:px-8 sm:py-6">
         {!phone && <h1 className="heading-20">Clean up Unmanaged files</h1>}
         <p className="copy-14 mt-1 text-gray-900">Lists the files in your tracked Titles' folders that no Version holds. Deleting is permanent. Nothing is deleted until you confirm.</p>

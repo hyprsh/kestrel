@@ -290,7 +290,7 @@ function PhonePage({ page, onBack, view }: { page: Page; onBack: () => void; vie
       <div id={`settings-${page.id}-bar`} className="contents">
         <TitleBar hideFrom={false} back={{ onClick: onBack }} title={page.title} />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-4">{view}</div>
+      <div className="min-h-0 flex-1 overflow-auto tab-clear p-4">{view}</div>
     </div>
   )
 }
@@ -302,7 +302,7 @@ function PhoneList({ lines, onOpen }: { lines: Record<string, Line>; onOpen: (id
   return (
     <div key="list" className="flex min-h-0 flex-1 flex-col">
       <SidePanel title="Settings" filter={<FindField value={find} onChange={setFind} onEnter={() => matches[0] && onOpen(matches[0].part?.id ?? matches[0].page.id)} />} />
-      <nav aria-label="Settings sections" className="min-h-0 flex-1 overflow-auto">
+      <nav aria-label="Settings sections" className="min-h-0 flex-1 overflow-auto tab-clear">
         {matches.length === 0 && <p className="label-13 px-4 py-3 text-gray-900">No setting matches “{find.trim()}”.</p>}
         {groups.map((g) => {
           const inGroup = matches.filter(({ page }) => page.group === g)
