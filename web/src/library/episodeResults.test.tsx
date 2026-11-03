@@ -21,7 +21,7 @@ async function openLibrary() {
   server.use(
     http.post('/versions/{id}/search', async ({ params, request, response }) => {
       searched.push({ version: Number(params.id), body: await request.json() })
-      return response(202).empty()
+      return response(202).json({ search_id: 'search-1' })
     }),
     http.post('/versions/{id}/releases', async ({ params, request, response }) => {
       manual.push({ version: Number(params.id), body: await request.json() })

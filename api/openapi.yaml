@@ -5635,7 +5635,7 @@ components:
         more Releases were grabbed, named in `grabbed`), `none` (the indexers answered and no Release
         was fit to grab, or for an Upgrade none better than the file held) or `failed` (the search
         failed, or no indexer could answer; `error` says why). The Log has its own `search` event.
-      required: [search_id, version_id, title_id, upgrade, outcome, grabbed]
+      required: [search_id, version_id, title_id, title, upgrade, outcome, grabbed]
       properties:
         search_id:
           type: string
@@ -5645,6 +5645,9 @@ components:
         title_id:
           type: integer
           format: int64
+        title:
+          type: string
+          description: The Title's name, as the Log filters it.
         upgrade:
           type: boolean
           description: True for an Upgrade search.

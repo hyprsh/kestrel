@@ -4020,6 +4020,8 @@ export interface components {
             version_id: number;
             /** Format: int64 */
             title_id: number;
+            /** @description The Title's name, as the Log filters it. */
+            title: string;
             /** @description True for an Upgrade search. */
             upgrade: boolean;
             /** @enum {string} */

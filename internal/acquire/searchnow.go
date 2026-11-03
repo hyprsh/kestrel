@@ -42,6 +42,8 @@ func (s *Service) searchUpgradeNow(ctx context.Context, versionID int64, scope l
 // Finished is what a search started by hand came to, for the caller's `finished` function.
 type Finished struct {
 	TitleID, VersionID int64
+	// Title is the Title's name.
+	Title string
 	// Upgrade is set for an Upgrade search.
 	Upgrade bool
 	// End is how the search of the Version ended.
@@ -62,6 +64,9 @@ func (s *Service) finishedOf(ctx context.Context, titleID, versionID int64, upgr
 	}
 	if len(f.Grabbed) == 0 {
 		f.Err = err
+	}
+	if d, derr := s.lib.Get(ctx, titleID, library.View{Now: s.clock()}); derr == nil {
+		f.Title = d.Title
 	}
 	return f
 }

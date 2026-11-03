@@ -519,7 +519,7 @@ describe('Activity', () => {
       http.post('/versions/{id}/search', async ({ params, request, response }) => {
         searched.push(String(params.id))
         scopes.push(await request.clone().json())
-        return response(202).empty()
+        return response(202).json({ search_id: 'search-1' })
       }),
     )
     server.use(

@@ -71,7 +71,10 @@ export function useEpisodeSearch() {
       })
     if (runs.length === 0) return
     const where = runs.map((r) => r.v.slotName).join(' and ')
-    void report(Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope }))), { started: `Search started for ${label} in ${where}`, failed: `Could not search ${label}` })
+    void report(Promise.all(runs.map((r) => searchNow.mutateAsync({ versionId: r.v.id, scope: r.scope, watch: { what: `${label} in ${r.v.slotName}`, scope: scopeCode(r.scope, eps) } }))), {
+      started: `Search started for ${label} in ${where}`,
+      failed: `Could not search ${label}`,
+    })
   }
 }
 
@@ -82,7 +85,7 @@ export function useEpisodeUpgrade() {
   return (v: EpisodeVersion, episode: Episode) => {
     const code = episodeCode(episode)
     const why = episode.monitored ? 'it is at its Cutoff or already downloading' : 'it is not monitored'
-    void report(searchNow.mutateAsync({ versionId: v.id, scope: { season: episode.season, episode_ids: [episode.id] }, upgrade: true }), {
+    void report(searchNow.mutateAsync({ versionId: v.id, scope: { season: episode.season, episode_ids: [episode.id] }, upgrade: true, watch: { what: `${code} in ${v.slotName}`, scope: code } }), {
       started: (r) => (r.started ? `Upgrade search started for ${code} in ${v.slotName}` : ''),
       done: `Nothing to upgrade for ${code} in ${v.slotName}: ${why}`,
       failed: `Could not search for an Upgrade of ${code}`,

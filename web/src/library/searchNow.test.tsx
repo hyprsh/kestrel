@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -10,6 +10,7 @@ import { server } from '../test/server'
 import { chooseSearchItem, openSearchMenu, openVersionMenu } from '../test/titleHeader'
 import { findToast, toastRegion } from '../test/toasts'
 import { releaseList } from '../test/grabs'
+import { publishSearchFinished } from '../live/searchFinished'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -26,7 +27,7 @@ function recordSearches({ gone = false } = {}) {
     http.post('/versions/{id}/search', async ({ params, request, response }) => {
       sent.push({ path: 'search', version: Number(params.id), body: await read(request) })
       if (gone) return response(404).json({ type: 'about:blank', title: 'not found', status: 404, code: 'not_found', detail: 'no such Version' })
-      return response(202).empty()
+      return response(202).json({ search_id: 'search-1' })
     }),
     http.post('/versions/{id}/releases', async ({ params, request, response }) => {
       sent.push({ path: 'releases', version: Number(params.id), body: await read(request) })
@@ -56,6 +57,22 @@ describe('the Search button on the Title page', () => {
     expect(await findToast('Search started for Paddington')).toBeInTheDocument()
     expect(within(await toastRegion()).getByRole('button', { name: 'Watch in Health' })).toBeInTheDocument()
     expect(screen.queryByText(/Searching…/)).not.toBeInTheDocument()
+  })
+
+  it('says in a Toast what the search found when the stream reports it done, grabbed or not', async () => {
+    fakeLibrary([row(1, 'Paddington', 'Paddington')])
+    recordSearches()
+    const pane = await openPane(/paddington/i)
+    const finished = { search_id: 'search-1', version_id: 11, title_id: 1, title: 'Paddington', upgrade: false, grabbed: [] }
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Search Standard' }))
+    await findToast('Search started for Paddington')
+    act(() => publishSearchFinished({ ...finished, outcome: 'none' }))
+    expect(await findToast('No Release found to grab for Paddington in Standard')).toBeInTheDocument()
+
+    await userEvent.click(within(pane).getByRole('button', { name: 'Search Standard' }))
+    act(() => publishSearchFinished({ ...finished, outcome: 'grabbed', grabbed: ['Paddington.2014.1080p.WEB-DL-GRP'] }))
+    expect(await findToast('Grabbed Paddington.2014.1080p.WEB-DL-GRP for Paddington in Standard')).toBeInTheDocument()
   })
 
   it('searches a Version from its own row and its menu', async () => {

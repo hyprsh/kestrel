@@ -14,7 +14,7 @@ import (
 
 // searchFinished is the `search_finished` frame of the search the id was answered for.
 func searchFinished(id string, f acquire.Finished) oapi.SearchFinished {
-	out := oapi.SearchFinished{SearchId: id, VersionId: f.VersionID, TitleId: f.TitleID, Upgrade: f.Upgrade, Outcome: oapi.SearchFinishedOutcomeNone, Grabbed: f.Grabbed}
+	out := oapi.SearchFinished{SearchId: id, VersionId: f.VersionID, TitleId: f.TitleID, Title: f.Title, Upgrade: f.Upgrade, Outcome: oapi.SearchFinishedOutcomeNone, Grabbed: f.Grabbed}
 	switch f.End {
 	case acquire.SearchGrabbed:
 		out.Outcome = oapi.SearchFinishedOutcomeGrabbed

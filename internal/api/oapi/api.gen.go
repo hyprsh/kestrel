@@ -4676,7 +4676,10 @@ type SearchFinished struct {
 	Grabbed  []string              `json:"grabbed"`
 	Outcome  SearchFinishedOutcome `json:"outcome"`
 	SearchId string                `json:"search_id"`
-	TitleId  int64                 `json:"title_id"`
+
+	// Title The Title's name, as the Log filters it.
+	Title   string `json:"title"`
+	TitleId int64  `json:"title_id"`
 
 	// Upgrade True for an Upgrade search.
 	Upgrade   bool  `json:"upgrade"`

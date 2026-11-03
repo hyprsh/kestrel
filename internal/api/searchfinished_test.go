@@ -13,6 +13,7 @@ type searchFinished struct {
 	SearchID  string   `json:"search_id"`
 	VersionID int64    `json:"version_id"`
 	TitleID   int64    `json:"title_id"`
+	Title     string   `json:"title"`
 	Upgrade   bool     `json:"upgrade"`
 	Outcome   string   `json:"outcome"`
 	Grabbed   []string `json:"grabbed"`
@@ -52,7 +53,7 @@ func TestSearchNowSendsSearchFinishedNamingTheReleasesItGrabbed(t *testing.T) {
 	id := searchID(t, s.searchNow(s.hd, ""))
 
 	got := st.finished(id)
-	if got.Outcome != "grabbed" || len(got.Grabbed) != 1 || got.Grabbed[0] != goodRelease || got.VersionID != s.hd || got.TitleID != s.title || got.Upgrade {
+	if got.Outcome != "grabbed" || len(got.Grabbed) != 1 || got.Grabbed[0] != goodRelease || got.VersionID != s.hd || got.TitleID != s.title || got.Title == "" || got.Upgrade {
 		t.Errorf("search_finished = %+v, want %q grabbed for the Version", got, goodRelease)
 	}
 }
