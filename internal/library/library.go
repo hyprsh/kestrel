@@ -662,7 +662,7 @@ func (s *Service) buildList(ctx context.Context, view View, conn db.DBTX) ([]Row
 	for _, t := range titles {
 		rel := releaseDatesOf(datesOf[t.ID])
 		row := Row{ID: t.ID, Kind: Kind(t.Kind), Title: t.Title, PrimaryTitle: t.PrimaryTitle, Year: int(t.Year.Int64), HasPoster: t.PosterPath.String != "", AddedAt: parseTime(t.AddedAt),
-			Monitored: titleMonitored(t, monitoredSeason[t.ID]), originalTitle: t.OriginalTitle}
+			Monitored: titleMonitored(t, monitoredSeason[t.ID], epsOf[t.ID]), originalTitle: t.OriginalTitle}
 		var released map[int64]*time.Time
 		var wantedEps map[int64]bool // Wanted episodes, true when Long Missing in any Version
 		if row.Kind == Series {
@@ -818,10 +818,10 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 			d.Seasons = append(d.Seasons, Season{Number: int(se.Number), Monitored: se.Monitored == 1})
 			seasonMonitored = seasonMonitored || se.Monitored == 1
 		}
-		d.Monitored = titleMonitored(t, seasonMonitored)
 		if epsOf, err = q.ListEpisodesOfTitle(ctx, id); err != nil {
 			return Detail{}, err
 		}
+		d.Monitored = titleMonitored(t, seasonMonitored, epsOf)
 		fes, err := q.ListFileEpisodesOfTitle(ctx, id)
 		if err != nil {
 			return Detail{}, err
@@ -874,10 +874,10 @@ func (s *Service) Get(ctx context.Context, id int64, view View) (Detail, error) 
 }
 
 // titleMonitored is whether a Title is monitored: a Movie by its flag, a Series by its mode not being none or by any of
-// its seasons being monitored (seasonMonitored), as a Request leaves it.
-func titleMonitored(t db.Title, seasonMonitored bool) bool {
+// its seasons (seasonMonitored) or episodes (episodes) being monitored: a monitored episode is searched for when it airs.
+func titleMonitored(t db.Title, seasonMonitored bool, episodes []db.Episode) bool {
 	if Kind(t.Kind) == Series {
-		return Monitor(t.SeriesMonitor.String) != MonitorNone || seasonMonitored
+		return Monitor(t.SeriesMonitor.String) != MonitorNone || seasonMonitored || slices.ContainsFunc(episodes, func(e db.Episode) bool { return e.Monitored == 1 })
 	}
 	return t.Monitored == 1
 }
