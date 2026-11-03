@@ -104,6 +104,36 @@ async function openManualSearch() {
   return screen.findByRole('table', { name: /releases/i })
 }
 
+/** Answers the first search at once and holds every later one until `release()`. */
+function holdSecondSearch(items: Release[]) {
+  let release: () => void = () => undefined
+  const gate = new Promise<void>((resolve) => (release = resolve))
+  let calls = 0
+  server.use(
+    http.post('/versions/{id}/releases', async ({ response }) => {
+      calls++
+      if (calls > 1) await gate
+      return response(200).json(releaseList({ items }))
+    }),
+  )
+  return { release }
+}
+
+/** Opens the search of Paddington with its first answer held until `release()`. */
+async function openHeldSearch(items: Release[], open: () => Promise<unknown>) {
+  let release: () => void = () => undefined
+  const gate = new Promise<void>((resolve) => (release = resolve))
+  fakeLibrary([row(1, 'Paddington', 'Paddington')])
+  server.use(
+    http.post('/versions/{id}/releases', async ({ response }) => {
+      await gate
+      return response(200).json(releaseList({ items, indexers_searched: 3 }))
+    }),
+  )
+  await open()
+  return release
+}
+
 const selected = () => screen.getByRole('row', { selected: true })
 const bestFit = () => screen.getByRole('region', { name: 'Best fit' })
 const rowOf = (name: RegExp) => screen.getByRole('row', { name })
@@ -570,6 +600,48 @@ describe('manual search', () => {
     expect(screen.getByRole('table', { name: /releases/i })).not.toHaveAttribute('aria-busy', 'true')
   })
 
+  it('keeps every part of the screen in shape while the first search runs: Best fit skeleton, counts as dashes, a status with dots', async () => {
+    const release = await openHeldSearch(releases(), async () => {
+      renderApp()
+      await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+      await chooseSearchItem(await screen.findByRole('region', { name: /paddington/i }), /manual search/i)
+    })
+    const best = await screen.findByRole('region', { name: 'Best fit loading' })
+    expect(best).toHaveAttribute('aria-busy', 'true')
+    expect(within(best).queryByRole('button', { name: /grab/i })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Fits –', 'Rejected –'])
+    expect(screen.getByText('Searching your indexers')).toBeInTheDocument()
+
+    release()
+    await waitFor(() => expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Fits 1', 'Rejected 3']))
+    expect(screen.getByRole('region', { name: 'Best fit' })).not.toHaveAttribute('aria-busy')
+    expect(screen.queryByRole('region', { name: 'Best fit loading' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Searching/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the old results, busy and dimmed, with no Grab, while Search Again runs', async () => {
+    fakeSearch(releases())
+    const { release } = holdSecondSearch(releases())
+    const table = await openManualSearch()
+    await screen.findByRole('region', { name: 'Best fit' })
+    const grab = screen.getByRole('button', { name: /^Grab$/ })
+    expect(grab).toBeEnabled()
+    const results = grab.closest('[aria-busy]') ?? document.body
+    expect(results).not.toHaveAttribute('aria-busy')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Search Again' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Grab$/ })).toBeDisabled())
+    const busy = screen.getByRole('table', { name: /releases/i }).closest('[aria-busy="true"]')!
+    expect(busy).toContainElement(screen.getByRole('region', { name: 'Best fit' }))
+    expect(within(table).getAllByRole('row').length).toBeGreaterThan(1)
+    expect(screen.getByText('Searching 1 indexer')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Search Again' })).toBeDisabled()
+
+    release()
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Grab$/ })).toBeEnabled())
+    expect(screen.queryByText(/^Searching/)).not.toBeInTheDocument()
+  })
+
   describe('paging', () => {
     const many = () => Array.from({ length: 120 }, (_, i) => release(`r${i}`, `Paddington.${String(i).padStart(3, '0')}.1080p-GRP`, { score: 1000 - i }))
 
@@ -649,6 +721,25 @@ describe('manual search on a phone', () => {
     await chooseSearchItem(document.body, /manual search/i)
     return screen.findByRole('list', { name: /releases/i })
   }
+
+  it('shows skeleton rows and a skeleton Best fit while the first search runs, then the Releases', async () => {
+    const release = await openHeldSearch(seriesReleases(), async () => {
+      renderApp()
+      await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+      await userEvent.click(await within(await screen.findByRole('listbox', { name: /library/i })).findByRole('option', { name: /paddington/i }))
+      await chooseSearchItem(document.body, /manual search/i)
+    })
+    const list = await screen.findByRole('list', { name: /releases/i })
+    expect(list).toHaveAttribute('aria-busy', 'true')
+    expect(list.querySelectorAll('li').length).toBeGreaterThan(3)
+    expect(within(list).queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Best fit loading' })).toBeInTheDocument()
+    expect(screen.getByText('Searching your indexers')).toBeInTheDocument()
+
+    release()
+    await waitFor(() => expect(screen.getByRole('list', { name: /releases/i })).not.toHaveAttribute('aria-busy'))
+    expect(within(screen.getByRole('list', { name: /releases/i })).getAllByRole('button', { name: /^Grab/ }).length).toBeGreaterThan(0)
+  })
 
   it('has a header with back, title and options, the Best fit with a full-width Grab, filter chips and a Grab button per row', async () => {
     const state = fakeSearch(seriesReleases())
