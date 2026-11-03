@@ -1,11 +1,9 @@
-import { Button, DestructiveActionModal, DotsMenu, MenuItem, Note, Select, Sheet, Toggle } from '@hyprsh/design'
-import { GripVertical } from 'lucide-react'
-import { useState, type KeyboardEvent } from 'react'
+import { Button, DestructiveActionModal, DotsMenu, Entity, MenuItem, Note, Select, Sheet, Toggle } from '@hyprsh/design'
+import { useState } from 'react'
 import { useStatus } from '../api/attention'
 import { useDownloadsStatus, useReorderInstances, useTestInstance } from '../api/downloads'
 import { useDeletePluginInstance, usePluginInstances, usePlugins, useSetInstanceEnabled, type PluginInstance, type PluginManifest } from '../api/queries'
-import { IndexerHead, IndexerLine } from '../layout/SettingsLists'
-import { SettingsCard, SettingsSection, StatusLine } from '../layout/SettingsPage'
+import { SettingsSection, StatusLine } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { plural } from '../format'
 import { useReport } from '../toasts'
@@ -41,7 +39,7 @@ function IndexerStatus({ instance, failing, latency }: { instance: PluginInstanc
 /**
  * Settings' indexers: a list in the order Kestrel asks them (the top one first; an automatic search asks the next priority
  * only for what the earlier ones left), each with its health, its Grabs of the
- * last 30 days, an on/off switch and a menu. A row's drag handle (or the arrow keys on it) changes the order, which is saved
+ * last 30 days, an on/off switch and a menu. A row's drag handle (or Alt and the arrow keys on it, or its menu) changes the order, which is saved
  * as the instances' priorities. Edit and Add open the full form in a side sheet.
  */
 export function IndexerSection() {
@@ -58,7 +56,6 @@ export function IndexerSection() {
   const [removing, setRemoving] = useState<PluginInstance | null>(null)
   const [picked, setPicked] = useState<string>()
   const [order, setOrder] = useState<number[] | null>(null)
-  const [dragging, setDragging] = useState<number | null>(null)
 
   if (plugins.isError || instances.isError)
     return (
@@ -100,12 +97,6 @@ export function IndexerSection() {
     const changes = ids.map((id, i) => ({ id, priority: i + 1 })).filter((c) => sorted.find((r) => r.id === c.id)!.priority !== c.priority)
     void report(reorder.mutateAsync(changes), { failed: 'Could not save the order' }).finally(() => setOrder(null))
   }
-  const onHandleKey = (e: KeyboardEvent, index: number) => {
-    if (e.key === 'ArrowUp') move(index, index - 1)
-    else if (e.key === 'ArrowDown') move(index, index + 1)
-    else return
-    e.preventDefault()
-  }
   const testAll = () => {
     const targets = rows.filter((r) => r.enabled)
     return report(Promise.all(targets.map((r) => test.mutateAsync(r.id))), {
@@ -137,61 +128,28 @@ export function IndexerSection() {
         <Note size="small">No indexers yet. Kestrel cannot search for releases without one.</Note>
       ) : (
         <>
-          <SettingsCard>
-            <IndexerHead />
-            {rows.map((i, index) => {
+          <Entity.List aria-label="Indexers" onReorder={fixed ? undefined : move}>
+            {rows.map((i) => {
               const h = health.get(i.id)
               const failing = h?.state === 'failing' ? h.message || 'no answer' : i.last_check && !i.last_check.ok ? i.last_check.message || i.last_check.code || 'no answer' : null
               const n = grabs.get(i.id)
               const declared = i.enabled_declared
+              const address = typeof i.config.url === 'string' ? i.config.url.replace(/^https?:\/\//, '') : ''
               return (
-                <div key={i.id} role="group" aria-label={i.name}>
-                  <IndexerLine
-                    failing={i.enabled && failing !== null}
-                    dragging={dragging === i.id}
-                    draggable={!fixed}
-                    onDragStart={(e) => {
-                      setDragging(i.id)
-                      e.dataTransfer.effectAllowed = 'move'
-                      e.dataTransfer.setData('text/plain', String(i.id))
-                    }}
-                    onDragEnd={() => setDragging(null)}
-                    onDragOver={(e) => dragging !== null && e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      if (dragging !== null)
-                        move(
-                          rows.findIndex((r) => r.id === dragging),
-                          index,
-                        )
-                      setDragging(null)
-                    }}
-                    handle={
-                      <Button
-                        svgOnly
-                        variant="tertiary"
-                        size="tiny"
-                        disabled={fixed}
-                        aria-label={`Change the priority of ${i.name}`}
-                        title={fixed ? 'The Config File sets the order' : 'Drag to change the priority, or press the up and down arrow keys'}
-                        onKeyDown={(e) => onHandleKey(e, index)}
-                      >
-                        <GripVertical />
-                      </Button>
-                    }
-                    name={i.name}
-                    address={typeof i.config.url === 'string' ? i.config.url.replace(/^https?:\/\//, '') : ''}
-                    status={<IndexerStatus instance={i} failing={failing} latency={health.get(i.id)?.median_ms ?? i.last_check?.latency_ms ?? null} />}
-                    grabs={n === undefined ? '' : plural(n, 'Grab')}
-                    toggle={
+                <Entity
+                  key={i.id}
+                  aria-label={i.name}
+                  reorderLabel={i.name}
+                  // chrome-ok: Entity has no tone for a failing row; the red tint is Kestrel's
+                  className={i.enabled && failing !== null ? 'bg-red-100' : undefined}
+                  right={
+                    <>
                       <Toggle
                         aria-label={`${i.name} enabled`}
                         checked={i.enabled}
                         disabled={declared || toggle.isPending}
                         onChange={(enabled) => void report(toggle.mutateAsync({ id: i.id, enabled }), { done: `${i.name} ${enabled ? 'enabled' : 'disabled'}`, failed: `Could not change ${i.name}` })}
                       />
-                    }
-                    menu={
                       <DotsMenu aria-label={`${i.name} actions`} size="tiny">
                         <MenuItem onClick={() => setEditing(i.id)} disabled={!manifests.some((m) => m.id === i.plugin_id)}>
                           Edit…
@@ -211,12 +169,19 @@ export function IndexerSection() {
                           Remove…
                         </MenuItem>
                       </DotsMenu>
-                    }
-                  />
-                </div>
+                    </>
+                  }
+                >
+                  <Entity.Content fill title={i.name} description={<span className="label-12-mono">{address}</span>}>
+                    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-0.5 text-[13px]">
+                      <IndexerStatus instance={i} failing={failing} latency={health.get(i.id)?.median_ms ?? i.last_check?.latency_ms ?? null} />
+                      {n !== undefined && <span className="text-gray-900">{plural(n, 'Grab')}</span>}
+                    </div>
+                  </Entity.Content>
+                </Entity>
               )
             })}
-          </SettingsCard>
+          </Entity.List>
           <span className="label-12 text-gray-900">{orderNote}</span>
         </>
       )}

@@ -14,7 +14,7 @@ beforeEach(() => {
 })
 
 const section = async () => screen.findByRole('region', { name: 'Slots' })
-const inSlot = async (label: string) => within(await within(await section()).findByRole('group', { name: label }))
+const inSlot = async (label: string) => within(await within(await section()).findByRole('listitem', { name: label }))
 
 const movie = (id: number, slots: FixtureRow['slots']): FixtureRow => row(id, `Movie ${id}`, `Movie ${id}`, { slots })
 const version = (id: number, state: 'filled' | 'wanted' = 'filled') => ({ version_id: id, profile: 'hd-primary', state, long_missing: false })
@@ -36,7 +36,7 @@ describe('the Slots list', () => {
     expect(fourK.getByText('1 Version')).toBeInTheDocument()
 
     const names = within(await section())
-      .getAllByRole('group')
+      .getAllByRole('listitem')
       .map((g) => g.getAttribute('aria-label'))
     expect(names).toEqual(['Standard', '4K'])
   })
@@ -178,12 +178,12 @@ describe('renaming a Slot', () => {
 })
 
 describe('reordering the Slots', () => {
-  it('moves a Slot with the arrow keys on its handle and keeps the order after a reload', async () => {
+  it('moves a Slot with Alt and the arrow keys on its handle and keeps the order after a reload', async () => {
     const sent = fakeSlots()
     const { unmount } = renderApp()
-    const handle = (await inSlot('4K')).getByRole('button', { name: 'Change the order of 4K' })
+    const handle = (await inSlot('4K')).getByRole('button', { name: 'Move 4K' })
     handle.focus()
-    await userEvent.keyboard('{ArrowUp}')
+    await userEvent.keyboard('{Alt>}{ArrowUp}{/Alt}')
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'PATCH /slots/4k', body: { position: 0 } }))
 
     unmount()
@@ -192,7 +192,7 @@ describe('reordering the Slots', () => {
     await inSlot('4K')
     expect(
       within(await section())
-        .getAllByRole('group')
+        .getAllByRole('listitem')
         .map((g) => g.getAttribute('aria-label')),
     ).toEqual(['4K', 'Standard'])
   })
@@ -207,7 +207,7 @@ describe('deleting a Slot', () => {
     const dialog = within(await screen.findByRole('alertdialog'))
     await userEvent.click(dialog.getByRole('button', { name: 'Delete Slot' }))
     await waitFor(() => expect(sent.at(-1)).toEqual({ path: 'DELETE /slots/4k' }))
-    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Slots' })).queryByRole('group', { name: '4K' })).not.toBeInTheDocument())
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Slots' })).queryByRole('listitem', { name: '4K' })).not.toBeInTheDocument())
   })
 
   it('shows the file counts for a Slot that holds Versions and deletes them first once the label is typed', async () => {

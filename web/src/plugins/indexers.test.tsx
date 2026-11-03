@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -152,7 +152,7 @@ describe('Settings indexers', () => {
     return within(await screen.findByRole('region', { name: 'Indexers' }))
   }
   const check = (over: Partial<NonNullable<Instance['last_check']>> = {}) => ({ at: new Date().toISOString(), ok: true, code: null, message: null, ...over })
-  const rowNames = (section: ReturnType<typeof within>) => section.getAllByRole('group').map((g: HTMLElement) => g.getAttribute('aria-label'))
+  const rowNames = (section: ReturnType<typeof within>) => section.getAllByRole('listitem').map((g: HTMLElement) => g.getAttribute('aria-label'))
 
   it("shows the median time an indexer's searches take, not only how long the last Test took", async () => {
     fakeIndexers({ indexers: [stored(2, 'Geek', { priority: 1, last_check: check({ latency_ms: 600 }) })] })
@@ -221,27 +221,24 @@ describe('Settings indexers', () => {
     expect(await section.findByText('Kestrel asks every indexer at once. Drag to ask them in order instead.')).toBeInTheDocument()
   })
 
-  it('moves an indexer with the arrow keys on its handle and saves the order as priorities', async () => {
+  it('moves an indexer with Alt and the arrow keys on its handle and saves the order as priorities', async () => {
     const sent = fakeIndexers({ indexers: [stored(1, 'Geek', { priority: 1 }), stored(2, 'Slow', { priority: 2 }), stored(3, 'Relay', { priority: 3 })] })
     const section = await open()
     await section.findByText('Geek')
 
-    section.getByRole('button', { name: 'Change the priority of Relay' }).focus()
-    await userEvent.keyboard('{ArrowUp}')
+    section.getByRole('button', { name: 'Move Relay' }).focus()
+    await userEvent.keyboard('{Alt>}{ArrowUp}{/Alt}')
 
     await waitFor(() => expect(rowNames(section)).toEqual(['Geek', 'Relay', 'Slow']))
     await waitFor(() => expect(sent.filter((s) => s.path === 'patch').map((s) => s.body)).toEqual([{ priority: 2 }, { priority: 3 }]))
   })
 
-  it('reorders by dragging a row onto another', async () => {
+  it("reorders from a row's handle menu", async () => {
     const sent = fakeIndexers({ indexers: [stored(1, 'Geek', { priority: 1 }), stored(2, 'Slow', { priority: 2 })] })
     const section = await open()
     await section.findByText('Geek')
-    const [first, second] = section.getAllByRole('group')
-    const data = { setData: () => {}, effectAllowed: '' }
-    fireEvent.dragStart(second.firstElementChild!, { dataTransfer: data })
-    fireEvent.dragOver(first.firstElementChild!, { dataTransfer: data })
-    fireEvent.drop(first.firstElementChild!, { dataTransfer: data })
+    await userEvent.click(section.getByRole('button', { name: 'Move Slow' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Move to Top' }))
     await waitFor(() => expect(rowNames(section)).toEqual(['Slow', 'Geek']))
     await waitFor(() => expect(sent.filter((s) => s.path === 'patch').map((s) => s.body)).toEqual([{ priority: 1 }, { priority: 2 }]))
   })
@@ -249,7 +246,8 @@ describe('Settings indexers', () => {
   it('keeps the order fixed, and says so, while the Config File declares an indexer', async () => {
     fakeIndexers({ indexers: [stored(1, 'Geek', { from_config_file: true, priority: 1 }), stored(2, 'Slow', { priority: 2 })] })
     const section = await open()
-    expect(await section.findByRole('button', { name: 'Change the priority of Geek' })).toBeDisabled()
+    await section.findByText('Geek')
+    expect(section.queryByRole('button', { name: 'Move Geek' })).not.toBeInTheDocument()
     expect(section.getByText(/The Config File sets the order/)).toBeInTheDocument()
   })
 
