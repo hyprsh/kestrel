@@ -8,7 +8,7 @@ import { http } from '../test/handlers'
 import { fakeLibrary, row } from '../test/library'
 import { server } from '../test/server'
 import { findToast } from '../test/toasts'
-import { actionBar, queryActionBar } from '../test/actionBar'
+import { actionBar, queryActionBar, runQuiet } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -64,7 +64,7 @@ describe('selecting Titles in the Library', () => {
     await userEvent.click(box('Heat'))
     expect(actionBar()).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Paddington' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear selection' }))
     expect(queryActionBar()).not.toBeInTheDocument()
   })
 
@@ -91,7 +91,7 @@ describe('selecting Titles in the Library', () => {
     await userEvent.type(filter, 'kind:movie')
     await userEvent.click(box('Heat'))
 
-    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Select All' }))
+    await runQuiet(actionBar(), 'Select all 3')
 
     expect(actionBar()).toHaveTextContent('3 selected')
     await userEvent.clear(filter)
@@ -125,11 +125,12 @@ async function withTicked(...names: string[]) {
   return actionBar()
 }
 
-/** Runs an action of the bar: one of its buttons, or an item of its More… menu. */
+/** Runs an action of the bar: one of its buttons (a quiet one too), or an item of its ⋯ menu. */
 async function choose(bar: HTMLElement, name: string) {
   const button = within(bar).queryByRole('button', { name })
   if (button) return userEvent.click(button)
-  await userEvent.click(within(bar).getByRole('button', { name: 'More…' }))
+  if (name === 'Unmonitor') return runQuiet(bar, name)
+  await userEvent.click(within(bar).getByRole('button', { name: 'More actions for the ticked Titles' }))
   await userEvent.click(screen.getByRole('menuitem', { name }))
 }
 

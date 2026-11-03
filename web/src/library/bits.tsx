@@ -35,7 +35,7 @@ export function dotOf(state: State | null, longMissing: boolean): Dot {
     case 'wanted':
       return { state: 'warning', variant: 'outline' } // hollow: not there yet
     case 'unreleased':
-      return { state: 'neutral', variant: 'dashed' }
+      return { state: 'neutral', variant: 'outline' }
     default:
       return { state: 'neutral' }
   }

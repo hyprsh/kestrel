@@ -7,7 +7,7 @@ describe('dotOf', () => {
     ['downloading', false, { state: 'info' }],
     ['wanted', false, { state: 'warning', variant: 'outline' }],
     ['wanted', true, { state: 'error', variant: 'outline' }],
-    ['unreleased', false, { state: 'neutral', variant: 'dashed' }],
+    ['unreleased', false, { state: 'neutral', variant: 'outline' }],
   ])('maps %s (long missing: %s)', (state, longMissing, dot) => {
     expect(dotOf(state, longMissing)).toEqual(dot)
   })

@@ -43,6 +43,8 @@ const filters: { key: Filter; label: string }[] = [
 ]
 
 const monitorLabel: Record<AdoptionMonitor, string> = { all: 'Monitored', future: 'Series: future episodes only', none: 'Unmonitored' }
+/** The bar's quiet action for each monitoring the selected rows can be set to. */
+const monitorAction: Record<AdoptionMonitor, string> = { all: 'Monitor', future: 'Monitor future episodes only', none: 'Unmonitor' }
 const planMonitorOptions = (['all', 'future', 'none'] as const).map((value) => ({ value, label: monitorLabel[value] }))
 /** A row's choices: a Series has Add Title's three that need no season list, a Movie is monitored or not. */
 const rowMonitorOptions = (kind: AdoptionRow['kind']) =>
@@ -250,6 +252,7 @@ function Plan({
   const [report, setReport] = useState('')
   const rows = useMemo(() => list.data?.pages.flatMap((pg) => pg.items) ?? [], [list.data])
   const total = list.data?.pages[0]?.total ?? 0
+  const more = total > rows.length
   const ids = useMemo(() => rows.map((r) => r.id), [rows])
   const selection = useSelection(ids, total)
   const planEmpty = summary.matched + summary.needs_choice + summary.skipped === 0
@@ -370,33 +373,22 @@ function Plan({
       )}
       <ActionBar
         open={selection.active}
-        selection={{ count: selection.count, total: selection.all ? selection.count : rows.length, onSelectAll: selection.checkAll, onClear: selection.clear }}
+        // "Select all N" is the whole filter when it pages past the rows loaded, else the rows shown.
+        selection={{
+          count: selection.count,
+          total: more ? total : rows.length,
+          onSelectAll: more ? selection.checkMatching : selection.checkAll,
+          onClear: selection.clear,
+        }}
+        secondaryActions={[
+          { label: "Don't adopt selected", disabled: bulk.isPending, onSelect: () => run('untick') },
+          { label: 'Accept suggested matches', disabled: bulk.isPending, onSelect: () => run('accept_suggested') },
+          ...(['all', 'future', 'none'] as const).map((m) => ({ label: monitorAction[m], disabled: bulk.isPending, onSelect: () => run('set_monitor', m) })),
+        ]}
         actions={
-          <>
-            {!selection.all && total > rows.length && (
-              <Button variant="tertiary" size="small" onClick={selection.checkMatching}>
-                Select all {total} in this filter
-              </Button>
-            )}
-            {selection.narrowed && <span className="copy-13 text-gray-900">No longer all {total} in this filter</span>}
-            <Button size="small" onClick={() => run('tick')} disabled={bulk.isPending}>
-              Adopt selected
-            </Button>
-            <Button size="small" onClick={() => run('untick')} disabled={bulk.isPending}>
-              Don't adopt selected
-            </Button>
-            <Button size="small" onClick={() => run('accept_suggested')} disabled={bulk.isPending}>
-              Accept suggested matches
-            </Button>
-            <Select
-              aria-label="Set monitoring of selected"
-              size="small"
-              value=""
-              onChange={(e) => e.target.value && run('set_monitor', e.target.value as AdoptionMonitor)}
-              disabled={bulk.isPending}
-              options={[{ value: '', label: 'Set monitoring…' }, ...planMonitorOptions]}
-            />
-          </>
+          <Button variant="primary" size="small" onClick={() => run('tick')} disabled={bulk.isPending}>
+            Adopt selected
+          </Button>
         }
       />
     </div>

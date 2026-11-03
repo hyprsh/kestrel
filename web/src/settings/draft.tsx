@@ -88,6 +88,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       {children}
       <ActionBar
         open={dirty}
+        tone="warning"
         label={`${changed.length} unsaved ${changed.length === 1 ? 'change' : 'changes'} · ${changed.join(', ')}`}
         actions={
           <>

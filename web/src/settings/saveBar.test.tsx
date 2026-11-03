@@ -16,7 +16,7 @@ describe('leaving Settings with unsaved changes', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Settings' }))
     await userEvent.selectOptions(await screen.findByLabelText('Primary language'), 'de')
-    expect(screen.getByText('2 unsaved changes · Primary language, Country', { selector: '.hy-action-bar__label' })).toBeInTheDocument()
+    expect(screen.getByText('2 unsaved changes · Primary language, Country', { selector: '.hy-action-bar__label-text' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Library' }))
     const ask = await screen.findByRole('dialog', { name: 'Leave without saving?' })

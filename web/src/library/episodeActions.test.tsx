@@ -9,7 +9,7 @@ import { server } from '../test/server'
 import { findToast, toastRegion } from '../test/toasts'
 import { publishSearchFinished, type SearchFinished } from '../live/searchFinished'
 import { releaseList } from '../test/grabs'
-import { actionBar, queryActionBar } from '../test/actionBar'
+import { actionBar, queryActionBar, runQuiet } from '../test/actionBar'
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -259,14 +259,14 @@ describe('searching from the episode list', () => {
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
 
     const bar = actionBar()
-    await userEvent.click(within(bar).getByRole('button', { name: 'Stop Monitoring' }))
+    await runQuiet(bar, 'Stop Monitoring')
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2, 3], monitored: false } }]))
 
     await choose(null, 'More actions for the ticked episodes', 'Manual Search Standard…')
     await waitFor(() => expect(manual).toEqual([{ version: 51, body: { season: 1, episode_ids: [2, 3] } }]))
   })
 
-  it('shows the ticked bar as "N selected", Clear, Monitor, Stop Monitoring and Search, and Monitor and Stop Monitoring act on the ticked episodes', async () => {
+  it('shows the ticked bar as "N selected" with its clear ×, Search and a ⋯ menu, with Monitor and Stop Monitoring as its quiet actions that act on the ticked episodes', async () => {
     const { grid, state } = await openSeries()
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }))
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
@@ -275,15 +275,16 @@ describe('searching from the episode list', () => {
       within(bar)
         .getAllByRole('button')
         .map((b) => b.textContent || b.getAttribute('aria-label')),
-    ).toEqual(['Clear', 'Monitor', 'Stop Monitoring', 'Search', 'More actions for the ticked episodes'])
+    ).toEqual(['Clear selection', 'More actions', 'Search', 'More actions for the ticked episodes'])
     expect(bar).toHaveTextContent('2 selected')
     // Both are monitored already: Monitor has nothing to do.
-    expect(within(bar).getByRole('button', { name: 'Monitor' })).toBeDisabled()
+    await userEvent.click(within(bar).getByRole('button', { name: 'More actions' }))
+    expect(screen.getByRole('menuitem', { name: 'Monitor' })).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.keyboard('{Escape}')
 
-    await userEvent.click(within(bar).getByRole('button', { name: 'Stop Monitoring' }))
+    await runQuiet(bar, 'Stop Monitoring')
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2, 3], monitored: false } }]))
-    await waitFor(() => expect(within(actionBar()).getByRole('button', { name: 'Monitor' })).toBeEnabled())
-    await userEvent.click(within(actionBar()).getByRole('button', { name: 'Monitor' }))
+    await runQuiet(actionBar(), 'Monitor')
     await waitFor(() => expect(state.get().sent[1]).toEqual({ path: 'episodes/monitor', body: { episode_ids: [2, 3], monitored: true } }))
   })
 
@@ -292,7 +293,7 @@ describe('searching from the episode list', () => {
     await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick all of Season 1' }))
     expect(actionBar()).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear selection' }))
     expect(queryActionBar()).not.toBeInTheDocument()
     expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).not.toBeChecked()
   })
