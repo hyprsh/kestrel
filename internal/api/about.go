@@ -15,6 +15,7 @@ func (s *server) GetAbout(ctx context.Context, _ oapi.GetAboutRequestObject) (oa
 	info := s.updates.Info(ctx)
 	out := oapi.About{
 		Version:            s.opts.Version,
+		Commit:             s.opts.Commit,
 		License:            "GPL-3.0-only",
 		TrashCommit:        s.trashCommit(ctx),
 		CheckGithubUpdates: s.updates.Enabled(ctx),

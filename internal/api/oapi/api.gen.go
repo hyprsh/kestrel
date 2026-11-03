@@ -2075,6 +2075,11 @@ type About struct {
 	// CheckedAt When the daily GitHub check last succeeded.
 	CheckedAt *time.Time `json:"checked_at,omitempty"`
 
+	// Commit The short commit hash the build was made from, empty when the build does not say (local `dev` builds).
+	//
+	// Example: 34e3846
+	Commit string `json:"commit"`
+
 	// License Example: GPL-3.0-only
 	License string `json:"license"`
 
@@ -5435,6 +5440,11 @@ type System struct {
 	//
 	// Example: /kestrel
 	BaseUrl string `json:"base_url"`
+
+	// Commit The short commit hash the build was made from, empty when the build does not say (local `dev` builds). `edge` builds carry it; the `version` stays `edge`.
+	//
+	// Example: 34e3846
+	Commit string `json:"commit"`
 
 	// Version Kestrel release version, or `dev` for local builds.
 	//

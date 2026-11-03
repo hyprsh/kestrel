@@ -40,7 +40,7 @@ func startServer(t *testing.T, base string, web fstest.MapFS) *httptest.Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	h := app.NewHandler(app.Options{Options: api.Options{Version: "1.2.3", BaseURL: base, Store: st, Web: web}})
+	h := app.NewHandler(app.Options{Options: api.Options{Version: "1.2.3", Commit: "34e3846", BaseURL: base, Store: st, Web: web}})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return srv
@@ -136,13 +136,14 @@ func TestSystemIsServedFromTheSpecAndMatchesIt(t *testing.T) {
 
 	var sys struct {
 		Version  string `json:"version"`
+		Commit   string `json:"commit"`
 		APIMajor int    `json:"api_major"`
 		BaseURL  string `json:"base_url"`
 	}
 	if err := json.Unmarshal([]byte(body), &sys); err != nil {
 		t.Fatal(err)
 	}
-	if sys.Version != "1.2.3" || sys.APIMajor != 1 || sys.BaseURL != "" {
+	if sys.Version != "1.2.3" || sys.Commit != "34e3846" || sys.APIMajor != 1 || sys.BaseURL != "" {
 		t.Fatalf("system = %+v", sys)
 	}
 }

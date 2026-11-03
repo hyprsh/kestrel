@@ -2,10 +2,11 @@
 .PHONY: typecheck release-dry-run dry-run-assets test-go-shard test-go-race test-parity notices build-silo help generate generate-check test test-go test-ffprobe test-web build web-build dev-api dev-web fmt fmt-check vet lint-go lint-web compose-check commit-check hooks docker docs docs-dev docs-shots check
 
 VERSION ?= dev
+COMMIT ?=
 # The project's TMDB and TVDB keys are injected at link time; the default build embeds none.
 TMDB_API_KEY ?=
 TVDB_API_KEY ?=
-LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTMDBKey=$(TMDB_API_KEY) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTVDBKey=$(TVDB_API_KEY)
+LDFLAGS := -s -w -X github.com/hyprsh/kestrel/internal/version.Version=$(VERSION) -X github.com/hyprsh/kestrel/internal/version.Commit=$(COMMIT) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTMDBKey=$(TMDB_API_KEY) -X github.com/hyprsh/kestrel/internal/metadata.embeddedTVDBKey=$(TVDB_API_KEY)
 
 help: ## List the dev commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -104,7 +105,7 @@ hooks: ## Check commit headers on commit (.githooks/commit-msg)
 	git config core.hooksPath .githooks
 
 docker: ## Build the image as kestrel:dev
-	docker build --build-arg VERSION=$(VERSION) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) --build-arg TVDB_API_KEY=$(TVDB_API_KEY) -t kestrel:dev .
+	docker build --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --build-arg TMDB_API_KEY=$(TMDB_API_KEY) --build-arg TVDB_API_KEY=$(TVDB_API_KEY) -t kestrel:dev .
 
 # CI installs this version's prebuilt binary and passes GORELEASER_CMD=goreleaser.
 GORELEASER ?= github.com/goreleaser/goreleaser/v2@v2.18.3

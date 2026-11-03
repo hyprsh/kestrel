@@ -2558,6 +2558,11 @@ export interface components {
              */
             version: string;
             /**
+             * @description The short commit hash the build was made from, empty when the build does not say (local `dev` builds). `edge` builds carry it; the `version` stays `edge`.
+             * @example 34e3846
+             */
+            commit: string;
+            /**
              * @description Major version of this API (the `N` in `/api/vN`).
              * @example 1
              */
@@ -5072,6 +5077,11 @@ export interface components {
              * @example 0.2.0
              */
             version: string;
+            /**
+             * @description The short commit hash the build was made from, empty when the build does not say (local `dev` builds).
+             * @example 34e3846
+             */
+            commit: string;
             /** @example GPL-3.0-only */
             license: string;
             /** @description The TRaSH Guides commit of the data scoring Releases now. */

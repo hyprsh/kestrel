@@ -3354,12 +3354,16 @@ components:
   schemas:
     System:
       type: object
-      required: [version, api_major, base_url]
+      required: [version, commit, api_major, base_url]
       properties:
         version:
           type: string
           description: Kestrel release version, or `dev` for local builds.
           example: 0.1.0
+        commit:
+          type: string
+          description: The short commit hash the build was made from, empty when the build does not say (local `dev` builds). `edge` builds carry it; the `version` stays `edge`.
+          example: 34e3846
         api_major:
           type: integer
           description: Major version of this API (the `N` in `/api/vN`).
@@ -7247,12 +7251,16 @@ components:
           description: The release page.
     About:
       type: object
-      required: [version, license, trash_commit, check_github_updates]
+      required: [version, commit, license, trash_commit, check_github_updates]
       properties:
         version:
           type: string
           description: The running version, `dev` for local builds, `edge` for main builds.
           example: 0.2.0
+        commit:
+          type: string
+          description: The short commit hash the build was made from, empty when the build does not say (local `dev` builds).
+          example: 34e3846
         license:
           type: string
           example: GPL-3.0-only

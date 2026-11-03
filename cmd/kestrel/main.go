@@ -71,7 +71,7 @@ func run(ctx context.Context) error {
 	}
 
 	kestrel := app.New(app.Options{
-		Options:     api.Options{Version: version.Version, BaseURL: cfg.BaseURL, Store: st, Web: web.FS(), Logger: logger, APIKey: cfg.APIKey, ConfigFile: file},
+		Options:     api.Options{Version: version.Version, Commit: version.Commit, BaseURL: cfg.BaseURL, Store: st, Web: web.FS(), Logger: logger, APIKey: cfg.APIKey, ConfigFile: file},
 		Plugins:     plugins,
 		TrashSource: trashsync.GitHub{},
 		DataDir:     cfg.DataDir,
@@ -115,7 +115,7 @@ func run(ctx context.Context) error {
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	logger.Info("kestrel started", "version", version.Version, "addr", srv.Addr, "base_url", cfg.BaseURL, "config_dir", cfg.ConfigDir)
+	logger.Info("kestrel started", "version", version.Version, "commit", version.Commit, "addr", srv.Addr, "base_url", cfg.BaseURL, "config_dir", cfg.ConfigDir)
 
 	select {
 	case err := <-errc:
