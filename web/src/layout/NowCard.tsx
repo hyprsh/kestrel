@@ -95,3 +95,21 @@ export function NowRow({
 export function NowEmpty({ children }: { children: ReactNode }) {
   return <p className="label-14 m-0 border-t border-gray-alpha-200 px-4 py-6 text-center text-gray-900">{children}</p>
 }
+
+/**
+ * A row's first line: the Title in bold, then what of it the row is about ("S05E09–E10", "46 episodes"). On a narrow card the
+ * Title is what truncates; the second part keeps whole (up to 60% of the line).
+ */
+export function NowTitle({ name, what }: { name: string; what?: string }) {
+  return (
+    <span className="label-14 flex min-w-0 items-baseline gap-1">
+      <b className="min-w-0 truncate font-medium">{name}</b>
+      {what ? (
+        <>
+          {' '}
+          <span className="max-w-[60%] shrink-0 truncate text-gray-900">{what}</span>
+        </>
+      ) : null}
+    </span>
+  )
+}

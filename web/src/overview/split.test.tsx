@@ -99,6 +99,24 @@ describe('Happening now, split in two cards', () => {
     expect(within(item as HTMLElement).getByRole('img', { name: '4K: Wanted' })).toBeInTheDocument()
   })
 
+  it('lets a long Title name truncate on a phone and keeps the count of Wanted episodes whole', async () => {
+    fakeLibrary([
+      wanted(1, 'Frozen Inheritance of the Velvet Mirror at Dawn', 3, {
+        kind: 'series',
+        wanted_episodes: { wanted: 46, long_missing: 0, seasons: [4] },
+      }),
+    ])
+    renderApp()
+
+    const [item] = await within(await screen.findByRole('region', { name: 'Searching' })).findAllByRole('listitem')
+    // The Title and the count are separate elements, so the Title can truncate while the count stays whole.
+    const count = within(item as HTMLElement).getByText('46 episodes')
+    const name = within(item as HTMLElement).getByText('Frozen Inheritance of the Velvet Mirror at Dawn')
+    expect(name).not.toContainElement(count)
+    expect(count.parentElement).toBe(name.parentElement)
+    expect(count.textContent).toBe('46 episodes')
+  })
+
   it('searches the Version at once from the Search button, and says so in a Toast', async () => {
     fakeLibrary([wanted(1, 'Paddington 2', 3)])
     const sent: string[] = []

@@ -17,7 +17,7 @@
 //                         of a screen bar, and its Sort          <SortButton query onQuery qualifiers />
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
 //   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
-//                         NowEmpty: the Overview's Downloading and Searching cards
+//                         NowTitle, NowEmpty: the Overview's Downloading and Searching cards
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
 //   RowList.tsx           RowList, stackedRow, stackedRight: a    <RowList>{<Entity className={stackedRow} rightClassName={stackedRight} />}</RowList>
 //                         list whose rows stack their right content when the list is narrow (container query)
