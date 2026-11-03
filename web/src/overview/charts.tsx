@@ -1,10 +1,10 @@
 // chrome: domain-visual
-// The Overview's chart marks the design system lacks, in plain React: a segmented bar (Library quality). Grabs per day, the
+// The Overview's chart parts the design system lacks, in plain React: the legend, swatch and screen-reader table. Grabs per day, the
 // download client's speed, Indexers and the release groups use the design's ColumnChart and BarList. They follow the dataviz rules: thin marks, a 2px gap
 // between touching marks, a 4px rounded data end on a square baseline, a legend for two or more series, status colours only
 // for status, text in text tokens, and a tooltip on every mark that shows on hover and on keyboard focus. Every chart also
 // has a text alternative: a summary in its label and a table for screen readers, so nothing is only in a tooltip.
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 /**
  * The colour classes of the marks, as the design's chart tokens: imported and failed take the success and error tones (as ColumnChart
@@ -67,51 +67,6 @@ export function ChartTable({ caption, head, rows }: { caption: string; head: str
           ))}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-export type Slice = { name: string; className: string; n: number }
-
-/**
- * A thin segmented bar: one whole split into parts with widths in proportion, 2px apart, fully rounded ends and no text on it. A
- * part at zero draws nothing. Each part is a hover and focus target with its name, amount and share; the label carries the same.
- */
-export function SegmentedBar({ parts, alternative }: { parts: Slice[]; alternative: string }) {
-  const [at, setAt] = useState<number | null>(null)
-  const drawn = parts.filter((p) => p.n > 0)
-  const total = drawn.reduce((t, p) => t + p.n, 0)
-  const before = (i: number) => drawn.slice(0, i).reduce((t, p) => t + p.n, 0)
-  const shown = at === null ? null : drawn[at]
-  return (
-    <div className="relative" onPointerLeave={() => setAt(null)}>
-      <div role="group" aria-label={alternative} className="flex h-3 gap-0.5 overflow-hidden rounded-full">
-        {drawn.map((p, i) => (
-          <span
-            key={p.name}
-            tabIndex={0}
-            aria-label={`${p.name}: ${p.n} (${Math.round((p.n / total) * 100)}%)`}
-            className={`block h-full outline-offset-2 ${p.className} ${at === i ? 'opacity-80' : ''}`}
-            style={{ flex: `${p.n} 1 0`, minWidth: 4 }}
-            onPointerEnter={() => setAt(i)}
-            onFocus={() => setAt(i)}
-            onBlur={() => setAt(null)}
-          />
-        ))}
-      </div>
-      {shown && at !== null && (
-        <div
-          role="tooltip"
-          className="label-12 pointer-events-none absolute bottom-full z-10 mb-1 -translate-x-1/2 rounded-md bg-background-100 px-2.5 py-1.5 whitespace-nowrap shadow-border-medium"
-          style={{ left: `clamp(70px, ${((before(at) + shown.n / 2) / total) * 100}%, calc(100% - 70px))` }}
-        >
-          <div className="flex items-center gap-2">
-            <span aria-hidden className={`inline-block h-0.5 w-3 ${shown.className}`} />
-            <b className="text-gray-1000 tabular-nums">{shown.n}</b>
-            <span className="text-gray-900">{`${shown.name} · ${Math.round((shown.n / total) * 100)}%`}</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
