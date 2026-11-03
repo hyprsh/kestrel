@@ -89,7 +89,7 @@ function Form({ saved, declared }: { saved: Settings['language_region']; declare
         </Note>
       )}
       <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared || !!pending} className="self-start">
-        Save language
+        Save Language
       </Button>
       {pending && <Note size="small">Switching to {languageName(pending)}… Every file is re-scored first. The new Language applies when that ends, and Activity shows how far it is.</Note>}
       {declared && <Note size="small">The Config File sets the language and country, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>}

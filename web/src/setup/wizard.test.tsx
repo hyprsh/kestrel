@@ -104,11 +104,11 @@ describe('the wizard', () => {
     renderApp()
 
     const adopt = await screen.findByRole('region', { name: /Adopt existing library/ })
-    await userEvent.click(await within(adopt).findByRole('button', { name: /scan for existing files/i }))
+    await userEvent.click(await within(adopt).findByRole('button', { name: /scan for unmanaged files/i }))
 
     expect(adoption.scans).toBe(1)
     expect(await within(adopt).findByLabelText('Adopt Breaking Bad (2008)')).toBeChecked()
-    expect(within(adopt).getByRole('button', { name: 'Discard plan' })).toBeEnabled()
+    expect(within(adopt).getByRole('button', { name: 'Discard Plan' })).toBeEnabled()
   })
 
   it('opens finished sections as one-line summaries and the rest as forms', async () => {
@@ -146,17 +146,17 @@ describe('the wizard', () => {
     })
     renderApp()
     const roots = await screen.findByRole('region', { name: 'Root folders' })
-    await userEvent.click(await within(roots).findByRole('button', { name: 'Save root folders' }))
+    await userEvent.click(await within(roots).findByRole('button', { name: 'Save Root Folders' }))
     await waitFor(() => expect(within(roots).queryByLabelText('Movies folder 1')).not.toBeInTheDocument())
     expect(within(roots).getByText(/\/data\/media\/movies/)).toBeInTheDocument()
   })
 
-  it('Finish setup lists every missing section and lets the admin through once none is missing', async () => {
+  it('Finish Setup lists every missing section and lets the admin through once none is missing', async () => {
     fakeSettings()
     const setup = fakeSetup({ language: 'done', slots: 'done' })
     renderApp()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Finish setup' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Finish Setup' }))
     expect(screen.getByRole('separator')).toBeInTheDocument() // divides the sections from Finish
     const missing = await screen.findByRole('alert')
     expect(
@@ -167,7 +167,7 @@ describe('the wizard', () => {
     expect(screen.queryByRole('button', { name: 'Overview' })).not.toBeInTheDocument() // still in the wizard
 
     setup.sections.download_client = setup.sections.indexer = setup.sections.root_folders = 'done'
-    await userEvent.click(screen.getByRole('button', { name: 'Finish setup' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Finish Setup' }))
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument() // the shell
   })
 
@@ -225,7 +225,7 @@ describe('running setup again', () => {
     const account = await screen.findByRole('region', { name: 'Account' })
     expect(within(account).queryByLabelText('Password')).not.toBeInTheDocument()
     expect(within(account).getByText(/admin account exists/i)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Create account' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Create Account' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Back to Kestrel' }))
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
@@ -241,7 +241,7 @@ describe('Root folders', () => {
     return screen.findByRole('region', { name: 'Root folders' })
   }
   const edit = async (section: HTMLElement) => {
-    await userEvent.click(await within(section).findByRole('button', { name: 'Edit root folders' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Edit Root Folders' }))
     return section
   }
 
@@ -258,7 +258,7 @@ describe('Root folders', () => {
     expect(within(section).getByLabelText('Movies folder 2')).toHaveValue('/data/media/more')
     await userEvent.click(within(section).getByRole('button', { name: 'Cancel' }))
     expect(within(section).queryByLabelText('Movies folder 1')).not.toBeInTheDocument()
-    expect(within(section).getByRole('button', { name: 'Edit root folders' })).toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: 'Edit Root Folders' })).toBeInTheDocument()
   })
 
   it('appear in Settings, prefilled and editable, and save as given', async () => {
@@ -275,9 +275,9 @@ describe('Root folders', () => {
     await userEvent.type(movies, '/data/films')
     await userEvent.click(within(section).getByRole('button', { name: 'Add Movies folder' }))
     await userEvent.type(within(section).getByLabelText('Movies folder 2'), '/data/more')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Save Root Folders' }))
 
-    expect(await within(section).findByRole('button', { name: 'Edit root folders' })).toBeInTheDocument() // back to the list
+    expect(await within(section).findByRole('button', { name: 'Edit Root Folders' })).toBeInTheDocument() // back to the list
     expect(saved).toEqual([{ root_folders: { movies: ['/data/films', '/data/more'], series: ['/data/media/tv'] } }])
   })
 
@@ -292,7 +292,7 @@ describe('Root folders', () => {
 
     await userEvent.click(within(section).getByRole('button', { name: 'Make Series folder 2 the default' }))
     expect(within(section).getByLabelText('Series folder 1')).toHaveValue('/data/anime')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Save Root Folders' }))
     await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved[0]).toEqual({ root_folders: { movies: ['/data/media/movies'], series: ['/data/anime', '/data/media/tv'] } })
   })
@@ -304,7 +304,7 @@ describe('Root folders', () => {
     const movies = await within(section).findByLabelText('Movies folder 1')
     await userEvent.clear(movies)
     await userEvent.type(movies, '/missing')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save root folders' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Save Root Folders' }))
     expect(await within(section).findByRole('alert')).toHaveTextContent('This folder does not exist')
     expect(movies).toHaveAttribute('aria-invalid', 'true')
   })
@@ -471,7 +471,7 @@ describe('what each step asks of you', () => {
     history.replaceState(null, '', '/')
   })
 
-  it('can be worked through with the keyboard from the first control to Finish setup', async () => {
+  it('can be worked through with the keyboard from the first control to Finish Setup', async () => {
     fakeSettings()
     const setup = fakeSetup(doneAll)
     fakeAdoption()
@@ -479,16 +479,16 @@ describe('what each step asks of you', () => {
     renderApp()
     await stepOf('Summary')
     const reached: string[] = []
-    for (let i = 0; i < 80 && !reached.includes('Finish setup'); i++) {
+    for (let i = 0; i < 80 && !reached.includes('Finish Setup'); i++) {
       await user.tab()
       const el = document.activeElement as HTMLElement
       reached.push(el.getAttribute('aria-label') ?? el.textContent ?? '')
     }
-    // Every folded step's Edit button, the Summary's links and Finish setup, in page order.
+    // Every folded step's Edit button, the Summary's links and Finish Setup, in page order.
     expect(reached.filter((n) => n === 'Edit')).toHaveLength(5)
     expect(reached.indexOf('Overview')).toBeLessThan(reached.indexOf('Health'))
     expect(reached.indexOf('Health')).toBeLessThan(reached.indexOf('Media servers'))
-    expect(reached.at(-1)).toBe('Finish setup')
+    expect(reached.at(-1)).toBe('Finish Setup')
 
     await user.keyboard('{Enter}')
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
@@ -510,6 +510,6 @@ describe('the wizard on a phone', () => {
     const summary = await screen.findByRole('region', { name: 'Summary' })
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent?.replace(/^\d+/, ''))
     expect(headings).toEqual(['Account', 'Primary Language', 'Download client', 'Indexer', 'Root folders', 'Slots', 'Profiles', 'Adopt existing library', 'Summary'])
-    expect(within(summary).getByRole('button', { name: 'Finish setup' })).toBeInTheDocument()
+    expect(within(summary).getByRole('button', { name: 'Finish Setup' })).toBeInTheDocument()
   })
 })

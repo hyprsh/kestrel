@@ -28,7 +28,7 @@ export function Finished({ outcomes, actions }: { outcomes: AdoptionOutcomes; ac
       ))}
       <div>
         <Button size="small" onClick={() => openCleanup()}>
-          Clean up leftover files
+          Clean Up Leftover Files
         </Button>
       </div>
     </div>
@@ -45,12 +45,12 @@ function Group({ outcome, title, why, count, actions }: { outcome: AdoptionOutco
         <h2 className="label-14">{label}</h2>
         {outcome === 'failed' && actions && (
           <Button size="small" onClick={actions.onRetry} disabled={actions.busy}>
-            Try again
+            Try Again
           </Button>
         )}
         {outcome === 'not_chosen' && actions && (
           <Button size="small" onClick={actions.onReopen} disabled={actions.busy}>
-            Reopen to choose
+            Reopen to Choose
           </Button>
         )}
       </div>
@@ -81,7 +81,7 @@ function Group({ outcome, title, why, count, actions }: { outcome: AdoptionOutco
       )}
       {list.hasNextPage && (
         <LoadMoreButton size="small" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-          Show more
+          Show More
         </LoadMoreButton>
       )}
     </section>

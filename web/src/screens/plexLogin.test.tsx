@@ -11,11 +11,11 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('Sign in with Plex on the login card', () => {
+describe('Sign In With Plex on the login card', () => {
   it('is offered only while Plex sign-in is enabled', async () => {
     fakeLoggedOut(true)
     renderApp()
-    expect(await screen.findByRole('button', { name: 'Sign in with Plex' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Sign In With Plex' })).toBeInTheDocument()
     expect(screen.getByLabelText('Username')).toBeInTheDocument() // the admin form stays
   })
 
@@ -23,10 +23,10 @@ describe('Sign in with Plex on the login card', () => {
     fakeLoggedOut(false)
     const { paths, stop } = recordPaths()
     renderApp()
-    expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Log In' })).toBeInTheDocument()
     await waitFor(() => expect(paths).toContain('GET /auth/plex'))
     await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(screen.queryByRole('button', { name: 'Sign in with Plex' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign In With Plex' })).not.toBeInTheDocument()
     stop()
   })
 
@@ -35,7 +35,7 @@ describe('Sign in with Plex on the login card', () => {
     server.use(http.post('/auth/plex/pin', ({ response }) => response(200).json({ auth_url: 'https://app.plex.tv/auth#?code=ABCD' })))
     const assign = vi.fn()
     renderApp()
-    const button = await screen.findByRole('button', { name: 'Sign in with Plex' })
+    const button = await screen.findByRole('button', { name: 'Sign In With Plex' })
     vi.stubGlobal('location', { ...window.location, assign })
     await userEvent.click(button)
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://app.plex.tv/auth#?code=ABCD'))
@@ -45,7 +45,7 @@ describe('Sign in with Plex on the login card', () => {
     fakeLoggedOut(true)
     server.use(http.post('/auth/plex/pin', ({ response }) => response('default').json(problem(502, 'upstream_unavailable'), { status: 502 })))
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with Plex' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign In With Plex' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/plex cannot be reached/i)
   })
 })

@@ -28,8 +28,8 @@ const shortcuts: [{ meta?: boolean; keys: string[] }, string][] = [
   [{ meta: true, keys: ['K'] }, 'Open the command menu: jump to a Title or screen, add a Title, run an action'],
   [{ keys: ['J', 'K'] }, 'Move down and up in a list (arrow keys work too)'],
   [{ keys: ['Enter'] }, 'Open the selected row'],
-  [{ keys: ['X'] }, 'Tick the Title under the cursor in the Library, to change several at once (Shift-click ticks a range)'],
-  [{ keys: ['Esc'] }, 'Close the menu, go back or clear the ticked Titles'],
+  [{ keys: ['X'] }, 'Select the Title under the cursor in the Library, to change several at once (Shift-click ticks a range)'],
+  [{ keys: ['Esc'] }, 'Close the menu, go back or clear the selected Titles'],
 ]
 
 export function About() {
@@ -154,7 +154,7 @@ export function About() {
           )
         ) : (
           <Button size="small" onClick={() => setShowNotices(true)}>
-            Show notices
+            Show Notices
           </Button>
         )}
       </Card>

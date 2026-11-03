@@ -141,7 +141,7 @@ describe('the episode list', () => {
 
   it('has a bookmark toggle on every row that monitors the episode or stops', async () => {
     const { state, grid } = await openSeries()
-    const toggle = within(grid).getByRole('button', { name: 'Stop monitoring S01E01' })
+    const toggle = within(grid).getByRole('button', { name: 'Stop Monitoring S01E01' })
     expect(toggle).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(toggle)
     await waitFor(() => expect(state.get().sent).toEqual([{ path: 'episodes/monitor', body: { episode_ids: [2], monitored: false } }]))
@@ -181,7 +181,7 @@ describe('the episode list', () => {
     expect(pilot).toHaveFocus()
 
     await userEvent.keyboard('{ArrowRight}')
-    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop monitoring) S01E01$/ })).toHaveFocus() // the bookmark comes first
+    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop Monitoring) S01E01$/ })).toHaveFocus() // the bookmark comes first
     await userEvent.keyboard('{ArrowRight}')
     expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowRight}')
@@ -195,16 +195,16 @@ describe('the episode list', () => {
     await userEvent.keyboard('{ArrowLeft}')
     expect(within(pilot).getByRole('button', { name: /^Standard:/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowLeft}')
-    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop monitoring) S01E01$/ })).toHaveFocus()
+    expect(within(pilot).getByRole('button', { name: /^(Monitor|Stop Monitoring) S01E01$/ })).toHaveFocus()
     await userEvent.keyboard('{ArrowLeft}')
     expect(pilot).toHaveFocus()
 
     await userEvent.keyboard(' ')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toBeChecked()
+    expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' })).toBeChecked()
     await userEvent.keyboard('{ArrowDown}')
     expect(within(grid).getByRole('row', { name: /Cat's in the Bag/ })).toHaveFocus()
     await userEvent.keyboard('x')
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' })).toBeChecked()
+    expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 2' })).toBeChecked()
     await userEvent.keyboard('k')
     expect(pilot).toHaveFocus()
     // From a chip, j and k still move rows.

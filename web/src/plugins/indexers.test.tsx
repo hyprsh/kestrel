@@ -92,7 +92,7 @@ describe('the wizard Indexer section', () => {
 
     await userEvent.type(await screen.findByLabelText('Password'), 'correct horse')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create Account' }))
 
     const section = await screen.findByRole('region', { name: /indexer/i })
     const form = within(section)
@@ -103,12 +103,12 @@ describe('the wizard Indexer section', () => {
 
     await userEvent.type(form.getByLabelText('URL'), 'https://geek.example')
     await userEvent.type(form.getByLabelText('API key'), 'bad-key')
-    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(form.getByRole('button', { name: 'Test Connection' }))
     expect(await form.findByRole('alert')).toHaveTextContent('The indexer rejected the API key')
 
     await userEvent.clear(form.getByLabelText('API key'))
     await userEvent.type(form.getByLabelText('API key'), 'good-key')
-    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(form.getByRole('button', { name: 'Test Connection' }))
     expect(await form.findByRole('status')).toHaveTextContent('Connected: NZBgeek (8 categories)')
 
     await userEvent.click(form.getByRole('button', { name: 'Save' }))
@@ -129,7 +129,7 @@ describe('the wizard Indexer section', () => {
     renderApp()
     await userEvent.type(await screen.findByLabelText('Password'), 'correct horse')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create Account' }))
 
     const client = within(await screen.findByRole('region', { name: /download client/i }))
     const indexer = within(await screen.findByRole('region', { name: /indexer/i }))
@@ -308,7 +308,7 @@ describe('Settings indexers', () => {
     expect(geek.getByLabelText('API key')).toHaveValue('')
     expect(geek.getByLabelText('API key')).toHaveAttribute('placeholder', expect.stringMatching(/saved/i))
 
-    await userEvent.click(geek.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(geek.getByRole('button', { name: 'Test Connection' }))
     expect(await geek.findByRole('status')).toHaveTextContent('Connected: NZBgeek')
     expect((sent.find((s) => s.path === 'test saved')?.body as { config: object }).config).not.toHaveProperty('api_key')
 
@@ -346,7 +346,7 @@ describe('Settings indexers', () => {
     expect(form.getByRole('button', { name: 'Save' })).toBeDisabled()
     expect(form.getByRole('button', { name: 'Remove' })).toBeDisabled()
     expect(form.getByLabelText('Enabled')).toBeDisabled()
-    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(form.getByRole('button', { name: 'Test Connection' }))
     expect(await form.findByRole('status')).toHaveTextContent('Connected: NZBgeek')
   })
 

@@ -55,7 +55,7 @@ describe('the shell on a phone', () => {
         .getAllByRole('button')
         .map((b) => b.textContent),
     ).toEqual(['Overview', 'Library', 'Upcoming', 'Activity', 'More', ''])
-    expect(within(tabs).getByRole('button', { name: 'Search or add' })).toBeInTheDocument() // the accessory
+    expect(within(tabs).getByRole('button', { name: 'Search or Add' })).toBeInTheDocument() // the accessory
     expect(within(tabs).getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('button', { name: 'Kestrel, go to Overview' })).not.toBeInTheDocument() // the rail is gone
 
@@ -82,7 +82,7 @@ describe('the shell on a phone', () => {
 
   it('has a search button that opens the command menu, with no keyboard shortcut needed', async () => {
     renderApp()
-    await userEvent.click(await screen.findByRole('button', { name: 'Search or add' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Search or Add' }))
     expect(await screen.findByRole('dialog', { name: /command menu/i })).toBeInTheDocument()
   })
 
@@ -184,8 +184,8 @@ describe('the Library on a phone', () => {
     await within(list).findAllByRole('option')
     expect(within(list).queryByRole('checkbox')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Library actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Tick Titles' }))
-    await userEvent.click(within(list).getByRole('checkbox', { name: 'Tick Heat' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Select Titles' }))
+    await userEvent.click(within(list).getByRole('checkbox', { name: 'Select Heat' }))
     const bar = actionBar()
     expect(within(bar).getByRole('button', { name: 'Search Now' })).toBeInTheDocument()
     expect(within(bar).queryByRole('button', { name: 'Unmonitor' })).not.toBeInTheDocument() // in More…, so the count and Select All keep their room

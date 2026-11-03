@@ -257,9 +257,9 @@ describe('Adoption while loading', () => {
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Loading')
-    expect(screen.queryByRole('button', { name: /scan for existing files/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /scan for unmanaged files/i })).not.toBeInTheDocument()
     release()
-    expect(await screen.findByRole('button', { name: /scan for existing files/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /scan for unmanaged files/i })).toBeInTheDocument()
   })
 })
 
@@ -269,7 +269,7 @@ describe('Adoption review', () => {
     const noPoster: Row = { ...matched, id: 7, entry: '/data/media/movies/Lacks', match: { ...matched.match!, title: 'Lacks', title_id: 10, has_poster: false } }
     fakeAdoption([withPoster, noPoster, matched])
     const user = await openAdoption()
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     const item = async (title: string) => (await screen.findByText(title)).closest('li')!
     expect((await item('Has (2014)')).querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/9\/poster$/))
@@ -282,7 +282,7 @@ describe('Adoption review', () => {
   it('shows a Series with its episodes, the Versions it proposes, unmatched files and a Series not on TheTVDB', async () => {
     fakeAdoption([series, orphan])
     const user = await openAdoption()
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     expect(await screen.findByText('Not on TheTVDB, so Kestrel cannot manage it')).toBeInTheDocument()
     const row = screen.getAllByRole('listitem').find((li) => li.textContent?.includes('Breaking Bad (2008)'))!
@@ -296,7 +296,7 @@ describe('Adoption review', () => {
     const state = fakeAdoption()
     const user = await openAdoption()
 
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     expect(await screen.findByText('1 matched, 1 need a choice, 1 skipped')).toBeInTheDocument()
     const items = await screen.findAllByRole('listitem')
@@ -311,7 +311,7 @@ describe('Adoption review', () => {
     expect(state.patches).toEqual([{ id: '2', body: { tmdb_id: 77 } }])
 
     await user.click(screen.getByRole('button', { name: 'Adopt 2 Titles' }))
-    await screen.findByRole('button', { name: /scan for existing files/i })
+    await screen.findByRole('button', { name: /scan for unmanaged files/i })
     expect(state.commits).toEqual([{ revision: state.revision }])
     expect(await findToast('Adopting the plan started')).toBeInTheDocument()
     expect(within(await toastRegion()).queryByRole('button', { name: 'Watch in Health' })).not.toBeInTheDocument()
@@ -322,10 +322,10 @@ describe('Adoption review', () => {
     server.use(http.delete('/adoption', ({ response }) => response(204).empty()))
     const user = await openAdoption()
 
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
-    expect(await findToast('Scan for existing files started')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
+    expect(await findToast('Scan for unmanaged files started')).toBeInTheDocument()
 
-    await user.click(await screen.findByRole('button', { name: 'Discard plan' }))
+    await user.click(await screen.findByRole('button', { name: 'Discard Plan' }))
     expect(await findToast('Adoption plan discarded')).toBeInTheDocument()
   })
 
@@ -336,7 +336,7 @@ describe('Adoption review', () => {
     )
     const user = await openAdoption()
 
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     expect(await screen.findByText('a scan is already running')).toBeInTheDocument()
   })
@@ -347,7 +347,7 @@ describe('Adoption review', () => {
     fakeAdoption()
     server.use(http.post('/adoption/commit', ({ response }) => response('default').json(conflict('the plan changed under you'), { status: 409 })))
     const user = await openAdoption()
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     await user.click(await screen.findByRole('button', { name: /^Adopt \d+ Titles?$/ }))
 
@@ -359,9 +359,9 @@ describe('Adoption review', () => {
     fakeAdoption()
     server.use(http.delete('/adoption', ({ response }) => response('default').json(conflict('a commit is running'), { status: 409 })))
     const user = await openAdoption()
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
-    await user.click(await screen.findByRole('button', { name: 'Discard plan' }))
+    await user.click(await screen.findByRole('button', { name: 'Discard Plan' }))
 
     expect(await screen.findByText('a commit is running')).toBeInTheDocument()
     expect(screen.queryByText('Adoption plan discarded')).not.toBeInTheDocument()
@@ -390,7 +390,7 @@ describe('Adoption review', () => {
     )
     const user = await openAdoption()
 
-    await user.click(await screen.findByRole('button', { name: 'Clean up adopted folders' }))
+    await user.click(await screen.findByRole('button', { name: 'Clean Up Adopted Folders' }))
     await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
 
     expect(previews).toEqual([{ title_ids: [3, 4] }])
@@ -409,7 +409,7 @@ describe('Adoption review', () => {
   it('unticking a row leaves it out of the count', async () => {
     fakeAdoption()
     const user = await openAdoption()
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     await user.click(await screen.findByLabelText('Adopt Paddington (2014)'))
 
@@ -431,7 +431,7 @@ describe('Adoption review of a large plan', () => {
   async function openPlan(rows: Row[]) {
     const state = fakeAdoption(rows)
     const user = await openAdoption()
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     return { state, user }
   }
 
@@ -441,7 +441,7 @@ describe('Adoption review of a large plan', () => {
     expect(await screen.findByText('Showing 100 of 250')).toBeInTheDocument()
     // A role query walks the whole accessibility tree, which is what made this test slow under load.
     expect([...document.querySelectorAll('li')].filter((li) => li.textContent?.includes('Film '))).toHaveLength(100)
-    await user.click(screen.getByRole('button', { name: 'Show more' }))
+    await user.click(screen.getByRole('button', { name: 'Show More' }))
     expect(await screen.findByText('Showing 200 of 250')).toBeInTheDocument()
     expect(state.pages.at(-1)).toEqual({ limit: '100', cursor: '100', filter: null })
     expect(screen.getByRole('button', { name: 'Adopt 250 Titles' })).toBeInTheDocument()
@@ -462,7 +462,7 @@ describe('Adoption review of a large plan', () => {
     await user.click(await screen.findByLabelText('Select Film 0'))
     await user.click(screen.getByLabelText('Select Film 1'))
     expect(actionBar()).toHaveTextContent('2 selected')
-    await runQuiet(actionBar(), "Don't adopt selected")
+    await runQuiet(actionBar(), "Don't Adopt Selected")
 
     expect(await screen.findByRole('button', { name: 'Adopt 1 Title' })).toBeInTheDocument()
     expect(state.bulks).toEqual([{ action: 'untick', row_ids: [100, 101] }])
@@ -474,7 +474,7 @@ describe('Adoption review of a large plan', () => {
     await user.click(await screen.findByLabelText('Select Film 0'))
     await runQuiet(actionBar(), 'Select all 120')
     expect(actionBar()).toHaveTextContent('120 selected')
-    await runQuiet(actionBar(), "Don't adopt selected")
+    await runQuiet(actionBar(), "Don't Adopt Selected")
 
     expect(await screen.findByRole('button', { name: 'Adopt 0 Titles' })).toBeDisabled()
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
@@ -485,10 +485,10 @@ describe('Adoption review of a large plan', () => {
     const { state, user } = await openPlan(moreRows(120))
 
     expect(await screen.findByText('Showing 100 of 120')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Select all 100 shown' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Select all 120 in this filter' }))
+    expect(screen.getByRole('button', { name: 'Select All 100 Shown' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Select All 120 in This Filter' }))
     expect(actionBar()).toHaveTextContent('120 selected')
-    await runQuiet(actionBar(), "Don't adopt selected")
+    await runQuiet(actionBar(), "Don't Adopt Selected")
 
     expect(state.bulks).toEqual([{ action: 'untick', filter: 'all' }])
   })
@@ -497,7 +497,7 @@ describe('Adoption review of a large plan', () => {
     await openPlan(moreRows(120))
 
     await screen.findByText('Showing 100 of 120')
-    expect(screen.queryByRole('button', { name: "Don't adopt selected" })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: "Don't Adopt Selected" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear selection' })).not.toBeInTheDocument()
     expect(queryActionBar()).not.toBeInTheDocument()
   })
@@ -505,7 +505,7 @@ describe('Adoption review of a large plan', () => {
   it('says so when leaving one row out ends "all in this filter", and then names the rows left by id', async () => {
     const { state, user } = await openPlan(moreRows(120))
 
-    await user.click(await screen.findByRole('button', { name: 'Select all 120 in this filter' }))
+    await user.click(await screen.findByRole('button', { name: 'Select All 120 in This Filter' }))
     await user.click(screen.getByLabelText('Select Film 3'))
 
     const bar = actionBar()
@@ -514,7 +514,7 @@ describe('Adoption review of a large plan', () => {
     await user.click(within(bar).getByRole('button', { name: 'More actions' }))
     expect(screen.getByRole('menuitem', { name: 'Select all 120' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
-    await runQuiet(actionBar(), "Don't adopt selected")
+    await runQuiet(actionBar(), "Don't Adopt Selected")
 
     expect(state.bulks).toHaveLength(1)
     expect(state.bulks[0].filter).toBeUndefined()
@@ -535,10 +535,10 @@ describe('Adoption review of a large plan', () => {
     }
     const { state, user } = await openPlan([sure, hesitant])
 
-    await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' })
+    await screen.findByRole('button', { name: 'Accept Suggested Match: The Lost Film (2020)' })
     await user.click(screen.getByLabelText('Select Sure'))
     await user.click(screen.getByLabelText('Select Hesitant'))
-    await runQuiet(actionBar(), 'Accept suggested matches')
+    await runQuiet(actionBar(), 'Accept Suggested Matches')
 
     expect(state.bulks).toEqual([{ action: 'accept_suggested', row_ids: [21, 20] }])
     expect(await screen.findByText('Accepted 1 suggested match. 1 left for you because the suggestion is not confident enough.')).toBeInTheDocument()
@@ -549,7 +549,7 @@ describe('Adoption review of a large plan', () => {
     const sure: Row = { ...doubtful, candidates: [{ tmdb_id: 77, title: 'The Lost Film', year: 2020, suggested: true, confident: true }] }
     const { state, user } = await openPlan([sure])
 
-    await user.click(await screen.findByRole('button', { name: 'Accept suggested match: The Lost Film (2020)' }))
+    await user.click(await screen.findByRole('button', { name: 'Accept Suggested Match: The Lost Film (2020)' }))
 
     expect(state.patches).toEqual([{ id: '2', body: { tmdb_id: 77 } }])
   })
@@ -559,7 +559,7 @@ describe('Adoption monitoring', () => {
   async function openPlan(rows: Row[]) {
     const state = fakeAdoption(rows)
     const user = await openAdoption()
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
     return { state, user }
   }
   const tracked: Row = { ...matched, id: 6, entry: '/data/media/movies/Tracked', match: { ...matched.match!, title: 'Tracked', title_id: 9 } }
@@ -636,11 +636,11 @@ describe('Adoption review on a phone', () => {
     await user.click(within(await screen.findByRole('dialog', { name: 'More' })).getByRole('button', { name: 'Settings' }))
     await user.click(await screen.findByRole('navigation', { name: 'Settings sections' }).then((n) => within(n).getByRole('button', { name: /^Library/ })))
     await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
-    await user.click(await screen.findByRole('button', { name: /scan for existing files/i }))
+    await user.click(await screen.findByRole('button', { name: /scan for unmanaged files/i }))
 
     // The filter and both actions are there.
     expect(await screen.findByRole('combobox', { name: 'Show' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Discard plan' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Discard Plan' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Adopt 1 Title' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: /Use The Lost Film/ }))
     expect(await screen.findByRole('button', { name: 'Adopt 2 Titles' })).toBeEnabled()
@@ -657,6 +657,6 @@ describe('Adoption review on a phone', () => {
     names.forEach((name, i) => expect(within(sheet).getAllByRole('button')[i]).toHaveAccessibleName(name))
     await user.click(within(sheet).getByRole('button', { name: 'Adoption' }))
     expect(screen.getByRole('banner')).toHaveTextContent('Adopt existing library')
-    expect(await screen.findByRole('button', { name: /scan for existing files/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /scan for unmanaged files/i })).toBeInTheDocument()
   })
 })

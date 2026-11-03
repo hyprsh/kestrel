@@ -71,7 +71,7 @@ export function Wizard({ signedIn, onLeave }: { signedIn: boolean; onLeave: () =
                 </Note>
               )}
               <Button size="small" variant="primary" typeName="submit" disabled={create.isPending} className="self-start">
-                Create account
+                Create Account
               </Button>
             </form>
           )}
@@ -250,7 +250,7 @@ function Summary({ n, sections, completed, onLeave }: { n: number; sections: Rec
           <Separator />
           <div className="flex gap-2">
             <Button size="small" variant="primary" disabled={finish.isPending} onClick={() => finish.mutate(undefined, { onSuccess: onLeave })}>
-              Finish setup
+              Finish Setup
             </Button>
             {completed && (
               <Button size="small" onClick={onLeave}>

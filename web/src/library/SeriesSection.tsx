@@ -197,12 +197,12 @@ export function SeriesSection({ title, onManualSearch }: { title: TitleDetail; o
             <FindEpisodeField find={find} autoFocus />
           </div>
         ) : (
-          <Button variant="secondary" size="small" aria-label="Find an episode" title="Find an episode" prefix={<Search aria-hidden className="size-4" />} onClick={() => setFinding(true)}>
+          <Button variant="secondary" size="small" aria-label="Find an Episode" title="Find an Episode" prefix={<Search aria-hidden className="size-4" />} onClick={() => setFinding(true)}>
             Find
           </Button>
         )}
         <Button variant="secondary" size="small" onClick={() => view.setOpen(seasons.filter((n) => (listed.includes(n) ? !allOpen : open.has(n))))}>
-          {allOpen ? 'Collapse all' : 'Expand all'}
+          {allOpen ? 'Collapse All' : 'Expand All'}
         </Button>
       </div>
       <Tabs variant="secondary" aria-label="Show episodes" tabs={filterTabs} selected={filter} onChange={(v) => setFilter(v as EpisodeFilter)} />

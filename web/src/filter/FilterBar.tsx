@@ -60,7 +60,7 @@ export function FilterBar({
       placeholder={placeholder}
       shortcut={shortcut}
       clearable
-      clearLabel="Clear filter"
+      clearLabel="Clear Filter"
       value={value}
       onChange={onChange}
       qualifiers={qualifiers}

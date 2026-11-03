@@ -39,7 +39,7 @@ const rows: Row[] = [
 
 function finished() {
   const state = { retries: 0, scans: 0, reopens: 0, plan: 'idle' as Adoption['state'], error: null as string | null, cleanups: [] as unknown[] }
-  /** The kept rows: a Try again or a reopen puts one back under review, the rest and the result stay. */
+  /** The kept rows: a Try Again or a reopen puts one back under review, the rest and the result stay. */
   const counts = () => ({ adopted: 1, failed: state.plan === 'planned' ? 0 : 1, skipped: 1, not_chosen: state.plan === 'planned' ? 0 : 1, unticked: 1 })
   const plan = (): Adoption => ({
     state: state.plan,
@@ -112,7 +112,7 @@ describe('The Adoption summary after a commit', () => {
     const state = finished()
     const user = await openAdoption()
 
-    await user.click(await screen.findByRole('button', { name: 'Try again' }))
+    await user.click(await screen.findByRole('button', { name: 'Try Again' }))
 
     expect(state.retries).toBe(1)
     expect(state.scans).toBe(0)
@@ -123,7 +123,7 @@ describe('The Adoption summary after a commit', () => {
     const user = await openAdoption()
 
     const notChosen = await screen.findByRole('region', { name: 'Not chosen (1)' })
-    await user.click(within(notChosen).getByRole('button', { name: 'Reopen to choose' }))
+    await user.click(within(notChosen).getByRole('button', { name: 'Reopen to Choose' }))
 
     expect(state.reopens).toBe(1)
     expect(state.scans).toBe(0)
@@ -135,7 +135,7 @@ describe('The Adoption summary after a commit', () => {
     expect(screen.queryByRole('region', { name: /Not chosen/ })).not.toBeInTheDocument()
   })
 
-  it('keeps the rows and the result on show when Try again could not plan', async () => {
+  it('keeps the rows and the result on show when Try Again could not plan', async () => {
     const state = finished()
     state.error = 'ffprobe is not installed, so files cannot be checked'
     await openAdoption()
@@ -150,7 +150,7 @@ describe('The Adoption summary after a commit', () => {
     const state = finished()
     const user = await openAdoption()
 
-    await user.click(await screen.findByRole('button', { name: 'Clean up leftover files' }))
+    await user.click(await screen.findByRole('button', { name: 'Clean Up Leftover Files' }))
     await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
 
     expect(state.cleanups).toEqual([{}])
@@ -176,7 +176,7 @@ describe('The Adoption summary after a commit', () => {
 
     expect(await screen.findByText(/Adopted 3 Titles/)).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: /\(\d+\)$/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clean up leftover files' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clean Up Leftover Files' })).not.toBeInTheDocument()
   })
 })
 

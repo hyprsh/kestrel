@@ -126,6 +126,6 @@ describe('a Wanted Version’s search facts', () => {
     await userEvent.click(await card.findByRole('button', { name: /^Standard:/ })) // the rows start closed
     expect(await card.findByText(/Last searched 2 h ago/)).toHaveTextContent('Last searched 2 h ago · 23 releases, none fit the Profile · Why? · next search in 4 h')
     await userEvent.click(card.getByRole('button', { name: 'Why?' }))
-    expect(within(await screen.findByRole('dialog', { name: 'Why is it Wanted?' })).getByText('2 episodes have no file, or a file that no longer fits the Profile.')).toBeInTheDocument()
+    expect(within(await screen.findByRole('dialog', { name: 'Why Is It Wanted?' })).getByText('2 episodes have no file, or a file that no longer fits the Profile.')).toBeInTheDocument()
   })
 })

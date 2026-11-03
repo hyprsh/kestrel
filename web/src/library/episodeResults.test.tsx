@@ -49,7 +49,7 @@ describe('the Library filter with an episode code', () => {
     const episode = await hit(/Breaking Bad S01E01/)
     expect(episode).toHaveTextContent('Pilot · Wanted in 4K')
     expect(within(episode).getByRole('button', { name: 'Search S01E01' })).toBeInTheDocument()
-    expect(within(episode).getByRole('button', { name: 'Manual search S01E01' })).toBeInTheDocument()
+    expect(within(episode).getByRole('button', { name: 'Manual Search S01E01' })).toBeInTheDocument()
     const season = await hit(/Breaking Bad Season 1/)
     expect(season).toHaveTextContent('0 of 2 · 1 Wanted')
     expect(within(season).getByRole('button', { name: 'Search Season 1' })).toHaveTextContent('Search 1')
@@ -134,7 +134,7 @@ describe('the Library filter with an episode code', () => {
     await userEvent.keyboard('{Enter}')
 
     const grid = await screen.findByRole('grid', { name: 'Episodes' })
-    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' }).closest('tr')).toHaveAttribute('aria-current', 'true'))
+    await waitFor(() => expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' }).closest('tr')).toHaveAttribute('aria-current', 'true'))
     expect(screen.getByRole('button', { name: /^Season 1:/, expanded: true })).toBeInTheDocument()
     await waitFor(() => expect(new URLSearchParams(location.search).get('episode')).toBe('1'))
   })

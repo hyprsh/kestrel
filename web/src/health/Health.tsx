@@ -82,10 +82,10 @@ function HealthMenu() {
   return (
     <DotsMenu aria-label="Health actions" width={220}>
       <MenuItem disabled={checks.pending} onSelect={checks.run}>
-        Run checks again
+        Run Checks Again
       </MenuItem>
       <MenuItem disabled={searchAll.blocked} onSelect={searchAll.run}>
-        Search all Wanted
+        Search All Wanted
       </MenuItem>
     </DotsMenu>
   )

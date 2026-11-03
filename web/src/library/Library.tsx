@@ -48,7 +48,7 @@ const noHits: EpisodeHit[] = []
  *
  * On a phone the list and the Title page are two screens: tapping a Title opens its page full screen (`titleOpen`,
  * kept by the Shell in the address bar so Back returns to the list), the SidePanel is the list screen's header and
- * the rows show tick boxes once Tick Titles in the "…" menu asks for them.
+ * the rows show tick boxes once Select Titles in the "…" menu asks for them.
  */
 export function Library({
   selectedId,
@@ -286,7 +286,7 @@ export function Library({
       ) : empty ? (
         <EmptyState title="Nothing here yet" description="Add your first Movie or Series.">
           <Button variant="primary" size="small" prefix={<Plus />} onClick={onAdd}>
-            Add a title
+            Add a Title
           </Button>
         </EmptyState>
       ) : titles.isSuccess ? (

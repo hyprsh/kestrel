@@ -52,12 +52,12 @@ export function TitleActions({
   const manual = (v: TitleDetail['versions'][number]) => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   const searchItems = [
     ...title.versions.map((v) => ({
-      title: title.versions.length === 1 ? 'Manual search…' : `Manual search: ${slots.name(v.slot)}…`,
+      title: title.versions.length === 1 ? 'Manual Search…' : `Manual Search: ${slots.name(v.slot)}…`,
       description: 'Pick a Release yourself',
       menuItemProps: { onClick: () => manual(v) },
     })),
     {
-      title: 'Search all Versions',
+      title: 'Search All Versions',
       description: 'Also look for Upgrades',
       disabled: unmonitored || title.versions.length === 0,
       menuItemProps: { onClick: () => search.run(title.versions.map((v) => v.id)) },
@@ -96,14 +96,14 @@ export function TitleActions({
                 description={frozen ? 'Metadata is frozen: unfreeze it to refresh' : undefined}
                 onSelect={() => void report(refresh.mutateAsync(), { done: 'Refreshing metadata… The Title updates when it is done.', failed: 'Could not refresh the metadata' })}
               >
-                Refresh metadata
+                Refresh Metadata
               </MenuItem>
               <MenuItem
                 prefix={<Snowflake aria-hidden className="size-4" />}
                 disabled={freeze.isPending}
                 onSelect={() => void report(freeze.mutateAsync(!frozen), { failed: 'Could not change freezing' })}
               >
-                {frozen ? 'Unfreeze metadata' : 'Freeze metadata'}
+                {frozen ? 'Unfreeze Metadata' : 'Freeze Metadata'}
               </MenuItem>
             </Menu>
           </Menu.Sub>
@@ -124,7 +124,7 @@ export function TitleActions({
                 Move…
               </MenuItem>
               <MenuItem prefix={<BrushCleaning aria-hidden className="size-4" />} onSelect={() => openCleanup([title.id])}>
-                Clean up…
+                Clean Up…
               </MenuItem>
             </Menu>
           </Menu.Sub>

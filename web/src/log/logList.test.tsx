@@ -149,7 +149,7 @@ describe('the strip', () => {
   })
 })
 
-describe('Follow live', () => {
+describe('Follow Live', () => {
   const log = [event(2, 'import', 'Imported Heat as /heat.mkv'), event(1, 'import', 'Imported Paddington as /p.mkv')]
 
   it('is on by default: events that arrive show at the top at once', async () => {
@@ -157,7 +157,7 @@ describe('Follow live', () => {
     serve(() => items)
     await openLog()
     await ready()
-    expect(screen.getByRole('switch', { name: 'Follow live' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Follow Live' })).toBeChecked()
 
     items = [event(3, 'grab', 'Sent R to the download client'), ...log]
     await client.invalidateQueries({ queryKey: ['log'] })
@@ -173,7 +173,7 @@ describe('Follow live', () => {
     const user = await openLog()
     await ready()
 
-    await user.click(screen.getByRole('switch', { name: 'Follow live' }))
+    await user.click(screen.getByRole('switch', { name: 'Follow Live' }))
     expect(localStorage.getItem('kestrel.log.follow')).toBe('off')
     items = [event(4, 'grab_failed', 'Download failed (x): R'), event(3, 'grab', 'Sent R to the download client'), ...log]
     await client.invalidateQueries({ queryKey: ['log'] })
@@ -187,7 +187,7 @@ describe('Follow live', () => {
     expect(screen.queryByRole('button', { name: /new events?$/ })).not.toBeInTheDocument()
 
     // Turned on again, new events show without the pill.
-    await user.click(screen.getByRole('switch', { name: 'Follow live' }))
+    await user.click(screen.getByRole('switch', { name: 'Follow Live' }))
     expect(localStorage.getItem('kestrel.log.follow')).toBe('on')
   })
 
@@ -196,7 +196,7 @@ describe('Follow live', () => {
     serve(() => log)
     await openLog()
     await ready()
-    expect(screen.getByRole('switch', { name: 'Follow live' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Follow Live' })).not.toBeChecked()
   })
 })
 
@@ -210,7 +210,7 @@ describe('the Manual search action of a search that found nothing', () => {
     const user = await openLog()
     await ready()
 
-    await user.click(within(rowsOf()[0]).getByRole('button', { name: 'Manual search' }))
+    await user.click(within(rowsOf()[0]).getByRole('button', { name: 'Manual Search' }))
     expect(await screen.findByText('Season 1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Back to Breaking Bad' })).toBeInTheDocument()
     expect(location.pathname).toBe('/library/5/search')
@@ -247,7 +247,7 @@ describe('folded routine events', () => {
     expect(within(fold).getAllByText(/^Searched/)[0]).toHaveTextContent('Searched Breaking Bad S01 · Standard · grabbed 1 Release')
     expect(fold).toHaveTextContent('… 2 more')
 
-    await user.click(within(fold).getByRole('button', { name: 'Show all' }))
+    await user.click(within(fold).getByRole('button', { name: 'Show All' }))
     expect(within(fold).getAllByText(/^Searched/)).toHaveLength(7)
 
     await user.click(within(fold).getByRole('button', { name: 'Hide 7 routine events' }))

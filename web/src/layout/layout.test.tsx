@@ -37,10 +37,10 @@ describe('the layout pieces', () => {
   it('PageSurface holds its children', () => {
     render(
       <PageSurface>
-        <h1>Log in</h1>
+        <h1>Log In</h1>
       </PageSurface>,
     )
-    expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Log In' })).toBeInTheDocument()
   })
 
   it('WidePage holds its children', () => {

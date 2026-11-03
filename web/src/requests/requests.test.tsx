@@ -18,7 +18,7 @@ const openRequests = async () => {
 const list = () => screen.findByRole('list', { name: 'Requests' })
 
 describe('the Requests screen', () => {
-  it('opens from the Overview’s View all and lists every Request the same way', async () => {
+  it('opens from the Overview’s View All and lists every Request the same way', async () => {
     fakeRequests(Array.from({ length: 7 }, (_, i) => request({ id: 10 - i, title: `Movie ${i + 1}` })))
     renderApp()
 
@@ -74,13 +74,13 @@ describe('the Requests screen', () => {
     await openRequests()
     expect(await within(await list()).findAllByRole('listitem')).toHaveLength(50)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show older Requests' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show Older Requests' }))
 
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Requests' })).getAllByRole('listitem')).toHaveLength(60))
-    expect(screen.queryByRole('button', { name: 'Show older Requests' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Older Requests' })).not.toBeInTheDocument()
   })
 
-  it('shows a busy state on Show older Requests while the next page loads', async () => {
+  it('shows a busy state on Show Older Requests while the next page loads', async () => {
     const items = Array.from({ length: 60 }, (_, i) => request({ id: 100 - i, title: `Movie ${i + 1}` }))
     let release = () => {}
     const gate = new Promise<void>((resolve) => (release = resolve))
@@ -96,11 +96,11 @@ describe('the Requests screen', () => {
     await openRequests()
     await within(await list()).findAllByRole('listitem')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show older Requests' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show Older Requests' }))
 
-    expect(await screen.findByRole('button', { name: 'Show older Requests' })).toHaveAttribute('aria-busy', 'true')
+    expect(await screen.findByRole('button', { name: 'Show Older Requests' })).toHaveAttribute('aria-busy', 'true')
     release()
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Show older Requests' })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Show Older Requests' })).not.toBeInTheDocument())
   })
 
   it('marks the cursor row with aria-current and moves it, scrolled into view, with j and k', async () => {

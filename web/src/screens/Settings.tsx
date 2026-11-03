@@ -520,7 +520,7 @@ function ChangePassword() {
             </Note>
           )}
           <Button size="small" variant="primary" typeName="submit" disabled={change.isPending || !current || !next} className="self-start">
-            Change password
+            Change Password
           </Button>
         </fieldset>
         {declared && <Note size="small">The Config File sets the account, so its password cannot be changed here. Change the file and restart Kestrel instead.</Note>}
@@ -594,7 +594,7 @@ function ApiKeyRow() {
                 </Note>
               )}
               <Button size="small" variant={exists ? 'secondary' : 'primary'} disabled={create.isPending || !info.data || fromEnv} onClick={generate} className="self-start">
-                {exists ? 'Rotate API key' : 'Generate API key'}
+                {exists ? 'Rotate API Key' : 'Generate API Key'}
               </Button>
               {fromEnv ? (
                 <p className="copy-13 text-gray-900">

@@ -79,7 +79,7 @@ describe('Overview sections', () => {
     await press(5)
     expect(current()).toHaveTextContent('Movie 1')
 
-    await userEvent.click(screen.getByRole('button', { name: 'View all 6' }))
+    await userEvent.click(screen.getByRole('button', { name: 'View All 6' }))
     await press(1)
     expect(current()).toHaveTextContent('Movie 1')
     for (let i = 0; i < 6; i++) await userEvent.keyboard('k')

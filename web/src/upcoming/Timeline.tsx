@@ -119,13 +119,13 @@ export function WeekHeader({ title, range, stats, onPrev, onToday, onNext }: { t
         <h2 className="heading-20">{title}</h2>
         <span className="label-14 text-gray-900">{range}</span>
         <span className="flex-1" />
-        <Button variant="tertiary" size="small" svgOnly aria-label="Previous week" onClick={onPrev}>
+        <Button variant="tertiary" size="small" svgOnly aria-label="Previous Week" onClick={onPrev}>
           <ChevronLeft />
         </Button>
         <Button variant="secondary" size="small" onClick={onToday}>
           Today
         </Button>
-        <Button variant="tertiary" size="small" svgOnly aria-label="Next week" onClick={onNext}>
+        <Button variant="tertiary" size="small" svgOnly aria-label="Next Week" onClick={onNext}>
           <ChevronRight />
         </Button>
       </div>

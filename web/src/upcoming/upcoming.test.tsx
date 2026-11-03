@@ -197,7 +197,7 @@ describe('Upcoming timeline', () => {
 
     const list = await screen.findByRole('list', { name: 'No date yet' })
     expect(within(list).getAllByRole('button').length).toBe(100)
-    await userEvent.click(screen.getByRole('button', { name: 'Show 150 more' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show 150 More' }))
     expect(within(list).getAllByRole('button').length).toBe(250)
   })
   it('asks month by month, from 14 days back to 60 ahead, and draws the weeks around today with a quiet line for the empty days', async () => {
@@ -311,7 +311,7 @@ describe('Upcoming: where each entry stands', () => {
     expect(within(rowOf(/Five/)).getByRole('img', { name: /Standard: Downloading/ })).toBeInTheDocument()
   })
 
-  it('offers Search now on a Wanted entry, narrowed to its episode', async () => {
+  it('offers Search Now on a Wanted entry, narrowed to its episode', async () => {
     fakeAgenda([episode({ date: day(-1), slots: [slot('wanted', { version_id: 21 })] })])
     const searched: unknown[] = []
     server.use(
@@ -340,7 +340,7 @@ describe('Upcoming: where each entry stands', () => {
 })
 
 describe('Upcoming: search', () => {
-  it('has one Search now for a Title with both Slots Wanted, searching each Version', async () => {
+  it('has one Search Now for a Title with both Slots Wanted, searching each Version', async () => {
     fakeAgenda([movie({ date: day(-1), slots: [slot('wanted'), slot('wanted', { slot: '4k', version_id: 12 })] })])
     const searched: string[] = []
     server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).json({ search_id: 'search-1' }))))
@@ -512,7 +512,7 @@ describe('Upcoming: filters', () => {
     await openUpcoming()
     await userEvent.type(await field(), 'zzzz')
     expect(await screen.findByText('Nothing matches the filter.')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Show everything' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show Everything' }))
     expect(await field()).toHaveValue('')
     expect(within(timeline()).getByText('A Movie')).toBeInTheDocument()
   })
@@ -534,23 +534,23 @@ describe('Upcoming: filters', () => {
     expect(await field()).toHaveValue('-is:imported,wanted')
   })
 
-  it('clears the whole query with the × and with Clear all, and the address follows', async () => {
+  it('clears the whole query with the × and with Clear All, and the address follows', async () => {
     mixed()
     history.replaceState(null, '', '/upcoming?q=kind:movie%20is:wanted')
     renderApp()
     await screen.findByRole('list', { name: 'Agenda' })
     expect(location.search).toBe('?q=kind%3Amovie+is%3Awanted')
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear Filter' }))
     expect(await field()).toHaveValue('')
     expect(await field()).toHaveFocus()
     expect(location.search).toBe('')
 
     await userEvent.type(await field(), 'kind:series')
     await userEvent.click(screen.getByRole('button', { name: /^Filter/ }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Clear all' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Clear All' }))
     expect(await field()).toHaveValue('')
     await userEvent.click(screen.getByRole('button', { name: 'Filter' }))
-    expect(screen.queryByRole('menuitem', { name: 'Clear all' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Clear All' })).not.toBeInTheDocument()
     history.replaceState(null, '', '/')
   })
 
@@ -635,7 +635,7 @@ describe('Upcoming: the side panel', () => {
     await openUpcoming()
     expect(screen.queryByRole('button', { name: /^Display/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Calendar' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Views and filter' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Views and Filter' }))
     expect(await screen.findByRole('menuitemradio', { name: /Everything/ })).toBeInTheDocument()
     expect(screen.getByRole('menuitemradio', { name: /Not monitored/ })).toBeInTheDocument()
   })
@@ -650,8 +650,8 @@ describe('Upcoming: the side panel', () => {
     expect(within(due).getByTestId('release-dot')).toBeInTheDocument()
     expect(calendar.getAllByTestId('release-dot')).toHaveLength(1)
     expect(calendar.getByRole('button', { name: /, today$/ })).toHaveAttribute('aria-current', 'date')
-    await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
-    await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
+    await userEvent.click(calendar.getByRole('button', { name: 'Next Month' }))
+    await userEvent.click(calendar.getByRole('button', { name: 'Next Month' }))
     await waitFor(() => expect(asked.at(-1)!.split('..')[1] > day(60)).toBe(true))
   })
 
@@ -664,7 +664,7 @@ describe('Upcoming: the side panel', () => {
     await waitFor(() => expect(calendar.getAllByTestId('release-dot')).toHaveLength(2))
     expect(calendar.getByRole('button', { name: /Tuesday, September 29, 2026, 1 release/ })).toBeInTheDocument()
     expect(calendar.getByRole('button', { name: /Sunday, November 1, 2026, 1 release/ })).toBeInTheDocument()
-    await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
+    await userEvent.click(calendar.getByRole('button', { name: 'Next Month' }))
     expect(calendar.getAllByRole('button', { name: /\d{4}/ })).toHaveLength(42)
     await waitFor(() => expect(calendar.getAllByTestId('release-dot')).toHaveLength(2))
     expect(calendar.getByRole('button', { name: /Thursday, December 3, 2026, 1 release/ })).toBeInTheDocument()
@@ -674,7 +674,7 @@ describe('Upcoming: the side panel', () => {
     const asked = fakeAgenda([movie({ date: day(1) }), movie({ date: '2027-02-10', title_id: 3, title: 'February Movie' }), movie({ date: '2027-01-12', title_id: 4, title: 'January Movie' })])
     await openUpcoming()
     const calendar = within(await screen.findByRole('region', { name: 'Calendar' }))
-    for (let i = 0; i < 3; i++) await userEvent.click(calendar.getByRole('button', { name: 'Next month' }))
+    for (let i = 0; i < 3; i++) await userEvent.click(calendar.getByRole('button', { name: 'Next Month' }))
     expect(calendar.getByRole('heading', { name: 'January 2027' })).toBeInTheDocument()
     await waitFor(() => expect(asked).toContain('2027-01-01..2027-01-31'))
     await waitFor(() => expect(current()).toHaveTextContent('January Movie'))
@@ -800,16 +800,16 @@ describe('Upcoming: the Agenda display', () => {
   it('moves by week with the arrows and comes back with Today', async () => {
     week()
     await openUpcoming()
-    await userEvent.click(screen.getByRole('button', { name: 'Next week' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Next Week' }))
     const header = within(screen.getByRole('region', { name: 'Week' }))
     expect(header.getByRole('heading', { name: 'Next week' })).toBeInTheDocument()
     expect(header.getByText('Oct 29 – Nov 4')).toBeInTheDocument()
     expect(within(screen.getByRole('list', { name: 'The week in numbers' })).getAllByRole('listitem')[1]).toHaveTextContent('1Movie released')
-    await userEvent.click(screen.getByRole('button', { name: 'Next week' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Next Week' }))
     expect(header.getByRole('heading', { name: 'Week of Nov 5' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Previous week' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Previous week' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Previous week' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Previous Week' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Previous Week' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Previous Week' }))
     expect(header.getByRole('heading', { name: 'Last week' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Today' }))
     expect(header.getByRole('heading', { name: 'This week' })).toBeInTheDocument()
@@ -825,7 +825,7 @@ describe('Upcoming: the Agenda display', () => {
         .filter((b) => b.hasAttribute('data-week'))
         .map((b) => b.textContent)
     expect(shaded()).toEqual(['22', '23', '24', '25', '26', '27', '28'])
-    await userEvent.click(screen.getByRole('button', { name: 'Next week' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Next Week' }))
     expect(shaded()).toEqual(['29', '30', '31', '1'])
   })
 
@@ -860,7 +860,7 @@ describe('Upcoming: the Agenda display', () => {
     expect(within(timeline()).getByText(/^Nothing on Thu 22 – Wed 28$/)).toBeInTheDocument()
   })
 
-  it("names the Movie's release and offers Search now only on an entry that is out and not found", async () => {
+  it("names the Movie's release and offers Search Now only on an entry that is out and not found", async () => {
     fakeAgenda([movie({ date: day(-1), slots: [slot('wanted')] }), episode({ date: day(1), slots: [slot('not_out', { version_id: 21 })] })])
     await openUpcoming()
     expect(within(rowOf('Paddington')).getByRole('button', { name: /search now/i })).toBeInTheDocument()

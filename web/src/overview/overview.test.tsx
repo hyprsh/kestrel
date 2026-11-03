@@ -144,7 +144,7 @@ describe('Overview', () => {
     const state = fakeQueue([item()])
     renderApp()
 
-    await cancel('Cancel and blocklist')
+    await cancel('Cancel and Blocklist')
 
     expect(await screen.findByText(/^nothing downloading$/i)).toBeInTheDocument()
     expect(state.cancels).toEqual([{ id: '1', body: { blocklist: true } }])

@@ -101,11 +101,11 @@ describe('light and dark mode', () => {
     expect(await screen.findByRole('button', { name: 'Theme: Dark' })).toBeInTheDocument()
   })
 
-  it("keeps the command menu's Switch theme in step with the rail button", async () => {
+  it("keeps the command menu's Switch Theme in step with the rail button", async () => {
     renderApp()
     await screen.findByRole('button', { name: 'Theme: System' })
     await userEvent.keyboard('{Meta>}k{/Meta}')
-    await userEvent.click(await screen.findByRole('option', { name: /Switch theme/ }))
+    await userEvent.click(await screen.findByRole('option', { name: /Switch Theme/ }))
     expect(await screen.findByRole('button', { name: 'Theme: Light' })).toBeInTheDocument()
     expect(localStorage.getItem('kestrel.theme')).toBe('light')
   })

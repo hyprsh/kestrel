@@ -10,7 +10,7 @@ export function MediaServers() {
     <InstanceList
       contract="media_server.v1"
       noun="media server"
-      addLabel="Add media server"
+      addLabel="Add Media Server"
       newLabel="New media server"
       typeLabel="Media server type"
       empty="No media servers yet. Without one, new files show up only after the server's own library scan."

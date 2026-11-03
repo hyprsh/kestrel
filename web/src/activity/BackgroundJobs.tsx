@@ -53,7 +53,7 @@ function SearchAllWanted() {
     // A disabled button takes no hover, so the reason sits on the wrapper.
     <span title={searchAll.why}>
       <Button variant="secondary" size="tiny" loading={searchAll.pending} disabled={searchAll.blocked} onClick={searchAll.run}>
-        Search all Wanted
+        Search All Wanted
       </Button>
     </span>
   )

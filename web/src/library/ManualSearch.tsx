@@ -303,7 +303,7 @@ export function ManualSearch({
           <SearchedAgo at={search.data.searched_at} />
           {' · '}
           <Link as="button" onClick={() => void search.refetch()}>
-            Search again
+            Search Again
           </Link>
         </>
       ) : (
@@ -335,7 +335,7 @@ export function ManualSearch({
   const options = (
     <DotsMenu aria-label="Manual search options" size={phone ? 'medium' : 'small'}>
       <MenuItem disabled={search.isFetching} onSelect={() => void search.refetch()}>
-        Search again
+        Search Again
       </MenuItem>
       {phone && (
         <>
@@ -386,7 +386,7 @@ export function ManualSearch({
 
   const sortButton = (
     <Menu.Container position="bottom-end">
-      <Menu.Button variant="secondary" size="small" showChevron aria-label={`Sort releases: ${sortLabel(sort)}`}>
+      <Menu.Button variant="secondary" size="small" showChevron aria-label={`Sort Releases: ${sortLabel(sort)}`}>
         {sortLabel(sort)}
       </Menu.Button>
       <Menu width={240}>
@@ -440,7 +440,7 @@ export function ManualSearch({
                 <div className="flex items-center gap-2.5">
                   {back}
                   <h1 className="heading-24 flex-1">Manual search</h1>
-                  <Button variant="tertiary" size="small" svgOnly aria-label="Search again" loading={search.isFetching} onClick={() => void search.refetch()}>
+                  <Button variant="tertiary" size="small" svgOnly aria-label="Search Again" loading={search.isFetching} onClick={() => void search.refetch()}>
                     <RefreshCw />
                   </Button>
                   {options}
@@ -495,7 +495,7 @@ export function ManualSearch({
                                 variant="secondary"
                                 size="medium"
                                 svgOnly
-                                aria-label={`${g.override ? 'Grab anyway' : 'Grab'} ${x.name}`}
+                                aria-label={`${g.override ? 'Grab Anyway' : 'Grab'} ${x.name}`}
                                 disabled={g.disabled}
                                 title={g.reason}
                                 onClick={() => requestGrab(x)}
@@ -622,7 +622,7 @@ export function ManualSearch({
                                             variant="tertiary"
                                             size="tiny"
                                             svgOnly
-                                            aria-label={`${g.override ? 'Grab anyway' : 'Grab'} ${x.name}`}
+                                            aria-label={`${g.override ? 'Grab Anyway' : 'Grab'} ${x.name}`}
                                             disabled={g.disabled || entry?.status === 'pending'}
                                             title={g.reason}
                                             onClick={() => requestGrab(x)}
@@ -683,7 +683,7 @@ export function ManualSearch({
                 ) : segment === 'fits' && counts.fits === 0 ? (
                   <EmptyState title="No Release fits the Profile." description={`${counts.rejected} rejected ${counts.rejected === 1 ? 'Release is' : 'Releases are'} hidden.`}>
                     <Button variant="secondary" size="small" onClick={() => toSegment('rejected')}>
-                      Show rejected
+                      Show Rejected
                     </Button>
                   </EmptyState>
                 ) : best && rows.length === 0 && segment === 'fits' ? null : (

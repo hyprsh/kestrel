@@ -73,7 +73,7 @@ export function Cleanup({ titleIds }: { titleIds?: number[] }) {
                 preview.mutate(titleIds)
               }}
             >
-              Look for Unmanaged files
+              Look for Unmanaged Files
             </Button>
           </div>
         )}

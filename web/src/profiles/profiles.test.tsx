@@ -137,7 +137,7 @@ function fakeProfiles(opts: { fresh?: boolean; groups?: SuggestionGroup[]; warni
 const createAccount = async () => {
   await userEvent.type(await screen.findByLabelText('Password'), 'correct horse')
   await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
-  await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Create Account' }))
 }
 
 describe('the wizard Primary Language section', () => {
@@ -160,7 +160,7 @@ describe('the wizard Primary Language section', () => {
     // The country stays editable.
     await userEvent.clear(within(section).getByLabelText('Release-date country'))
     await userEvent.type(within(section).getByLabelText('Release-date country'), 'be')
-    await userEvent.click(within(section).getByRole('button', { name: 'Save language' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Save Language' }))
 
     expect(await findToast('Re-scoring under French in the background')).toBeInTheDocument()
     expect(within(section).queryByText('Saved.')).not.toBeInTheDocument()
@@ -339,12 +339,12 @@ describe('Settings', () => {
     expect(ask).toHaveTextContent('Primary language, Country')
     expect(screen.queryByRole('heading', { name: 'Slots & Profiles', level: 2 })).not.toBeInTheDocument()
 
-    await userEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }))
+    await userEvent.click(within(ask).getByRole('button', { name: 'Keep Editing' }))
     expect(screen.queryByRole('dialog', { name: 'Leave without saving?' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Primary language')).toHaveValue('fr')
 
     await userEvent.click(screen.getByRole('link', { name: 'Slots & Profiles' }))
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and leave' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and Leave' }))
     expect(await screen.findByRole('heading', { name: 'Slots & Profiles', level: 2 })).toBeInTheDocument()
     expect(queryActionBar()).not.toBeInTheDocument()
   })

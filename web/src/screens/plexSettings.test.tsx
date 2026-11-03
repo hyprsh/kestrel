@@ -81,7 +81,7 @@ describe('Settings > Plex > Plex sign-in', () => {
     await userEvent.click(screen.getByRole('switch', { name: 'Let people sign in with Plex' }))
     await userEvent.selectOptions(instance, 'Garage Plex')
     await userEvent.type(screen.getByRole('textbox', { name: 'Users' }), 'anna{Enter}Ben Kids{Enter}')
-    await userEvent.click(screen.getByRole('button', { name: 'Add user' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add User' }))
     const row = screen.getByRole('group', { name: 'Root folders for user 1' })
     await userEvent.type(within(row).getByRole('textbox', { name: 'User' }), 'Ben Kids')
     expect(
@@ -90,7 +90,7 @@ describe('Settings > Plex > Plex sign-in', () => {
         .map((o) => o.textContent),
     ).toEqual(['First Root folder', '/data/movies', '/data/kids-movies'])
     await userEvent.selectOptions(within(row).getByRole('combobox', { name: 'Movie Root folder' }), '/data/kids-movies')
-    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex Sign-In' }))
 
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
     expect(sent).toEqual([
@@ -123,13 +123,13 @@ describe('Settings > Plex > Plex sign-in', () => {
     expect(days).toHaveValue(null)
     expect(days).toHaveAttribute('placeholder', '30')
     await userEvent.type(days, '14')
-    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex Sign-In' }))
 
     await screen.findByText('Saved.')
     expect(sent[0]).toMatchObject({ watchlist: true, watch_ahead: true, labels: true, poster_badge: true, poster_badge_days: 14 })
 
     await userEvent.clear(days)
-    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex Sign-In' }))
     await vi.waitFor(() => expect(sent).toHaveLength(2))
     expect(sent[1].poster_badge_days).toBeNull()
   })
@@ -152,7 +152,7 @@ describe('Settings > Plex > Plex sign-in', () => {
     expect(await screen.findByRole('switch', { name: 'Watch-ahead for Series' })).toBeChecked()
     expect(screen.getByRole('switch', { name: 'Requested poster badge in Plex' })).toBeChecked()
     expect(screen.getByRole('switch', { name: 'Make Requests from Watchlists' })).not.toBeChecked()
-    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex Sign-In' }))
     expect(await screen.findByText('Keep the badge for at least 1 day')).toBeInTheDocument()
   })
 
@@ -169,8 +169,8 @@ describe('Settings > Plex > Plex sign-in', () => {
     expect(screen.getByRole('combobox', { name: 'Plex instance' })).toHaveValue('Living room Plex')
     expect(screen.getByRole('textbox', { name: 'Users' })).toHaveValue('anna')
     expect(screen.getByRole('combobox', { name: 'Movie Root folder' })).toHaveValue('/data/kids-movies')
-    await userEvent.click(screen.getByRole('button', { name: 'Remove user' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Remove User' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex Sign-In' }))
     await screen.findByText('Saved.')
     expect(sent[0].user_root_folders).toEqual([])
   })
@@ -183,9 +183,9 @@ describe('Settings > Plex > Plex sign-in', () => {
     await openCard()
 
     await userEvent.click(await screen.findByRole('switch', { name: 'Let people sign in with Plex' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Add user' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add User' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'User' }), 'anna')
-    await userEvent.click(screen.getByRole('button', { name: 'Save Plex sign-in' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Plex Sign-In' }))
 
     expect(await screen.findByText('Choose a Plex instance to turn this on')).toBeInTheDocument()
     expect(screen.getByText('/nope is not a Movie Root folder')).toBeInTheDocument()
@@ -201,8 +201,8 @@ describe('Settings > Plex > Plex sign-in', () => {
     expect(screen.getByRole('textbox', { name: 'Users' })).toBeDisabled()
     expect(screen.getByRole('switch', { name: 'Watch-ahead for Series' })).toBeDisabled()
     expect(screen.getByRole('spinbutton', { name: 'Poster badge days' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Add user' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Save Plex sign-in' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Add User' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save Plex Sign-In' })).toBeDisabled()
     expect(screen.getByText(/Config File sets Plex sign-in/)).toBeInTheDocument()
   })
 })

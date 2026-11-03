@@ -80,13 +80,13 @@ describe("a Movie's Versions on its Title page", () => {
     expect(within(item).getByRole('button', { name: 'Search for an Upgrade' })).toBeEnabled()
     expect(within(item).getByRole('button', { name: 'Manual Search' })).toBeInTheDocument()
     await userEvent.click(within(item).getByRole('button', { name: 'Standard Version actions' }))
-    expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Delete files/ })).toBeInTheDocument()
+    expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Delete Files/ })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await userEvent.click(row_)
     expect(row_).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('opens a Wanted Slot to why it has no file, with Search now', async () => {
+  it('opens a Wanted Slot to why it has no file, with Search Now', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     server.use(
@@ -108,7 +108,7 @@ describe("a Movie's Versions on its Title page", () => {
     expect(within(item).getByRole('img', { name: /^Standard: Wanted 12 days/ })).toHaveAttribute('data-state', 'wanted')
   })
 
-  it('opens a downloading Slot to its progress, with Open in Activity and Cancel and block', async () => {
+  it('opens a downloading Slot to its progress, with Open in Activity and Cancel and Block', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     fakeQueue([queueItem({ grab_id: 1, title_id: 1, slot: 'standard' })])
     const pane = await openPaddington()

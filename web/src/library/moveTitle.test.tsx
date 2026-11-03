@@ -64,10 +64,10 @@ describe('moving a Title to another Root folder', () => {
     const current = await within(picker).findByRole('radio', { name: '/data/media/movies (current)' })
     expect(current).toBeChecked()
     expect(within(picker).queryByRole('radio', { name: /tv/ })).not.toBeInTheDocument()
-    expect(within(picker).getByRole('button', { name: 'Move here' })).toBeDisabled()
+    expect(within(picker).getByRole('button', { name: 'Move Here' })).toBeDisabled()
 
     await userEvent.click(within(picker).getByRole('radio', { name: '/data/media/more-movies' }))
-    await userEvent.click(within(picker).getByRole('button', { name: 'Move here' }))
+    await userEvent.click(within(picker).getByRole('button', { name: 'Move Here' }))
 
     await waitFor(() => expect(state.sent).toEqual([{ path: 'titles', body: { root_folder: '/data/media/more-movies' } }]))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Move Title' })).not.toBeInTheDocument())
@@ -93,7 +93,7 @@ describe('moving a Title to another Root folder', () => {
     const picker = await openPicker()
 
     await userEvent.click(await within(picker).findByRole('radio', { name: '/data/media/more-movies' }))
-    await userEvent.click(within(picker).getByRole('button', { name: 'Move here' }))
+    await userEvent.click(within(picker).getByRole('button', { name: 'Move Here' }))
 
     expect(await findToast(`Could not move Heat: ${refusal.detail}`)).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: 'Move Title' })).not.toBeInTheDocument()

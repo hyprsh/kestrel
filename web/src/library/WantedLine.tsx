@@ -147,7 +147,7 @@ export function WantedLine({
       <Popover
         open={open}
         onOpenChange={onOpenChange}
-        label="Why is it Wanted?"
+        label="Why Is It Wanted?"
         position="bottom-start"
         width={340}
         trigger={

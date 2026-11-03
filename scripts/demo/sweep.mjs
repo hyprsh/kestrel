@@ -48,7 +48,7 @@ const screens = {
   'menu-add': {
     path: '/',
     prepare: async (h) => {
-      await h.page.locator('[aria-label^="Search or add"]').locator('visible=true').first().click()
+      await h.page.locator('[aria-label^="Search or Add"]').locator('visible=true').first().click()
       await h.page.keyboard.type('qqzxv')
     },
   },
@@ -96,7 +96,7 @@ try {
       if (s.phoneOnly && w > 390) continue
       await h.page.setViewportSize({ width: w, height: ht })
       await h.page.goto(h.base + (typeof s.path === 'function' ? s.path(ids) : s.path), { waitUntil: 'domcontentloaded' })
-      await h.page.locator('[aria-label^="Search or add"]').first().waitFor()
+      await h.page.locator('[aria-label^="Search or Add"]').first().waitFor()
       await wait(800)
       if (s.prepare) {
         await s.prepare(h)

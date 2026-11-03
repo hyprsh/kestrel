@@ -280,7 +280,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
     () => [
       {
         id: 'search-wanted',
-        label: 'Search all Wanted',
+        label: 'Search All Wanted',
         keywords: 'missing search catch up',
         run: () =>
           searchAllWanted(undefined, {
@@ -288,10 +288,10 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
             onError: (e) => toasts.error(`Search all Wanted failed: ${e.message}`),
           }),
       },
-      { id: 'theme', label: 'Switch theme', keywords: 'dark light mode', run: cycle },
-      { id: 'setup', label: 'Run setup again', keywords: 'wizard', run: onRunSetup },
+      { id: 'theme', label: 'Switch Theme', keywords: 'dark light mode', run: cycle },
+      { id: 'setup', label: 'Run Setup Again', keywords: 'wizard', run: onRunSetup },
       { id: 'adopt', label: adoptionLabel(adoptionState), keywords: 'adopt adoption existing library import', run: () => setScreen('adoption') },
-      { id: 'cleanup', label: 'Clean up Unmanaged files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
+      { id: 'cleanup', label: 'Clean Up Unmanaged Files', keywords: 'junk samples subtitles delete tidy', run: () => openCleanup() },
       ...(canLogout ? [{ id: 'logout', label: 'Log Out', keywords: 'sign out logout', run: () => logout.mutate(undefined) }] : []),
     ],
     [cycle, onRunSetup, canLogout, logout, searchAllWanted, toasts, watchSearch, openCleanup, adoptionState],
@@ -551,7 +551,7 @@ function AppRail({
         badgeLabel={needs > 0 ? attentionLabel(attention!) : undefined}
       />
       {/* One entry point: the command menu searches the Library and, with "Add Title…", the Movies and Series to add. */}
-      <Rail.Item label={`Search or add (${MOD} K)`} icon={<Search />} onClick={onSearch} />
+      <Rail.Item label={`Search or Add (${MOD} K)`} icon={<Search />} onClick={onSearch} />
       <Separator className="my-1 w-6" />
       {screens
         .filter((s) => s.key !== 'overview' && s.key !== 'settings')

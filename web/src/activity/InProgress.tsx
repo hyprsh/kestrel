@@ -217,7 +217,7 @@ export function StalledRow({ grab: g, nav, onOpenTitle }: { grab: GrabEntry; nav
         more={
           <DotsMenu size="tiny" aria-label={`More for ${name}`} width={220}>
             <MenuItem disabled={act.isPending} onSelect={retry}>
-              Retry now
+              Retry Now
             </MenuItem>
             <MenuItem disabled={act.isPending} onSelect={() => setAsking(true)}>
               Discard
@@ -228,7 +228,7 @@ export function StalledRow({ grab: g, nav, onOpenTitle }: { grab: GrabEntry; nav
         below={
           <>
             <Button variant="secondary" size="small" disabled={act.isPending} onClick={retry}>
-              Retry now
+              Retry Now
             </Button>
             <Button variant="secondary" size="small" disabled={act.isPending} onClick={() => setAsking(true)}>
               Discard

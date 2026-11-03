@@ -56,7 +56,7 @@ describe('Clean up', () => {
     expect(runs).toEqual([{ preview_id: 'p1', categories: ['junk', 'samples'], exclude: ['/data/media/movies/Paddington (2014)/b.txt'] }])
   })
 
-  it('marks Look for Unmanaged files busy while the preview runs, so it cannot be pressed twice', async () => {
+  it('marks Look for Unmanaged Files busy while the preview runs, so it cannot be pressed twice', async () => {
     let release: () => void = () => {}
     const gate = new Promise<void>((r) => (release = r))
     let previews = 0
@@ -101,7 +101,7 @@ describe('Clean up', () => {
     expect(previews).toEqual([{}])
 
     await user.click(screen.getByRole('button', { name: 'Library' }))
-    await chooseTitleItem(document.body, 'Clean up…', 'Files')
+    await chooseTitleItem(document.body, 'Clean Up…', 'Files')
     await user.click(await screen.findByRole('button', { name: /look for unmanaged files/i }))
     expect(previews).toEqual([{}, { title_ids: [7] }])
   })

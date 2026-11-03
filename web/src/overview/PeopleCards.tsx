@@ -48,9 +48,9 @@ export function RequestsCard({ stats }: { stats: Stats }) {
           value={r.median_fulfil_seconds === null ? '—' : span(r.median_fulfil_seconds * 1000)}
           label="median to fulfil"
           to={placePath('requests', 'status:completed')}
-          open="Open completed Requests"
+          open="Open Completed Requests"
         />
-        <Figure value={String(r.searching)} label="still searching" warn={r.searching > 0} to={placePath('requests', 'status:open')} open="Open the open Requests" />
+        <Figure value={String(r.searching)} label="still searching" warn={r.searching > 0} to={placePath('requests', 'status:open')} open="Open the Open Requests" />
       </div>
       {r.requesters.length === 0 ? (
         <p className="label-13 m-0 text-gray-900">Nobody asked for anything in this range.</p>

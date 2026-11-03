@@ -262,7 +262,7 @@ function AdoptionPlanRow({ adoption, onOpen, nav, index }: { adoption: Adoption;
       labelVariant="amber"
       actions={
         <Button variant="secondary" size="small" onClick={onOpen}>
-          Review the Adoption plan
+          Review the Adoption Plan
         </Button>
       }
     />

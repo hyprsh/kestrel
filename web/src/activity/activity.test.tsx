@@ -194,9 +194,9 @@ describe('Activity', () => {
     expect(first.has('since')).toBe(false)
     expect(first.get('limit')).toBe('50')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Load older Grabs' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Load Older Grabs' }))
     await waitFor(() => expect(rowsShown()).toHaveLength(100))
-    await userEvent.click(screen.getByRole('button', { name: 'Load older Grabs' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Load Older Grabs' }))
     await waitFor(() => expect(rowsShown()).toHaveLength(120))
     expect(screen.getByText('That is all the history.')).toBeInTheDocument()
     expect(grabs.queries.some((q) => q.get('stalled') === 'true')).toBe(true)
@@ -470,7 +470,7 @@ describe('Activity', () => {
     const row = within(await screen.findByRole('region', { name: 'In progress' })).getByRole('listitem')
     expect(row).toHaveTextContent('Stalled · disk full')
     await userEvent.click(within(row).getByRole('button', { name: 'More for Paddington' }))
-    await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Retry now' }))
+    await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Retry Now' }))
     await waitFor(() => expect(sent).toEqual(['retry 6']))
     await userEvent.click(within(row).getByRole('button', { name: 'Discard Paddington' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Discard this Grab' })
@@ -530,7 +530,7 @@ describe('Activity', () => {
     await waitFor(() => expect(within(two).queryByText('What happened')).not.toBeInTheDocument())
   })
 
-  it('opens a failed row with the exact reason, what is left to do, and Search Now, Manual Search and Remove from Blocklist', async () => {
+  it('opens a failed row with the exact reason, what is left to do, and Search Now, Manual search and Remove from Blocklist', async () => {
     const searched: string[] = []
     const scopes: unknown[] = []
     server.use(
@@ -599,7 +599,7 @@ describe('Activity', () => {
     expect(within(item).queryByRole('button', { name: 'Remove from Blocklist' })).not.toBeInTheDocument()
   })
 
-  it('says in a Toast why Retry now, Discard and Search Now failed, and closes the Discard dialog on confirm', async () => {
+  it('says in a Toast why Retry Now, Discard and Search Now failed, and closes the Discard dialog on confirm', async () => {
     const refuse = (detail: string) => ({ type: 'about:blank', title: 'x', status: 500, code: 'internal', detail })
     server.use(
       http.post('/grabs/{id}/retry-import', ({ response }) => response('default').json(refuse('disk offline'), { status: 500 })),
@@ -612,7 +612,7 @@ describe('Activity', () => {
 
     const stuck = within(await screen.findByRole('region', { name: 'In progress' })).getByRole('listitem')
     await userEvent.click(within(stuck).getByRole('button', { name: 'More for Paddington' }))
-    await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Retry now' }))
+    await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Retry Now' }))
     expect(await findToast('Could not retry the import: disk offline')).toBeInTheDocument()
 
     await userEvent.click(within(stuck).getByRole('button', { name: 'Discard Paddington' }))
@@ -794,7 +794,7 @@ describe('Activity on a phone', () => {
     fakeGrabs([grabEntry({ grab_id: 2, state: 'imported' }), grabEntry({ grab_id: 3, state: 'failed' })])
     renderApp()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Views and filter' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Views and Filter' }))
     const failed = await screen.findByRole('menuitemcheckbox', { name: /^Failed/ })
     await waitFor(() => expect(failed).toHaveTextContent('1'))
     expect(screen.getByRole('menuitemcheckbox', { name: /^Everything/ })).toHaveAttribute('aria-checked', 'true')

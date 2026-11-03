@@ -45,7 +45,7 @@ export function useSearchResultToasts(open: (path: string) => void) {
       const log = { label: 'Open Log', onClick: () => open(placePath('log', termText({ name: 'title', values: [f.title], excluded: false }))) }
       if (f.outcome === 'failed') toasts.error({ text, action: log })
       else if (f.outcome === 'grabbed') toasts.success({ text, action: log })
-      else toasts.message({ text, action: { label: 'Manual search', onClick: () => open(manualSearchPath({ titleId: f.title_id, versionId: f.version_id, scope: w.scope ?? null })) } })
+      else toasts.message({ text, action: { label: 'Manual Search', onClick: () => open(manualSearchPath({ titleId: f.title_id, versionId: f.version_id, scope: w.scope ?? null })) } })
     }
     show = present
     const stop = onSearchFinished((f) => {

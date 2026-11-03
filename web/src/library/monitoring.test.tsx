@@ -127,7 +127,7 @@ describe('monitoring a Series', () => {
       'Not monitoredKeep the files, search nothing',
     ])
     expect(within(menu).getByRole('menuitemradio', { name: /^All episodes/ })).toBeChecked()
-    expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor new seasons/ })).toBeChecked()
+    expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor New Seasons/ })).toBeChecked()
     expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor Specials/ })).not.toBeChecked()
 
     await userEvent.click(within(menu).getByRole('menuitemradio', { name: /^Future episodes only/ }))
@@ -135,7 +135,7 @@ describe('monitoring a Series', () => {
     await waitFor(() => expect(within(pane).getByRole('button', { name: MONITORING })).toHaveTextContent('Monitored · future episodes'))
   })
 
-  it('turns Monitor new seasons and Monitor Specials on and off', async () => {
+  it('turns Monitor New Seasons and Monitor Specials on and off', async () => {
     const fake = fakeSeries()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
@@ -143,10 +143,10 @@ describe('monitoring a Series', () => {
     await userEvent.click(await within(pane).findByRole('button', { name: MONITORING }))
     await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: /^Monitor Specials/ }))
     await waitFor(() => expect(fake.get().sent).toContainEqual({ path: 'titles', body: { monitor_specials: true } }))
-    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: /^Monitor new seasons/ }))
+    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: /^Monitor New Seasons/ }))
     await waitFor(() => expect(fake.get().sent).toContainEqual({ path: 'titles', body: { monitor_new_seasons: false } }))
     expect(await screen.findByRole('menuitemcheckbox', { name: /^Monitor Specials/ })).toBeChecked()
-    expect(screen.getByRole('menuitemcheckbox', { name: /^Monitor new seasons/ })).not.toBeChecked()
+    expect(screen.getByRole('menuitemcheckbox', { name: /^Monitor New Seasons/ })).not.toBeChecked()
   })
 
   it('has no Monitoring… item in the Title menu any more', async () => {
@@ -166,19 +166,19 @@ describe('the switches of the Monitoring menu', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await screen.findByRole('button', { name: MONITORING }))
     let menu = await screen.findByRole('menu')
-    expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor new seasons/ })).toHaveTextContent('Seasons added later start monitored')
+    expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor New Seasons/ })).toHaveTextContent('Seasons added later start monitored')
     expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor Specials/ })).toHaveTextContent('Season 0 follows the mode above')
     await userEvent.click(within(menu).getByRole('menuitemradio', { name: /^Not monitored/ }))
     await waitFor(() => expect(screen.getByRole('button', { name: MONITORING })).toHaveTextContent('Not monitored'))
     await userEvent.click(screen.getByRole('button', { name: MONITORING }))
     menu = await screen.findByRole('menu')
-    for (const name of [/^Monitor new seasons/, /^Monitor Specials/]) {
+    for (const name of [/^Monitor New Seasons/, /^Monitor Specials/]) {
       const item = within(menu).getByRole('menuitemcheckbox', { name })
       expect(item).toHaveAttribute('aria-disabled', 'true')
       expect(item).toHaveTextContent('Applies when monitored')
     }
     // The stored values stay: new seasons were on, Specials off.
-    expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor new seasons/ })).toBeChecked()
+    expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor New Seasons/ })).toBeChecked()
     expect(within(menu).getByRole('menuitemcheckbox', { name: /^Monitor Specials/ })).not.toBeChecked()
   })
 })

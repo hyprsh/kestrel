@@ -16,7 +16,7 @@ const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { 
 
 type Posted = { path: string; version: number; body: unknown }
 
-/** Records Search now and Manual search calls; with `gone` Search now answers 404. */
+/** Records Search Now and Manual search calls; with `gone` Search Now answers 404. */
 function recordSearches({ gone = false } = {}) {
   const sent: Posted[] = []
   const read = async (r: Request) => {
@@ -83,7 +83,7 @@ describe('the Search button on the Title page', () => {
     await userEvent.click(await within(pane).findByRole('button', { name: 'Search Now' }))
     await waitFor(() => expect(sent).toHaveLength(1))
     await openVersionMenu(pane, 'Standard')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Search now' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Search Now' }))
     await waitFor(() =>
       expect(sent).toEqual([
         { path: 'search', version: 11, body: null },
@@ -98,7 +98,7 @@ describe('the Search button on the Title page', () => {
     const pane = await openPane(/paddington/i)
 
     expect(within(pane).getByRole('button', { name: 'Search Wanted' })).toBeDisabled()
-    expect(within(await openSearchMenu(pane)).getByRole('menuitem', { name: /Manual search…/ })).toBeInTheDocument()
+    expect(within(await openSearchMenu(pane)).getByRole('menuitem', { name: /Manual Search…/ })).toBeInTheDocument()
   })
 
   it('says why a search could not start', async () => {
@@ -121,7 +121,7 @@ describe('the Search button on the Title page', () => {
     expect(sent.every((s) => s.path === 'search' && s.body === null)).toBe(true)
 
     sent.length = 0
-    await chooseSearchItem(pane, /Search all Versions/)
+    await chooseSearchItem(pane, /Search All Versions/)
     await waitFor(() => expect([...sent.map((s) => s.version)].sort()).toEqual([51, 52]))
   })
 
@@ -135,8 +135,8 @@ describe('the Search button on the Title page', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Manual search: Standard…Pick a Release yourself', 'Manual search: 4K…Pick a Release yourself', 'Search all VersionsAlso look for Upgrades'])
-    await userEvent.click(within(menu).getByRole('menuitem', { name: /Manual search: 4K/ }))
+    ).toEqual(['Manual Search: Standard…Pick a Release yourself', 'Manual Search: 4K…Pick a Release yourself', 'Search All VersionsAlso look for Upgrades'])
+    await userEvent.click(within(menu).getByRole('menuitem', { name: /Manual Search: 4K/ }))
     await screen.findByRole('region', { name: 'Manual search' })
     await waitFor(() => expect(sent).toContainEqual({ path: 'releases', version: 52, body: null }))
   })

@@ -84,7 +84,7 @@ describe('the wizard SABnzbd section', () => {
 
     await userEvent.type(await screen.findByLabelText('Password'), 'correct horse')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create Account' }))
 
     expect(await screen.findByRole('heading', { name: /download client/i })).toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument() // the wizard goes on after the account
@@ -97,14 +97,14 @@ describe('the wizard SABnzbd section', () => {
     // A bad key shows the error.
     await userEvent.type(screen.getByLabelText('URL'), 'http://sab:8080')
     await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'bad-key')
-    await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Test Connection' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('SABnzbd rejected the API key')
     expect(screen.getByLabelText('Movie category').tagName).toBe('INPUT') // no list without a working connection
 
     // A good key shows the live result and turns the categories into lists.
     await userEvent.clear(screen.getByLabelText('API key', { selector: 'input' }))
     await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'good-key')
-    await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Test Connection' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
     const movies = await screen.findByRole('combobox', { name: 'Movie category' })
     expect(
@@ -133,7 +133,7 @@ describe('the wizard SABnzbd section', () => {
     renderApp()
     await userEvent.type(await screen.findByLabelText('Password'), 'correct horse')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'correct horse')
-    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create Account' }))
     await userEvent.type(await screen.findByLabelText('URL'), 'http://sab:8080')
     await userEvent.type(screen.getByLabelText('API key', { selector: 'input' }), 'good-key')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -208,7 +208,7 @@ describe('Settings download client', () => {
     fakePlugins()
     serveLive(null)
     const section = await open()
-    await userEvent.click(await section.findByRole('button', { name: 'Add download client…' }))
+    await userEvent.click(await section.findByRole('button', { name: 'Add Download Client…' }))
     expect(await screen.findByLabelText('URL')).toHaveValue('')
   })
 
@@ -222,7 +222,7 @@ describe('Settings download client', () => {
     expect(key).toHaveAttribute('placeholder', expect.stringMatching(/saved/i))
     expect(form.getByLabelText('URL')).toHaveValue('http://sab:8080')
 
-    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(form.getByRole('button', { name: 'Test Connection' }))
     expect(await form.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
     expect(sent.find((s) => s.path === 'test saved')?.body).toEqual({
       config: { url: 'http://sab:8080', movie_category: 'movies', tv_category: 'tv' }, // no api_key: the server uses the stored one
@@ -243,7 +243,7 @@ describe('Settings download client', () => {
     expect(form.getByRole('button', { name: 'Remove' })).toBeDisabled()
     expect(form.getByText(/Config File declares this instance/)).toBeInTheDocument()
 
-    await userEvent.click(form.getByRole('button', { name: 'Test connection' }))
+    await userEvent.click(form.getByRole('button', { name: 'Test Connection' }))
     expect(await form.findByRole('status')).toHaveTextContent('Connected: SABnzbd 4.5.1')
   })
 

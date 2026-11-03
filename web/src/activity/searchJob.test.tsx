@@ -51,9 +51,9 @@ async function row() {
   return (await within(section).findAllByRole('listitem')).find((li) => within(li).queryByText('Search pass', { selector: 'span' }))!
 }
 
-/** The Search row's "Search all Wanted" button. */
+/** The Search row's "Search All Wanted" button. */
 async function card() {
-  return within(await row()).getByRole('button', { name: 'Search all Wanted' })
+  return within(await row()).getByRole('button', { name: 'Search All Wanted' })
 }
 
 beforeEach(() => history.replaceState(null, '', '/'))

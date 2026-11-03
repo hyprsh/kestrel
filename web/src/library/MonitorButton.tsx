@@ -110,7 +110,7 @@ export function MonitorButton({ title, size = 'medium', short = false }: { title
           suffix={<Toggle size="small" checked={newSeasons} disabled={!monitored} aria-hidden tabIndex={-1} onChange={() => undefined} />}
           onSelect={() => flag({ monitor_new_seasons: !newSeasons })}
         >
-          Monitor new seasons
+          Monitor New Seasons
         </MenuItem>
         <MenuItem
           role="checkbox"

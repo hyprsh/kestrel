@@ -77,7 +77,7 @@ export function DownloadingCard({
                     {g.slot && <SlotTag slot={g.slot} state={g.is_upgrade ? 'filled' : 'downloading'} text={pct !== null ? `${pct}%` : undefined} />}
                     <DotsMenu aria-label={`Actions for ${name}`} disabled={busy}>
                       <MenuItem onClick={() => onCancel(g.grab_id, false)}>Cancel</MenuItem>
-                      <MenuItem onClick={() => onCancel(g.grab_id, true)}>Cancel and blocklist</MenuItem>
+                      <MenuItem onClick={() => onCancel(g.grab_id, true)}>Cancel and Blocklist</MenuItem>
                     </DotsMenu>
                   </span>
                 }

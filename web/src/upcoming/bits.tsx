@@ -34,7 +34,7 @@ export function Standings({
             onSearch(wanted)
           }}
         >
-          Search now
+          Search Now
         </Button>
       )}
     </span>

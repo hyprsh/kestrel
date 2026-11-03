@@ -58,7 +58,7 @@ describe('Settings > Security', () => {
     await openSecurity()
     expect(await screen.findByText(/no api key yet/i)).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Generate API key' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Generate API Key' }))
     expect(await screen.findByText('kst_NEWKEYSHOWNONCE')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Copy to Clipboard' }))
     expect(await navigator.clipboard.readText()).toBe('kst_NEWKEYSHOWNONCE')
@@ -73,7 +73,7 @@ describe('Settings > Security', () => {
     const user = userEvent.setup()
     fakeSecurity()
     await openSecurity()
-    await userEvent.click(await screen.findByRole('button', { name: 'Generate API key' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Generate API Key' }))
     expect(await screen.findByText('kst_NEWKEYSHOWNONCE')).toBeInTheDocument()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     await user.click(screen.getByRole('button', { name: 'Copy to Clipboard' }))
@@ -85,7 +85,7 @@ describe('Settings > Security', () => {
     await openSecurity()
     expect(await screen.findByText(/kst_OLDK/)).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Rotate API key' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Rotate API Key' }))
     expect(await screen.findByText('kst_NEWKEYSHOWNONCE')).toBeInTheDocument()
   })
 
@@ -94,7 +94,7 @@ describe('Settings > Security', () => {
     await openSecurity()
     expect(await screen.findByText(/kst_ENVK/)).toBeInTheDocument()
     expect(screen.getByText(/KESTREL_API_KEY/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Rotate API key' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Rotate API Key' })).toBeDisabled()
   })
 
   it('saves reverse-proxy settings', async () => {
@@ -133,7 +133,7 @@ describe('a proxy-authenticated session', () => {
     server.use(http.get('/auth/me', ({ response }) => response(200).json({ username: 'admin', role: 'admin', method: 'proxy', proxy_user: 'alice', from_config_file: false })))
     renderApp()
     await screen.findByRole('button', { name: 'Settings' })
-    await userEvent.click(screen.getByRole('button', { name: /^Search or add \(/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Search or Add \(/ }))
     await screen.findByRole('dialog', { name: /command menu/i })
     expect(screen.queryByRole('option', { name: 'Log Out' })).not.toBeInTheDocument()
   })

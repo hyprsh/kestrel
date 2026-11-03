@@ -33,7 +33,7 @@ async function openLibrary() {
   return list
 }
 
-const box = (name: string) => screen.getByRole('checkbox', { name: `Tick ${name}` })
+const box = (name: string) => screen.getByRole('checkbox', { name: `Select ${name}` })
 
 describe('selecting Titles in the Library', () => {
   it('ticks the Title under the cursor with x and clears the selection with Escape', async () => {
@@ -130,7 +130,7 @@ async function choose(bar: HTMLElement, name: string) {
   const button = within(bar).queryByRole('button', { name })
   if (button) return userEvent.click(button)
   if (name === 'Unmonitor') return runQuiet(bar, name)
-  await userEvent.click(within(bar).getByRole('button', { name: 'More actions for the ticked Titles' }))
+  await userEvent.click(within(bar).getByRole('button', { name: 'More actions for the selected Titles' }))
   await userEvent.click(screen.getByRole('menuitem', { name }))
 }
 
@@ -271,7 +271,7 @@ describe('changing the ticked Titles together', () => {
   })
 
   it.each([
-    ['Search Now', 'Search now', { action: 'search' }],
+    ['Search Now', 'Search Now', { action: 'search' }],
     ['Refresh Metadata', 'Refresh metadata', { action: 'refresh' }],
     ['Freeze Metadata', 'Freeze metadata', { action: 'freeze', frozen: true }],
     ['Unfreeze Metadata', 'Unfreeze metadata', { action: 'freeze', frozen: false }],
@@ -282,7 +282,7 @@ describe('changing the ticked Titles together', () => {
 
     await choose(pane, menuLabel)
 
-    expect(await findToast(label === 'Search now' ? 'Search started for 2 Titles' : `${label}: 2 changed`)).toBeInTheDocument()
+    expect(await findToast(label === 'Search Now' ? 'Search started for 2 Titles' : `${label}: 2 changed`)).toBeInTheDocument()
     expect(sent).toEqual([{ ...body, title_ids: [2, 3] }])
   })
 })

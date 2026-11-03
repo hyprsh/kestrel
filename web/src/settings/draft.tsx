@@ -109,7 +109,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
         actions={
           <>
             <Button size="small" variant="secondary" onClick={() => setAsking(null)}>
-              Keep editing
+              Keep Editing
             </Button>
             <Button
               size="small"
@@ -121,7 +121,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
                 go?.()
               }}
             >
-              Discard and leave
+              Discard and Leave
             </Button>
           </>
         }

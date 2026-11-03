@@ -257,8 +257,8 @@ function SlotBody({ title, profiles, profileName, onManualSearch, version: v, do
 }
 
 /**
- * A Version's "…" menu and what its items open: Search now, Manual search, Change Profile, Why is it Wanted? while it is Wanted,
- * Cancel download while it downloads, Delete files (a Movie's file) and Remove Version. Nothing here is the Version's one next action; that sits beside it.
+ * A Version's "…" menu and what its items open: Search now, Manual search, Change Profile, Why Is It Wanted? while it is Wanted,
+ * Cancel Download while it downloads, Delete files (a Movie's file) and Remove Version. Nothing here is the Version's one next action; that sits beside it.
  */
 export function VersionMenu({
   title,
@@ -281,28 +281,28 @@ export function VersionMenu({
   const items = (
     <>
       <MenuItem disabled={unmonitored(title) || search.pending} description={unmonitored(title) ? 'Not monitored: turn monitoring on to search' : undefined} onSelect={search.run}>
-        Search now
+        Search Now
       </MenuItem>
-      <MenuItem onSelect={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}>Manual search…</MenuItem>
+      <MenuItem onSelect={() => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })}>Manual Search…</MenuItem>
       <MenuItem suffix={<span className="label-12-mono text-gray-900">{profileName(v.profile)}</span>} onSelect={() => setMode('switch')}>
         Change Profile…
       </MenuItem>
-      {v.state === 'wanted' && onWhy && <MenuItem onSelect={onWhy}>Why is it Wanted?</MenuItem>}
+      {v.state === 'wanted' && onWhy && <MenuItem onSelect={onWhy}>Why Is It Wanted?</MenuItem>}
       {downloads && (
         <>
           <MenuDivider />
           <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, false)}>
-            {downloads.items.length === 1 ? 'Cancel download' : 'Cancel downloads'}
+            {downloads.items.length === 1 ? 'Cancel Download' : 'Cancel Downloads'}
           </MenuItem>
           <MenuItem disabled={cancel.pending} onSelect={() => void cancel.run(downloads.items, true)}>
-            Cancel and blocklist
+            Cancel and Blocklist
           </MenuItem>
         </>
       )}
       <MenuDivider />
       {movie && (
         <MenuItem type="error" disabled={!v.file} description={v.file ? undefined : 'No file to delete'} onSelect={() => setMode('delete')}>
-          Delete files…
+          Delete Files…
         </MenuItem>
       )}
       <MenuItem type="error" onSelect={() => setMode('remove')}>

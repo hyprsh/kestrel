@@ -90,7 +90,7 @@ function DeleteFilesConfirm({
           Delete
         </ModalAction>
         <ModalAction variant="error" onClick={() => onConfirm(true)}>
-          Delete and blocklist {releases}
+          Delete and Blocklist {releases}
         </ModalAction>
       </ModalActions>
     </Modal>

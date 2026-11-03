@@ -43,12 +43,12 @@ Kestrel makes fewer things configurable. If you rely on one of these, check befo
 Adoption renames files into Kestrel's scheme and moves them into the Title's folder, such as `Paddington (2014) {tmdb-116149}/`. Radarr and Sonarr will then see their files as missing. So back up your library and both apps' databases first, and don't let Radarr or Sonarr manage the same folders afterwards ([Running both](#running-both-side-by-side) shows how).
 
 1. **Set the root folders.** In the setup screen or Settings > Library > Root folders, enter the folders your library already lives in, such as `/data/media/movies` and `/data/media/tv`. Keep them on the same mount as your downloads.
-2. **Scan.** Choose **Adopt Existing Library** in the Library's **...** menu, or Settings > Library > Existing files (also the last step of the setup screen), then **Scan for existing files**. Kestrel reads each folder and file, and plans:
+2. **Scan.** Choose **Adopt Existing Library** in the Library's **...** menu, or Settings > Library > Existing files (also the last step of the setup screen), then **Scan for Unmanaged Files**. Kestrel reads each folder and file, and plans:
    - **Matched:** Kestrel found the Title and its Version. These are ticked, and adopted when you commit.
-   - **Needs choice:** Kestrel found candidates and ranks the best one as a suggested match. A match is _Confident_ when the year, the title and the runtime all fit and no other candidate comes close. Choose the right one by hand, or **Accept suggested matches** to settle only the Confident ones.
+   - **Needs choice:** Kestrel found candidates and ranks the best one as a suggested match. A match is _Confident_ when the year, the title and the runtime all fit and no other candidate comes close. Choose the right one by hand, or **Accept Suggested Matches** to settle only the Confident ones.
    - **Skipped:** Kestrel can't manage it, and says why: no readable video file, no enabled default Profile for its Slot, or a Series that is not on TheTVDB.
 3. **Review the plan.** Nothing changes until you commit. Untick what you don't want, and choose how adopted Titles are monitored.
-4. **Adopt.** Choose **Adopt N Titles**. A Title either adopts completely or not at all: if one rename fails, the others for that Title are undone. The rows stay, with each outcome, until the next scan. **Try again** puts failed ones back under review.
+4. **Adopt.** Choose **Adopt N Titles**. A Title either adopts completely or not at all: if one rename fails, the others for that Title are undone. The rows stay, with each outcome, until the next scan. **Try Again** puts failed ones back under review.
 5. **Clean up.** Files under a root folder that no Version holds are called _unmanaged_. **Clean Up Unmanaged Files** in the Library's **...** menu lists them, and can delete the ones you don't want.
 
 Kestrel matches best when a folder or file name carries an ID, such as `{tmdb-116149}`, `[tmdbid-116149]` or `[imdbid-tt1109624]`, which Radarr and Sonarr can add. It takes an ID as certain.

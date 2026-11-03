@@ -80,7 +80,7 @@ describe('the Library list', () => {
   it('shows a tick box on every row, out of the Tab order', async () => {
     fakeLibrary(rows())
     const list = await openLibrary()
-    const boxes = await within(list).findAllByRole('checkbox', { name: /^Tick / })
+    const boxes = await within(list).findAllByRole('checkbox', { name: /^Select / })
     expect(boxes).toHaveLength(3)
     for (const b of boxes) expect(b).toHaveAttribute('tabindex', '-1')
   })

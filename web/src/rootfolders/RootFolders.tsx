@@ -73,7 +73,7 @@ function Form({ saved, declared, compact }: { saved: Folders; declared: boolean;
           </section>
         ))}
         <Button size="small" className="self-start" disabled={declared} onClick={() => setEditing(true)}>
-          Edit root folders
+          Edit Root Folders
         </Button>
         {declared && <Note size="small">The Config File sets the root folders, so they cannot be changed here. Change the file and restart Kestrel instead.</Note>}
       </div>
@@ -107,7 +107,7 @@ function Form({ saved, declared, compact }: { saved: Folders; declared: boolean;
                   <span className="label-13 flex h-8 w-[5.5rem] shrink-0 items-center justify-center text-gray-900">Default</span>
                 ) : (
                   <Button size="small" aria-label={`Make ${name} the default`} className="shrink-0" onClick={() => set(key, [path, ...folders[key].filter((_, j) => j !== i)])}>
-                    Make default
+                    Make Default
                   </Button>
                 )}
                 <Button
@@ -127,7 +127,7 @@ function Form({ saved, declared, compact }: { saved: Folders; declared: boolean;
             )
           })}
           <Button size="small" aria-label={`Add ${label} folder`} className="self-start" onClick={() => set(key, [...folders[key], ''])}>
-            Add folder
+            Add Folder
           </Button>
           {fields
             .filter((f) => f.field === `root_folders.${key}`)
@@ -151,7 +151,7 @@ function Form({ saved, declared, compact }: { saved: Folders; declared: boolean;
       )}
       <div className="flex gap-2">
         <Button size="small" variant="primary" typeName="submit" disabled={save.isPending || declared}>
-          Save root folders
+          Save Root Folders
         </Button>
         {compact && (
           <Button size="small" onClick={cancel}>
