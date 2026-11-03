@@ -2,10 +2,11 @@
 import type { GrabEntry } from '../api/activity'
 import type { QueueItem } from '../api/queue'
 import { size } from '../library/bits'
+import { reasonWords, rejectionText } from '../rejection'
 import { speedText } from '../overview/statsText'
 import { span } from '../time'
 
-/** Why a failed Grab failed, in words; an Import's own reasons (`language`, …) are shown as they come. */
+/** Why a failed Grab failed, in words; an Import's own reasons (`language`, …) are in rejection.ts. */
 export const failureText: Record<string, string> = {
   download_failed: 'the download failed',
   encrypted: 'the download is encrypted',
@@ -20,12 +21,12 @@ export function whatOf(g: { episodes: readonly string[] }): string {
 
 /** The full reason a Grab failed: the words of a known failure, or what the Import rejected. */
 export function whyFailed(g: Pick<GrabEntry, 'failure' | 'blocklist_reason'>): string {
-  const base = g.failure ? (failureText[g.failure] ?? g.failure) : 'it failed'
-  return g.blocklist_reason ? `${base} (Blocklisted: ${g.blocklist_reason})` : base
+  const base = g.failure ? (failureText[g.failure] ?? rejectionText(g.failure)) : 'it failed'
+  return g.blocklist_reason ? `${base} (Blocklisted: ${reasonWords(g.blocklist_reason)})` : base
 }
 
 /** The short reason for the Result column; the same words, cut where the Blocklist note starts. */
-export const shortWhy = (g: Pick<GrabEntry, 'failure'>) => (g.failure ? (failureText[g.failure] ?? g.failure) : 'it failed')
+export const shortWhy = (g: Pick<GrabEntry, 'failure'>) => (g.failure ? (failureText[g.failure] ?? rejectionText(g.failure)) : 'it failed')
 
 /** The download speed: what the client reports, else the one its ETA implies, or null when it has said neither. */
 export function speed(i: QueueItem): string | null {

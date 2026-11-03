@@ -9,6 +9,7 @@ import { size } from '../library/bits'
 import { SlotTag } from '../library/SlotPills'
 import { useSlotNames, type SlotNames } from '../library/slots'
 import { placePath, useOpenPlace } from '../place'
+import { rejectionText } from '../rejection'
 import { until, useNow } from '../time'
 import { useReport } from '../toasts'
 import { cx } from '../ui'
@@ -33,7 +34,7 @@ function failureStep(g: GrabEntry): string {
   if (!f) return 'It failed'
   if (f === 'download_failed' || f === 'encrypted' || f === 'lost') return `Download failed: ${failureText[f]}`
   if (f === 'discarded') return `Discarded: ${failureText[f]}`
-  return `Import rejected: ${f}`
+  return `Import rejected: ${rejectionText(f)}`
 }
 
 /** The steps of a Grab, oldest first, from the Grab itself and what the Log recorded of it. */

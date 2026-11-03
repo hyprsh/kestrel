@@ -3,6 +3,7 @@
 // event does not hold, come from the Grab itself (see GrabFacts in EventDetail.tsx).
 import type { LogEvent } from '../api/log'
 import { plural } from '../format'
+import { rejectionText } from '../rejection'
 import { clock } from './rows'
 import { kindNames, searchEnd, searchResult, type Recovery } from './sentence'
 import { reasonText, triggerText } from './trigger'
@@ -83,7 +84,7 @@ export function fields(e: LogEvent, title?: string, recovery?: Recovery | null):
     case 'import_rejected': {
       const hit = /^Import of (.+?) rejected: (.+)$/.exec(m)
       add('Release', hit?.[1], true)
-      add('Error', hit?.[2] ?? m, true)
+      add('Error', hit ? rejectionText(hit[2]) : m, true)
       break
     }
     case 'import_stalled': {
@@ -97,7 +98,7 @@ export function fields(e: LogEvent, title?: string, recovery?: Recovery | null):
       add('Result', str(data.status))
       add('File', str(data.file), true)
       add('Path', str(data.path), true)
-      add('Reason', str(data.reason))
+      add('Reason', rejectionText(str(data.reason) ?? ''))
       use('season', 'episode', 'status', 'file', 'path', 'reason')
       break
     }

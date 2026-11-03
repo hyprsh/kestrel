@@ -9,6 +9,7 @@ import type { TitleRow } from '../api/queries'
 import { size } from '../library/bits'
 import type { RowNav } from '../keys'
 import { TitlePoster } from '../poster'
+import { reasonWords } from '../rejection'
 import { usePhone } from '../responsive'
 import { cx } from '../ui'
 import { GrabDetail } from './GrabDetail'
@@ -40,9 +41,9 @@ const headColumns = 'grid grid-cols-[52px_28px_minmax(0,1fr)_minmax(0,1.6fr)_190
 
 /** The Result cell and its tooltip: a green dot and "Imported", or a red one and "Failed · why". */
 function result(e: Ended): { failed: boolean; text: string; why: string } {
-  if (e.type === 'blocked') return { failed: true, text: `Failed · ${e.entry.reason}`, why: `Blocklisted: ${e.entry.reason}` }
+  if (e.type === 'blocked') return { failed: true, text: `Failed · ${reasonWords(e.entry.reason)}`, why: `Blocklisted: ${reasonWords(e.entry.reason)}` }
   const g = e.grab
-  if (g.state === 'imported') return { failed: false, text: 'Imported', why: g.blocklist_reason ? `Imported; since blocklisted: ${g.blocklist_reason}` : 'Imported' }
+  if (g.state === 'imported') return { failed: false, text: 'Imported', why: g.blocklist_reason ? `Imported; since blocklisted: ${reasonWords(g.blocklist_reason)}` : 'Imported' }
   return { failed: true, text: `Failed · ${shortWhy(g)}`, why: whyFailed(g) }
 }
 

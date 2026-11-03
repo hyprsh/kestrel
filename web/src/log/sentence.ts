@@ -4,6 +4,7 @@
 // A message that does not read as the formatter expects falls back to being shown as it is.
 import type { LogEvent } from '../api/log'
 import { manualSearchPath } from '../place'
+import { rejectionText } from '../rejection'
 import { clock } from './rows'
 
 /** How an event reads: red for an error, amber for a warning, plain otherwise. */
@@ -224,7 +225,7 @@ export function sentence(e: LogEvent, title?: string, recovery?: Recovery | null
     }
     case 'import_rejected': {
       const m2 = /^Import of (.+?) rejected: (.+)$/.exec(m)
-      return m2 ? make('Import rejected', 'error', details(m2[2], m2[1])) : make(m, 'error', '', 'error', false)
+      return m2 ? make('Import rejected', 'error', details(rejectionText(m2[2]), m2[1])) : make(m, 'error', '', 'error', false)
     }
     case 'import_stalled': {
       const m2 = /^Import of (.+?) stalled: (.+)$/.exec(m)
@@ -234,7 +235,7 @@ export function sentence(e: LogEvent, title?: string, recovery?: Recovery | null
       const code = /^(S\d+E\d+|[^:]+): /.exec(m)?.[1]
       if (data.status === 'imported' || / imported as /.test(m)) return make('Imported', 'import', details(code, str(data.file)))
       const reason = str(data.reason) ?? /\((.+)\)$/.exec(m)?.[1]
-      return make('Left alone', 'event', details(code, reason))
+      return make('Left alone', 'event', details(code, reason === undefined ? reason : rejectionText(reason)))
     }
     case 'adoption': {
       const slots = /\) in (.+)$/.exec(m)?.[1]
