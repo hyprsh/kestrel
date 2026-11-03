@@ -33,7 +33,7 @@ describe('the Title page header', () => {
     expect(menu.compareDocumentPosition(versions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(pane).getByRole('button', { name: 'Search Wanted' })).toBeInTheDocument()
     expect(within(pane).queryByRole('group', { name: 'Title actions' })).not.toBeInTheDocument()
-    expect(within(pane).queryByRole('button', { name: 'Search now' })).not.toBeInTheDocument()
+    expect(within(pane).queryByRole('button', { name: 'Search Now' })).not.toBeInTheDocument()
   })
 
   it('shows what is Wanted, downloading and next as badges, and the year and seasons on one line, and monitoring in its own button', async () => {
@@ -110,23 +110,23 @@ describe('the Title page header', () => {
     )
     const pane = await openTitle(/paddington/i)
 
-    await chooseTitleItem(pane, 'Refresh metadata', 'Metadata')
+    await chooseTitleItem(pane, 'Refresh Metadata', 'Metadata')
     await waitFor(() => expect(state.refreshes).toBe(1))
     expect(await findToast('Refreshing metadata… The Title updates when it is done.')).toBeInTheDocument()
 
-    await chooseTitleItem(pane, 'Freeze metadata', 'Metadata')
+    await chooseTitleItem(pane, 'Freeze Metadata', 'Metadata')
     await waitFor(() => expect(state.sent).toEqual([{ metadata_frozen: true }]))
     const menu = await openTitleSubmenu(pane, 'Metadata')
-    expect(await within(menu).findByRole('menuitem', { name: 'Unfreeze metadata' })).toBeInTheDocument()
-    const refresh = within(menu).getByRole('menuitem', { name: /Refresh metadata/ })
+    expect(await within(menu).findByRole('menuitem', { name: 'Unfreeze Metadata' })).toBeInTheDocument()
+    const refresh = within(menu).getByRole('menuitem', { name: /Refresh Metadata/ })
     expect(refresh).toHaveAttribute('aria-disabled', 'true')
     expect(refresh).toHaveAccessibleDescription('Metadata is frozen: unfreeze it to refresh')
     await userEvent.keyboard('{Escape}{Escape}') // the submenu, then the menu
 
-    await chooseTitleItem(pane, 'Unfreeze metadata', 'Metadata')
+    await chooseTitleItem(pane, 'Unfreeze Metadata', 'Metadata')
     await waitFor(() => expect(state.sent[1]).toEqual({ metadata_frozen: false }))
     const again = await openTitleSubmenu(pane, 'Metadata')
-    await waitFor(() => expect(within(again).getByRole('menuitem', { name: 'Refresh metadata' })).not.toHaveAttribute('aria-disabled', 'true'))
+    await waitFor(() => expect(within(again).getByRole('menuitem', { name: 'Refresh Metadata' })).not.toHaveAttribute('aria-disabled', 'true'))
   })
 })
 
@@ -281,7 +281,7 @@ describe('the Version rows', () => {
     expect(within(hd).getByText('x265 \u221210')).toBeInTheDocument()
   })
 
-  it('show a Wanted Movie Version for how many days, with Search now as its one action', async () => {
+  it('show a Wanted Movie Version for how many days, with Search Now as its one action', async () => {
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
     server.use(
@@ -298,7 +298,7 @@ describe('the Version rows', () => {
     expect(hd).toHaveTextContent('No file yet')
   })
 
-  it('keep Search now, Manual search, Change Profile, Delete files and Remove Version in a Movie row’s "…" menu, Delete files disabled without a file', async () => {
+  it('keep Search Now, Manual search, Change Profile, Delete files and Remove Version in a Movie row’s "…" menu, Delete files disabled without a file', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     const pane = await openTitle(/paddington/i)
 
@@ -308,11 +308,11 @@ describe('the Version rows', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Delete files…No file to delete', 'Remove Version…'])
-    expect(within(menu).getByRole('menuitem', { name: /Delete files/ })).toHaveAttribute('aria-disabled', 'true')
+    ).toEqual(['Search Now', 'Manual Search…', 'Change Profile…HD', 'Delete Files…No file to delete', 'Remove Version…'])
+    expect(within(menu).getByRole('menuitem', { name: /Delete Files/ })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('keep a Series Version’s menu to Search now, Manual search, Change Profile and Remove Version', async () => {
+  it('keep a Series Version’s menu to Search Now, Manual search, Change Profile and Remove Version', async () => {
     fakeSeries()
     const pane = await openTitle(/breaking bad/i)
 
@@ -323,6 +323,6 @@ describe('the Version rows', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['Search now', 'Manual search…', 'Change Profile…HD', 'Why is it Wanted?', 'Remove Version…'])
+    ).toEqual(['Search Now', 'Manual Search…', 'Change Profile…HD', 'Why Is It Wanted?', 'Remove Version…'])
   })
 })

@@ -54,7 +54,7 @@ export function MoveTitle({ title, onClose }: { title: TitleDetail; onClose: () 
           Cancel
         </ModalAction>
         <ModalAction disabled={picked === title.root_folder} onClick={confirm}>
-          Move here
+          Move Here
         </ModalAction>
       </ModalActions>
     </Modal>

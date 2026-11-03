@@ -227,11 +227,11 @@ describe('manual search', () => {
   it('searches again from the refresh button', async () => {
     const state = fakeSearch(releases())
     await openManualSearch()
-    await userEvent.click(screen.getByRole('button', { name: 'Search again' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Search Again' }))
     await waitFor(() => expect(state.searches).toBe(2))
   })
 
-  it('opens with the cached list and its age, and Search again asks the indexers', async () => {
+  it('opens with the cached list and its age, and Search Again asks the indexers', async () => {
     const bodies: unknown[] = []
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     server.use(
@@ -247,10 +247,10 @@ describe('manual search', () => {
     await openManualSearch()
 
     const line = await screen.findByText(/From a search/)
-    expect(line).toHaveTextContent('From a search 4 min ago · Search again · 1 release · 1 fit the Profile')
+    expect(line).toHaveTextContent('From a search 4 min ago · Search Again · 1 release · 1 fit the Profile')
     expect(bodies).toEqual([{}])
 
-    await userEvent.click(within(line).getByRole('button', { name: 'Search again' }))
+    await userEvent.click(within(line).getByRole('button', { name: 'Search Again' }))
     await screen.findByText(/1 indexer searched/)
     expect(bodies).toEqual([{}, { refresh: true }])
   })
@@ -300,11 +300,11 @@ describe('manual search', () => {
     expect(within(table).queryByText('Show.S05.GERMAN.2160p.WEB-GRP')).not.toBeInTheDocument()
   })
 
-  it('offers Show rejected when every Release is rejected', async () => {
+  it('offers Show Rejected when every Release is rejected', async () => {
     fakeSearch(releases().slice(1))
     const table = await openManualSearch()
     expect(screen.getByText('No Release fits the Profile.')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Show rejected' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show Rejected' }))
     expect(within(table).getAllByRole('row').slice(1)).toHaveLength(3)
   })
 
@@ -483,7 +483,7 @@ describe('manual search', () => {
       const table = await openManualSearch()
       await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
 
-      await userEvent.click(within(table).getByRole('button', { name: /^Grab anyway Show.S05.GERMAN/ }))
+      await userEvent.click(within(table).getByRole('button', { name: /^Grab Anyway Show.S05.GERMAN/ }))
       const dialog = await screen.findByRole('dialog')
       expect(dialog).toHaveTextContent('Grab anyway?')
       expect(dialog).toHaveTextContent('Not in the language the Profile requires')
@@ -585,7 +585,7 @@ describe('manual search', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Next Page' }))
       expect(within(table).getAllByRole('row').slice(1)).toHaveLength(19)
 
-      await userEvent.click(screen.getByRole('button', { name: /^Sort releases/ }))
+      await userEvent.click(screen.getByRole('button', { name: /^Sort Releases/ }))
       await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Smallest first' }))
       expect(location.search).not.toContain('page=')
       expect(location.search).toContain('sort=size%3Aasc')
@@ -609,13 +609,13 @@ describe('manual search', () => {
     it('is best first by default and sorts from the Best first menu, keeping the choice for the next search', async () => {
       fakeSearch(sized())
       const table = await openManualSearch()
-      expect(screen.getByRole('button', { name: 'Sort releases: Best first' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Sort Releases: Best first' })).toBeInTheDocument()
       expect(names(table)[0]).toContain('Paddington.B')
 
-      await userEvent.click(screen.getByRole('button', { name: 'Sort releases: Best first' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Sort Releases: Best first' }))
       await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Smallest first' }))
       expect(names(table)[0]).toContain('Paddington.B')
-      await userEvent.click(screen.getByRole('button', { name: 'Sort releases: Smallest first' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Sort Releases: Smallest first' }))
       await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Largest first' }))
       expect(names(table)[0]).toContain('Paddington.C')
 
@@ -623,14 +623,14 @@ describe('manual search', () => {
       history.replaceState(null, '', '/')
       fakeSearch(sized())
       await openManualSearch()
-      expect(screen.getByRole('button', { name: 'Sort releases: Largest first' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Sort Releases: Largest first' })).toBeInTheDocument()
     })
 
     it("starts on the household's default sort", async () => {
       fakeSearch(sized())
       serveDisplay({ manual_search_sort: 'size_asc' })
       await openManualSearch()
-      expect(screen.getByRole('button', { name: 'Sort releases: Smallest first' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Sort Releases: Smallest first' })).toBeInTheDocument()
     })
   })
 })

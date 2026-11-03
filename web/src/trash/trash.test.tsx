@@ -63,7 +63,7 @@ describe('Update from TRaSH', () => {
     ['updated', 'Updated to TRaSH commit abc1234'],
     ['up_to_date', 'Already up to date with TRaSH'],
     ['rejected', 'TRaSH’s newest set was rejected. The previous one stays in use.'],
-    ['unreachable', 'Could not reach TRaSH. Try again later.'],
+    ['unreachable', 'Could not reach TRaSH. Try Again later.'],
   ] as const)('reports a pass that ends %s in a Toast on whatever screen the user is on, not the outcome from before', async (kind, text) => {
     const state: { job: Job } = { job: trashJob({ outcome: { kind: 'up_to_date', text: 'old news', at: '2026-10-18T09:00:00Z' } }) }
     server.use(http.get('/jobs', ({ response }) => response(200).json({ items: [state.job] })))

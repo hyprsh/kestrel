@@ -48,7 +48,7 @@ function toConfig(manifest: PluginManifest, values: Values, secrets: Record<stri
 
 /**
  * A plugin's settings form, drawn from its manifest: it works for any plugin of any
- * contract. Test connection shows the live result and, once the connection works,
+ * contract. Test Connection shows the live result and, once the connection works,
  * turns the manifest's `live` fields into dropdowns of what the plugin reports.
  */
 export function InstanceForm({
@@ -188,7 +188,7 @@ export function InstanceForm({
 
       <div className="flex flex-wrap gap-2">
         <Button size="small" disabled={test.isPending} onClick={runTest}>
-          Test connection
+          Test Connection
         </Button>
         <Button size="small" variant="primary" typeName="submit" disabled={saving.isPending || (declared && !enabledOnly)}>
           Save

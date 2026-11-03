@@ -390,7 +390,7 @@ export function actionOf(e: LogEvent): EventAction | null {
     // A search that found nothing to grab opens that Version's Manual search, narrowed to the scope the search covered.
     if (e.kind === 'search' && e.message.includes('nothing to grab') && e.version_id != null) {
       const scope = str((e.data as Record<string, unknown> | null)?.scope) ?? searchResult(e.message)?.scope
-      return { label: 'Manual search', path: manualSearchPath({ titleId: e.title_id, versionId: e.version_id, scope: scope && /^S\d+(E\d+)?$/i.test(scope) ? scope.toUpperCase() : null }) }
+      return { label: 'Manual Search', path: manualSearchPath({ titleId: e.title_id, versionId: e.version_id, scope: scope && /^S\d+(E\d+)?$/i.test(scope) ? scope.toUpperCase() : null }) }
     }
     return { label: 'Open', title: e.title_id }
   }

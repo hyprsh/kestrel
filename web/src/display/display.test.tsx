@@ -40,8 +40,8 @@ const tabsOf = async () =>
     .map((b) => b.getAttribute('aria-label')?.split(':')[0])
 const rowsOf = (grid: HTMLElement) =>
   within(grid)
-    .getAllByRole('checkbox', { name: /^Tick Season/ })
-    .map((c) => c.getAttribute('aria-label')?.replace('Tick ', ''))
+    .getAllByRole('checkbox', { name: /^Select Season/ })
+    .map((c) => c.getAttribute('aria-label')?.replace('Select ', ''))
 
 beforeEach(() => localStorage.clear())
 
@@ -71,7 +71,7 @@ describe('season order in the episode table', () => {
     const grid = await openGrid()
     const row = (n: number) =>
       within(grid)
-        .getByRole('checkbox', { name: `Tick Season 3 episode ${n}` })
+        .getByRole('checkbox', { name: `Select Season 3 episode ${n}` })
         .closest('tr')!
     row(2).focus()
     await userEvent.keyboard('j')

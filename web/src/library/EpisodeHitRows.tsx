@@ -122,7 +122,7 @@ function SeasonButtons({ actions, season, episodes }: { actions: Pick<EpisodeAct
       >
         {wanted > 0 ? `Search ${wanted}` : 'Search'}
       </Button>
-      <ManualButton versions={actions.versions} text="Manual…" name={`Manual search ${name}`} keyboard={false} size="tiny" onPick={(v) => actions.manual(v, { season }, name)} />
+      <ManualButton versions={actions.versions} text="Manual…" name={`Manual Search ${name}`} keyboard={false} size="tiny" onPick={(v) => actions.manual(v, { season }, name)} />
     </>
   )
 }

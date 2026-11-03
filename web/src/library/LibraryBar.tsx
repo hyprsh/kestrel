@@ -33,11 +33,11 @@ export function StatusSection({ selected, counts, onSelect }: { selected: StateT
   )
 }
 
-/** The Library-wide actions that are not about the Titles shown: Adopt and Clean Up, and on a phone Tick Titles, since its rows show no tick boxes until then. */
+/** The Library-wide actions that are not about the Titles shown: Adopt and Clean Up, and on a phone Select Titles, since its rows show no tick boxes until then. */
 export function LibraryMenu({ onAdopt, onCleanup, onTick }: { onAdopt: () => void; onCleanup: () => void; onTick?: () => void }) {
   return (
     <DotsMenu aria-label="Library actions" width={240}>
-      {onTick && <MenuItem onSelect={onTick}>Tick Titles</MenuItem>}
+      {onTick && <MenuItem onSelect={onTick}>Select Titles</MenuItem>}
       <MenuItem onSelect={onAdopt} description="Take in files already on disk">
         Adopt Existing Library
       </MenuItem>

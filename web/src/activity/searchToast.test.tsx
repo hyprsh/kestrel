@@ -46,7 +46,7 @@ async function openHealth(jobs: Job[] = [searchJob]) {
   return section
 }
 
-const searchAll = () => screen.findByRole('button', { name: 'Search all Wanted' })
+const searchAll = () => screen.findByRole('button', { name: 'Search All Wanted' })
 const toast = async () => within(await toastRegion())
 
 beforeEach(() => {

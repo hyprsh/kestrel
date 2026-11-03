@@ -73,10 +73,10 @@ export function MonthCalendar({
       <div className="flex items-center justify-between">
         <h2 className="label-14 font-semibold">{title}</h2>
         <span className="flex items-center gap-0.5">
-          <Button variant="tertiary" size="tiny" svgOnly aria-label="Previous month" onClick={() => onMonth(shiftMonth(month, -1))}>
+          <Button variant="tertiary" size="tiny" svgOnly aria-label="Previous Month" onClick={() => onMonth(shiftMonth(month, -1))}>
             <ChevronLeft />
           </Button>
-          <Button variant="tertiary" size="tiny" svgOnly aria-label="Next month" onClick={() => onMonth(shiftMonth(month, 1))}>
+          <Button variant="tertiary" size="tiny" svgOnly aria-label="Next Month" onClick={() => onMonth(shiftMonth(month, 1))}>
             <ChevronRight />
           </Button>
         </span>

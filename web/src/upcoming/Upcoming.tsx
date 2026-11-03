@@ -491,7 +491,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
         actions={
           <DotsMenu aria-label="Upcoming actions" width={240}>
             <MenuItem onSelect={jumpToday} description="Scroll the agenda to today (t)">
-              Jump to today
+              Jump to Today
             </MenuItem>
           </DotsMenu>
         }
@@ -502,7 +502,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
               query={query}
               onQuery={onQuery}
               qualifiers={upcomingFacets}
-              label={phone ? 'Views and filter' : undefined}
+              label={phone ? 'Views and Filter' : undefined}
               // A phone's panel shows no Views, so they are the first section of its Filter menu.
               lead={
                 phone ? (
@@ -563,7 +563,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                           setView('all')
                         }}
                       >
-                        Show everything
+                        Show Everything
                       </Button>
                     </EmptyState>
                   )}
@@ -632,7 +632,7 @@ export function Upcoming({ query, onQuery, onOpenTitle }: { query: string; onQue
                   </UndatedList>
                   {undated.length > Math.max(undatedShown, sel - items.length + 1) && (
                     <Button variant="tertiary" size="small" onClick={() => setUndatedShown((n) => n + UNDATED_MORE)}>
-                      {`Show ${Math.min(UNDATED_MORE, undated.length - undatedShown)} more`}
+                      {`Show ${Math.min(UNDATED_MORE, undated.length - undatedShown)} More`}
                     </Button>
                   )}
                 </section>

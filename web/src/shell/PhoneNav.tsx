@@ -25,7 +25,7 @@ export function PhoneTabBar({
   onSearch: () => void
 }) {
   return (
-    <TabBar label="Screens" value={moreActive ? undefined : screen} onChange={onSelect} minimizeOnScroll accessory={{ label: 'Search or add', icon: <Search />, onClick: onSearch }}>
+    <TabBar label="Screens" value={moreActive ? undefined : screen} onChange={onSelect} minimizeOnScroll accessory={{ label: 'Search or Add', icon: <Search />, onClick: onSearch }}>
       {tabs.map((t) => (
         <TabBar.Item key={t.key} value={t.key} label={t.label} icon={t.icon} badge={t.badge} badgeTone={t.badgeTone} badgeLabel={t.badgeLabel} />
       ))}

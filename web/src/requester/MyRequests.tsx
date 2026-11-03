@@ -38,7 +38,7 @@ export function MyRequests({ list, requests }: { list: ReturnType<typeof useMyRe
       )}
       {list.hasNextPage && (
         <LoadMoreButton variant="secondary" size="small" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-          Show older Requests
+          Show Older Requests
         </LoadMoreButton>
       )}
     </section>

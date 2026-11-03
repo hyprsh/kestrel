@@ -120,13 +120,13 @@ function Form({ saved, instances, folders }: { saved: PlexSignIn; instances: str
                   options={[{ value: '', label: 'First Root folder' }, ...folders.series.map((p) => ({ value: p, label: p }))]}
                 />
                 <Button size="small" className="self-start" onClick={() => setRows((all) => all.filter((_, j) => j !== i))}>
-                  Remove user
+                  Remove User
                 </Button>
               </div>
             )
           })}
           <Button size="small" className="self-start" onClick={() => setRows((all) => [...all, { user: '', movies: null, series: null }])}>
-            Add user
+            Add User
           </Button>
         </div>
         <div className="flex flex-col gap-3">
@@ -167,7 +167,7 @@ function Form({ saved, instances, folders }: { saved: PlexSignIn; instances: str
           </Note>
         )}
         <Button size="small" variant="primary" typeName="submit" disabled={save.isPending} className="self-start">
-          Save Plex sign-in
+          Save Plex Sign-In
         </Button>
       </fieldset>
       {declared && <Note size="small">The Config File sets Plex sign-in, so it cannot be changed here. Change the file and restart Kestrel instead.</Note>}

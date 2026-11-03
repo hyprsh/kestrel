@@ -59,7 +59,7 @@ export function HeadingLink({ path, label }: { path: string; label: string }) {
 export function ViewAllHere({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
   return (
     <div className="mt-2">
-      <ShowMore noBorder expanded={open} moreLabel={`View all ${count}`} lessLabel="Show fewer" onClick={onToggle} />
+      <ShowMore noBorder expanded={open} moreLabel={`View All ${count}`} lessLabel="Show Fewer" onClick={onToggle} />
     </div>
   )
 }

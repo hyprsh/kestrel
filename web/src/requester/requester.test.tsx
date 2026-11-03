@@ -84,7 +84,7 @@ describe('the Requester app', () => {
     const { stop } = fakeRequester()
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Log Out' }))
-    expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Log In' })).toBeInTheDocument()
     stop()
   })
 

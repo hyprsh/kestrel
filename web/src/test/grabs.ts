@@ -32,7 +32,7 @@ export const grabEntry = (over: Partial<GrabEntry> = {}): GrabEntry => ({
   ...over,
 })
 
-/** A Blocklist entry made by "Cancel and blocklist", so with no Grab left behind. */
+/** A Blocklist entry made by "Cancel and Blocklist", so with no Grab left behind. */
 export const blockedEntry = (over: Partial<Blocked> = {}): Blocked => ({
   id: 7,
   release_name: 'Paddington.2014.1080p.BluRay.x264-BAD',

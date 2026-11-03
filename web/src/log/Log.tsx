@@ -163,17 +163,17 @@ function LogPanel({
               <MenuDivider />
               <MenuSection title="Sort">
                 <MenuItem role="radio" checked={sort === ''} onSelect={() => setSort('')}>
-                  Newest first
+                  Newest First
                 </MenuItem>
                 <MenuItem role="radio" checked={sort === 'oldest'} onSelect={() => setSort('oldest')}>
-                  Oldest first
+                  Oldest First
                 </MenuItem>
               </MenuSection>
               {follow && (
                 <>
                   <MenuDivider />
                   <MenuItem role="checkbox" checked={follow[0]} onSelect={() => follow[1](!follow[0])}>
-                    Follow live
+                    Follow Live
                   </MenuItem>
                 </>
               )}
@@ -196,7 +196,7 @@ function LogPanel({
               onQuery={onQuery}
               qualifiers={qualifiers}
               active={refinements(query, qualifiers)}
-              label="Views and filter"
+              label="Views and Filter"
               lead={<MenuSection title="Views">{viewItems}</MenuSection>}
             />
           ) : (
@@ -239,7 +239,7 @@ function LogPanel({
           <div className="flex w-full flex-col gap-2">
             {follow && (
               <Toggle size="small" checked={follow[0]} onChange={follow[1]} labelCasing="normal" direction="switch-first">
-                Follow live
+                Follow Live
               </Toggle>
             )}
             {foot && <span>{foot}</span>}

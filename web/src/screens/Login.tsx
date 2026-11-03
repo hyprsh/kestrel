@@ -79,11 +79,11 @@ export function Login() {
           </Note>
         )}
         <Button variant="primary" typeName="submit" loading={login.isPending}>
-          Log in
+          Log In
         </Button>
         {plexAvailable.data && (
           <Button typeName="button" loading={startPlex.isPending} onClick={signInWithPlex}>
-            Sign in with Plex
+            Sign In With Plex
           </Button>
         )}
         {finishPlex.isError && (

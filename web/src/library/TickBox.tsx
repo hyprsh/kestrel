@@ -8,7 +8,7 @@ export function TickBox({
   selection,
   id,
   name,
-  verb = 'Tick',
+  verb = 'Select',
   cell,
   tabIndex,
   onFocus,
@@ -16,7 +16,7 @@ export function TickBox({
   selection: Selection
   id: number
   name: string
-  verb?: 'Tick' | 'Select'
+  verb?: 'Select'
   cell?: string
   tabIndex?: number
   onFocus?: () => void

@@ -72,7 +72,7 @@ export function DownloadClientSection() {
       <SettingsBlock>
         <Note size="small">No download client yet. Kestrel cannot send anything to be downloaded without one.</Note>
         <Button size="small" className="self-start" disabled={!manifest} onClick={() => setEditing(true)}>
-          Add download client…
+          Add Download Client…
         </Button>
         {sheet}
       </SettingsBlock>,

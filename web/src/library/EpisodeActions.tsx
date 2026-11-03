@@ -248,7 +248,7 @@ export function RowButtons({ actions, episode }: { actions: Pick<EpisodeActions,
       <ManualButton
         versions={versions}
         text="Manual…"
-        name={`Manual search ${code}`}
+        name={`Manual Search ${code}`}
         icon={ListFilter}
         keyboard={false}
         size="tiny"
@@ -322,7 +322,7 @@ export function SeasonSearchButton({ actions, season, episodes }: { actions: Pic
   const wanted = wantedIn(episodes, actions.versions)
   return (
     <Button variant="secondary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(episodes, seasonName(season), () => ({ season }))}>
-      Search season
+      Search Season
     </Button>
   )
 }
@@ -367,7 +367,7 @@ export function SeasonMenu({
         <>
           <MenuDivider />
           <MenuItem prefix={<ListChecks aria-hidden className="size-4" />} disabled={episodes.length === 0} onSelect={() => (all ? selection.clear() : selection.checkAll())}>
-            {all ? `Untick All of ${name}` : `Tick All of ${name}`}
+            {all ? `Deselect All of ${name}` : `Select All of ${name}`}
           </MenuItem>
         </>
       )}
@@ -407,7 +407,7 @@ export function TickedBar({ actions }: { actions: EpisodeActions }) {
             <Button variant="primary" size="small" disabled={!wanted} title={wanted ? undefined : nothingWanted} onClick={() => actions.search(ticked, label, (ids) => ({ episode_ids: ids }))}>
               Search
             </Button>
-            <DotsMenu aria-label="More actions for the ticked episodes" size="small" position="top-end" width={240}>
+            <DotsMenu aria-label="More actions for the selected episodes" size="small" position="top-end" width={240}>
               <ManualItems versions={versions} onPick={(v) => actions.manual(v, { season, episode_ids: ticked.map((e) => e.id) }, label)} />
               <MenuDivider />
               <DeleteMenuItems deletes={actions.deletes} versions={versions} episodes={ticked} label={label} scope={{ episode_ids: ticked.map((e) => e.id) }} text="Files" at={null} />

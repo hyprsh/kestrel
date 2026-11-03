@@ -128,7 +128,7 @@ export function BulkActions({
           ) : (
             <>
               {search}
-              <DotsMenu aria-label="More actions for the ticked Titles" size="small" position="top-end" width={220} disabled={busy}>
+              <DotsMenu aria-label="More actions for the selected Titles" size="small" position="top-end" width={220} disabled={busy}>
                 {rarer.map((group, i) => (
                   <Fragment key={i}>
                     {i > 0 && <MenuDivider />}

@@ -131,12 +131,12 @@ describe('Needs attention', () => {
         .map((r) => r.textContent)
     expect(messages()).toEqual([1, 2, 3, 4, 5].map((n) => expect.stringContaining(`Warning ${n}`)))
 
-    const more = within(section).getByRole('button', { name: 'View all 7' })
+    const more = within(section).getByRole('button', { name: 'View All 7' })
     expect(more).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(more)
     expect(messages()).toEqual([1, 2, 3, 4, 5, 6, 7].map((n) => expect.stringContaining(`Warning ${n}`)))
 
-    await userEvent.click(within(section).getByRole('button', { name: 'Show fewer' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Show Fewer' }))
     expect(messages()).toHaveLength(5)
   })
 
@@ -150,10 +150,10 @@ describe('Needs attention', () => {
       .getAllByRole('listitem')
       .map((r) => r.textContent)
     expect(messages).toEqual([1, 2, 3, 4, 5, 6].map((n) => expect.stringContaining(`Blocking ${n}`)))
-    expect(within(section).getByRole('button', { name: 'View all 7' })).toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: 'View All 7' })).toBeInTheDocument()
   })
 
-  it('has no "View all" when every row is showing', async () => {
+  it('has no "View All" when every row is showing', async () => {
     fakeAttention([sabRow(), exdevRow()])
     renderApp()
 

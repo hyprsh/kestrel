@@ -37,7 +37,7 @@ export function MonitorToggle({
       size={size}
       svgOnly
       aria-pressed={monitored}
-      aria-label={`${monitored ? 'Stop monitoring' : 'Monitor'} ${name}`}
+      aria-label={`${monitored ? 'Stop Monitoring' : 'Monitor'} ${name}`}
       title={monitored ? 'Monitored' : 'Not monitored'}
       tabIndex={tabIndex}
       onFocus={onFocus}

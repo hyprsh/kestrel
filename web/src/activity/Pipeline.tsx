@@ -187,7 +187,7 @@ function HistoryEnd({ history }: { history: NonNullable<PipelineData['history']>
     <div ref={end} className="label-12 px-4 py-3 text-gray-900">
       {hasMore ? (
         <Button variant="secondary" size="small" disabled={loading} onClick={loadMore}>
-          {loading ? 'Loading older Grabs…' : 'Load older Grabs'}
+          {loading ? 'Loading Older Grabs…' : 'Load Older Grabs'}
         </Button>
       ) : (
         'That is all the history.'

@@ -64,7 +64,7 @@ describe("deleting a Movie's file", () => {
     const hd = await openFilledMovie()
 
     await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     const confirm = within(hd).getByRole('dialog', { name: 'Delete files' })
     expect(confirm).toHaveTextContent('Paddington (2014) - [Standard].mkv')
     expect(confirm).toHaveTextContent('4 GB')
@@ -80,8 +80,8 @@ describe("deleting a Movie's file", () => {
     const hd = await openFilledMovie()
 
     await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
-    await userEvent.click(within(hd).getByRole('button', { name: 'Delete and blocklist this Release' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
+    await userEvent.click(within(hd).getByRole('button', { name: 'Delete and Blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 11, query: 'blocklist=true' }]))
     expect(await findToast(/not blocklisted/)).toBeInTheDocument()
@@ -92,7 +92,7 @@ describe("deleting a Movie's file", () => {
     const hd = await openFilledMovie()
 
     await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
 
     const toast = await findToast(/Could not delete Paddington.mkv: permission denied./)
@@ -106,7 +106,7 @@ describe("deleting a Movie's file", () => {
     const hd = await openFilledMovie()
 
     await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Delete' }))
 
     expect(await findToast('Could not delete the files: disk offline')).toBeInTheDocument()
@@ -118,7 +118,7 @@ describe("deleting a Movie's file", () => {
     const hd = await openFilledMovie()
 
     await userEvent.click(within(hd).getByRole('button', { name: 'Standard Version actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete files…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Files…' }))
     await userEvent.click(within(hd).getByRole('button', { name: 'Cancel' }))
 
     expect(within(hd).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument()
@@ -176,7 +176,7 @@ describe('deleting files from the episode table', () => {
 
   it("asks right under the episode's row, with focus on the question, and Escape takes it back to the row", async () => {
     const { grid, sent } = await openSeriesWithFiles()
-    const pilot = within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })
+    const pilot = within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' })
 
     await choose(grid, 'Actions for Season 1 episode 1', 'Delete Standard Files…')
 
@@ -252,7 +252,7 @@ describe('deleting files from the episode table', () => {
     const { sent } = await openSeriesWithFiles()
 
     await choose(null, 'Season 1 actions', "Delete Standard Season's Files…")
-    await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete and blocklist this Release' }))
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete files' })).getByRole('button', { name: 'Delete and Blocklist this Release' }))
 
     await waitFor(() => expect(sent).toEqual([{ version: 51, query: 'season=1&blocklist=true' }]))
   })
@@ -260,9 +260,9 @@ describe('deleting files from the episode table', () => {
   it('deletes the files of the ticked episodes', async () => {
     const { grid, sent } = await openSeriesWithFiles()
 
-    await userEvent.click(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' }))
+    await userEvent.click(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 2' }))
     const bar = actionBar()
-    await choose(null, 'More actions for the ticked episodes', 'Delete Standard Files…')
+    await choose(null, 'More actions for the selected episodes', 'Delete Standard Files…')
     expect(screen.getByRole('dialog', { name: 'Delete files' })).toHaveTextContent('S01E01 shares a file with it')
     expect(within(grid).queryByRole('dialog', { name: 'Delete files' })).not.toBeInTheDocument() // above the bar for ticked episodes
     expect(bar.previousElementSibling).toContainElement(screen.getByRole('dialog', { name: 'Delete files' })) // right above the bar

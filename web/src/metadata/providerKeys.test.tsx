@@ -40,9 +40,9 @@ describe('Provider keys', () => {
     renderForm()
 
     await userEvent.type(await screen.findByLabelText('TMDB API key'), ' my-key ')
-    await userEvent.click(screen.getByRole('button', { name: 'Save keys' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Keys' }))
 
-    await screen.findByRole('button', { name: 'Remove TMDB override' })
+    await screen.findByRole('button', { name: 'Remove TMDB Override' })
     expect(bodies).toEqual([{ metadata: { tmdb_api_key: 'my-key' } }])
   })
 
@@ -57,7 +57,7 @@ describe('Provider keys', () => {
     )
     renderForm()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove TMDB override' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove TMDB Override' }))
 
     expect(bodies).toEqual([{ metadata: { tmdb_api_key: '' } }])
   })

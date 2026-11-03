@@ -62,7 +62,7 @@ describe('Settings media servers', () => {
     await userEvent.click(form.getByRole('button', { name: 'Cancel' }))
     expect(section.queryByRole('form')).not.toBeInTheDocument()
 
-    await userEvent.click(section.getByRole('button', { name: 'Add media server' }))
+    await userEvent.click(section.getByRole('button', { name: 'Add Media Server' }))
     expect(await section.findByRole('form', { name: 'New media server' })).toBeInTheDocument()
   })
 })

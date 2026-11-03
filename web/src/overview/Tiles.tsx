@@ -48,13 +48,13 @@ export function Tiles({ stats, phone }: { stats: Stats; phone: boolean }) {
           </>
         ) : (
           <>
-            <Drill to={placePath('activity', activityQuery({ from: stats.from, to: stats.to }))} label="Open these Grabs in Activity" className={value}>
+            <Drill to={placePath('activity', activityQuery({ from: stats.from, to: stats.to }))} label="Open These Grabs in Activity" className={value}>
               {total}
             </Drill>
             <span className={note}>
               {`${Math.round((grabs.imported / total) * 100)}% imported · `}
               {grabs.failed > 0 ? (
-                <Drill to={placePath('activity', activityQuery({ from: stats.from, to: stats.to, stage: 'failed' }))} label="Open the failed Grabs in Activity">
+                <Drill to={placePath('activity', activityQuery({ from: stats.from, to: stats.to, stage: 'failed' }))} label="Open the Failed Grabs in Activity">
                   {`${grabs.failed} failed`}
                 </Drill>
               ) : (

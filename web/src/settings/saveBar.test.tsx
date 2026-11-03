@@ -20,11 +20,11 @@ describe('leaving Settings with unsaved changes', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Library' }))
     const ask = await screen.findByRole('dialog', { name: 'Leave without saving?' })
-    await userEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }))
+    await userEvent.click(within(ask).getByRole('button', { name: 'Keep Editing' }))
     expect(screen.getByLabelText('Primary language')).toHaveValue('de')
 
     await userEvent.click(screen.getByRole('button', { name: 'Library' }))
-    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and leave' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Leave without saving?' })).getByRole('button', { name: 'Discard and Leave' }))
     await waitFor(() => expect(screen.queryByLabelText('Primary language')).not.toBeInTheDocument())
   })
 

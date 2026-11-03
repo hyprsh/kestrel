@@ -55,7 +55,7 @@ async function openSeries() {
 
 const rowOf = (grid: HTMLElement, episode: string) =>
   within(grid)
-    .getByRole('checkbox', { name: `Tick ${episode}` })
+    .getByRole('checkbox', { name: `Select ${episode}` })
     .closest('tr')!
 
 describe('episode titles', () => {
@@ -118,7 +118,7 @@ describe('the file of an episode Slot, in the opened row', () => {
     expect(within(placeholder).getByTitle('Standard: Wanted')).toBeInTheDocument()
   })
 
-  it('opens the popover of a Wanted Slot with when it was last searched, how many releases named it and how it ended, and Search and Manual Search', async () => {
+  it('opens the popover of a Wanted Slot with when it was last searched, how many releases named it and how it ended, and Search and Manual search', async () => {
     const { user, grid } = await openSeries()
     await user.click(chipOf(grid, 'S01E03', '4K'))
     const pop = await screen.findByRole('dialog', { name: 'S01E03 4K' })

@@ -120,13 +120,13 @@ describe('the one action of an event', () => {
     expect(actionOf(ev('import', 'Imported R as /x'))).toEqual({ label: 'Open', title: 3 })
     // Without a Version to search an event only opens the Title.
     expect(actionOf(ev('search', 'Searched by hand in Standard: nothing to grab'))).toEqual({ label: 'Open', title: 3 })
-    expect(actionOf(ev('search', 'Searched in Standard: nothing to grab', null, { version_id: 9 }))).toEqual({ label: 'Manual search', path: '/library/3/search?version=9' })
+    expect(actionOf(ev('search', 'Searched in Standard: nothing to grab', null, { version_id: 9 }))).toEqual({ label: 'Manual Search', path: '/library/3/search?version=9' })
     expect(actionOf(ev('search', 'Searched by hand for S05 in 4K: nothing to grab', { scope: 'S05' }, { version_id: 9 }))).toEqual({
-      label: 'Manual search',
+      label: 'Manual Search',
       path: '/library/3/search?version=9&scope=S05',
     })
-    expect(actionOf(ev('search', 'Searched by hand for S01E02 in 4K: nothing to grab', null, { version_id: 9 }))).toEqual({ label: 'Manual search', path: '/library/3/search?version=9&scope=S01E02' })
-    expect(actionOf(ev('search', 'Searched for Upgrades in 4K: nothing to grab', null, { version_id: 9 }))).toEqual({ label: 'Manual search', path: '/library/3/search?version=9' })
+    expect(actionOf(ev('search', 'Searched by hand for S01E02 in 4K: nothing to grab', null, { version_id: 9 }))).toEqual({ label: 'Manual Search', path: '/library/3/search?version=9&scope=S01E02' })
+    expect(actionOf(ev('search', 'Searched for Upgrades in 4K: nothing to grab', null, { version_id: 9 }))).toEqual({ label: 'Manual Search', path: '/library/3/search?version=9' })
     expect(actionOf(ev('health_cleared', 'Cleared: x', null, { title_id: null }))).toBeNull()
   })
 })

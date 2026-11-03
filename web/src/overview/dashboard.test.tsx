@@ -378,11 +378,11 @@ describe('Library quality, Storage, release groups and Requests', () => {
     const card = await screen.findByRole('region', { name: 'Top release groups' })
     const items = () => within(within(card).getByRole('list', { name: 'Top release groups' })).getAllByRole('listitem')
     expect(items()).toHaveLength(5)
-    const more = within(card).getByRole('button', { name: 'View all 8' })
+    const more = within(card).getByRole('button', { name: 'View All 8' })
     expect(more).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(more)
     expect(items()).toHaveLength(8)
-    await userEvent.click(within(card).getByRole('button', { name: 'Show fewer' }))
+    await userEvent.click(within(card).getByRole('button', { name: 'Show Fewer' }))
     expect(items()).toHaveLength(5)
   })
 
@@ -390,7 +390,7 @@ describe('Library quality, Storage, release groups and Requests', () => {
     fakeStats()
     renderOverview()
     const card = await screen.findByRole('region', { name: 'Top release groups' })
-    expect(within(card).queryByRole('button', { name: /View all/ })).toBeNull()
+    expect(within(card).queryByRole('button', { name: /View All/ })).toBeNull()
   })
 
   it('counts the Requests, how fast they were filled and who asked', async () => {

@@ -38,7 +38,7 @@ export function ProviderKeysForm() {
       />
       {set.tmdb_api_key_set && (
         <Button size="small" disabled={patch.isPending} onClick={() => clear('tmdb_api_key')} className="self-start">
-          Remove TMDB override
+          Remove TMDB Override
         </Button>
       )}
       <Input
@@ -52,7 +52,7 @@ export function ProviderKeysForm() {
       />
       {set.tvdb_api_key_set && (
         <Button size="small" disabled={patch.isPending} onClick={() => clear('tvdb_api_key')} className="self-start">
-          Remove TheTVDB override
+          Remove TheTVDB Override
         </Button>
       )}
       {patch.isError && (
@@ -61,7 +61,7 @@ export function ProviderKeysForm() {
         </Note>
       )}
       <Button size="small" variant="primary" typeName="submit" disabled={patch.isPending || (!tmdb.trim() && !tvdb.trim())} className="self-start">
-        Save keys
+        Save Keys
       </Button>
     </form>
   )

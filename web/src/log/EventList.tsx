@@ -246,7 +246,7 @@ function FoldRow({
             <li className="flex items-center gap-2 px-4 py-1.5 pl-[104px] text-[13px] max-sm:pl-4">
               <span>… {events.length - FOLD_SHOWN} more</span>
               <Link as="button" onClick={onShowAll}>
-                Show all
+                Show All
               </Link>
             </li>
           )}

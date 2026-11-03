@@ -160,7 +160,7 @@ export function EpisodeList({
               <TableRow>
                 <TableHead className="w-9 px-2">
                   <Checkbox
-                    aria-label={`Tick all of ${season === 0 ? 'Specials' : `Season ${season}`}`}
+                    aria-label={`Select All of ${season === 0 ? 'Specials' : `Season ${season}`}`}
                     checked={episodes.length > 0 && ticked === episodes.length}
                     indeterminate={ticked > 0 && ticked < episodes.length}
                     tabIndex={-1}

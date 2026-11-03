@@ -16,7 +16,7 @@ export function queryActionBar(): HTMLElement | null {
 }
 
 /**
- * Runs one of the bar's quiet actions (Select all, a `secondaryActions` entry): its text button when the bar is wide, else
+ * Runs one of the bar's quiet actions (Select All, a `secondaryActions` entry): its text button when the bar is wide, else
  * the item of its More actions menu, which is where jsdom's zero-width container puts it.
  */
 export async function runQuiet(bar: HTMLElement, name: string | RegExp) {

@@ -88,7 +88,7 @@ describe("a Title's downloads on its page", () => {
     await within(hd).findByText('Release')
 
     await openVersionMenu(pane, 'Standard')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel download' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel Download' }))
 
     expect(state.cancels).toEqual([{ id: '7', body: { blocklist: false } }])
     expect(await findToast('Grab cancelled')).toBeInTheDocument()
@@ -111,7 +111,7 @@ describe("a Title's downloads on its page", () => {
     await within(hd).findByText('Release')
 
     await openVersionMenu(pane, 'Standard')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel and blocklist' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel and Blocklist' }))
 
     expect(state.cancels).toEqual([{ id: '7', body: { blocklist: true } }])
     expect(await findToast('Grab cancelled and its Release blocklisted')).toBeInTheDocument()

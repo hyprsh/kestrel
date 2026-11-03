@@ -308,7 +308,7 @@ function SheetForm({ profile: p, detail, declared, onClose }: { profile: Profile
               {formats.length > shown.length && ' …'}{' '}
               {formats.length > 3 && (
                 <Button size="tiny" variant="tertiary" onClick={() => setAllFormats((a) => !a)}>
-                  {allFormats ? 'Show fewer' : 'Show all'}
+                  {allFormats ? 'Show Fewer' : 'Show All'}
                 </Button>
               )}
             </p>

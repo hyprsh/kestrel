@@ -242,7 +242,7 @@ describe('on a phone', () => {
     const pilot = within(grid).getByRole('row', { name: /Pilot/ })
     expect(pilot.querySelectorAll('[data-slot]')).toHaveLength(4)
     expect(within(pilot).getByText('E01')).toBeInTheDocument()
-    expect(within(pilot).getByRole('button', { name: 'Stop monitoring S01E01' })).toBeInTheDocument()
+    expect(within(pilot).getByRole('button', { name: 'Stop Monitoring S01E01' })).toBeInTheDocument()
 
     // Tapping a chip opens its popover; tapping the row does nothing.
     await userEvent.click(within(pilot).getByText('Pilot'))
@@ -255,7 +255,7 @@ describe('on a phone', () => {
 describe('the episode table on a phone', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('has no header row above its rows, keeps each name and its chips on one line, and ticks all from the season menu', async () => {
+  it('has no header row above its rows, keeps each name and its chips on one line, and selects all from the season menu', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
     const state = await openFourSlotSeries()
     state.get().episodes = [
@@ -269,18 +269,18 @@ describe('the episode table on a phone', () => {
 
     // Nothing heads the one column: no header row and no tick-all box above the rows.
     expect(within(grid).queryAllByRole('columnheader')).toHaveLength(0)
-    expect(within(grid).queryByRole('checkbox', { name: 'Tick all of Season 1' })).not.toBeInTheDocument()
+    expect(within(grid).queryByRole('checkbox', { name: 'Select All of Season 1' })).not.toBeInTheDocument()
     // The name and its chips share one container, so they sit on one line when they fit.
     const pilot = within(grid).getByRole('row', { name: /Pilot/ })
     expect(within(pilot).getByText('Pilot').closest('div')).toContainElement(pilot.querySelector('[data-slot]') as HTMLElement)
 
     // Select-all is in the season's menu.
     await userEvent.click(screen.getByRole('button', { name: 'Season 1 actions' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tick All of Season 1' }))
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toBeChecked()
-    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' })).toBeChecked()
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Select All of Season 1' }))
+    expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 1' })).toBeChecked()
+    expect(within(grid).getByRole('checkbox', { name: 'Select Season 1 episode 2' })).toBeChecked()
     await userEvent.click(screen.getByRole('button', { name: 'Season 1 actions' }))
-    expect(await screen.findByRole('menuitem', { name: 'Untick All of Season 1' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Deselect All of Season 1' })).toBeInTheDocument()
   })
 })
 

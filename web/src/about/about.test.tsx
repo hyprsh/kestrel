@@ -74,7 +74,7 @@ describe('About', () => {
     ).toContain('Open the command menu: jump to a Title or screen, add a Title, run an action')
     expect(within(shortcuts).getAllByRole('term')).toHaveLength(5)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show notices' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Show Notices' }))
     expect(await screen.findByLabelText('Notices text')).toHaveTextContent('Radarr and Sonarr')
   })
 

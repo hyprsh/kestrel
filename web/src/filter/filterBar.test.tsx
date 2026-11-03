@@ -11,15 +11,15 @@ function Bar({ start = '' }: { start?: string }) {
 }
 
 describe('FilterBar', () => {
-  it('shows a Clear filter button only while the field has text, and clearing keeps focus in the field', async () => {
+  it('shows a Clear Filter button only while the field has text, and clearing keeps focus in the field', async () => {
     render(<Bar />)
     const field = screen.getByRole('combobox', { name: 'Filter things' })
-    expect(screen.queryByRole('button', { name: 'Clear filter' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear Filter' })).not.toBeInTheDocument()
     await userEvent.type(field, 'kind:movie alien')
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear Filter' }))
     expect(field).toHaveValue('')
     expect(field).toHaveFocus()
-    expect(screen.queryByRole('button', { name: 'Clear filter' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear Filter' })).not.toBeInTheDocument()
   })
 
   it('clears a field with text on Escape and stays in it', async () => {

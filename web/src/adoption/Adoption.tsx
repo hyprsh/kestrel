@@ -45,7 +45,7 @@ const filters: { key: Filter; label: string }[] = [
 
 const monitorLabel: Record<AdoptionMonitor, string> = { all: 'Monitored', future: 'Series: future episodes only', none: 'Unmonitored' }
 /** The bar's quiet action for each monitoring the selected rows can be set to. */
-const monitorAction: Record<AdoptionMonitor, string> = { all: 'Monitor', future: 'Monitor future episodes only', none: 'Unmonitor' }
+const monitorAction: Record<AdoptionMonitor, string> = { all: 'Monitor', future: 'Monitor Future Episodes Only', none: 'Unmonitor' }
 const planMonitorOptions = (['all', 'future', 'none'] as const).map((value) => ({ value, label: monitorLabel[value] }))
 /** A row's choices: a Series has Add Title's three that need no season list, a Movie is monitored or not. */
 const rowMonitorOptions = (kind: AdoptionRow['kind']) =>
@@ -176,8 +176,8 @@ export function Adoption({ embedded = false }: { embedded?: boolean } = {}) {
             )}
             {p.result && <Kept result={p.result} actions={{ onRetry: () => retry.mutate(), onReopen: () => reopen.mutate(), busy: retry.isPending || reopen.isPending }} />}
             <div>
-              <Button variant="primary" size="small" onClick={() => started(scan.mutateAsync(), 'Scan for existing files started')} disabled={scan.isPending}>
-                Scan for existing files
+              <Button variant="primary" size="small" onClick={() => started(scan.mutateAsync(), 'Scan for unmanaged files started')} disabled={scan.isPending}>
+                Scan for Unmanaged Files
               </Button>
             </div>
           </div>
@@ -219,7 +219,7 @@ function Kept({ result, actions }: { result: NonNullable<AdoptionPlan['result']>
         action={
           result.adopted > 0 ? (
             <Button size="small" onClick={() => openCleanup(result.title_ids)}>
-              Clean up adopted folders
+              Clean Up Adopted Folders
             </Button>
           ) : undefined
         }
@@ -289,7 +289,7 @@ function Plan({
         />
         <div className="ml-auto flex gap-2 max-sm:ml-0 max-sm:[&>*]:flex-1">
           <Button size="small" onClick={onDiscard} disabled={busy}>
-            Discard plan
+            Discard Plan
           </Button>
           <Button variant="primary" size="small" onClick={onCommit} disabled={busy || summary.adopting === 0}>
             Adopt {summary.adopting} {summary.adopting === 1 ? 'Title' : 'Titles'}
@@ -314,11 +314,11 @@ function Plan({
       {!selection.active && rows.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button variant="tertiary" size="small" onClick={selection.checkAll}>
-            Select all {rows.length} shown
+            Select All {rows.length} Shown
           </Button>
           {total > rows.length && (
             <Button variant="tertiary" size="small" onClick={selection.checkMatching}>
-              Select all {total} in this filter
+              Select All {total} in This Filter
             </Button>
           )}
         </div>
@@ -367,7 +367,7 @@ function Plan({
             </span>
             {list.hasNextPage && (
               <LoadMoreButton size="small" noGap loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-                Show more
+                Show More
               </LoadMoreButton>
             )}
           </div>
@@ -383,13 +383,13 @@ function Plan({
           onClear: selection.clear,
         }}
         secondaryActions={[
-          { label: "Don't adopt selected", disabled: bulk.isPending, onSelect: () => run('untick') },
-          { label: 'Accept suggested matches', disabled: bulk.isPending, onSelect: () => run('accept_suggested') },
+          { label: "Don't Adopt Selected", disabled: bulk.isPending, onSelect: () => run('untick') },
+          { label: 'Accept Suggested Matches', disabled: bulk.isPending, onSelect: () => run('accept_suggested') },
           ...(['all', 'future', 'none'] as const).map((m) => ({ label: monitorAction[m], disabled: bulk.isPending, onSelect: () => run('set_monitor', m) })),
         ]}
         actions={
           <Button variant="primary" size="small" onClick={() => run('tick')} disabled={bulk.isPending}>
-            Adopt selected
+            Adopt Selected
           </Button>
         }
       />
@@ -527,7 +527,7 @@ function NeedsChoice({ row }: { row: AdoptionRow }) {
         <div className="mt-2 flex flex-wrap gap-2">
           {row.candidates.map((c) => (
             <Button key={c.tmdb_id} variant={c.suggested ? 'primary' : undefined} size="small" onClick={() => choose(c.tmdb_id)} disabled={patch.isPending}>
-              {c.suggested ? 'Accept suggested match: ' : 'Use '}
+              {c.suggested ? 'Accept Suggested Match: ' : 'Use '}
               {c.title}
               {c.year ? ` (${c.year})` : ''}
             </Button>

@@ -28,7 +28,7 @@ const stuckRow: Row = {
       body: { blocklist: true },
       confirm: 'Cancel this download and blocklist the Release?',
     },
-    { key: 'cancel', label: 'Cancel download', method: 'POST', path: '/grabs/7/cancel', body: null, confirm: 'Cancel this download?' },
+    { key: 'cancel', label: 'Cancel Download', method: 'POST', path: '/grabs/7/cancel', body: null, confirm: 'Cancel this download?' },
   ],
 }
 
@@ -71,9 +71,9 @@ describe('A Stuck download in Needs attention', () => {
     renderApp()
 
     await userEvent.click(await screen.findByRole('button', { name: 'More Actions' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Cancel download' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Cancel Download' }))
     const dialog = await screen.findByRole('alertdialog')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel download' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel Download' }))
 
     await vi.waitFor(() => expect(state.cancels).toEqual([null]))
     await vi.waitFor(() => expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument())

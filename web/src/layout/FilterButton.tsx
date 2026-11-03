@@ -97,7 +97,7 @@ export function FacetFilterButton({
   const active = activeCount ?? new Set(parsed.terms.filter((t) => names.has(t.name)).map((t) => t.name)).size
   return (
     <FilterButton count={active + leadActive} label={label}>
-      {active + leadActive > 0 && <MenuItem onSelect={() => onQuery('')}>Clear all</MenuItem>}
+      {active + leadActive > 0 && <MenuItem onSelect={() => onQuery('')}>Clear All</MenuItem>}
       {lead}
       {facets.map((f, i) => {
         const included = new Set(parsed.terms.filter((t) => t.name === f.name && !t.excluded).flatMap((t) => t.values))

@@ -41,8 +41,8 @@ describe('the figures and cards that open the data behind them', () => {
     renderOverview(open)
 
     const tile = await screen.findByRole('group', { name: 'Grabs · 30 d' })
-    expect(await opens(tile, 'Open these Grabs in Activity', open)).toBe('activity?from:2026-10-02 to:2026-10-31')
-    expect(await opens(tile, 'Open the failed Grabs in Activity', open)).toBe('activity?stage:failed from:2026-10-02 to:2026-10-31')
+    expect(await opens(tile, 'Open These Grabs in Activity', open)).toBe('activity?from:2026-10-02 to:2026-10-31')
+    expect(await opens(tile, 'Open the Failed Grabs in Activity', open)).toBe('activity?stage:failed from:2026-10-02 to:2026-10-31')
   })
 
   it('leaves the Grabs figure alone when nothing finished', async () => {
@@ -68,7 +68,7 @@ describe('the figures and cards that open the data behind them', () => {
 
     const card = await screen.findByRole('region', { name: 'Requests' })
     expect(await opens(card, 'Open every Request', open)).toBe('requests?')
-    expect(await opens(card, 'Open the open Requests', open)).toBe('requests?status:open')
+    expect(await opens(card, 'Open the Open Requests', open)).toBe('requests?status:open')
     expect(await opens(card, "Open Ellie's Requests", open)).toBe('requests?requester:Ellie')
   })
 })

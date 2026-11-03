@@ -76,8 +76,8 @@ export function AgendaRow({ item, queue, status, today, now, current, index, onO
       <div className="relative flex items-center gap-2">
         <span className="pointer-events-auto relative">{chips}</span>
         {status.wanted.length > 0 && status.kind === 'missing' && (
-          <Button variant="tertiary" size="tiny" aria-label={`Search now for ${item.title} ${what}`} onClick={() => onSearch(status.wanted)}>
-            Search now
+          <Button variant="tertiary" size="tiny" aria-label={`Search Now for ${item.title} ${what}`} onClick={() => onSearch(status.wanted)}>
+            Search Now
           </Button>
         )}
       </div>

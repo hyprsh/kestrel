@@ -39,7 +39,7 @@ describe('A waiting Adoption plan', () => {
 
     const section = await screen.findByRole('region', { name: /needs attention/i })
     expect(await within(section).findByText('An Adoption plan is waiting for review (2 need a choice)')).toBeInTheDocument()
-    await user.click(within(section).getByRole('button', { name: 'Review the Adoption plan' }))
+    await user.click(within(section).getByRole('button', { name: 'Review the Adoption Plan' }))
 
     expect(await screen.findByRole('heading', { name: /adopt existing library/i })).toBeInTheDocument()
   })
@@ -75,20 +75,20 @@ describe('A waiting Adoption plan', () => {
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
     await user.click(await screen.findByRole('link', { name: 'Library' }))
-    expect(await screen.findByRole('button', { name: 'Review the Adoption plan' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Review the Adoption Plan' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /scan for unmanaged files/i })).not.toBeInTheDocument()
 
     await user.keyboard('{Control>}k{/Control}')
-    expect(await screen.findByText('Review the Adoption plan', { selector: '[role=option] *, [role=option]' })).toBeInTheDocument()
-    expect(screen.queryByText('Scan for unmanaged files')).not.toBeInTheDocument()
+    expect(await screen.findByText('Review the Adoption Plan', { selector: '[role=option] *, [role=option]' })).toBeInTheDocument()
+    expect(screen.queryByText('Scan for Unmanaged Files')).not.toBeInTheDocument()
   })
 
-  it('keeps "Scan for unmanaged files" when no plan exists', async () => {
+  it('keeps "Scan for Unmanaged Files" when no plan exists', async () => {
     planIs('idle')
     const user = userEvent.setup()
     renderApp()
     await user.click(await screen.findByRole('button', { name: 'Settings' }))
     await user.click(await screen.findByRole('link', { name: 'Library' }))
-    expect(await screen.findByRole('button', { name: 'Scan for unmanaged files' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Scan for Unmanaged Files' })).toBeInTheDocument()
   })
 })

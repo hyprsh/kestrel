@@ -88,9 +88,9 @@ function ActivityMenu() {
   return (
     <DotsMenu aria-label="Activity actions" width={220}>
       <MenuItem disabled={searchAll.blocked} onSelect={searchAll.run}>
-        Search all Wanted
+        Search All Wanted
       </MenuItem>
-      <MenuItem onSelect={() => openPlace('/health/jobs')}>Background jobs</MenuItem>
+      <MenuItem onSelect={() => openPlace('/health/jobs')}>Background Jobs</MenuItem>
     </DotsMenu>
   )
 }
@@ -119,7 +119,7 @@ export function Activity({ query, onQuery, onOpenTitle }: { query: string; onQue
         query={query}
         onQuery={onQuery}
         qualifiers={activityFacets}
-        label={phone ? 'Views and filter' : undefined}
+        label={phone ? 'Views and Filter' : undefined}
         lead={phone ? <ViewsSection query={query} onQuery={onQuery} pipeline={pipeline} /> : undefined}
       />
     ),

@@ -160,7 +160,7 @@ describe('the Library filter, typed', () => {
   })
 })
 
-describe('Search all Wanted in the command menu', () => {
+describe('Search All Wanted in the command menu', () => {
   it('posts to /wanted/search', async () => {
     fakeLibrary([])
     let posted = 0
