@@ -1038,19 +1038,19 @@ func (e ProfileReleaseFamily) Valid() bool {
 
 // Defines values for ProfileResolution.
 const (
-	Any ProfileResolution = "any"
-	Hd  ProfileResolution = "hd"
-	N4k ProfileResolution = "4k"
+	ProfileResolutionAny ProfileResolution = "any"
+	ProfileResolutionHd  ProfileResolution = "hd"
+	ProfileResolutionN4k ProfileResolution = "4k"
 )
 
 // Valid indicates whether the value is a known member of the ProfileResolution enum.
 func (e ProfileResolution) Valid() bool {
 	switch e {
-	case Any:
+	case ProfileResolutionAny:
 		return true
-	case Hd:
+	case ProfileResolutionHd:
 		return true
-	case N4k:
+	case ProfileResolutionN4k:
 		return true
 	default:
 		return false

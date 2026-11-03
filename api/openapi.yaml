@@ -4091,6 +4091,7 @@ components:
     ProfileResolution:
       type: string
       enum: [hd, 4k, any]
+      x-enum-varnames: [ProfileResolutionHd, ProfileResolutionN4k, ProfileResolutionAny]
       description: "`hd` (720p to 1080p), `4k` (2160p) or `any` (SD to 1080p; Bluray + WEB only)."
     ProfileLanguageRule:
       type: string
