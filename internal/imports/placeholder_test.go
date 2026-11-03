@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/slot"
@@ -29,10 +30,14 @@ func TestAPackFileForAQualifyingUnlistedEpisodeImportsAsAPlaceholderEpisode(t *t
 		"Night.Show.S01E01.1080p.WEB-DL.H264-GRP.mkv", "Night.Show.S01E04.1080p.WEB-DL.H264-GRP.mkv", "Night.Show.S01E06.1080p.WEB-DL.H264-GRP.mkv",
 	})
 
-	res := s.svc.Import(context.Background(), g)
+	res := s.svc.Import(history.WithTrigger(context.Background(), history.Job(history.TriggerImport, "")), g)
 
 	if res.Status != imports.Imported {
 		t.Fatalf("result = %+v", res)
+	}
+	if evs := s.log.of(history.PlaceholderAdded); len(evs) != 1 || evs[0].Trigger.Kind != history.TriggerImport || evs[0].TitleID != s.titleID ||
+		evs[0].Reason != "Night.Show.S01E04.1080p.WEB-DL.H264-GRP.mkv names S01E04, which TheTVDB does not list yet" {
+		t.Errorf("placeholder entries = %+v", evs)
 	}
 	if e := resultOf(t, res, 1, 1); e.Status != imports.Imported {
 		t.Errorf("E01 = %+v", e)

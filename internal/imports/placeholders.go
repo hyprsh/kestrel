@@ -2,7 +2,9 @@ package imports
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 )
 
@@ -31,6 +33,14 @@ func (in *seriesImport) placeholders(ctx context.Context, season int, numbers []
 	in.eps = eps
 	for _, ep := range eps {
 		in.byRef[[2]int{ep.Season, ep.Number}] = ep
+	}
+	for _, r := range refs {
+		in.s.record(ctx, history.Event{
+			Kind: history.PlaceholderAdded, TitleID: in.d.ID, EpisodeID: in.byRef[[2]int{r.Season, r.Number}].ID,
+			Message: fmt.Sprintf("Added a Placeholder Episode for S%02dE%02d", r.Season, r.Number),
+			Trigger: history.TriggerOr(ctx, history.Job(history.TriggerImport, "")),
+			Reason:  fmt.Sprintf("%s names S%02dE%02d, which TheTVDB does not list yet", fileName, r.Season, r.Number),
+		})
 	}
 	return true
 }

@@ -71,7 +71,7 @@ func (oneTitle) Names(context.Context) ([]library.Named, error) {
 
 type rescorer struct{ e *trashEnv }
 
-func (r rescorer) RescoreTitles(_ context.Context, snap *scoring.Snapshot, ids []int64, progress func(int)) error {
+func (r rescorer) RescoreTitles(_ context.Context, snap *scoring.Snapshot, ids []int64, _ string, progress func(int)) error {
 	r.e.rescored = append(r.e.rescored, rescoreCall{under: snap, active: r.e.holder.Current()})
 	if r.e.during != nil {
 		r.e.during(ids, progress)

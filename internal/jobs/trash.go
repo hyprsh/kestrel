@@ -32,7 +32,7 @@ type TitleNames interface {
 // changes nothing and fails.
 type Rescorer interface {
 	// progress, if not nil, is told how many Titles are re-scored as it goes.
-	RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64, progress func(done int)) error
+	RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64, why string, progress func(done int)) error
 }
 
 // TrashUpdatesDeps are what TrashUpdates needs.
@@ -166,7 +166,7 @@ func (t *TrashUpdates) saveAndRescore(ctx context.Context, c *LanguageChange) er
 	if err := c.Apply(ctx); err != nil {
 		return err
 	}
-	err := t.rescoreAll(ctx, t.d.Holder.Current())
+	err := t.rescoreAll(ctx, t.d.Holder.Current(), "the Primary Language changed")
 	if err != nil {
 		if uerr := c.Undo(ctx); uerr != nil {
 			err = errors.Join(err, fmt.Errorf("undoing the Primary Language change: %w", uerr))
@@ -186,7 +186,7 @@ func (t *TrashUpdates) rescoreLanguage(ctx context.Context, c *LanguageChange) e
 	return nil
 }
 
-func (t *TrashUpdates) rescoreAll(ctx context.Context, snap *scoring.Snapshot) error {
+func (t *TrashUpdates) rescoreAll(ctx context.Context, snap *scoring.Snapshot, why string) error {
 	named, err := t.d.Library.Names(ctx)
 	if err != nil {
 		return err
@@ -196,7 +196,7 @@ func (t *TrashUpdates) rescoreAll(ctx context.Context, snap *scoring.Snapshot) e
 		ids[i] = n.ID
 	}
 	ReportProgress(ctx, 0, len(ids))
-	return t.d.Rescorer.RescoreTitles(ctx, snap, ids, func(done int) { ReportProgress(ctx, done, len(ids)) })
+	return t.d.Rescorer.RescoreTitles(ctx, snap, ids, why, func(done int) { ReportProgress(ctx, done, len(ids)) })
 }
 
 // Start makes the newer of the downloaded and the embedded snapshot active. If
@@ -212,7 +212,9 @@ func (t *TrashUpdates) Start(ctx context.Context) error {
 		return err
 	}
 	active := t.d.Holder.Current()
-	err = t.d.Holder.Exclusive(func() error { return t.rescoreAll(ctx, active) })
+	err = t.d.Holder.Exclusive(func() error {
+		return t.rescoreAll(ctx, active, "the active TRaSH snapshot "+short(active.Commit())+" had not scored the files yet")
+	})
 	if err != nil {
 		t.d.Logger.Warn("re-scoring under the active TRaSH snapshot failed", "commit", active.Commit(), "err", err)
 		return nil
@@ -274,7 +276,7 @@ func (t *TrashUpdates) update(ctx context.Context) (trashsync.Result, error) {
 		return trashsync.Result{Commit: t.d.Holder.Current().Commit()}, nil
 	}
 	err = t.d.Holder.Exclusive(func() error {
-		if err := t.rescoreAll(ctx, c.Snapshot); err != nil {
+		if err := t.rescoreAll(ctx, c.Snapshot, "the TRaSH Guides update "+short(c.Snapshot.Commit())+" changed the Custom Formats"); err != nil {
 			return err
 		}
 		t.d.Snapshots.Activate(ctx, c)

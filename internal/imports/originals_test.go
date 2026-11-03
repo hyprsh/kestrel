@@ -3,9 +3,11 @@ package imports_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/probe"
@@ -135,7 +137,7 @@ func TestARescoreMakesAnOriginalOnlyFileAMisfitUnlessItIsAlreadyAnOriginal(t *te
 			t.Fatal(err)
 		}
 
-		if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, nil); err != nil {
+		if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, "a test", nil); err != nil {
 			t.Fatal(err)
 		}
 
@@ -146,5 +148,53 @@ func TestARescoreMakesAnOriginalOnlyFileAMisfitUnlessItIsAlreadyAnOriginal(t *te
 		case !original && (v.State == library.Filled || v.File.Original || !v.File.Misfit):
 			t.Errorf("an adopted file: version %+v, file %+v; want a misfit that fills nothing", v, v.File)
 		}
+	}
+}
+
+func TestARescoreLogsTheFilesWhoseScoreChangedAndTheMisfitsWithWhy(t *testing.T) {
+	ctx := history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "trash"))
+	r := newRig(t)
+	offerOriginals(t, r)
+	parsed, err := release.Parse("Paddington.2014.1080p.BluRay.x264-GRP", release.KindMovie)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pj, _ := json.Marshal(parsed)
+	ij, _ := json.Marshal(good()) // English audio only
+	if _, err := r.lib.ReplaceFile(ctx, r.titleID, movieFolder, library.NewFile{
+		VersionID: r.versions[slot.Standard], Path: "/m/p.mkv", Size: 1, ReleaseName: "Paddington.2014.1080p.BluRay.x264-GRP",
+		ParsedRelease: string(pj), Probe: string(ij), Score: -12345,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := scoring.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const why = "the TRaSH Guides update abc1234 changed the Custom Formats"
+
+	if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, why, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	misfits, rescored := r.log.of(history.FileMisfit), r.log.of(history.FileRescored)
+	if len(misfits) != 1 || len(rescored) != 1 {
+		t.Fatalf("misfit entries %d, rescored entries %d; want one each", len(misfits), len(rescored))
+	}
+	m := misfits[0]
+	if m.Trigger != history.Job(history.TriggerJob, "trash") || m.TitleID != r.titleID || m.VersionID != r.versions[slot.Standard] ||
+		!strings.HasPrefix(m.Reason, why+": ") || !strings.Contains(m.Reason, "Original Language") {
+		t.Errorf("misfit entry = %+v", m)
+	}
+	if got := rescored[0]; !strings.Contains(got.Message, "from -12345 to ") || got.Reason != why {
+		t.Errorf("rescored entry = %+v", got)
+	}
+
+	// Nothing changed the second time: the pass looks at the file and writes nothing.
+	if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, "again", nil); err != nil {
+		t.Fatal(err)
+	}
+	if n, k := len(r.log.of(history.FileMisfit)), len(r.log.of(history.FileRescored)); n != 1 || k != 1 {
+		t.Errorf("a second pass left %d misfit and %d rescored entries in all, want 1 and 1", n, k)
 	}
 }

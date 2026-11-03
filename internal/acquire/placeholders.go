@@ -2,9 +2,11 @@ package acquire
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"time"
 
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
@@ -87,7 +89,7 @@ func planUnlisted(in *Input, d library.Detail, eps []library.Episode, now time.T
 // placeholdersFor adds a Placeholder Episode for each of refs the Series has no
 // episode for, and returns the Series' episodes with them, so a Grab can cover
 // them like any episode.
-func (s *Service) placeholdersFor(ctx context.Context, titleID int64, refs []EpisodeRef, eps []library.Episode) ([]library.Episode, error) {
+func (s *Service) placeholdersFor(ctx context.Context, titleID int64, name string, refs []EpisodeRef, eps []library.Episode) ([]library.Episode, error) {
 	var add []library.EpisodeRef
 	for _, r := range refs {
 		if episodeID(eps, r) == 0 {
@@ -100,12 +102,24 @@ func (s *Service) placeholdersFor(ctx context.Context, titleID int64, refs []Epi
 	if err := s.lib.AddPlaceholders(ctx, titleID, add); err != nil {
 		return nil, err
 	}
-	return s.lib.Episodes(ctx, titleID, library.View{Now: s.clock()})
+	eps, err := s.lib.Episodes(ctx, titleID, library.View{Now: s.clock()})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range add {
+		s.hist.Record(ctx, history.Event{
+			Kind: history.PlaceholderAdded, TitleID: titleID, EpisodeID: episodeID(eps, EpisodeRef{r.Season, r.Number}),
+			Message: fmt.Sprintf("Added a Placeholder Episode for S%02dE%02d", r.Season, r.Number),
+			Trigger: history.TriggerOr(ctx, history.Job(history.TriggerJob, "placeholder")),
+			Reason:  fmt.Sprintf("%s names S%02dE%02d, which TheTVDB does not list yet", name, r.Season, r.Number),
+		})
+	}
+	return eps, nil
 }
 
 // placeholdersNamed is placeholdersFor every episode a Release names that the
 // Series has none for: a Grab by hand, its rejections already checked.
-func (s *Service) placeholdersNamed(ctx context.Context, titleID int64, p release.ParsedRelease, eps []library.Episode) ([]library.Episode, error) {
+func (s *Service) placeholdersNamed(ctx context.Context, titleID int64, name string, p release.ParsedRelease, eps []library.Episode) ([]library.Episode, error) {
 	season, numbers, ok := namedEpisodes(p)
 	if !ok {
 		return eps, nil
@@ -114,7 +128,7 @@ func (s *Service) placeholdersNamed(ctx context.Context, titleID int64, p releas
 	for i, n := range numbers {
 		refs[i] = EpisodeRef{season, n}
 	}
-	return s.placeholdersFor(ctx, titleID, refs, eps)
+	return s.placeholdersFor(ctx, titleID, name, refs, eps)
 }
 
 // seriesEpisodes are a Series' episodes; nil for a Movie.

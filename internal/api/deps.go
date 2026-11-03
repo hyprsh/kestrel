@@ -282,7 +282,7 @@ type Remover interface {
 // names the Custom Formats each file of a Title matches under its Profile.
 type Rescorer interface {
 	SwitchProfile(ctx context.Context, titleID, versionID int64, profile string) error
-	Rescore(ctx context.Context, titleID, versionID int64) error
+	Rescore(ctx context.Context, titleID, versionID int64, why string) error
 	FileFormats(ctx context.Context, titleID int64) (map[int64][]scoring.MatchedFormat, error)
 }
 

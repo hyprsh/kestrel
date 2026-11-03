@@ -798,7 +798,7 @@ func (s *Service) grabBy(ctx context.Context, versionID int64, releaseID string,
 
 	o := outgoing{titleID: titleID, versionID: versionID, e: e, slot: slot, media: downloads.Movie, overridden: len(reasons) > 0, by: by}
 	if sub.detail.Kind == library.Series {
-		eps, err := s.placeholdersNamed(ctx, titleID, e.cand.Parsed, eps)
+		eps, err := s.placeholdersNamed(ctx, titleID, e.raw.Title, e.cand.Parsed, eps)
 		if err != nil {
 			return Grab{}, err
 		}

@@ -85,6 +85,16 @@ const (
 	// OriginalOffered: a Release with the Title's Original Language only was offered for a Version, or
 	// replaced a lower-scoring offer (routine).
 	OriginalOffered Kind = "original_offered"
+
+	// PlaceholderAdded: a Placeholder Episode was created for an episode a Release names before TheTVDB lists it
+	// (ADR 0013). One entry per episode; the reason names the Release or file.
+	PlaceholderAdded Kind = "placeholder"
+	// FileMisfit: a file was marked misfit because it no longer passes its Version's Profile, which makes the
+	// Version Wanted. The reason names what did not fit. Data carries the file id and path.
+	FileMisfit Kind = "file_misfit"
+	// FileRescored: a re-score gave a file a different Score; the message has the old and the new one and the
+	// reason what changed. A file whose Score stayed the same writes nothing (routine).
+	FileRescored Kind = "file_rescored"
 )
 
 // Kinds for changes to the configuration: Profiles, Slots, settings and the Blocklist (#399). They are kept
@@ -130,7 +140,7 @@ const (
 	MonitoringChanged Kind = "monitoring"
 )
 
-var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true, OriginalOffered: true}
+var routine = map[Kind]bool{GrabDownloading: true, GrabCompleted: true, AdoptionScanned: true, TitleRefreshed: true, Searched: true, OriginalOffered: true, FileRescored: true}
 
 // IsRoutine reports whether events of this kind are pruned after 30 days.
 func IsRoutine(k Kind) bool { return routine[k] }

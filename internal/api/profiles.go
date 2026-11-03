@@ -624,7 +624,7 @@ func (s *server) rescoreProfile(ctx context.Context, key string) error {
 		return err
 	}
 	for _, v := range vs {
-		if err := s.imports.Rescore(ctx, v.TitleID, v.VersionID); err != nil {
+		if err := s.imports.Rescore(ctx, v.TitleID, v.VersionID, "the Profile "+key+" was edited"); err != nil {
 			return err
 		}
 	}
