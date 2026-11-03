@@ -44,7 +44,8 @@ func (s *Service) NextSearches(ctx context.Context, titleID int64) (map[int64]Ne
 	if err != nil {
 		return nil, err
 	}
-	return nextSearchesOf(rows), nil
+	out := nextSearchesOf(rows)
+	return out, s.sweepNextMissing(ctx, out, func(r sweepRow) bool { return r.titleID == titleID })
 }
 
 // NextSearchesOf returns when each of the given Versions is next searched, in one query for a list of Titles.
@@ -63,7 +64,38 @@ func (s *Service) NextSearchesOf(ctx context.Context, versionIDs []int64) (map[i
 			kept = append(kept, db.SearchState(r))
 		}
 	}
-	return nextSearchesOf(kept), nil
+	out := nextSearchesOf(kept)
+	return out, s.sweepNextMissing(ctx, out, func(r sweepRow) bool { return want[r.versionID] })
+}
+
+// sweepNextMissing replaces, in `out`, the next missing search of each Version by when the sweep searches it: a Wanted
+// row's dueAt, the same function the sweep picks Versions by (it pulls a row forward after a newly aired episode). A Series
+// Version's is the earliest of its rows, each by its dueAt where it has one and by its stored time where it has not.
+func (s *Service) sweepNextMissing(ctx context.Context, out map[int64]NextSearch, keep func(sweepRow) bool) error {
+	rows, err := s.sweepRows(ctx, s.clock())
+	if err != nil {
+		return err
+	}
+	seen := map[int64]bool{}
+	for _, r := range rows {
+		if !keep(r) {
+			continue
+		}
+		at, ok := r.dueAt()
+		if !ok {
+			if r.nextMissing == nil {
+				continue
+			}
+			at = *r.nextMissing
+		}
+		n := out[r.versionID]
+		if !seen[r.versionID] || at.Before(*n.Missing) {
+			n.Missing = &at
+		}
+		seen[r.versionID] = true
+		out[r.versionID] = n
+	}
+	return nil
 }
 
 func nextSearchesOf(rows []db.SearchState) map[int64]NextSearch {
