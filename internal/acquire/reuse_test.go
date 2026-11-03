@@ -183,10 +183,54 @@ func TestAGroupThatFailedIsAskedAgainWhileTheAnsweringGroupIsReused(t *testing.T
 	}
 }
 
-func TestAnRSSReleaseNotGrabbedIsPickedByARetryFromTheCacheAndTheGrabSaysItCameFromRSS(t *testing.T) {
+const hd1080New = "Paddington.2014.1080p.BluRay.x264-NEW"
+
+// rejectFirstGrab has the Import of the Grab rejected, as the import loop would, which retries the Version.
+func (r *rig) rejectFirstGrab(t *testing.T, g acquire.Grab) {
+	t.Helper()
+	imp := history.WithTrigger(context.Background(), history.Job(history.TriggerImport, ""))
+	_ = r.sab.Complete(g.ClientID, "/data/usenet/movies/Paddington")
+	_, _ = r.svc.Poll(imp)
+	if _, err := r.svc.DueImports(imp); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.svc.RecordImport(imp, g.ID, true, acquire.ImportOutcome{Status: acquire.ImportRejected, Reason: "language"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnRSSReleaseNotGrabbedIsPickedByARetryAfterASearchAnswerWithoutAskingTheIndexers(t *testing.T) {
 	ctx := history.WithTrigger(context.Background(), history.Job(history.TriggerRSS, ""))
 	r := newRig(t)
 	hist := r.logged(t)
+	r.publishPlain(t, hd1080)
+	if _, err := r.svc.Search(ctx, r.versions[slot.Standard]); err != nil { // a search answer within the TTL
+		t.Fatal(err)
+	}
+	r.publishPlain(t, hd1080web)
+
+	out, err := r.svc.SyncRSS(ctx)
+	if err != nil || len(out.Grabbed) != 1 || out.Grabbed[0].ReleaseName != hd1080 {
+		t.Fatalf("SyncRSS = %+v, %v", out, err)
+	}
+	r.publish(t, hd1080New, time.Minute) // a search of the indexers would pick this one
+	r.clock.now = r.clock.now.Add(12 * time.Minute)
+
+	r.rejectFirstGrab(t, out.Grabbed[0])
+
+	a := r.active(t)
+	if len(a) != 1 || a[0].ReleaseName != hd1080web {
+		t.Fatalf("active = %+v, want the Release RSS saw, from the cache", a)
+	}
+	grabs := eventsOf(t, hist, history.GrabSent)
+	if got := grabs[len(grabs)-1].Reason; !strings.Contains(got, "found in RSS 12 min ago") {
+		t.Errorf("grab reason = %q, want it to say RSS", got)
+	}
+}
+
+func TestARetryOnATitleWithOnlyRSSReleasesAsksTheIndexersAndStillConsidersThem(t *testing.T) {
+	ctx := history.WithTrigger(context.Background(), history.Job(history.TriggerRSS, ""))
+	r := newRig(t)
 	r.publishPlain(t, hd1080)
 	r.publishPlain(t, hd1080web)
 
@@ -194,25 +238,12 @@ func TestAnRSSReleaseNotGrabbedIsPickedByARetryFromTheCacheAndTheGrabSaysItCameF
 	if err != nil || len(out.Grabbed) != 1 || out.Grabbed[0].ReleaseName != hd1080 {
 		t.Fatalf("SyncRSS = %+v, %v", out, err)
 	}
-	r.publish(t, "Paddington.2014.1080p.BluRay.x264-NEW", time.Hour) // a search of the indexers would pick this one
-	r.clock.now = r.clock.now.Add(12 * time.Minute)
+	r.publish(t, hd1080New, time.Minute) // only a search of the indexers can find this one
 
-	imp := history.WithTrigger(context.Background(), history.Job(history.TriggerImport, ""))
-	_ = r.sab.Complete(out.Grabbed[0].ClientID, "/data/usenet/movies/Paddington")
-	_, _ = r.svc.Poll(imp)
-	if _, err := r.svc.DueImports(imp); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.svc.RecordImport(imp, out.Grabbed[0].ID, true, acquire.ImportOutcome{Status: acquire.ImportRejected, Reason: "language"}); err != nil {
-		t.Fatal(err)
-	}
+	r.rejectFirstGrab(t, out.Grabbed[0])
 
 	a := r.active(t)
-	if len(a) != 1 || a[0].ReleaseName != hd1080web {
-		t.Fatalf("active = %+v, want the Release RSS saw", a)
-	}
-	grabs := eventsOf(t, hist, history.GrabSent)
-	if got := grabs[len(grabs)-1].Reason; !strings.Contains(got, "found in RSS 12 min ago") {
-		t.Errorf("grab reason = %q, want it to say RSS", got)
+	if len(a) != 1 || a[0].ReleaseName != hd1080New {
+		t.Fatalf("active = %+v, want the Release only the indexers had: RSS entries never count as a search", a)
 	}
 }

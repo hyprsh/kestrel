@@ -404,7 +404,7 @@ func (s *Service) cachedFor(ctx context.Context, titleID int64, g group) ([]*ent
 	var all []*entry
 	some := false
 	for _, e := range c.m {
-		if e.titleID == titleID && now.Sub(e.at) < CacheTTL {
+		if e.titleID == titleID && !e.rss && now.Sub(e.at) < CacheTTL {
 			some = true
 			if g.holds(e) {
 				all = append(all, e)
@@ -428,7 +428,42 @@ func (s *Service) cachedFor(ctx context.Context, titleID int64, g group) ([]*ent
 			out = append(out, e)
 		}
 	}
-	return out, held, nil
+	if !held {
+		return out, false, nil
+	}
+	// The Releases RSS saw join the answer; they never make a Title count as asked.
+	out, err := s.withFeed(ctx, titleID, g, out)
+	return out, true, err
+}
+
+// withFeed adds to es the Releases RSS matched to the Title that g holds, fresh and off the Blocklist now, those
+// es does not have already (by guid and indexer).
+func (s *Service) withFeed(ctx context.Context, titleID int64, g group, es []*entry) ([]*entry, error) {
+	now := s.clock()
+	have := map[string]bool{}
+	for _, e := range es {
+		have[entryKey(e.cand)] = true
+	}
+	var feed []*entry
+	s.cache.mu.Lock()
+	for _, e := range s.cache.m {
+		if e.rss && e.titleID == titleID && now.Sub(e.at) < CacheTTL && g.holds(e) && !have[entryKey(e.cand)] {
+			feed = append(feed, e)
+		}
+	}
+	s.cache.mu.Unlock()
+	slices.SortFunc(feed, func(a, b *entry) int { return a.at.Compare(b.at) })
+	for _, e := range feed {
+		blocked, err := s.blocklisted(ctx, e.raw)
+		if err != nil {
+			return nil, err
+		}
+		if !blocked && !have[entryKey(e.cand)] {
+			have[entryKey(e.cand)] = true
+			es = append(es, e)
+		}
+	}
+	return es, nil
 }
 
 // candidates is gather that, when fromCache is set and the cache holds the
@@ -440,7 +475,13 @@ func (s *Service) candidates(ctx context.Context, sub subject, scope library.Sco
 			return es, nil, err
 		}
 	}
-	return s.gather(ctx, sub, scope, g)
+	found, failures, err := s.gather(ctx, sub, scope, g)
+	if err != nil {
+		return nil, nil, err
+	}
+	// What RSS saw is a candidate of every search, whether the indexers or the cache answered.
+	found, err = s.withFeed(ctx, sub.detail.ID, g, found)
+	return found, failures, err
 }
 
 func newID() string {
