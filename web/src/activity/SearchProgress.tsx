@@ -16,6 +16,13 @@ export function phaseOf(p: Pass) {
   return upgrades ? { name: 'Upgrades', done: p.upgrades_done, total: p.upgrades_total, ofLabel: 'Upgrades' } : { name: 'Wanted', done: p.done, total: p.total, ofLabel: 'Wanted' }
 }
 
+/** "Waiting for NZBgeek, 4 s": the indexer a search request is queued on, whose gap since the last one has not run out. Null when none waits. */
+export function gapWaitLine(indexers: SearchStatus['indexers'], now: number): string | null {
+  const waits = indexers.flatMap((i) => (i.waiting_until && Date.parse(i.waiting_until) > now ? [{ name: i.name, ms: Date.parse(i.waiting_until) - now }] : []))
+  const w = waits.sort((a, b) => b.ms - a.ms)[0]
+  return w ? `Waiting for ${w.name}, ${span(w.ms)}` : null
+}
+
 /** "418 releases checked · 1 Grab so far". */
 export const releasesLine = (releases: number, grabs: number, tail = '') => `${plural(releases, 'release')} checked · ${plural(grabs, 'Grab')}${tail}`
 
@@ -52,9 +59,10 @@ export function passLines(p: Pass, now: number) {
 }
 
 /** The running pass as one row: the progress of the Wanted Versions, then of the Upgrade searches. */
-function SearchPassRow({ pass: p, onOpenTitle }: { pass: Pass; onOpenTitle?: (id: number) => void }) {
-  const now = useNow()
+function SearchPassRow({ pass: p, indexers, onOpenTitle }: { pass: Pass; indexers: SearchStatus['indexers']; onOpenTitle?: (id: number) => void }) {
+  const now = useNow(1_000)
   const { phase, name, nowText, count, releases } = passLines(p, now)
+  const waiting = gapWaitLine(indexers, now)
   const c = p.current
   return (
     <div className="flex items-start gap-3 whitespace-normal" aria-label="Search pass">
@@ -77,6 +85,7 @@ function SearchPassRow({ pass: p, onOpenTitle }: { pass: Pass; onOpenTitle?: (id
           <span className="shrink-0 tabular-nums">{count}</span>
         </span>
         <span className="text-gray-900">{releases}</span>
+        {waiting && <span className="text-amber-900">{waiting}</span>}
       </div>
     </div>
   )
@@ -106,7 +115,7 @@ export function SearchProgress({ status: s, onOpenTitle }: { status: SearchStatu
   const last = lastPassLine(s)
   return (
     <div className="flex flex-col gap-1 whitespace-normal">
-      {s.pass && <SearchPassRow pass={s.pass} onOpenTitle={onOpenTitle} />}
+      {s.pass && <SearchPassRow pass={s.pass} indexers={s.indexers} onOpenTitle={onOpenTitle} />}
       <div>{waitingLine(s, now)}</div>
       {!s.pass && last && <div>{last}</div>}
     </div>

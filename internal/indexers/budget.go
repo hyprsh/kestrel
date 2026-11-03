@@ -26,6 +26,14 @@ import (
 //     api_requests_per_day. With neither, sweeps pace themselves to one
 //     request per 10 s. RSS, Grabs and manual searches ignore the 80 % rule.
 //
+//   - Every search request (RSS and Grab downloads excepted) keeps a minimum
+//     gap from the one before it to the same indexer: the instance's
+//     search_gap_seconds, 2 s when it has none. Requests queue on it, one
+//     indexer at a time; different indexers run in parallel. A manual search
+//     uses half the gap, never under 1 s, and a sweep the longer of the gap
+//     and its own 10 s. An indexer that answers much slower than usual gets
+//     the gap doubled, up to 30 s, and it halves again with each quick answer.
+//
 //   - Any other error backs the indexer off, escalating with each failure in
 //     a row.
 //
@@ -46,9 +54,24 @@ const (
 	defaultPause = time.Hour
 	// sweepGap is the spacing of sweep requests to an indexer with no known limit.
 	sweepGap = 10 * time.Second
+	// defaultSearchGap is the gap of an indexer whose instance sets none.
+	defaultSearchGap = 2 * time.Second
+	// manualGapFloor is the shortest gap a manual search keeps, when there is a gap at all.
+	manualGapFloor = time.Second
+	// slowFactor and slowFloor say when an answer is slow: longer than slowFactor times the usual one and slowFloor.
+	slowFactor = 3
+	slowFloor  = 5 * time.Second
+	// maxGap is the widest gap slow answers can ask for.
+	maxGap = 30 * time.Second
+	// usualSamples is how many answers the usual time is learned from before one can be called slow.
+	usualSamples = 3
 	// reportTTL is how long an indexer's reported quota is believed; RSS refreshes it every 15 min.
 	reportTTL = time.Hour
 )
+
+// SearchGapKey is the indexer instance setting for the minimum seconds between
+// two search requests to it; blank means defaultSearchGap, 0 no gap.
+const SearchGapKey = "search_gap_seconds"
 
 // GrabsPerDayKey is the indexer instance setting that caps its Grabs per UTC
 // day; blank or 0 means no cap.
@@ -69,6 +92,26 @@ func WithSweep(ctx context.Context) context.Context { return context.WithValue(c
 
 func isSweep(ctx context.Context) bool { v, _ := ctx.Value(sweepKey{}).(bool); return v }
 
+type manualKey struct{}
+
+// WithManual marks ctx as a manual search's: the admin is waiting, so its
+// requests keep half the gap (never under 1 s) and are never answered from
+// what an earlier whole-Series request returned.
+func WithManual(ctx context.Context) context.Context {
+	return context.WithValue(ctx, manualKey{}, true)
+}
+
+func isManual(ctx context.Context) bool { v, _ := ctx.Value(manualKey{}).(bool); return v }
+
+// SearchGap is the gap the instance sets between its search requests.
+func SearchGap(inst instances.Instance) time.Duration {
+	switch inst.Config[SearchGapKey].(type) {
+	case float64, int, int64:
+		return max(time.Duration(inst.Connection().Int(SearchGapKey))*time.Second, 0)
+	}
+	return defaultSearchGap
+}
+
 // state is what the host remembers of one indexer.
 type state struct {
 	cfg                    string // fingerprint of the config the rest was learned under
@@ -80,7 +123,12 @@ type state struct {
 	reported   indexer.Limits
 	reportedAt time.Time
 
-	sweepNext time.Time // when the next sweep request may go out (no known limit)
+	lastStart time.Time     // when the latest search request was let go, or is queued to go
+	widened   time.Duration // the gap slow answers asked for; 0 when none
+	usual     time.Duration // the usual answer time (moving average)
+	answers   int           // answers it is learned from
+
+	seasons seasonMemory
 
 	failures     int
 	backoffUntil time.Time
@@ -95,7 +143,8 @@ func (s *Service) stateOf(inst instances.Instance) *state {
 		s.states[inst.ID] = st
 	}
 	if st.cfg != fp { // the admin changed the connection: start afresh
-		*st = state{cfg: fp, used: st.used, day: st.day, searchUntil: st.searchUntil, grabUntil: st.grabUntil, reported: st.reported, reportedAt: st.reportedAt}
+		*st = state{cfg: fp, used: st.used, day: st.day, searchUntil: st.searchUntil, grabUntil: st.grabUntil, reported: st.reported, reportedAt: st.reportedAt,
+			lastStart: st.lastStart, widened: st.widened, usual: st.usual, answers: st.answers}
 	}
 	return st
 }
@@ -172,8 +221,10 @@ func pausedErr(limit string, until, now time.Time, msg string) *plugin.Error {
 }
 
 // gateSearch decides whether a search request may go out now. A non-nil error
-// says why not; wait is how long a sweep request must hold back first.
-func (s *Service) gateSearch(ctx context.Context, inst instances.Instance) (wait time.Duration, err *plugin.Error) {
+// says why not; wait is how long the request must hold back first, on the gap
+// to the indexer's previous request. The wait is reserved: the next request
+// queues behind it. RSS reads keep no gap.
+func (s *Service) gateSearch(ctx context.Context, inst instances.Instance, q indexer.SearchQuery) (wait time.Duration, err *plugin.Error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.clock()
@@ -184,26 +235,48 @@ func (s *Service) gateSearch(ctx context.Context, inst instances.Instance) (wait
 	if st.backoffUntil.After(now) && st.last != nil {
 		return 0, &plugin.Error{Code: st.last.Code, Message: st.last.Message}
 	}
-	if !isSweep(ctx) {
-		return 0, nil
-	}
-	used, max := st.budget(now, inst.Connection().Int("api_requests_per_day"))
-	if max > 0 {
-		if used*100 >= max*sweepShare {
-			return 0, pausedErr(plugin.LimitSearch, now, now, fmt.Sprintf("sweeps stop at %d %% of the daily search budget (%d of %d used)", sweepShare, used, max))
+	var gap time.Duration
+	switch {
+	case isSweep(ctx):
+		used, budget := st.budget(now, inst.Connection().Int("api_requests_per_day"))
+		if budget > 0 && used*100 >= budget*sweepShare {
+			return 0, pausedErr(plugin.LimitSearch, now, now, fmt.Sprintf("sweeps stop at %d %% of the daily search budget (%d of %d used)", sweepShare, used, budget))
 		}
+		gap = st.gap(inst)
+		if budget == 0 {
+			gap = max(gap, sweepGap)
+		}
+	case isManual(ctx):
+		gap = manualGap(st.gap(inst))
+	default:
+		gap = st.gap(inst)
+	}
+	if q.Mode == indexer.ModeRSS {
 		return 0, nil
 	}
-	start := st.sweepNext
+	start := st.lastStart.Add(gap)
 	if start.Before(now) {
 		start = now
 	}
-	st.sweepNext = start.Add(sweepGap)
+	st.lastStart = start
 	return start.Sub(now), nil
 }
 
+// gap is the gap in force: the configured one, or the wider one slow answers asked for.
+func (st *state) gap(inst instances.Instance) time.Duration {
+	return max(SearchGap(inst), st.widened)
+}
+
+// manualGap is the gap a manual search keeps for a gap g: half of it, not under a second, none for none.
+func manualGap(g time.Duration) time.Duration {
+	if g <= 0 {
+		return 0
+	}
+	return max(g/2, manualGapFloor)
+}
+
 // noteSearch records how one search request went.
-func (s *Service) noteSearch(ctx context.Context, inst instances.Instance, res indexer.SearchResult, err error) {
+func (s *Service) noteSearch(ctx context.Context, inst instances.Instance, res indexer.SearchResult, err error, took time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.clock()
@@ -215,6 +288,7 @@ func (s *Service) noteSearch(ctx context.Context, inst instances.Instance, res i
 	}
 	if err == nil {
 		st.failures, st.backoffUntil, st.last = 0, time.Time{}, nil
+		st.noteAnswerTime(took, SearchGap(inst))
 		return
 	}
 	if ctx.Err() != nil {
@@ -230,6 +304,29 @@ func (s *Service) noteSearch(ctx context.Context, inst instances.Instance, res i
 		st.backoffUntil = now.Add(errorBackoff[min(st.failures, len(errorBackoff))-1])
 		st.last = pe
 	}
+}
+
+// noteAnswerTime learns from how long an answer took. One that takes over
+// slowFactor times the usual time and over slowFloor is slow: it doubles the
+// gap (the configured one at first), up to maxGap, and does not count towards
+// the usual time, so an indexer that stays slow keeps its wide gap. Each other
+// answer halves the widened gap, until it is back down to the configured one.
+func (st *state) noteAnswerTime(took, configured time.Duration) {
+	if st.answers >= usualSamples && took > slowFloor && took > slowFactor*st.usual {
+		st.widened = min(max(st.widened, configured, time.Second)*2, maxGap)
+		return
+	}
+	if st.widened > 0 {
+		if st.widened /= 2; st.widened <= configured {
+			st.widened = 0
+		}
+	}
+	if st.answers == 0 {
+		st.usual = took
+	} else {
+		st.usual += (took - st.usual) / 5
+	}
+	st.answers++
 }
 
 // pause applies a rate_limited Error to the kinds of request it covers.
@@ -308,6 +405,12 @@ type Status struct {
 	GrabsPaused                         bool
 	// BackoffUntil is when an indexer that keeps failing is tried again; zero when it is not backing off.
 	BackoffUntil time.Time
+	// Gap is the minimum time between two search requests to the indexer now, and
+	// Widened says slow answers have made it longer than the configured one.
+	Gap     time.Duration
+	Widened bool
+	// WaitUntil is when the last search request queued on the gap is let go; zero when none waits.
+	WaitUntil time.Time
 	// SweepsStopped says the sweeps have used their 80 % of the daily search
 	// budget: they leave the indexer alone until the day (UTC) or its own count rolls over.
 	SweepsStopped bool
@@ -315,8 +418,8 @@ type Status struct {
 
 // Status reads the indexer's budget and pauses. apiRequestsPerDay and
 // grabsPerDay are its api_requests_per_day and grabs_per_day settings, 0 when
-// blank. Both apply before the indexer has been asked anything since the start.
-func (s *Service) Status(indexerID int64, apiRequestsPerDay, grabsPerDay int) Status {
+// blank, and searchGap its SearchGap. Both apply before the indexer has been asked anything since the start.
+func (s *Service) Status(indexerID int64, apiRequestsPerDay, grabsPerDay int, searchGap time.Duration) Status {
 	s.mu.Lock()
 	now := s.clock()
 	st := s.states[indexerID]
@@ -334,6 +437,11 @@ func (s *Service) Status(indexerID int64, apiRequestsPerDay, grabsPerDay int) St
 	}
 	if st.grabUntil.After(now) {
 		out.GrabsPausedUntil = st.grabUntil
+	}
+	out.Gap = max(searchGap, st.widened)
+	out.Widened = st.widened > searchGap
+	if st.lastStart.After(now) {
+		out.WaitUntil = st.lastStart
 	}
 	quotaSpent := st.grabQuotaSpent(now)
 	if st.backoffUntil.After(now) {
@@ -355,7 +463,7 @@ func (s *Service) Status(indexerID int64, apiRequestsPerDay, grabsPerDay int) St
 
 // askSearch makes one search request to an indexer, if the host lets it.
 func (s *Service) askSearch(ctx context.Context, p indexer.Indexer, inst instances.Instance, q indexer.SearchQuery) (indexer.SearchResult, error) {
-	wait, perr := s.gateSearch(ctx, inst)
+	wait, perr := s.gateSearch(ctx, inst, q)
 	if perr != nil {
 		return indexer.SearchResult{}, perr
 	}
@@ -364,8 +472,9 @@ func (s *Service) askSearch(ctx context.Context, p indexer.Indexer, inst instanc
 			return indexer.SearchResult{}, err
 		}
 	}
+	start := s.clock()
 	res, err := p.Search(ctx, inst.Connection(), q)
-	s.noteSearch(ctx, inst, res, err)
+	s.noteSearch(ctx, inst, res, err, s.clock().Sub(start))
 	return res, err
 }
 

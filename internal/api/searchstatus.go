@@ -28,7 +28,7 @@ func (s *server) indexerBudgets(ctx context.Context) ([]indexerBudget, error) {
 		if inst.Contract != indexer.Contract.ID {
 			continue
 		}
-		out = append(out, indexerBudget{inst, s.indexers.Status(inst.ID, inst.Connection().Int("api_requests_per_day"), inst.Connection().Int(indexers.GrabsPerDayKey))})
+		out = append(out, indexerBudget{inst, s.indexers.Status(inst.ID, inst.Connection().Int("api_requests_per_day"), inst.Connection().Int(indexers.GrabsPerDayKey), indexers.SearchGap(inst))})
 	}
 	return out, nil
 }
@@ -74,7 +74,10 @@ func (s *server) searchStatus(ctx context.Context) (oapi.SearchStatus, error) {
 			continue
 		}
 		b := ib.status
-		row := oapi.SearchIndexer{InstanceId: ib.inst.ID, Name: ib.inst.Name, SearchUsed: b.SearchUsed}
+		row := oapi.SearchIndexer{InstanceId: ib.inst.ID, Name: ib.inst.Name, SearchUsed: b.SearchUsed, GapMs: int(b.Gap.Milliseconds()), GapWidened: b.Widened}
+		if !b.WaitUntil.IsZero() {
+			row.WaitingUntil = &b.WaitUntil
+		}
 		if b.SearchMax > 0 {
 			row.SearchMax = &b.SearchMax
 		}

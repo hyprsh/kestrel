@@ -95,13 +95,14 @@ Choose **Test connection**, then **Save**.
 
 An indexer is the site that lists what's on usenet. Kestrel searches it and fetches the NZB files. It speaks Newznab, which almost every usenet indexer does.
 
-| Field                                          | What to enter                                                                                                            |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **URL**                                        | Your indexer's address, such as `https://indexer.example`. Your indexer's API or "Newznab" help page shows it.           |
-| **API key**                                    | From your indexer account's profile or API page.                                                                         |
-| **Movie categories** and **Series categories** | Leave `2000` and `5000`, the Newznab standard for movies and TV.                                                         |
-| **API requests per day**                       | Your indexer's daily limit, or a little under it. Kestrel pauses searches to stay below it. Leave it empty for no limit. |
-| **Grabs per day**                              | The same for downloads, if your indexer limits them.                                                                     |
+| Field                                          | What to enter                                                                                                              |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **URL**                                        | Your indexer's address, such as `https://indexer.example`. Your indexer's API or "Newznab" help page shows it.             |
+| **API key**                                    | From your indexer account's profile or API page.                                                                           |
+| **Movie categories** and **Series categories** | Leave `2000` and `5000`, the Newznab standard for movies and TV.                                                           |
+| **Seconds between searches**                   | The least Kestrel waits between two searches of this indexer. Leave `2`; raise it if your indexer is strict. `0` for none. |
+| **API requests per day**                       | Your indexer's daily limit, or a little under it. Kestrel pauses searches to stay below it. Leave it empty for no limit.   |
+| **Grabs per day**                              | The same for downloads, if your indexer limits them.                                                                       |
 
 Choose **Test connection**, then **Save**. You can add more indexers later in Settings > Downloads.
 
@@ -244,7 +245,6 @@ The old `/activity/health`, `/activity/jobs` and `/activity/running` addresses s
   <source media="(prefers-color-scheme: dark)" srcset="images/12-health-dark.png">
   <img alt="The Health screen: the verdict, then the checks in groups and the background jobs" src="images/12-health-light.png">
 </picture>
-
 
 ## Where to go next
 

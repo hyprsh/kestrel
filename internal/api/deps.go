@@ -316,7 +316,7 @@ type Refresher interface {
 
 // IndexerStatus reports an indexer's budget.
 type IndexerStatus interface {
-	Status(indexerID int64, apiRequestsPerDay, grabsPerDay int) indexers.Status
+	Status(indexerID int64, apiRequestsPerDay, grabsPerDay int, searchGap time.Duration) indexers.Status
 }
 
 // Health is Needs attention and the system status.

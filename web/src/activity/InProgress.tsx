@@ -17,7 +17,7 @@ import { usePhone } from '../responsive'
 import { useReport } from '../toasts'
 import { span, useNow } from '../time'
 import { cx } from '../ui'
-import { passLines, whereOf } from './SearchProgress'
+import { passLines, gapWaitLine, whereOf } from './SearchProgress'
 import { SlotTag } from '../library/SlotChip'
 import { speed, stuckText, whatOf } from './words'
 
@@ -43,9 +43,10 @@ const tones = { blue: 'text-blue-900', amber: 'text-amber-900', red: 'text-red-9
 const bars = { blue: 'success', amber: 'warning', red: 'error' } as const
 
 /** The search pass as the first row of the card. */
-export function SearchPassRow({ pass: p }: { pass: Pass }) {
-  const now = useNow()
+export function SearchPassRow({ pass: p, indexers = [] }: { pass: Pass; indexers?: SearchStatus['indexers'] }) {
+  const now = useNow(1_000)
   const { phase, name, releases } = passLines(p, now)
+  const waiting = gapWaitLine(indexers, now)
   const c = p.current
   const where = c ? [whereOf(c), c.slot].filter(Boolean).join(' · ') : null
   return (
@@ -57,6 +58,7 @@ export function SearchPassRow({ pass: p }: { pass: Pass }) {
           {c && <span className="text-gray-900">{` · now ${c.title}${where ? ` ${where}` : ''}`}</span>}
         </span>
         <span className="label-12 text-gray-900">{releases}</span>
+        {waiting && <span className="label-12 text-amber-900">{waiting}</span>}
       </div>
       <div className="flex shrink-0 items-center gap-2.5 max-sm:w-full sm:w-60">
         <Progress value={phase.done} max={Math.max(phase.total, 1)} type="success" height={6} aria-label="Search progress" className="min-w-16 flex-1" />

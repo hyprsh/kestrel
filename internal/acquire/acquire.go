@@ -590,7 +590,7 @@ func (s *Service) SearchScope(ctx context.Context, versionID int64, scope librar
 	if !ok {
 		return SearchResult{}, library.ErrNotFound
 	}
-	entries, failures, err := s.gather(ctx, sub, scope, everyIndexer)
+	entries, failures, err := s.gather(indexers.WithManual(ctx), sub, scope, everyIndexer)
 	if err != nil {
 		return SearchResult{}, err
 	}

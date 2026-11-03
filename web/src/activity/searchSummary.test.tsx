@@ -23,6 +23,9 @@ const indexer = (over: Partial<SearchStatus['indexers'][number]> = {}): SearchSt
   search_max: null,
   held: null,
   held_until: null,
+  gap_ms: 2000,
+  gap_widened: false,
+  waiting_until: null,
   ...over,
 })
 
@@ -99,5 +102,30 @@ describe('the search summary in the Searching stage of Activity', () => {
     expect(c).toHaveTextContent('NZBgeek: 470 of 500 searches left today')
     expect(c).toHaveTextContent(/Alpha paused until \d{1,2}:\d{2}.* \(request limit\) · 0 of 100 searches left today/)
     expect(c).not.toHaveTextContent('Unknown')
+  })
+
+  it("says when slow answers have widened an indexer's gap", () => {
+    const c = card(status({ indexers: [indexer({ gap_ms: 8000, gap_widened: true }), indexer({ instance_id: 2, name: 'Alpha', gap_ms: 2000 })] }))
+
+    expect(c).toHaveTextContent('NZBgeek slow to answer, 8 s between searches')
+    expect(c).not.toHaveTextContent('Alpha')
+  })
+
+  it('says which indexer a running search is waiting for, and how long', () => {
+    const c = card(
+      status({
+        pass: passOf({ done: 3, total: 12 }),
+        indexers: [indexer({ waiting_until: new Date(Date.now() + 4_200).toISOString() }), indexer({ instance_id: 2, name: 'Alpha', waiting_until: new Date(Date.now() - 1_000).toISOString() })],
+      }),
+    )
+
+    expect(c).toHaveTextContent('Waiting for NZBgeek, 4 s')
+    expect(c).not.toHaveTextContent('Waiting for Alpha')
+  })
+
+  it('shows no waiting line while no request waits', () => {
+    const c = card(status({ pass: passOf({ done: 3, total: 12 }), indexers: [indexer()] }))
+
+    expect(c).not.toHaveTextContent('Waiting for')
   })
 })
