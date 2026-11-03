@@ -49,7 +49,7 @@ Which of Kestrel's own pieces the `@hyprsh/design` system (v0.18.0) already cove
 | `Rail`, `RailSpacer` | none (`TabBar` is a bottom bar) | Kept | A desktop icon rail. |
 | `PagerStrip` | `Pager` is the control; the strip around it has no match | Kept | Placement only. |
 | `RowList`, `stackedRow`, `stackedRight` | `Entity.List` | Kept as a thin wrapper | Rows that stack their right side when the list is narrow (container query). |
-| `IndexerHead`, `IndexerLine`, `SlotHead`, `SlotLine` | `Table` (resizable columns, reordering and pinned columns since v0.16/v0.17) | Kept | These are drag-sortable lists with a handle, switch and menu per row. `Table` has column reordering but not row reordering. |
+| `IndexerHead`, `IndexerLine`, `SlotHead`, `SlotLine` | `Entity.List` with `onReorder` (v0.20.0) | Removed | The Slot and Indexer priority lists are `Entity.List` rows now: the design's drag handle (also a menu, and Alt+Up/Down) replaces the local drag and arrow-key code, and the Toggle and DotsMenu sit in `right`. The column heads are gone; the Slot's Versions count is in `right`, the indexer's status and Grabs stack under its address. While the Config File sets the order the list is given no `onReorder`, so there are no handles, and the note under it says why. The handle is named "Move {name}" (was "Change the order of" / "Change the priority of"). A failing indexer's red tint is a `chrome-ok` class on the row: `Entity` has no tone for it. |
 | `ProfileCard`, `ProfileFacts`, `DefaultsLine` | `Entity` for the head row | Kept | A card of a Profile: name, uses, action, chips and facts. Kestrel's own domain; the chips and facts are not general. |
 | `QualityChip`, `QualityChips`, `QualityList`, `QualityItem` | `Pill` or `Badge` for the chips | Kept | The cutoff (dark) and "not accepted" (struck through) chip states. `QualityBox` is now a `Checkbox`. |
 | `columnWidths`, `columnOrder` | `Table` (resizing since v0.16; reordering with pinned columns and `Table.ColumnsMenu` since v0.17) | Removed | Both hooks were unused: no table kept a column layout. They are deleted. The design's `Table` reorders only in its data form, and the Episode table is built from parts (roving focus, a fold row, a delete-confirm row, a phone layout), so it can't use that reordering yet. `Table.ColumnsMenu` also has no hide/show. The Log's list is not a table. See #351. |
@@ -94,3 +94,4 @@ The chart tokens (`chart-seq-*`, `chart-series`) are used through `ColumnChart` 
 7. A month grid that lists entries per day.
 8. ~~A disclosure row for Activity's rows~~ shipped as `Entity` with `detail` (v0.20.0) and Activity uses it.
 9. Drag-to-reorder rows in a list.
+9. ~~Drag-to-reorder rows in a list~~ (shipped as `Entity.List` `onReorder` in v0.20.0, hyprsh/design#92).

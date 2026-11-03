@@ -1,11 +1,9 @@
-import { Button, DotsMenu, MenuItem, Note, Toggle } from '@hyprsh/design'
-import { GripVertical } from 'lucide-react'
-import { useState, type KeyboardEvent } from 'react'
+import { Button, DotsMenu, Entity, MenuItem, Note, Toggle } from '@hyprsh/design'
+import { useState } from 'react'
 import { ApiError, useProfiles, useTitles, type Profile } from '../api/queries'
 import { declaresSlots, useDeleteSlot, usePatchSlot, useSlots, type Slot } from '../api/slots'
 import { plural } from '../format'
-import { SlotHead, SlotLine } from '../layout/SettingsLists'
-import { SettingsCard, SettingsSection } from '../layout/SettingsPage'
+import { SettingsSection } from '../layout/SettingsPage'
 import { SkeletonRows } from '../loading'
 import { DeleteSlot } from './DeleteSlot'
 import { SlotForm } from './SlotForm'
@@ -25,7 +23,7 @@ function defaultsText(slot: Slot, profiles: Profile[]) {
 
 /**
  * Settings, Slots & Profiles, Slots (ADR 0024): the Slots in order, each with its default Profile for Movies and Series, its "on for
- * new Titles" switch and the Versions it holds. A row's drag handle (or the arrow keys on it) changes the order. Add and
+ * new Titles" switch and the Versions it holds. A row's drag handle (or Alt and the arrow keys on it, or its menu) changes the order. Add and
  * Edit open a form; Delete asks first, and can delete the Slot's Versions with it. While the Config File declares `slots`
  * the list is read-only. `embedded` leaves out the section's own heading, for the setup wizard's Slots step, which names it.
  */
@@ -38,7 +36,6 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
   const [editing, setEditing] = useState<string | 'new' | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [order, setOrder] = useState<string[] | null>(null)
-  const [dragging, setDragging] = useState<string | null>(null)
 
   if (slots.isError || profiles.isError)
     return (
@@ -70,12 +67,6 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
     setOrder(ids)
     patch.mutate({ id: rows[from].id, patch: { position: to } }, { onSettled: () => setOrder(null) })
   }
-  const onHandleKey = (e: KeyboardEvent, index: number) => {
-    if (e.key === 'ArrowUp') move(index, index - 1)
-    else if (e.key === 'ArrowDown') move(index, index + 1)
-    else return
-    e.preventDefault()
-  }
   const deleteReason = (s: Slot) => {
     if (declared) return 'The Config File declares it'
     if (saved.length === 1) return 'A library needs at least one Slot'
@@ -96,50 +87,19 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
       }
     >
       <SlotWarnings />
-      <SettingsCard>
-        <SlotHead />
-        {rows.map((s, index) => {
+      <Entity.List aria-label="Slots" onReorder={declared ? undefined : move}>
+        {rows.map((s) => {
           const n = held(s.id)
           const lastOn = s.on_for_new_titles && onCount === 1
           const reason = deleteReason(s)
           return (
-            <div key={s.id} role="group" aria-label={s.label}>
-              <SlotLine
-                dragging={dragging === s.id}
-                draggable={!declared}
-                onDragStart={(e) => {
-                  setDragging(s.id)
-                  e.dataTransfer.effectAllowed = 'move'
-                  e.dataTransfer.setData('text/plain', s.id)
-                }}
-                onDragEnd={() => setDragging(null)}
-                onDragOver={(e) => dragging !== null && e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  if (dragging !== null)
-                    move(
-                      rows.findIndex((r) => r.id === dragging),
-                      index,
-                    )
-                  setDragging(null)
-                }}
-                handle={
-                  <Button
-                    svgOnly
-                    variant="tertiary"
-                    size="tiny"
-                    disabled={declared}
-                    aria-label={`Change the order of ${s.label}`}
-                    title={declared ? 'The Config File sets the order' : 'Drag to change the order, or press the up and down arrow keys'}
-                    onKeyDown={(e) => onHandleKey(e, index)}
-                  >
-                    <GripVertical />
-                  </Button>
-                }
-                label={s.label}
-                defaults={defaultsText(s, profiles.data)}
-                holds={n === undefined ? '' : plural(n, 'Version')}
-                toggle={
+            <Entity
+              key={s.id}
+              aria-label={s.label}
+              reorderLabel={s.label}
+              right={
+                <>
+                  {n !== undefined && <span className="text-[13px]">{plural(n, 'Version')}</span>}
                   <Toggle
                     aria-label={`${s.label} on for new Titles`}
                     title={lastOn ? 'At least one Slot must be on for new Titles' : undefined}
@@ -147,8 +107,6 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
                     disabled={declared || lastOn || patch.isPending}
                     onChange={(on) => patch.mutate({ id: s.id, patch: { on_for_new_titles: on } })}
                   />
-                }
-                menu={
                   <DotsMenu aria-label={`${s.label} actions`} size="tiny">
                     <MenuItem disabled={declared} description={declared ? 'The Config File declares it' : undefined} onClick={() => setEditing(s.id)}>
                       Edit…
@@ -157,12 +115,14 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
                       Delete…
                     </MenuItem>
                   </DotsMenu>
-                }
-              />
-            </div>
+                </>
+              }
+            >
+              <Entity.Content fill title={s.label} description={defaultsText(s, profiles.data)} />
+            </Entity>
           )
         })}
-      </SettingsCard>
+      </Entity.List>
       {patch.isError && (
         <Note variant="error" size="small">
           {problemText(patch.error)}

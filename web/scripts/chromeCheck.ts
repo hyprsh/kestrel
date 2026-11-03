@@ -89,6 +89,10 @@ const ALIASES: Record<string, string> = {
   DisclosureRow: 'Entity with detail',
   ExpandableRow: 'Entity with detail',
   ExpandRow: 'Entity with detail',
+  IndexerHead: 'Entity.List',
+  IndexerLine: 'Entity',
+  SlotHead: 'Entity.List',
+  SlotLine: 'Entity',
 }
 
 type Hit = { line: number; message: string; class?: string }
