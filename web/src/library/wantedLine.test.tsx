@@ -34,31 +34,19 @@ async function openMovie() {
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   const pane = await screen.findByRole('region', { name: /paddington/i })
   await within(pane).findByRole('button', { name: 'Title actions' })
-  const card = await within(pane).findByRole('listitem', { name: 'Standard' })
-  await userEvent.click(within(card).getByRole('button', { name: /^Standard:/ })) // every row starts closed
-  return within(card)
+  return within(await within(pane).findByRole('listitem', { name: 'Standard' }))
 }
 
 const none: LastSearch = { at: hoursAgo(2), releases: 23, outcome: 'nothing_fit', reasons: [{ code: 'language', detail: 'German', count: 23 }], upgrade: false }
 
-describe('a Wanted Version’s search facts', () => {
-  it('says since when it is Wanted, when it was last searched, what came back, why none fit and when the next search is', async () => {
+describe('a Wanted Version’s search line', () => {
+  it('says how long it has been Wanted and when the next search is, and when it was last searched and why none fit, with the full text as a tooltip', async () => {
     wantedMovie(none, hoursAhead(4))
     const card = await openMovie()
 
-    const fact = async (k: string) => (await card.findByText(k)).nextElementSibling
-    expect(await fact('Wanted since')).toHaveTextContent(/· 12 days$/)
-    expect(await fact('Last search')).toHaveTextContent('2 h ago · 23 releases')
-    expect(await fact('Why none fit')).toHaveTextContent('all German only')
-    expect(await fact('Next search')).toHaveTextContent('in 4 h')
-  })
-
-  it("keeps the whole last-search line on the Version's header, with the full text as its tooltip", async () => {
-    wantedMovie({ ...none, releases: 11 }, null)
-    const card = await openMovie()
-
-    const line = await card.findByText(/^Last search 2 h ago · 11 releases/)
-    expect(line.textContent).toMatch(/all German only$/)
+    expect(await card.findByText(/^Wanted 12 days/)).toHaveTextContent('next search in 4 h')
+    const line = card.getByText(/^Last search 2 h ago/)
+    expect(line).toHaveTextContent('Last search 2 h ago · 23 releases, all German only')
     expect(line).toHaveAttribute('title', line.textContent!)
   })
 
@@ -66,23 +54,21 @@ describe('a Wanted Version’s search facts', () => {
     wantedMovie(null, hoursAhead(1))
     const card = await openMovie()
 
-    expect((await card.findByText('Last search')).nextElementSibling).toHaveTextContent('not searched yet')
-    expect(card.getByText('Next search').nextElementSibling).toHaveTextContent('in 1 h')
+    expect(await card.findByText('Not searched yet')).toBeInTheDocument()
   })
 
   it.each([
-    ['grabbed', 0, '37 releases, grabbed one', 37],
-    ['no_indexer', 0, 'no indexer is turned on', 0],
-    ['error', 0, 'the search failed', 0],
-    ['nothing_fit', 0, 'nothing found yet', 0],
-  ] as const)('puts a %s search in words', async (outcome, _x, words, releases) => {
+    ['no_indexer', 'no indexer is turned on', 0],
+    ['error', 'the search failed', 0],
+    ['nothing_fit', 'nothing found yet', 0],
+  ] as const)('puts a %s search in words', async (outcome, words, releases) => {
     wantedMovie({ at: hoursAgo(1), releases, outcome, reasons: [], upgrade: false }, null)
     const card = await openMovie()
 
-    expect((await card.findByText('Last search')).nextElementSibling).toHaveTextContent(`1 h ago · ${words}`)
+    expect(await card.findByText(`Last search 1 h ago · ${words}`)).toBeInTheDocument()
   })
 
-  it('searches from the open row', async () => {
+  it('searches from the card', async () => {
     wantedMovie(none, hoursAhead(4))
     const searched: string[] = []
     server.use(http.post('/versions/{id}/search', ({ params, response }) => (searched.push(String(params.id)), response(202).json({ search_id: 'search-1' }))))
@@ -98,11 +84,12 @@ describe('a Wanted Version’s search facts', () => {
     fakeLibrary([r])
     const card = await openMovie()
 
-    expect(card.queryByText('Last search')).not.toBeInTheDocument()
+    await card.findByText(/BluRay|Have/)
+    expect(card.queryByText(/^Last search/)).not.toBeInTheDocument()
     expect(card.queryByRole('button', { name: 'Search Now' })).not.toBeInTheDocument()
   })
 
-  it('puts the same line on a Series card that has Wanted episodes', async () => {
+  it('puts the same line under a Series Version’s state while it has Wanted episodes', async () => {
     fakeSeries()
     const r = seriesRow(5, 'Breaking Bad')
     server.use(
@@ -114,7 +101,7 @@ describe('a Wanted Version’s search facts', () => {
             ...v,
             state: 'wanted',
             coverage: { episodes: 9, filled: 7, wanted: 2, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 0 },
-            last_search: none,
+            last_search: { ...none, releases: 20, reasons: [], upgrade: false },
             next_search_at: hoursAhead(4),
           })),
         })
@@ -122,12 +109,9 @@ describe('a Wanted Version’s search facts', () => {
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const pane = await screen.findByRole('region', { name: /breaking bad/i })
+    const head = within(await screen.findByRole('columnheader', { name: 'Standard' }))
 
-    const card = within(await within(pane).findByRole('listitem', { name: 'Standard' }))
-    await userEvent.click(await card.findByRole('button', { name: /^Standard:/ })) // the rows start closed
-    expect(await card.findByText(/Last searched 2 h ago/)).toHaveTextContent('Last searched 2 h ago · 23 releases, none fit the Profile · Why? · next search in 4 h')
-    await userEvent.click(card.getByRole('button', { name: 'Why?' }))
-    expect(within(await screen.findByRole('dialog', { name: 'Why Is It Wanted?' })).getByText('2 episodes have no file, or a file that no longer fits the Profile.')).toBeInTheDocument()
+    expect(await head.findByText(/^2 Wanted/)).toHaveTextContent('2 Wanted · next search in 4 h')
+    expect(head.getByText(/^Last search 2 h ago/)).toHaveTextContent('Last search 2 h ago · 20 releases, none fit the Profile')
   })
 })

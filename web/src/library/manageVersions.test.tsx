@@ -201,7 +201,7 @@ describe('manage Versions', () => {
     expect(screen.queryByRole('alertdialog', { name: 'Remove Version' })).not.toBeInTheDocument()
   })
 
-  it('shows the original-language offer as a slim row under its Version, which accepts or dismisses it', async () => {
+  it('shows the original-language offer as a tag on its Version card, which accepts or dismisses it', async () => {
     const sent: string[] = []
     const r = row(1, 'Paddington', 'Paddington')
     fakeLibrary([r])
@@ -233,11 +233,12 @@ describe('manage Versions', () => {
     )
     const pane = await openPane()
 
-    await userEvent.click(within(await within(pane).findByRole('listitem', { name: 'Standard' })).getByRole('button', { name: /^Standard:/ })) // every row starts closed
-    expect(await within(pane).findByText('A Standard release in the original language only is available · Score 92')).toBeInTheDocument()
-    await userEvent.click(within(pane).getByRole('button', { name: 'Dismiss' }))
+    await userEvent.click(within(await within(pane).findByRole('listitem', { name: 'Standard' })).getByRole('button', { name: 'Original Offer' })) // the tag on the Version's card opens it
+    const offer = await screen.findByRole('dialog', { name: /Original Offer/ })
+    expect(await within(offer).findByText('A Standard release in the original language only is available · Score 92')).toBeInTheDocument()
+    await userEvent.click(within(offer).getByRole('button', { name: 'Dismiss' }))
     await waitFor(() => expect(sent).toEqual(['dismiss 11']))
-    await userEvent.click(within(pane).getByRole('button', { name: 'Accept' }))
+    await userEvent.click(within(offer).getByRole('button', { name: 'Accept' }))
     await waitFor(() => expect(sent).toEqual(['dismiss 11', 'accept 11']))
   })
 })

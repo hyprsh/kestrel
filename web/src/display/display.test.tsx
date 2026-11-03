@@ -30,12 +30,12 @@ function fakeLongSeries(wantedInOne = false) {
 async function openGrid() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-  return (await screen.findAllByRole('grid', { name: 'Episodes' }))[0]
+  return (await screen.findAllByRole('rowgroup', { name: /episodes$/ }))[0]
 }
 
 /** The seasons in the Seasons at a glance, in order. */
 const tabsOf = async () =>
-  within(screen.getByRole('region', { name: 'Seasons' }))
+  within(screen.getByRole('region', { name: 'Versions' }))
     .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
     .map((b) => b.getAttribute('aria-label')?.split(':')[0])
 const rowsOf = (grid: HTMLElement) =>
@@ -52,9 +52,9 @@ describe('season order in the episode table', () => {
     await openGrid()
     expect(await tabsOf()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
     // Season 1 has something Wanted and Season 3 is the newest: those two are open.
-    expect(rowsOf(screen.getByRole('region', { name: 'Season 1 episodes' }))).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
-    expect(rowsOf(screen.getByRole('region', { name: 'Season 3 episodes' }))).toEqual(['Season 3 episode 1', 'Season 3 episode 2'])
-    expect(screen.queryByRole('region', { name: 'Season 2 episodes' })).not.toBeInTheDocument()
+    expect(rowsOf(screen.getByRole('rowgroup', { name: 'Season 1 episodes' }))).toEqual(['Season 1 episode 1', 'Season 1 episode 2'])
+    expect(rowsOf(screen.getByRole('rowgroup', { name: 'Season 3 episodes' }))).toEqual(['Season 3 episode 1', 'Season 3 episode 2'])
+    expect(screen.queryByRole('rowgroup', { name: 'Season 2 episodes' })).not.toBeInTheDocument()
   })
 
   it('lists Season 3 first, then 2, 1 and Specials, with the newest episode first, with newest first', async () => {
@@ -72,7 +72,7 @@ describe('season order in the episode table', () => {
     const row = (n: number) =>
       within(grid)
         .getByRole('checkbox', { name: `Select Season 3 episode ${n}` })
-        .closest('tr')!
+        .closest<HTMLElement>('[role=row]')!
     row(2).focus()
     await userEvent.keyboard('j')
     expect(row(1)).toHaveFocus()
@@ -173,10 +173,10 @@ describe('Settings, Display', () => {
     fakeLongSeries(true)
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    await screen.findByRole('region', { name: 'Seasons' })
+    await screen.findByRole('button', { name: /^Specials:/ })
     expect(await tabsOf()).toEqual(['Specials', 'Season 1', 'Season 2', 'Season 3'])
     expect(screen.queryByRole('button', { name: /^(Season \d+|Specials):/, expanded: true })).not.toBeInTheDocument()
-    expect(screen.queryByRole('grid', { name: 'Episodes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('rowgroup', { name: /episodes$/ })).not.toBeInTheDocument()
   })
 
   it('opens the season a link names even with Open the newest season off', async () => {

@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -8,8 +8,8 @@ import { detail, fakeLibrary, row } from '../test/library'
 import { cell, episode, fakeSeries } from '../test/series'
 import { server } from '../test/server'
 
-// Every accordion of a Title page starts closed, and each row's actions sit on its header: a text Button with the main action and a
-// "<Row> Actions" menu on a wide screen, the menu alone on a phone, its first item the main action.
+// The Title page's Versions are cards (a Series' the column heads of its table) with a main Button and a "<Slot> Actions" menu; the
+// seasons start closed and each row has a season-wide "<Season> Actions" menu.
 
 const renderApp = () => render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
 
@@ -21,7 +21,6 @@ async function openTitle(name: RegExp) {
   return screen.findByRole('region', { name })
 }
 
-const item = (scope: HTMLElement, name: RegExp) => within(scope).getByRole('button', { name }).closest('[role=listitem]') as HTMLElement
 const names = (menu: HTMLElement) =>
   within(menu)
     .getAllByRole('menuitem')
@@ -48,75 +47,78 @@ function series() {
 }
 
 function suite(phone: boolean) {
-  it('starts a Series with every Version and Season closed', async () => {
+  /** A Series' Version card: a column head of the table on a wide screen, a card of the list above it on a phone. */
+  const seriesCard = (scope: HTMLElement, name: string) =>
+    phone ? within(within(scope).getByRole('list', { name: 'Versions' })).getByRole('listitem', { name }) : within(scope).getByRole('columnheader', { name })
+  const seasonRow = (scope: HTMLElement, n: number) =>
+    within(scope)
+      .getByRole('button', { name: new RegExp(`^Season ${n}:`) })
+      .closest('[role=row]') as HTMLElement
+
+  it('starts a Series with every Season closed', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    await within(pane).findByRole('region', { name: 'Seasons' })
-    for (const r of within(pane).getAllByRole('button', { name: /^(Standard|4K|Season \d+):/ })) expect(r).toHaveAttribute('aria-expanded', 'false')
+    await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    await within(pane).findAllByRole('button', { name: /^Season \d+:/ }, { timeout: 5000 })
+    for (const r of within(pane).getAllByRole('button', { name: /^Season \d+:/ })) expect(r).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('opens the season a link names, and the season of the episode found', async () => {
     series()
     history.replaceState(null, '', '/library?open=2')
     const pane = await openTitle(/breaking bad/i)
-    expect(await within(pane).findByRole('button', { name: /^Season 2:/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(await within(pane).findByRole('button', { name: /^Season 2:/ }, { timeout: 5000 })).toHaveAttribute('aria-expanded', 'true')
     expect(within(pane).getByRole('button', { name: /^Season 1:/ })).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('opens a Movie Version the link names with ?slot=', async () => {
+  it('rings the Movie Version card the link names with ?slot=', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     history.replaceState(null, '', '/library?slot=standard')
     const pane = await openTitle(/paddington/i)
-    expect(within(await within(pane).findByRole('region', { name: 'Versions' })).getByRole('button', { name: /^Standard:/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(await within(pane).findByRole('listitem', { name: 'Standard' })).toHaveAttribute('data-current')
   })
 
-  it('puts a Season’s main action and menu on its header, with Select All, Monitor and the files', async () => {
+  it('puts a Season’s menu on its row, season-wide: Search All Wanted, Select All, Monitor and the files', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    const seasons = await within(pane).findByRole('region', { name: 'Seasons' })
-    const one = item(seasons, /^Season 1:/)
-    const two = item(seasons, /^Season 2:/)
-    const header = (li: HTMLElement) => li.firstElementChild as HTMLElement
+    const table = await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    await within(table).findByRole('button', { name: /^Season 2:/ }, { timeout: 5000 })
+    const two = seasonRow(table, 2)
 
-    if (phone) {
-      expect(within(one).queryByRole('button', { name: 'Search Season' })).not.toBeInTheDocument()
-    } else {
-      expect(within(header(two)).getByRole('button', { name: 'Search Season' })).toBeEnabled() // Season 2 has a Wanted episode
-      expect(within(header(one)).getByRole('button', { name: 'Search Season' })).toBeDisabled() // Season 1 has none
-      expect(within(header(two)).getByRole('button', { name: /^Season 2:/ })).not.toContainElement(within(header(two)).getByRole('button', { name: 'Search Season' }))
-    }
-    await userEvent.click(within(header(two)).getByRole('button', { name: 'Season 2 Actions' }))
+    await userEvent.click(within(two).getByRole('button', { name: 'Season 2 Actions' }))
     const menu = screen.getByRole('menu', { name: 'Season 2 Actions' })
-    const rest = ['Manual Search Season Standard…', 'Manual Search Season 4K…', 'Select All of Season 2', 'Stop Monitoring Season 2']
-    expect(names(menu).slice(0, phone ? 5 : 4)).toEqual(phone ? ['Search Season', ...rest] : rest)
-    expect(within(two).queryByRole('region', { name: 'Season 2 episodes' })).not.toBeInTheDocument() // the row is still closed
+    expect(names(menu).slice(0, 3)).toEqual(['Search All Wanted in Season 2', 'Select All Episodes', 'Stop Monitoring Season 2'])
+    expect(within(menu).getByRole('menuitem', { name: /^Delete Standard Season/ })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(within(seasonRow(table, 1)).getByRole('button', { name: 'Season 1 Actions' }))
+    expect(within(screen.getByRole('menu', { name: 'Season 1 Actions' })).getByRole('menuitem', { name: /^Search All Wanted in Season 1/ })).toHaveAttribute('aria-disabled', 'true') // Season 1 has none
   })
 
   it('ticks the episodes of a closed season from its menu, opening it', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    const seasons = await within(pane).findByRole('region', { name: 'Seasons' })
-    await userEvent.click(within(item(seasons, /^Season 2:/)).getByRole('button', { name: 'Season 2 Actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Select All of Season 2' }))
+    const table = await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    await within(table).findByRole('button', { name: /^Season 2:/ }, { timeout: 5000 })
+    await userEvent.click(within(seasonRow(table, 2)).getByRole('button', { name: 'Season 2 Actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Select All Episodes' }))
 
-    expect(within(seasons).getByRole('button', { name: /^Season 2:/ })).toHaveAttribute('aria-expanded', 'true')
-    expect(await within(seasons).findByRole('checkbox', { name: 'Select Season 2 episode 1' })).toBeChecked()
+    expect(within(table).getByRole('button', { name: /^Season 2:/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(await within(table).findByRole('checkbox', { name: 'Select Season 2 episode 1' })).toBeChecked()
   })
 
-  it('puts a Series Version’s main action and menu on its header', async () => {
+  it('puts a Series Version’s main action and menu on its card', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    const versions = await within(pane).findByRole('region', { name: 'Versions' })
-    const std = item(versions, /^Standard:/)
+    await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    const std = seriesCard(pane, 'Standard')
 
-    if (phone) expect(within(std).queryByRole('button', { name: 'Search Now' })).not.toBeInTheDocument()
-    else expect(within(std).getByRole('button', { name: 'Search Now' })).toBeEnabled() // a Wanted episode
+    expect(within(std).getByRole('button', { name: 'Search Now' })).toBeEnabled() // a Wanted episode
     await userEvent.click(within(std).getByRole('button', { name: 'Standard Actions' }))
-    const got = names(screen.getByRole('menu', { name: 'Standard Actions' }))
-    expect(got).toEqual(phone ? ['Search Now', 'Manual Search…', 'Switch Profile…HD', 'Show in Log', 'Remove Version…'] : ['Manual Search…', 'Switch Profile…HD', 'Show in Log', 'Remove Version…'])
+    expect(names(screen.getByRole('menu', { name: 'Standard Actions' }))).toEqual(['Manual Search…', 'Switch Profile…HD', 'Show in Log', 'Remove Version…'])
   })
 
-  it('puts a Movie Version’s main action and menu on its header, a Filled one searching for an Upgrade', async () => {
+  it('puts a Movie Version’s main action and menu on its card, a Filled one searching for an Upgrade', async () => {
     fakeLibrary([row(1, 'Paddington', 'Paddington')])
     server.use(
       http.get('/titles/{id}', ({ response }) => {
@@ -125,14 +127,11 @@ function suite(phone: boolean) {
       }),
     )
     const pane = await openTitle(/paddington/i)
-    const std = item(await within(pane).findByRole('region', { name: 'Versions' }), /^Standard:/)
+    const std = await within(pane).findByRole('listitem', { name: 'Standard' })
 
-    if (phone) expect(within(std).queryByRole('button', { name: 'Search for Upgrade' })).not.toBeInTheDocument()
-    else expect(within(std.firstElementChild as HTMLElement).getByRole('button', { name: 'Search for Upgrade' })).toBeEnabled()
+    expect(within(std).getByRole('button', { name: 'Search for Upgrade' })).toBeEnabled()
     await userEvent.click(within(std).getByRole('button', { name: 'Standard Actions' }))
-    const got = names(screen.getByRole('menu', { name: 'Standard Actions' }))
-    expect(got).toEqual([...(phone ? ['Search for Upgrade'] : []), 'Manual Search…', 'Switch Profile…HD', 'Show in Log', 'Delete Files…', 'Remove Version…'])
-    await waitFor(() => expect(within(std).getByRole('button', { name: /^Standard:/ })).toHaveAttribute('aria-expanded', 'false'))
+    expect(names(screen.getByRole('menu', { name: 'Standard Actions' }))).toEqual(['Manual Search…', 'File Details…', 'Switch Profile…HD', 'Show in Log', 'Delete Files…', 'Remove Version…'])
   })
 }
 

@@ -67,6 +67,7 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
     setOrder(ids)
     patch.mutate({ id: rows[from].id, patch: { position: to } }, { onSettled: () => setOrder(null) })
   }
+  const full = rows.length >= MAX_SLOTS
   const deleteReason = (s: Slot) => {
     if (declared) return 'The Config File declares it'
     if (saved.length === 1) return 'A library needs at least one Slot'
@@ -79,11 +80,9 @@ export function SlotsSection({ embedded = false }: { embedded?: boolean }) {
       title={embedded ? undefined : 'Slots'}
       count={embedded ? undefined : rows.length}
       action={
-        rows.length < MAX_SLOTS && (
-          <Button size="small" disabled={declared} onClick={() => setEditing('new')}>
-            Add Slot…
-          </Button>
-        )
+        <Button size="small" disabled={declared || full} title={full ? 'A library has at most four Slots: remove one to add another' : undefined} onClick={() => setEditing('new')}>
+          Add Slot…
+        </Button>
       }
     >
       <SlotWarnings />

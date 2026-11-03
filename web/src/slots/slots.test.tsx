@@ -58,11 +58,13 @@ describe('the Slots list', () => {
     expect(sec.getByRole('switch', { name: 'Standard on for new Titles' })).toBeDisabled()
   })
 
-  it('hides Add at four Slots', async () => {
+  it('disables Add at four Slots, with the reason', async () => {
     fakeSlots({ slots: [slot('a', 'A', 0), slot('b', 'B', 1), slot('c', 'C', 2), slot('d', 'D', 3)] })
     renderApp()
     await inSlot('A')
-    expect(within(await section()).queryByRole('button', { name: 'Add Slot…' })).not.toBeInTheDocument()
+    const add = within(await section()).getByRole('button', { name: 'Add Slot…' })
+    expect(add).toBeDisabled()
+    expect(add).toHaveAttribute('title', 'A library has at most four Slots: remove one to add another')
   })
 
   it('changes the on-for-new-Titles switch at once', async () => {

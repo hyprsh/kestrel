@@ -1,21 +1,6 @@
 // chrome: domain-visual
-// What the Versions card and the Seasons rows of a Series page share, so the two cards line up: the width of the count/chips
-// cell right of the bar, and the bar itself (the accordion draws it 120 px wide). Colour on the bar marks only what
-// needs a look (Wanted, Long Missing, Downloading); what is Have is a quiet gray, and a complete row draws a thin line instead of a bar.
-import type { CSSProperties } from 'react'
-
-/** How many chips a Series row shows before the rest fold into "+N". */
-export const chipsShown = 4
-
-const chipWidth = 92
-const chipGap = 5
-
-/** The width of the chips column for a Series with `slots` Slots: the same in every row of both cards, so the chips line up. */
-export function chipColumn(slots: number): CSSProperties {
-  const n = Math.max(1, slots > chipsShown ? chipsShown + 1 : slots)
-  return { '--chips': `${n * chipWidth + (n - 1) * chipGap}px` } as CSSProperties
-}
-
+// The bar of a Version's episodes by state, on its card in the Series table. Colour on the bar marks only what needs a look (Wanted,
+// Long Missing, Downloading); what is Have is a quiet gray, and a complete Version draws a thin line instead of a bar.
 export type BarPart = { key: string; n: number; color: string }
 
 /** The bar colour of an episode state, in a Version's and a season's bar alike. */
