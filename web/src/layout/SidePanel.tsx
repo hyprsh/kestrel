@@ -87,8 +87,8 @@ export function SidePanel({
 
 /**
  * The main content beside a panel: it scrolls itself and pads its content 24px above and below and 32px at the sides (16 all
- * round on a phone). `reading` keeps the column to 880px, left aligned, for text and cards (Settings, Activity, Health); a
- * screen of a wide list or grid (Upcoming) leaves it off. The Log's table runs edge to edge and has no PanelContent. It is
+ * round on a phone). `reading` keeps the column to 880px, left aligned, for text and cards (Settings, Health); a
+ * screen of a wide list or grid (Upcoming, Activity's History table) leaves it off. The Log's table runs edge to edge and has no PanelContent. It is
  * `relative` so a screen reader's hidden table (`sr-only`, absolutely placed) stays inside it rather than lengthening the page.
  */
 export function PanelContent({ reading = false, children }: { reading?: boolean; children: ReactNode }) {

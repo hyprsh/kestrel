@@ -329,11 +329,13 @@ for n in reversed(range(64)):  # oldest first, so ids run with time as the list'
     v, when = older[n % len(older)], stamp(-(9 + 4 * n))
     failed = n % 5 == 4
     name = f"{'Paddington.2014' if v['title_id'] == older[0]['title_id'] else 'Breaking.Bad.S01E0' + str(n % 7 + 1)}.1080p.WEB-DL.DDP5.1.H.264-OLD{n}"
-    db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,"
-               "parsed,verdict,client_instance_id,client_id,state,failure,created_at,updated_at) "
-               "VALUES (?,?,?,?,?,?,?,?,?,'{}','{}',?,?,?,?,?,?)",
-               (v["title_id"], v["id"], f"seed-old-{n}", name, indexer, INDEXER, 4 << 30, when, 1200,
-                sab, f"SABnzbd_nzo_seed-old-{n}", "failed" if failed else "imported", "download_failed" if failed else None, when, when))
+    cur = db.execute("INSERT INTO grabs(title_id,version_id,release_guid,release_name,indexer_id,indexer_name,size,published_at,score,"
+                     "parsed,verdict,client_instance_id,client_id,state,failure,created_at,updated_at) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,'{}','{}',?,?,?,?,?,?)",
+                     (v["title_id"], v["id"], f"seed-old-{n}", name, indexer, INDEXER, 4 << 30, when, 1200,
+                      sab, f"SABnzbd_nzo_seed-old-{n}", "failed" if failed else "imported", "download_failed" if failed else None, when, when))
+    if v["title_id"] != older[0]["title_id"]:  # a Breaking Bad Grab covers the episode its name says
+        db.execute("INSERT INTO grab_episodes(grab_id, episode_id) VALUES (?,?)", (cur.lastrowid, eps[(1, n % 7 + 1)]))
 imported([f"{ROOT}/movies/%"], stamp(-2, hours=-3), "seed-paddington")
 imported(["%S05E07 - [Standard]%", "%S05E08 - [Standard]%"], stamp(-1, hours=-7), "seed-breaking-bad")
 
@@ -401,6 +403,7 @@ for i, fid in enumerate(file_ids("f.path LIKE ?", "%Season 04%[4K]%") + file_ids
     when = at_day(1 + i * 29 // 26, 9 + i % 9, rnd.randint(0, 59))
     finished(k4_bb if i < 13 else std_bb, tid[1396], f"Breaking.Bad.S0{4 if i < 13 else 3}.upgrade{i}", ["NZBgeek", "DrunkenSlug", "NZBgeek", "altHUB"][i % 4],
              size, when, "imported", is_upgrade=1, file_ids=[fid], tag="up")
+    db.execute("INSERT INTO grab_episodes(grab_id, episode_id) SELECT MAX(id), episode_id FROM grabs, file_episodes WHERE file_id=?", (fid,))
 
 # The other finished Grabs of the last 30 days: the mock-up's rhythm, imported by indexer and a few failed.
 per_day_ok = [1, 2, 0, 3, 2, 1, 4, 2, 2, 0, 1, 3, 2, 2, 7, 1, 0, 2, 3, 1, 2, 4, 1, 2, 3, 2, 1, 3, 2, 2]
@@ -412,8 +415,11 @@ nbad = 0
 for day_ago in range(30):
     for _ in range(per_day_ok[day_ago]):
         ix = pool[rnd.randrange(len(pool))]
-        finished(std_bb, tid[1396], f"Breaking.Bad.S0{rnd.randint(1, 4)}E0{rnd.randint(1, 9)}.1080p.WEB-DL.DDP5.1.H.264-NTb", ix,
-                 int(rnd.uniform(2, 14) * 1e9), at_day(day_ago, rnd.randint(1, 22), rnd.randint(0, 59)), "imported", tag="d")
+        season, number = rnd.randint(1, 4), rnd.randint(1, 9)
+        gid = finished(std_bb, tid[1396], f"Breaking.Bad.S0{season}E0{number}.1080p.WEB-DL.DDP5.1.H.264-NTb", ix,
+                       int(rnd.uniform(2, 14) * 1e9), at_day(day_ago, rnd.randint(1, 22), rnd.randint(0, 59)), "imported", tag="d")
+        if (season, number) in eps:  # the Grab covers the episode its name says, as a real one does
+            db.execute("INSERT INTO grab_episodes(grab_id, episode_id) VALUES (?,?)", (gid, eps[(season, number)]))
     for _ in range(per_day_bad[day_ago]):
         ix = bad_pool[nbad % len(bad_pool)]
         nbad += 1
