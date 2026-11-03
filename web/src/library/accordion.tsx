@@ -1,7 +1,8 @@
 // chrome: domain-visual
 // The accordion the Title page uses for a Series' seasons and a Movie's Slots: a bordered list of rows, each a row that opens
-// its body in place. A row is a grid with a click overlay (the whole row toggles) under its own controls, so a bookmark or a
-// chip inside it stays a real button of its own.
+// its body in place. A closed or open row is one 48 px line (`lineRow`; a phone gets the two-line `phoneRow`) with a click
+// overlay (the whole row toggles) under its own controls, so a bookmark or a chip inside it stays a real button of its own.
+// The cells the three accordions share sit here: the name with its tag, the state text, the fixed 120 px bar, the count and the size.
 import { ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { plural } from '../format'
@@ -23,7 +24,7 @@ export function Chevron({ open }: { open: boolean }) {
 }
 
 /**
- * One row of the accordion: `header` is its grid (chevron first), `body` what shows while it is open. The overlay button is
+ * One row of the accordion: `header` is its cells (chevron first), `body` what shows while it is open. The overlay button is
  * named `label` and says whether the row is open; `marked` rings the row (the Slot a page was opened at).
  */
 export function AccordionRow({
@@ -33,7 +34,7 @@ export function AccordionRow({
   onToggle,
   header,
   body,
-  gridClass,
+  rowClass,
   marked,
   mark,
   itemLabel,
@@ -44,8 +45,8 @@ export function AccordionRow({
   onToggle: () => void
   header: ReactNode
   body?: ReactNode
-  /** The header's grid columns, per layout. */
-  gridClass: string
+  /** The header's layout: `lineRow` on a wide screen, `phoneRow` on a phone. */
+  rowClass: string
   marked?: boolean
   mark?: string
   /** Names the row's list item (a Slot's name), so tests and screen readers find the row apart from its button. */
@@ -61,7 +62,7 @@ export function AccordionRow({
       data-mark={mark}
       className={`border-b border-gray-alpha-200 last:border-b-0 ${marked ? 'ring-2 ring-blue-700 ring-inset' : ''}`}
     >
-      <div className={`relative grid items-center gap-x-3 px-3.5 hover:bg-background-200 max-sm:px-3 ${open ? 'bg-background-200' : ''} ${gridClass}`}>
+      <div className={`relative items-center gap-x-3 px-3.5 hover:bg-background-200 max-sm:px-3 ${open ? 'bg-background-200' : ''} ${rowClass}`}>
         <button
           type="button"
           aria-expanded={open}
@@ -74,6 +75,51 @@ export function AccordionRow({
       {open && body}
     </div>
   )
+}
+
+/** A row on a wide screen: one 48 px line, everything centred on it. */
+export const lineRow = 'flex h-12'
+/** A row on a phone: the name and size on a line, the state text, bar and count under it. */
+export const phoneRow = 'grid min-h-14 grid-cols-[16px_minmax(0,1fr)_auto] py-2.5'
+
+/** A row's name with what goes beside it: a Profile as a small mono tag, or a season's meta as plain text. */
+export function RowName({ name, tag, meta, dim }: { name: string; tag?: string; meta?: string; dim?: boolean }) {
+  return (
+    <span className="pointer-events-none flex min-w-0 flex-1 items-center gap-2">
+      <span className={`label-14 shrink-0 font-semibold ${dim ? 'text-gray-900' : ''}`}>{name}</span>
+      {tag && <span className="label-12-mono truncate rounded-sm bg-gray-100 px-1.5 text-gray-900">{tag}</span>}
+      {meta && <span className="label-13 truncate text-gray-900">{meta}</span>}
+    </span>
+  )
+}
+
+/** A row's state text ("Complete", "2 Wanted"), in its tone. */
+export function StandingText({ text, tone, className = '' }: { text: string; tone: string; className?: string }) {
+  return <span className={`label-12 pointer-events-none min-w-0 truncate ${tone} ${className}`}>{text}</span>
+}
+
+/** The bar's cell: 120 px wide whatever the row, so the bars line up down the list. */
+export function BarCell({ children, className = 'w-[120px]' }: { children?: ReactNode; className?: string }) {
+  return <span className={`pointer-events-none shrink-0 ${className}`}>{children}</span>
+}
+
+/** The count's cell, as wide as the chips column so counts and chips line up. `relative` keeps a chip's button above the row's overlay. */
+export function CountCell({ children }: { children?: ReactNode }) {
+  return <span className="relative flex w-(--chips) shrink-0 items-center gap-[5px]">{children}</span>
+}
+
+/** A count as mono text with tabular numbers: "39/39". */
+export function Count({ text, tip }: { text: string; tip: string }) {
+  return (
+    <span role="img" aria-label={tip} title={tip} className="label-12-mono pointer-events-none whitespace-nowrap text-gray-900 tabular-nums">
+      {text}
+    </span>
+  )
+}
+
+/** The size, right-aligned in a fixed 64 px column so sizes line up across rows. */
+export function SizeCell({ text }: { text: string }) {
+  return <span className="label-13 pointer-events-none w-16 shrink-0 text-right text-gray-900 tabular-nums">{text}</span>
 }
 
 /** The padding and rule of an open row's body. */

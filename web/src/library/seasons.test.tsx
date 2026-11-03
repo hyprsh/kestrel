@@ -306,6 +306,19 @@ describe('the Seasons at a glance on the Title page', () => {
     await waitFor(() => expect(state.get().sent[1]).toEqual({ path: 'seasons/1', body: { monitored: true } }))
   })
 
+  it('lays a season out on one line: its name with the episode count and first year, the state, a bar and a chip per Slot', async () => {
+    const state = fakeSeries()
+    state.get().episodes = [episode(1, 1, 1, 'Pilot', { air_date: '2024-03-01', cells: filled }), episode(2, 1, 2, 'Cat', { air_date: '2025-01-05', cells: filled })]
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await screen.findByRole('grid', { name: 'Episodes' })
+    const row = screen.getByRole('button', { name: /^Season 1:/ }).closest('[role=listitem]') as HTMLElement
+    expect(within(row).getByText('2 episodes \u00b7 2024')).toBeInTheDocument()
+    expect(within(row).getByText('Complete')).toBeInTheDocument()
+    expect(within(row).getByTitle('Standard 2 of 2')).toHaveTextContent(/^STD\s*2\/2$/) // two Slots: a chip each, in place of a lone count
+    expect(within(row).getByTitle('4K 2 of 2')).toBeInTheDocument()
+  })
+
   it('draws one bar per season with its episodes by combined state over every Slot, and a line under it', async () => {
     const state = fakeSeries()
     const none = { standard: cell('unreleased'), '4k': cell('unreleased') }

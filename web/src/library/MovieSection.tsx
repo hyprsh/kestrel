@@ -1,7 +1,7 @@
 // chrome: domain-visual
-// What a Movie adds to its Title page: its Versions as an accordion, one row per Slot. A closed row says the Slot and its
-// Profile, where it stands and the file it holds (its name cut at its start), a chip and the size. Opened, a row shows what its
-// state needs: a file's facts, a download's progress, or why nothing was grabbed yet, with that Slot's actions.
+// What a Movie adds to its Title page: its Versions as an accordion, one row per Slot. A row is one line saying the Slot and its
+// Profile, a mono line (the file's quality, the last search or the release being fetched), a status chip and the size. Opened, a
+// row adds what its state needs: a file's facts, a download's progress, or why nothing was grabbed yet, with that Slot's actions.
 import { Button, Progress } from '@hyprsh/design'
 import { useEffect, useState } from 'react'
 import { useDownloadClient } from '../api/activity'
@@ -13,10 +13,10 @@ import { ago, span, until, useNow } from '../time'
 import { dotState, stateName, type SlotDotState } from '../ui/slotState'
 import { size } from './bits'
 import { baseName } from './cellDetail'
-import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid, lastSearchWords } from './accordion'
+import { AccordionList, AccordionRow, bodyWrap, Chevron, days, Fact, factsGrid, lastSearchWords, lineRow, phoneRow, RowName, SizeCell } from './accordion'
 import { useEpisodeView } from './episodeView'
 import { importedOn, EndOfPath } from './EpisodeFilePopover'
-import { audioLine, qualityName } from './media'
+import { audioFormat, audioLine, qualityLine, qualityName } from './media'
 import { AddVersion } from './ManageVersion'
 import { OriginalOfferNote } from './OriginalOfferNote'
 import { SlotChips } from './SlotChip'
@@ -25,32 +25,31 @@ import type { ManualSearchTarget } from './TitleDetail'
 import { useCancelDownloads, useTitleDownloads, type SlotDownloads } from './TitleDownloads'
 import { VersionMenu } from './VersionRows'
 import { useSearchWanted } from './VersionSearch'
-import { whyNoneFit } from './WantedLine'
+import { foundText, whyNoneFit } from './WantedLine'
 
 type Version = TitleDetail['versions'][number]
 
 /** A Slot's state in a line: "Have · BluRay 1080p", "Downloading 40% · 13 min left", "Wanted 12 days · next search in 4 h". */
-function stateLine(v: Version, dl: SlotDownloads | null, now: number): { text: string; summary: string; tone: string; state: SlotDotState | null } {
+function stateLine(v: Version, dl: SlotDownloads | null, now: number): { text: string; tone: string; state: SlotDotState | null; chip: string } {
   const state = dl ? 'downloading' : dotState(v.state, v.long_missing)
   if (dl) {
     const text = `Downloading${dl.pct !== null ? ` ${dl.pct}%` : ''}${dl.eta !== null ? ` · ${span(dl.eta * 1000)} left` : ''}`
-    return { text, summary: text, tone: 'text-blue-900', state: 'downloading' }
+    return { text, tone: 'text-blue-900', state: 'downloading', chip: `Downloading${dl.pct !== null ? ` ${dl.pct}%` : ''}` }
   }
-  // A filled Version's state is the chip's: its summary is the quality alone, and the codec is the Video fact's.
-  if (v.file) return { text: `Have${v.file.quality ? ` · ${qualityName(v.file.quality)}` : ''}`, summary: v.file.quality ? qualityName(v.file.quality) : '', tone: 'text-gray-900', state: 'filled' }
+  if (v.file) return { text: `Have${v.file.quality ? ` · ${qualityName(v.file.quality)}` : ''}`, tone: 'text-gray-900', state: 'filled', chip: 'Imported' }
   if (state === 'wanted' || state === 'long_missing') {
     const d = days(v.wanted_since, now)
     const what = state === 'long_missing' ? 'Long Missing' : 'Wanted'
     const text = `${what}${d >= 1 ? ` ${plural(d, 'day')}` : ''}${v.next_search_at ? ` · next search ${until(v.next_search_at, now)}` : ''}`
     return {
       text,
-      summary: text,
       tone: state === 'long_missing' ? 'text-red-900' : 'text-amber-900',
       state,
+      chip: `${what}${d >= 1 ? ` \u00b7 ${d} d` : ''}`,
     }
   }
   const text = state ? stateName[state] : 'No Version'
-  return { text, summary: text, tone: 'text-gray-900', state }
+  return { text, tone: 'text-gray-900', state, chip: text }
 }
 
 export function MovieSection({
@@ -141,20 +140,13 @@ function SlotRow({
   const line = stateLine(v, downloads, now)
   const f = v.file
   const grab = downloads?.items[0]
-  const fileName = f ? baseName(f.path) : grab ? grab.release_name : 'No file yet'
   const total = grab ? downloads!.items.reduce((n, i) => n + i.bytes_total, 0) : 0
-  const sizeText = f ? size(f.size) : total > 0 ? size(total) : '—'
-  // A filled row closed says quality, file name and size once each; opened, the facts below say them and the header keeps the name and chip.
-  // A Wanted or downloading row keeps its line open too: it is what explains the chip.
-  const detailed = open && !!f
-  const showSummary = !detailed && line.summary !== ''
-  const showSize = !detailed
-  const chip = (
-    <SlotChips
-      chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: downloads?.pct != null ? `${downloads.pct}%` : undefined, tip: `${name}: ${line.text}` }]}
-      max={1}
-    />
-  )
+  const sizeText = f ? size(f.size) : total > 0 ? size(total) : '\u2014'
+  // The row is one line, open or closed: name and Profile, then a mono line (the file's quality, the release being fetched or the
+  // last search), the status chip and the size. The facts below carry the detail.
+  const ls = v.last_search
+  const middle = f ? [qualityLine(f, false), audioFormat(f)].filter(Boolean).join(' \u00b7 ') : grab ? grab.release_name : ls ? `Last search ${ago(ls.at, now)} \u00b7 ${foundText(ls)}` : 'No file yet'
+  const chip = <SlotChips chips={[{ key: v.slot, short: slots.several ? slots.short(v.slot) : '', state: line.state, text: line.chip, tip: `${name}: ${line.text}` }]} max={1} />
   const manual = () => onManualSearch({ versionId: v.id, slot: v.slot, profileName: profileName(v.profile) })
   return (
     <AccordionRow
@@ -164,30 +156,30 @@ function SlotRow({
       open={open}
       onToggle={onToggle}
       marked={marked}
-      gridClass={phone ? 'grid-cols-[16px_minmax(0,1fr)_auto] min-h-14 py-2.5' : 'grid-cols-[16px_120px_minmax(0,1fr)_auto_72px] h-14'}
+      rowClass={phone ? phoneRow : lineRow}
       header={
         <>
           <Chevron open={open} />
-          <span className="flex min-w-0 flex-col gap-px">
-            <span className="label-14 font-semibold">{name}</span>
-            <span className="label-12-mono truncate text-gray-900">{profileName(v.profile)}</span>
-            {phone && showSummary && <span className={`label-12 truncate ${line.tone}`}>{line.summary}</span>}
-          </span>
-          {!phone && (
-            <span className="flex min-w-0 flex-col gap-0.5">
-              {showSummary && <span className={`label-13 truncate ${line.tone}`}>{line.summary}</span>}
-              {!detailed && (
-                <span dir="rtl" title={f?.path} className="label-12-mono block min-w-0 truncate text-left text-gray-900">
-                  <bdi>{fileName}</bdi>
+          <RowName name={name} tag={profileName(v.profile)} />
+          {phone ? (
+            <>
+              <SizeCell text={sizeText} />
+              <span className="col-start-2 col-end-4 mt-1 flex min-w-0 items-center gap-2">
+                <span title={f?.path} className="label-12-mono pointer-events-none min-w-0 flex-1 truncate text-gray-900">
+                  {middle}
                 </span>
-              )}
-            </span>
+                <span className="relative">{chip}</span>
+              </span>
+            </>
+          ) : (
+            <>
+              <span title={f?.path ?? grab?.release_name} className="label-12-mono pointer-events-none min-w-0 truncate text-right text-gray-900">
+                {middle}
+              </span>
+              <span className="relative flex shrink-0 justify-end">{chip}</span>
+              <SizeCell text={sizeText} />
+            </>
           )}
-          <span className="relative flex items-center gap-2">
-            {chip}
-            {phone && showSize && <span className="label-12 text-gray-900">{sizeText}</span>}
-          </span>
-          {!phone && <span className="label-13 pointer-events-none text-right text-gray-900 tabular-nums">{showSize ? sizeText : ''}</span>}
         </>
       }
       body={<SlotBody {...{ title, profiles, profileName }} version={v} downloads={downloads} now={now} onManualSearch={manual} />}

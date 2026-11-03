@@ -50,8 +50,13 @@ describe("a Movie's Versions on its Title page", () => {
     expect(item).toHaveTextContent('Standard')
     expect(item).toHaveTextContent('WEB-DL 1080p')
     expect(item).not.toHaveTextContent('Have') // the chip says the state
-    expect(item).not.toHaveTextContent('H.264') // the codec is the Video fact's
-    expect(within(item).getByText('Paddington (2014) - [Standard][WEBDL-1080p].mkv').closest('[title]')).toHaveAttribute('title', file.path)
+    expect(item).toHaveTextContent('H.264') // the mono line: quality, codec and audio
+    expect(item).toHaveTextContent('Imported') // the status chip
+    expect(
+      within(item)
+        .getByText(/WEB-DL 1080p · H\.264/)
+        .closest('[title]'),
+    ).toHaveAttribute('title', file.path)
     expect(item).toHaveTextContent('1.6 GB')
     expect(within(item).getByRole('img', { name: /^Standard: Have/ })).toHaveAttribute('data-state', 'filled')
   })
@@ -65,9 +70,10 @@ describe("a Movie's Versions on its Title page", () => {
     const row_ = await within(await within(pane).findByRole('region', { name: 'Versions' })).findByRole('button', { name: /^Standard: Have/ })
     expect(row_).toHaveAttribute('aria-expanded', 'true') // the only Slot opens
     const item = row_.closest('[role=listitem]') as HTMLElement
-    for (const k of ['Quality', 'Video', 'Audio', 'Custom Format Score', 'Size', 'Imported', 'Path']) expect(within(item).getByText(k)).toBeInTheDocument()
-    // Opened, the header repeats none of them: the size and the file name show once, in the facts.
-    expect(within(item).getAllByText('1.6 GB')).toHaveLength(1)
+    for (const k of ['Quality', 'Video', 'Audio', 'Custom Format Score', 'Size', 'Path']) expect(within(item).getByText(k)).toBeInTheDocument()
+    expect(within(item).getAllByText('Imported')).toHaveLength(2) // the chip and the fact
+    // Opened, the row keeps its line: the size shows in the header and in the facts; the file name only in the Path fact.
+    expect(within(item).getAllByText('1.6 GB')).toHaveLength(2)
     expect(within(item).getAllByText(/Paddington \(2014\)/)).toHaveLength(1)
     expect(within(item).getByText('Quality').nextSibling).not.toHaveTextContent('H.264')
     expect(within(item).getByText('+100')).toBeInTheDocument()
@@ -109,7 +115,8 @@ describe("a Movie's Versions on its Title page", () => {
 
     const row_ = await within(await within(pane).findByRole('region', { name: 'Versions' })).findByRole('button', { name: /^Standard: Downloading 75%/ })
     const item = row_.closest('[role=listitem]') as HTMLElement
-    expect(item).toHaveTextContent('Downloading 75% · 2 min left')
+    expect(item).toHaveTextContent('Downloading 75%') // the status chip
+    expect(item).toHaveTextContent('2 min left') // the progress line
     expect(within(item).getByRole('progressbar', { name: 'Standard download progress' })).toBeInTheDocument()
     for (const k of ['Release', 'From', 'Why', 'Replaces']) expect(within(item).getByText(k)).toBeInTheDocument()
     expect(within(item).getByRole('button', { name: 'Open in Activity' })).toBeInTheDocument()
