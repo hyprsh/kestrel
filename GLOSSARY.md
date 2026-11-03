@@ -65,7 +65,7 @@ A monitored, released Version, or episode of a Series Version, that has no file 
 _Avoid_: Missing (for the whole set), cutoff unmet
 
 **Long Missing**:
-Wanted for more than 90 days, counted from the later of its release and the moment it became Wanted. A Series Version is Long Missing once any of its episodes is.
+Wanted for more than 90 days, counted from its release (an episode's air time), not from when the Title was added. A Title added more than 90 days after its release is Long Missing at once. A Series Version is Long Missing once any of its episodes is. A Long Missing Version is searched every 30 days.
 _Avoid_: Stale, abandoned
 
 **Rating**:

@@ -63,13 +63,34 @@ Example: for the HD Profile, a 1080p Release from a top release group matches a 
 
 A Version, or an episode of a Series Version, that Kestrel should have and doesn't, or whose file no longer fits its Profile. It has to be monitored and released.
 
-Example: _Paddington in Peru_ is in your Library, but its Standard Version has no file yet. It is Wanted from its release date on, and Kestrel searches for it every five minutes until it finds a Release. An episode counts as released once it has aired, so next Tuesday's episode of a Series isn't Wanted until Tuesday. An unmonitored Title or episode is never Wanted. A file waiting for an Upgrade isn't Wanted either: it is already filled.
+Example: _Paddington in Peru_ is in your Library, but its Standard Version has no file yet. It is Wanted from its release date on, and Kestrel keeps searching for it until it finds a Release, closely at first and then less and less often (see below). An episode counts as released once it has aired, so next Tuesday's episode of a Series isn't Wanted until Tuesday. An unmonitored Title or episode is never Wanted. A file waiting for an Upgrade isn't Wanted either: it is already filled.
 
 The Library filter `is:wanted` lists everything Wanted.
 
+### How often Kestrel searches
+
+Kestrel searches a Wanted Version again and again on a schedule that follows how recent the content is. Releases show up in the first hours and days after a Movie comes out or an episode airs, and rarely long after. The age counts from the Movie's release, or for a Series from the latest aired episode of the season (each season is scheduled on its own).
+
+| Recency                                                         | Searches                                                                                                                                 |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Recent:** out within 30 days of when it became Wanted         | When it becomes Wanted, then 1, 3 and 7 days after, then weekly, then every 30 days once it is Long Missing (90 days after the release). |
+| **Old:** out more than 30 days before it was added or monitored | When you add it, once more a day later, then every 30 days.                                                                              |
+| **Upcoming:** not out yet                                       | Not searched. Once it is out it is Recent.                                                                                               |
+
+An old Movie that you add today, or a Series that ended years ago, is therefore searched twice in its first day and then once a month, not daily and weekly. A new episode that airs in an old Series restarts the early schedule for its season, a day after it airs. A Movie with no release date anywhere is searched weekly until a Release for it is seen.
+
+Other searches fit in like this:
+
+- Any search that completes counts as the Version's search, whatever started it: **Search now**, a bulk Search, a retry or the schedule. The next scheduled search is counted from it.
+- A search that cannot finish (an indexer fails, a Grab cannot be sent) is tried again after 15 minutes, then 30 minutes, 1 hour and so on, but never later than the next scheduled search. A search that completes ends the backoff.
+- When an Import is rejected, or you cancel a Grab and blocklist it, Kestrel looks for the next best Release at once, and only for the season or episodes that Grab was for. If the same Version is rejected or blocklisted again, the next such retry waits 15 minutes, then 30 minutes, 1 hour and so on up to 24 hours. A successful Import ends the waiting. The scheduled search makes the retry that had to wait.
+- **Search now** always runs at once.
+
+The Title page shows **Last search** and **Next search** for a Wanted Version.
+
 ## Long Missing
 
-A Version that has been Wanted for more than 90 days. A Series Version is Long Missing once any of its episodes is. Kestrel counts from the later of the release and the moment it became Wanted, and shows how many on the Overview.
+A Version that has been Wanted for more than 90 days. A Series Version is Long Missing once any of its episodes is. Kestrel counts from the release, so an old Movie that you add today is Long Missing at once. It shows how many on the Overview. A Long Missing Version is searched every 30 days.
 
 Example: a rare 4K Release of an old film that no indexer has. After three months Needs attention on the Overview says "1 Version long missing", so you can decide to drop the 4K Version or look elsewhere.
 

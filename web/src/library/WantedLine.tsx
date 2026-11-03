@@ -195,7 +195,7 @@ function WhyWanted({ version: v, now, onSearch, onManualSearch, searching }: { v
           </Fragment>
         ))}
       </dl>
-      <p className="label-12 text-gray-900">Kestrel searches again on its own: a day, three days and seven days after it became Wanted, then weekly.</p>
+      <p className="label-12 text-gray-900">Kestrel searches again on its own: closely while it is new, then less often, and every 30 days once it is Long Missing.</p>
       <div className="flex gap-2">
         <Button variant="secondary" size="small" disabled={searching} onClick={onSearch}>
           Search Now
