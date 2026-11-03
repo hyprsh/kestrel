@@ -154,33 +154,36 @@ export function EpisodeList({
     <div ref={grid}>
       <TableRoot>
         <Table role="grid" aria-label="Episodes" aria-colcount={columns} stickyHeader onKeyDown={onKeyDown}>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-9 px-2">
-                <Checkbox
-                  aria-label={`Tick all of ${season === 0 ? 'Specials' : `Season ${season}`}`}
-                  checked={episodes.length > 0 && ticked === episodes.length}
-                  indeterminate={ticked > 0 && ticked < episodes.length}
-                  tabIndex={-1}
-                  onClick={() => (ticked === episodes.length ? selection.clear() : selection.checkAll())}
-                />
-              </TableHead>
-              <TableHead className="w-9 px-1">
-                <span className="sr-only">Monitored</span>
-              </TableHead>
-              <TableHead className="w-12 px-2 max-sm:hidden">#</TableHead>
-              <TableHead truncate className="px-2">
-                Name
-              </TableHead>
-              <TableHead className="px-2 max-sm:hidden">Aired</TableHead>
-              <TableHead align="right" className="px-2 max-sm:hidden">
-                Slots
-              </TableHead>
-              <TableHead align="right" className="w-17 px-2 max-sm:w-13 max-sm:px-1">
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
+          {/* A phone has one column and nothing to head: its select-all is in the season's menu, so no empty band sits above the rows. */}
+          {!phone && (
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-9 px-2">
+                  <Checkbox
+                    aria-label={`Tick all of ${season === 0 ? 'Specials' : `Season ${season}`}`}
+                    checked={episodes.length > 0 && ticked === episodes.length}
+                    indeterminate={ticked > 0 && ticked < episodes.length}
+                    tabIndex={-1}
+                    onClick={() => (ticked === episodes.length ? selection.clear() : selection.checkAll())}
+                  />
+                </TableHead>
+                <TableHead className="w-9 px-1">
+                  <span className="sr-only">Monitored</span>
+                </TableHead>
+                <TableHead className="w-12 px-2 max-sm:hidden">#</TableHead>
+                <TableHead truncate className="px-2">
+                  Name
+                </TableHead>
+                <TableHead className="px-2 max-sm:hidden">Aired</TableHead>
+                <TableHead align="right" className="px-2 max-sm:hidden">
+                  Slots
+                </TableHead>
+                <TableHead align="right" className="w-17 px-2 max-sm:w-13 max-sm:px-1">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+          )}
           <TableBody>
             {fold?.atStart && <FoldRow fold={fold} columns={columns} rowIndex={2} />}
             {episodes.map((ep, i) => (
@@ -287,18 +290,19 @@ function EpisodeRow({
     <>
       {phone ? (
         <TableRow {...shared} aria-label={`${code} ${episode.primary_name || episode.name}`}>
-          <TableCell colSpan={columns} wrap className="px-2 py-2.5">
+          <TableCell colSpan={columns} wrap className="px-2 py-1">
             <div className="flex items-center gap-1.5">
               <EpisodeTick actions={actions} episode={episode} tabIndex={-1} onFocus={onFocus} />
               <span className="label-12-mono shrink-0 text-gray-900">E{String(episode.number).padStart(2, '0')}</span>
-              <span className={`label-14 min-w-0 flex-1 truncate ${off ? 'text-gray-700' : ''}`}>
-                <EpisodeName episode={episode} />
-              </span>
+              {/* The chips sit on the name's line when they fit, and wrap under it when they do not. */}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className={`label-14 max-w-full min-w-0 truncate ${off ? 'text-gray-700' : ''}`}>
+                  <EpisodeName episode={episode} />
+                </span>
+                <EpisodeChips episode={episode} slots={slots} grabs={grabs} actions={actions} max={slots.length} wrap align="start" />
+              </div>
               {toggle}
               <EpisodeMenu actions={actions} episode={episode} onOpenChange={setMenuOpen} />
-            </div>
-            <div className="mt-1.5 pl-9">
-              <EpisodeChips episode={episode} slots={slots} grabs={grabs} actions={actions} max={slots.length} wrap align="start" />
             </div>
           </TableCell>
         </TableRow>

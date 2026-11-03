@@ -252,6 +252,38 @@ describe('on a phone', () => {
   })
 })
 
+describe('the episode table on a phone', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('has no header row above its rows, keeps each name and its chips on one line, and ticks all from the season menu', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} }))
+    const state = await openFourSlotSeries()
+    state.get().episodes = [
+      episode(2, 1, 1, 'Pilot', { cells: cells({ standard: cell('filled'), '4k': cell('wanted'), german: cell('filled'), remux: cell('wanted') }) }),
+      episode(3, 1, 2, 'Cat', { cells: cells({ standard: cell('filled'), '4k': cell('wanted'), german: cell('filled'), remux: cell('wanted') }) }),
+    ]
+    renderApp()
+    await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
+    await userEvent.click(await screen.findByRole('option', { name: /breaking bad/i }))
+    const grid = await screen.findByRole('grid', { name: 'Episodes' })
+
+    // Nothing heads the one column: no header row and no tick-all box above the rows.
+    expect(within(grid).queryAllByRole('columnheader')).toHaveLength(0)
+    expect(within(grid).queryByRole('checkbox', { name: 'Tick all of Season 1' })).not.toBeInTheDocument()
+    // The name and its chips share one container, so they sit on one line when they fit.
+    const pilot = within(grid).getByRole('row', { name: /Pilot/ })
+    expect(within(pilot).getByText('Pilot').closest('div')).toContainElement(pilot.querySelector('[data-slot]') as HTMLElement)
+
+    // Select-all is in the season's menu.
+    await userEvent.click(screen.getByRole('button', { name: 'Season 1 actions' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tick All of Season 1' }))
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 1' })).toBeChecked()
+    expect(within(grid).getByRole('checkbox', { name: 'Tick Season 1 episode 2' })).toBeChecked()
+    await userEvent.click(screen.getByRole('button', { name: 'Season 1 actions' }))
+    expect(await screen.findByRole('menuitem', { name: 'Untick All of Season 1' })).toBeInTheDocument()
+  })
+})
+
 describe('Slots come from the Slot list', () => {
   async function openMovieIn(slots: string[], client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
     const r = row(1, 'Paddington in Peru', 'Paddington in Peru')
