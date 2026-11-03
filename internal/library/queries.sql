@@ -165,6 +165,42 @@ SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at
 -- name: ListSearchStatesOfTitle :many
 SELECT ss.* FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id = ? ORDER BY ss.id;
 
+-- The sweep's reads for some Titles only (a Title page, the Overview's Wanted list), as their unscoped twins above.
+-- name: ListSearchStatesOfTitles :many
+SELECT ss.* FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id IN (sqlc.slice('title_ids')) ORDER BY ss.id;
+
+-- name: ListSearchStatesOfVersions :many
+SELECT * FROM search_state WHERE version_id IN (sqlc.slice('version_ids')) ORDER BY id;
+
+-- name: ListTitleIDsOfVersions :many
+SELECT DISTINCT title_id FROM versions WHERE id IN (sqlc.slice('version_ids')) ORDER BY title_id;
+
+-- name: ListTitlesByIDs :many
+SELECT * FROM titles WHERE id IN (sqlc.slice('title_ids')) ORDER BY added_at DESC, id DESC;
+
+-- name: ListVersionsOfTitles :many
+SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE title_id IN (sqlc.slice('title_ids')) ORDER BY title_id, id;
+
+-- name: ListFilesOfTitles :many
+SELECT f.id, f.version_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.score, f.grab_id, f.imported_at
+FROM files f JOIN versions v ON v.id = f.version_id WHERE v.title_id IN (sqlc.slice('title_ids'));
+
+-- name: ListReleaseDatesOfTitles :many
+SELECT title_id, country, type, date, certification FROM title_release_dates WHERE title_id IN (sqlc.slice('title_ids'));
+
+-- name: ListEpisodesOfTitles :many
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes WHERE title_id IN (sqlc.slice('title_ids')) ORDER BY title_id, season, number;
+
+-- name: ListFileEpisodesOfTitles :many
+SELECT f.version_id, fe.episode_id, f.score
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id IN (sqlc.slice('title_ids')) AND f.id NOT IN (SELECT file_id FROM file_misfits);
+
+-- name: ListFirstFiledOfTitles :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id IN (sqlc.slice('title_ids')) GROUP BY fe.episode_id;
+
 -- A Version's search_state rows.
 -- name: ListSearchStatesOfVersion :many
 SELECT * FROM search_state WHERE version_id = ? ORDER BY id;

@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 )
 
 const clearMisfit = `-- name: ClearMisfit :exec
@@ -901,6 +902,55 @@ func (q *Queries) ListEpisodesOfTitle(ctx context.Context, titleID int64) ([]Epi
 	return items, nil
 }
 
+const listEpisodesOfTitles = `-- name: ListEpisodesOfTitles :many
+SELECT id, title_id, season, number, tvdb_id, name, air_date, monitored, primary_name, placeholder_at, overview FROM episodes WHERE title_id IN (/*SLICE:title_ids*/?) ORDER BY title_id, season, number
+`
+
+func (q *Queries) ListEpisodesOfTitles(ctx context.Context, titleIds []int64) ([]Episode, error) {
+	query := listEpisodesOfTitles
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Episode
+	for rows.Next() {
+		var i Episode
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.Season,
+			&i.Number,
+			&i.TvdbID,
+			&i.Name,
+			&i.AirDate,
+			&i.Monitored,
+			&i.PrimaryName,
+			&i.PlaceholderAt,
+			&i.Overview,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFileEpisodeRefs = `-- name: ListFileEpisodeRefs :many
 SELECT fe.file_id, e.season, e.number
 FROM file_episodes fe JOIN episodes e ON e.id = fe.episode_id JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
@@ -1060,6 +1110,51 @@ func (q *Queries) ListFileEpisodesOfTitle(ctx context.Context, titleID int64) ([
 	var items []ListFileEpisodesOfTitleRow
 	for rows.Next() {
 		var i ListFileEpisodesOfTitleRow
+		if err := rows.Scan(&i.VersionID, &i.EpisodeID, &i.Score); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileEpisodesOfTitles = `-- name: ListFileEpisodesOfTitles :many
+SELECT f.version_id, fe.episode_id, f.score
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id IN (/*SLICE:title_ids*/?) AND f.id NOT IN (SELECT file_id FROM file_misfits)
+`
+
+type ListFileEpisodesOfTitlesRow struct {
+	VersionID int64
+	EpisodeID int64
+	Score     sql.NullInt64
+}
+
+func (q *Queries) ListFileEpisodesOfTitles(ctx context.Context, titleIds []int64) ([]ListFileEpisodesOfTitlesRow, error) {
+	query := listFileEpisodesOfTitles
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileEpisodesOfTitlesRow
+	for rows.Next() {
+		var i ListFileEpisodesOfTitlesRow
 		if err := rows.Scan(&i.VersionID, &i.EpisodeID, &i.Score); err != nil {
 			return nil, err
 		}
@@ -1258,6 +1353,55 @@ func (q *Queries) ListFilesOfTitle(ctx context.Context, titleID int64) ([]File, 
 	return items, nil
 }
 
+const listFilesOfTitles = `-- name: ListFilesOfTitles :many
+SELECT f.id, f.version_id, f.path, f.size, f.release_name, f.parsed_release, f.probe, f.score, f.grab_id, f.imported_at
+FROM files f JOIN versions v ON v.id = f.version_id WHERE v.title_id IN (/*SLICE:title_ids*/?)
+`
+
+func (q *Queries) ListFilesOfTitles(ctx context.Context, titleIds []int64) ([]File, error) {
+	query := listFilesOfTitles
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []File
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Path,
+			&i.Size,
+			&i.ReleaseName,
+			&i.ParsedRelease,
+			&i.Probe,
+			&i.Score,
+			&i.GrabID,
+			&i.ImportedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFilesOfVersion = `-- name: ListFilesOfVersion :many
 SELECT id, version_id, path, size, release_name, parsed_release, probe, score, grab_id, imported_at FROM files WHERE version_id = ?
 `
@@ -1394,6 +1538,50 @@ func (q *Queries) ListFirstFiledOfTitle(ctx context.Context, titleID int64) ([]L
 	var items []ListFirstFiledOfTitleRow
 	for rows.Next() {
 		var i ListFirstFiledOfTitleRow
+		if err := rows.Scan(&i.EpisodeID, &i.ImportedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFirstFiledOfTitles = `-- name: ListFirstFiledOfTitles :many
+SELECT fe.episode_id, CAST(MIN(f.imported_at) AS TEXT) AS imported_at
+FROM file_episodes fe JOIN files f ON f.id = fe.file_id JOIN versions v ON v.id = f.version_id
+WHERE v.title_id IN (/*SLICE:title_ids*/?) GROUP BY fe.episode_id
+`
+
+type ListFirstFiledOfTitlesRow struct {
+	EpisodeID  int64
+	ImportedAt string
+}
+
+func (q *Queries) ListFirstFiledOfTitles(ctx context.Context, titleIds []int64) ([]ListFirstFiledOfTitlesRow, error) {
+	query := listFirstFiledOfTitles
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFirstFiledOfTitlesRow
+	for rows.Next() {
+		var i ListFirstFiledOfTitlesRow
 		if err := rows.Scan(&i.EpisodeID, &i.ImportedAt); err != nil {
 			return nil, err
 		}
@@ -1666,6 +1854,49 @@ func (q *Queries) ListReleaseDatesOfTitle(ctx context.Context, titleID int64) ([
 	return items, nil
 }
 
+const listReleaseDatesOfTitles = `-- name: ListReleaseDatesOfTitles :many
+SELECT title_id, country, type, date, certification FROM title_release_dates WHERE title_id IN (/*SLICE:title_ids*/?)
+`
+
+func (q *Queries) ListReleaseDatesOfTitles(ctx context.Context, titleIds []int64) ([]TitleReleaseDate, error) {
+	query := listReleaseDatesOfTitles
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TitleReleaseDate
+	for rows.Next() {
+		var i TitleReleaseDate
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.Country,
+			&i.Type,
+			&i.Date,
+			&i.Certification,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSearchStates = `-- name: ListSearchStates :many
 SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by, missing_failures, retry_count, retry_not_before FROM search_state ORDER BY id
 `
@@ -1747,6 +1978,57 @@ func (q *Queries) ListSearchStatesOfTitle(ctx context.Context, titleID int64) ([
 	return items, nil
 }
 
+const listSearchStatesOfTitles = `-- name: ListSearchStatesOfTitles :many
+SELECT ss.id, ss.version_id, ss.season, ss.next_missing_at, ss.last_missing_at, ss.next_upgrade_at, ss.last_upgrade_at, ss.fresh, ss.requested_by, ss.missing_failures, ss.retry_count, ss.retry_not_before FROM search_state ss JOIN versions v ON v.id = ss.version_id WHERE v.title_id IN (/*SLICE:title_ids*/?) ORDER BY ss.id
+`
+
+// The sweep's reads for some Titles only (a Title page, the Overview's Wanted list), as their unscoped twins above.
+func (q *Queries) ListSearchStatesOfTitles(ctx context.Context, titleIds []int64) ([]SearchState, error) {
+	query := listSearchStatesOfTitles
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchState
+	for rows.Next() {
+		var i SearchState
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Season,
+			&i.NextMissingAt,
+			&i.LastMissingAt,
+			&i.NextUpgradeAt,
+			&i.LastUpgradeAt,
+			&i.Fresh,
+			&i.RequestedBy,
+			&i.MissingFailures,
+			&i.RetryCount,
+			&i.RetryNotBefore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSearchStatesOfVersion = `-- name: ListSearchStatesOfVersion :many
 SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by, missing_failures, retry_count, retry_not_before FROM search_state WHERE version_id = ? ORDER BY id
 `
@@ -1754,6 +2036,56 @@ SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at
 // A Version's search_state rows.
 func (q *Queries) ListSearchStatesOfVersion(ctx context.Context, versionID int64) ([]SearchState, error) {
 	rows, err := q.db.QueryContext(ctx, listSearchStatesOfVersion, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchState
+	for rows.Next() {
+		var i SearchState
+		if err := rows.Scan(
+			&i.ID,
+			&i.VersionID,
+			&i.Season,
+			&i.NextMissingAt,
+			&i.LastMissingAt,
+			&i.NextUpgradeAt,
+			&i.LastUpgradeAt,
+			&i.Fresh,
+			&i.RequestedBy,
+			&i.MissingFailures,
+			&i.RetryCount,
+			&i.RetryNotBefore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSearchStatesOfVersions = `-- name: ListSearchStatesOfVersions :many
+SELECT id, version_id, season, next_missing_at, last_missing_at, next_upgrade_at, last_upgrade_at, fresh, requested_by, missing_failures, retry_count, retry_not_before FROM search_state WHERE version_id IN (/*SLICE:version_ids*/?) ORDER BY id
+`
+
+func (q *Queries) ListSearchStatesOfVersions(ctx context.Context, versionIds []int64) ([]SearchState, error) {
+	query := listSearchStatesOfVersions
+	var queryParams []interface{}
+	if len(versionIds) > 0 {
+		for _, v := range versionIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:version_ids*/?", strings.Repeat(",?", len(versionIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:version_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -1842,12 +2174,116 @@ func (q *Queries) ListSeasonsOfTitle(ctx context.Context, titleID int64) ([]Seas
 	return items, nil
 }
 
+const listTitleIDsOfVersions = `-- name: ListTitleIDsOfVersions :many
+SELECT DISTINCT title_id FROM versions WHERE id IN (/*SLICE:version_ids*/?) ORDER BY title_id
+`
+
+func (q *Queries) ListTitleIDsOfVersions(ctx context.Context, versionIds []int64) ([]int64, error) {
+	query := listTitleIDsOfVersions
+	var queryParams []interface{}
+	if len(versionIds) > 0 {
+		for _, v := range versionIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:version_ids*/?", strings.Repeat(",?", len(versionIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:version_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var title_id int64
+		if err := rows.Scan(&title_id); err != nil {
+			return nil, err
+		}
+		items = append(items, title_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTitles = `-- name: ListTitles :many
 SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone, monitor_new_seasons, monitor_specials FROM titles ORDER BY added_at DESC, id DESC
 `
 
 func (q *Queries) ListTitles(ctx context.Context) ([]Title, error) {
 	rows, err := q.db.QueryContext(ctx, listTitles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Title
+	for rows.Next() {
+		var i Title
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.TmdbID,
+			&i.TvdbID,
+			&i.ImdbID,
+			&i.Title,
+			&i.OriginalTitle,
+			&i.PrimaryTitle,
+			&i.Year,
+			&i.OriginalLanguage,
+			&i.Overview,
+			&i.Runtime,
+			&i.PosterPath,
+			&i.Monitored,
+			&i.SeriesMonitor,
+			&i.MetadataFrozen,
+			&i.RootFolder,
+			&i.Folder,
+			&i.AddedAt,
+			&i.RefreshedAt,
+			&i.TmdbVoteAverage,
+			&i.TmdbVoteCount,
+			&i.ReleaseSeenAt,
+			&i.Network,
+			&i.TvdbStatus,
+			&i.AirTime,
+			&i.AirTimezone,
+			&i.MonitorNewSeasons,
+			&i.MonitorSpecials,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTitlesByIDs = `-- name: ListTitlesByIDs :many
+SELECT id, kind, tmdb_id, tvdb_id, imdb_id, title, original_title, primary_title, year, original_language, overview, runtime, poster_path, monitored, series_monitor, metadata_frozen, root_folder, folder, added_at, refreshed_at, tmdb_vote_average, tmdb_vote_count, release_seen_at, network, tvdb_status, air_time, air_timezone, monitor_new_seasons, monitor_specials FROM titles WHERE id IN (/*SLICE:title_ids*/?) ORDER BY added_at DESC, id DESC
+`
+
+func (q *Queries) ListTitlesByIDs(ctx context.Context, titleIds []int64) ([]Title, error) {
+	query := listTitlesByIDs
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -2060,6 +2496,49 @@ SELECT v.id, v.title_id, v.slot, v.profile_key, v.added_at FROM versions v JOIN 
 
 func (q *Queries) ListVersionsOfTitle(ctx context.Context, titleID int64) ([]Version, error) {
 	rows, err := q.db.QueryContext(ctx, listVersionsOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Version
+	for rows.Next() {
+		var i Version
+		if err := rows.Scan(
+			&i.ID,
+			&i.TitleID,
+			&i.Slot,
+			&i.ProfileKey,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVersionsOfTitles = `-- name: ListVersionsOfTitles :many
+SELECT id, title_id, slot, profile_key, added_at FROM versions WHERE title_id IN (/*SLICE:title_ids*/?) ORDER BY title_id, id
+`
+
+func (q *Queries) ListVersionsOfTitles(ctx context.Context, titleIds []int64) ([]Version, error) {
+	query := listVersionsOfTitles
+	var queryParams []interface{}
+	if len(titleIds) > 0 {
+		for _, v := range titleIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", strings.Repeat(",?", len(titleIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:title_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
