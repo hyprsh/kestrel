@@ -4315,7 +4315,19 @@ export interface components {
             /** @description What the Import made, one entry per file it wrote. */
             files: components["schemas"]["GrabStepFile"][];
             /** @description The Custom Formats the Release matched when it was chosen. */
-            formats: components["schemas"]["GrabStepFormat"][];
+            formats: components["schemas"]["CustomFormatMatch"][];
+            /** @description Parsed from the release name when the Grab is read, as on a Release (`Bluray-1080p`); null when the name does not say. */
+            quality: string | null;
+            /** @description Parsed from the release name, as on a Release; null when unknown. */
+            video_codec: string | null;
+            /** @description Parsed from the release name, as on a Release; null for SDR or when unknown. */
+            hdr: string | null;
+            /** @description Parsed from the release name, as on a Release; null when unknown. */
+            audio_codec: string | null;
+            /** @description Parsed from the release name, as on a Release; null when unknown. */
+            audio_channels: string | null;
+            /** @description The release group as the name ends; null when there is none. */
+            release_group: string | null;
             /**
              * Format: int64
              * @description The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
@@ -4339,10 +4351,6 @@ export interface components {
             /** @description The episode the file holds (`S05E05`); null for a Movie. */
             episode: string | null;
             path: string;
-        };
-        GrabStepFormat: {
-            name: string;
-            score: number;
         };
         GrabStall: {
             /** @description What is wrong, such as `disk full`. */

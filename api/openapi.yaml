@@ -6083,7 +6083,7 @@ components:
     GrabSteps:
       type: object
       description: The steps of one Grab, from the Log and the Grab itself.
-      required: [grab_id, grabbed_at, grabbed_by, download_started_at, download_finished_at, ended_at, files, formats, blocklist_id, still_wanted]
+      required: [grab_id, grabbed_at, grabbed_by, download_started_at, download_finished_at, ended_at, files, formats, quality, video_codec, hdr, audio_codec, audio_channels, release_group, blocklist_id, still_wanted]
       properties:
         grab_id:
           type: integer
@@ -6118,7 +6118,31 @@ components:
           type: array
           description: The Custom Formats the Release matched when it was chosen.
           items:
-            $ref: "#/components/schemas/GrabStepFormat"
+            $ref: "#/components/schemas/CustomFormatMatch"
+        quality:
+          type: string
+          nullable: true
+          description: Parsed from the release name when the Grab is read, as on a Release (`Bluray-1080p`); null when the name does not say.
+        video_codec:
+          type: string
+          nullable: true
+          description: Parsed from the release name, as on a Release; null when unknown.
+        hdr:
+          type: string
+          nullable: true
+          description: Parsed from the release name, as on a Release; null for SDR or when unknown.
+        audio_codec:
+          type: string
+          nullable: true
+          description: Parsed from the release name, as on a Release; null when unknown.
+        audio_channels:
+          type: string
+          nullable: true
+          description: Parsed from the release name, as on a Release; null when unknown.
+        release_group:
+          type: string
+          nullable: true
+          description: The release group as the name ends; null when there is none.
         blocklist_id:
           type: integer
           format: int64
@@ -6158,12 +6182,6 @@ components:
           description: The episode the file holds (`S05E05`); null for a Movie.
         path:
           type: string
-    GrabStepFormat:
-      type: object
-      required: [name, score]
-      properties:
-        name: { type: string }
-        score: { type: integer }
     GrabStall:
       type: object
       required: [reason, since, next_at]

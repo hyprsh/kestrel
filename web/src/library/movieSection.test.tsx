@@ -71,8 +71,8 @@ describe("a Movie's Versions on its Title page", () => {
     await userEvent.click(within(item).getByRole('button', { name: 'Standard Actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'File Details…' }))
     const dialog = within(await screen.findByRole('dialog', { name: 'Standard File Details' }))
-    for (const k of ['Quality', 'Video', 'Audio', 'Custom Format Score', 'Size', 'Path']) expect(dialog.getByText(k)).toBeInTheDocument()
-    expect(dialog.getByText('+100')).toBeInTheDocument()
+    for (const k of ['Quality', 'Video', 'Audio', 'Score', 'Size', 'Path']) expect(dialog.getByText(k)).toBeInTheDocument()
+    expect(dialog.getByText('100')).toBeInTheDocument()
   })
 
   it('shows a Wanted Slot as its state and last search, with Search Now as its action', async () => {

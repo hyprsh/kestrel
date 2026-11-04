@@ -133,7 +133,7 @@ describe('the file of an episode Version, in the opened season', () => {
     expect(within(pop).getByText('Breaking.Bad.S01E01-E02.1080p.WEB-DL.DD5.1.H.264-NTb')).toBeInTheDocument()
     // Each fact once: Quality is the quality alone, the codec is Video's, and the state is the dot's.
     expect(within(pop).getByText('Quality').nextSibling).toHaveTextContent(/^WEB-DL 1080p$/)
-    expect(within(pop).getByText('Video').nextSibling).toHaveTextContent(/^H\.264$/)
+    expect(within(pop).getByText('Video').nextSibling).toHaveTextContent(/^H\.264 · SDR$/)
     expect(
       within(pop.parentElement!)
         .getAllByText(/H\.264/)
@@ -143,7 +143,7 @@ describe('the file of an episode Version, in the opened season', () => {
     expect(within(pop).queryByText(/^Have$/)).not.toBeInTheDocument()
     expect(within(pop).getByText('DD 5.1 · English, German')).toBeInTheDocument()
     expect(within(pop).getByText('2 GB')).toBeInTheDocument()
-    expect(within(pop).getByText('Oct 20, 2020, from NTb')).toBeInTheDocument()
+    expect(within(pop).getByText('Oct 20, 2020')).toBeInTheDocument()
     expect(within(pop).getByText(/holds 2 episodes/)).toBeInTheDocument()
     // The path is one line that is cut at its start, with the whole of it as the tooltip.
     const path = within(pop).getByText(pilotPath)
@@ -166,7 +166,7 @@ describe('the file of an episode Version, in the opened season', () => {
     const pop = await screen.findByRole('dialog', { name: 'S01E01 Standard file' })
     expect(within(pop).getByText('120')).toBeInTheDocument()
     const formats = within(within(pop).getByRole('list', { name: 'Custom Formats' })).getAllByRole('listitem')
-    expect(formats.map((f) => f.textContent)).toEqual(['WEB Tier 02 +1650', 'x265 \u221210'])
+    expect(formats.map((f) => f.textContent)).toEqual(['WEB Tier 02 +1,650', 'x265 \u221210', 'Profile and quality \u22121,520'])
   })
 
   it('leaves out the rows the file has no facts for, and the formats of a file that matched none', async () => {

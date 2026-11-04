@@ -27,7 +27,7 @@ function useGrabFields(e: LogEvent): { fields: Field[]; now?: string } {
   if (grab) {
     out.push({ key: 'Release', value: grab.release_name, mono: true }, { key: 'Indexer', value: grab.indexer })
     const formats = steps?.formats ?? []
-    out.push({ key: 'Score', value: [grab.score.toLocaleString(), ...formats.map((f) => `${f.name} ${signed(f.score)}`)].join(' · ') })
+    out.push({ key: 'Score', value: [grab.score.toLocaleString(), ...formats.map((f) => `${f.name} ${signed(f.points)}`)].join(' · ') })
   }
   const why = whyText(steps?.grabbed_by, steps?.why)
   if (why) out.push({ key: 'Why', value: why })

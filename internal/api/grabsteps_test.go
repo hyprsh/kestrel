@@ -96,3 +96,42 @@ func TestStepsOfAnUnknownGrabAreNotFound(t *testing.T) {
 		t.Errorf("status = %d, want 404", r.Status)
 	}
 }
+
+func TestAGrabsStepsCarryTheFactsParsedFromItsReleaseName(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	grab, _ := s.download(t, map[string]string{"paddington.mkv": "the movie"})
+
+	r := s.valid("GET", "/grabs/"+strconv.FormatInt(grab, 10)+"/steps", "")
+	if r.Status != 200 {
+		t.Fatalf("GET steps = %d %s", r.Status, r.Body)
+	}
+	st := decode[struct {
+		Quality       *string `json:"quality"`
+		VideoCodec    *string `json:"video_codec"`
+		HDR           *string `json:"hdr"`
+		AudioCodec    *string `json:"audio_codec"`
+		AudioChannels *string `json:"audio_channels"`
+		ReleaseGroup  *string `json:"release_group"`
+		Formats       []map[string]any
+	}](t, r)
+
+	// goodRelease is Paddington.2014.1080p.BluRay.x264-GRP: it names no HDR and no audio.
+	if st.Quality == nil || *st.Quality != "Bluray-1080p" || st.VideoCodec == nil || *st.VideoCodec != "H.264" ||
+		st.ReleaseGroup == nil || *st.ReleaseGroup != "GRP" || st.HDR != nil || st.AudioCodec != nil || st.AudioChannels != nil {
+		t.Errorf("steps = quality %v, video %v, hdr %v, audio %v %v, group %v; want Bluray-1080p, H.264, GRP and no HDR or audio",
+			deref(st.Quality), deref(st.VideoCodec), deref(st.HDR), deref(st.AudioCodec), deref(st.AudioChannels), deref(st.ReleaseGroup))
+	}
+	for _, f := range st.Formats {
+		if _, ok := f["points"]; !ok {
+			t.Errorf("format %v has no points", f)
+		}
+	}
+}
+
+func deref(p *string) string {
+	if p == nil {
+		return "<nil>"
+	}
+	return *p
+}

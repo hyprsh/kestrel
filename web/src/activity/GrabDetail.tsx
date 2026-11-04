@@ -1,11 +1,12 @@
 // A History row opened in place: what happened to the Grab step by step, the files it made, and what can be done next.
 // chrome: domain-visual
-import { Badge, Button, Note, Skeleton, StatusDot, termText } from '@hyprsh/design'
+import { Button, Note, Skeleton, StatusDot, termText } from '@hyprsh/design'
 import { useDownloadClient, useGrabSteps, useRemoveFromBlocklist, type GrabEntry, type GrabSteps } from '../api/activity'
 import { useSearchNow } from '../api/grabs'
 import { useSearchStatus } from '../api/search'
 import { EndOfPath } from '../library/EpisodeFilePopover'
 import { size } from '../library/bits'
+import { ReleaseFacts } from '../library/ReleaseFacts'
 import { SlotTag } from '../library/SlotPills'
 import { useSlotNames, type SlotNames } from '../library/slots'
 import { placePath, useOpenPlace } from '../place'
@@ -88,8 +89,8 @@ function Timeline({ steps }: { steps: Step[] }) {
   )
 }
 
-function Files({ steps, formats }: { steps: GrabSteps; formats: GrabSteps['formats'] }) {
-  if (steps.files.length === 0 && formats.length === 0) return <span className="label-13 text-gray-900">No files were imported.</span>
+function Files({ steps }: { steps: GrabSteps }) {
+  if (steps.files.length === 0) return <span className="label-13 text-gray-900">No files were imported.</span>
   return (
     <dl className="grid grid-cols-[84px_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[13px]">
       {steps.files.map((f) => (
@@ -100,16 +101,6 @@ function Files({ steps, formats }: { steps: GrabSteps; formats: GrabSteps['forma
           </dd>
         </div>
       ))}
-      {formats.length > 0 && (
-        <>
-          <dt className="text-gray-900">Formats</dt>
-          <dd className="m-0 flex flex-wrap gap-1.5">
-            {formats.map((f) => (
-              <Badge key={f.name} variant="blue" contrast="low" size="sm">{`${f.name} ${f.score >= 0 ? '+' : ''}${f.score}`}</Badge>
-            ))}
-          </dd>
-        </>
-      )}
     </dl>
   )
 }
@@ -149,10 +140,11 @@ export function GrabDetail({ grab: g, onOpenTitle, onManualSearch }: { grab: Gra
           ) : failed ? (
             <span className="label-13 text-gray-900">{nowNote(g, steps, search?.next_pass_at ?? null, now, slots)}</span>
           ) : (
-            <Files steps={steps} formats={steps.formats} />
+            <Files steps={steps} />
           )}
         </div>
       </div>
+      {steps && <ReleaseFacts facts={{ ...steps, size: size(g.size), indexer: g.indexer, group: steps.release_group, score: g.score }} />}
       <div className="flex flex-wrap gap-2">
         {failed ? (
           <>

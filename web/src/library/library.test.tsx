@@ -343,7 +343,7 @@ describe('the Library detail pane', () => {
     const details = within(await screen.findByRole('dialog', { name: 'Standard File Details' }))
     expect((await details.findByText('Quality')).nextElementSibling).toHaveTextContent('BluRay 1080p')
     expect(details.getByText('Audio').nextElementSibling).toHaveTextContent('English, German')
-    expect(details.getByText('Custom Format Score').nextElementSibling).toHaveTextContent('+1,750')
+    expect(details.getByText('Score').nextElementSibling).toHaveTextContent('1,750')
     expect(within(pane).queryByText('Paddington.2014.1080p.BluRay.x264-GRP')).not.toBeInTheDocument()
   })
 

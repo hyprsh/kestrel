@@ -3113,14 +3113,14 @@ type GrabStepFile struct {
 	Path    string  `json:"path"`
 }
 
-// GrabStepFormat defines model for GrabStepFormat.
-type GrabStepFormat struct {
-	Name  string `json:"name"`
-	Score int    `json:"score"`
-}
-
 // GrabSteps The steps of one Grab, from the Log and the Grab itself.
 type GrabSteps struct {
+	// AudioChannels Parsed from the release name, as on a Release; null when unknown.
+	AudioChannels *string `json:"audio_channels"`
+
+	// AudioCodec Parsed from the release name, as on a Release; null when unknown.
+	AudioCodec *string `json:"audio_codec"`
+
 	// BlocklistId The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
 	BlocklistId        *int64     `json:"blocklist_id"`
 	DownloadFinishedAt *time.Time `json:"download_finished_at"`
@@ -3133,18 +3133,30 @@ type GrabSteps struct {
 	Files []GrabStepFile `json:"files"`
 
 	// Formats The Custom Formats the Release matched when it was chosen.
-	Formats   []GrabStepFormat `json:"formats"`
-	GrabId    int64            `json:"grab_id"`
-	GrabbedAt time.Time        `json:"grabbed_at"`
+	Formats   []CustomFormatMatch `json:"formats"`
+	GrabId    int64               `json:"grab_id"`
+	GrabbedAt time.Time           `json:"grabbed_at"`
 
 	// GrabbedBy Who chose the Release, `by_hand` for Grab or an accepted Offer, `by_search` for a search pass or Search now, `by_rss` for the RSS sweep. Null for a Grab from before this was recorded.
 	GrabbedBy *GrabStepsGrabbedBy `json:"grabbed_by"`
+
+	// Hdr Parsed from the release name, as on a Release; null for SDR or when unknown.
+	Hdr *string `json:"hdr"`
+
+	// Quality Parsed from the release name when the Grab is read, as on a Release (`Bluray-1080p`); null when the name does not say.
+	Quality *string `json:"quality"`
+
+	// ReleaseGroup The release group as the name ends; null when there is none.
+	ReleaseGroup *string `json:"release_group"`
 
 	// Replaced How many files in the library the Import replaced; null until it finished, or for a Grab from before this was recorded.
 	Replaced *int `json:"replaced,omitempty"`
 
 	// StillWanted Whether the Grab's episodes (a Movie's Version) are still Wanted.
 	StillWanted bool `json:"still_wanted"`
+
+	// VideoCodec Parsed from the release name, as on a Release; null when unknown.
+	VideoCodec *string `json:"video_codec"`
 
 	// Why How the Release was chosen, as the Grab was made; null for a Grab from before this was recorded.
 	Why *GrabWhy `json:"why,omitempty"`

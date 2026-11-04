@@ -1,8 +1,11 @@
 // What Manual search shows of a Release, worked out from the API's Release: the segments, the rejected summary, the
 // best fit, what a Release covers and replaces, the sort. No React in here.
 import type { Release } from '../api/grabs'
+import type { components } from '../api/schema.gen'
 import { sizeRange } from '../profiles/ladder'
 import { manualSearchSortLabels, size } from './bits'
+
+export type CustomFormatMatch = components['schemas']['CustomFormatMatch']
 
 export type Cover = NonNullable<Release['covers']>[number]
 
@@ -96,7 +99,7 @@ export function fillsReplaces(r: Release): { fills: Cover[]; replaces: Cover[] }
 }
 
 /** "+250 each" when every replaced file gains the same, "+250 to +400" otherwise, "" when no file's Score is known. */
-export function deltaText(r: Release, replaces: Cover[]): string {
+export function deltaText(r: Pick<Release, 'score'>, replaces: Cover[]): string {
   const deltas = replaces.filter((c) => c.file_score != null).map((c) => r.score - (c.file_score as number))
   if (deltas.length === 0) return ''
   const lo = Math.min(...deltas)
@@ -146,9 +149,9 @@ export function whyLine(r: Release, wanted: number): string {
 }
 
 /** Each matched Custom Format with its points, and what is left of the Score once they are added up (the Profile's own points). */
-export function breakdown(r: Release): { rows: { name: string; points: number }[]; rest: number } {
-  const rows = r.custom_formats.map((f) => ({ name: f.name, points: f.points }))
-  return { rows, rest: r.score - rows.reduce((sum, f) => sum + f.points, 0) }
+export function breakdown(score: number, formats: CustomFormatMatch[]): { rows: CustomFormatMatch[]; rest: number } {
+  const rows = formats.map((f) => ({ name: f.name, points: f.points }))
+  return { rows, rest: score - rows.reduce((sum, f) => sum + f.points, 0) }
 }
 
 // ---- segments ------------------------------------------------------------------------------------------------

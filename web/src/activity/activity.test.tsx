@@ -507,7 +507,13 @@ describe('Activity', () => {
     ])
     expect(within(item).getByText('Files')).toBeInTheDocument()
     expect(item.querySelector('[dir="rtl"] bdi')).toHaveTextContent('/media/movies/Paddington (2014)/Paddington (2014) - [Bluray-1080p].mkv')
-    expect(within(item).getByText('Remux Tier 01 +1600')).toBeInTheDocument()
+    expect(within(item).getByText('Remux Tier 01').nextSibling).toHaveTextContent('+1,600')
+    // The grab's facts are the shared view's: the parsed Release facts and the indexer, with no blue badges.
+    expect(within(item).getByText('Quality').nextSibling).toHaveTextContent('BluRay 1080p')
+    expect(within(item).getByText('Video').nextSibling).toHaveTextContent('H.264 · SDR')
+    expect(within(item).getByText('Audio').nextSibling).toHaveTextContent('DTS-HD MA 5.1')
+    expect(within(item).getByText('Indexer').nextSibling).toHaveTextContent('NZBgeek')
+    expect(within(item).getByText('Group').nextSibling).toHaveTextContent('GRP')
     expect(within(item).queryByRole('button', { name: /Search/ })).not.toBeInTheDocument()
 
     await userEvent.click(within(item).getByRole('button', { name: 'Show in Log' }))
