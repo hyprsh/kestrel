@@ -126,12 +126,12 @@ export function SeasonRows({
                 const cellItems = v ? items.season(v, n, eps, tallies[i], monitored, onShowWanted) : []
                 const cellLabel = `${name}, ${s.name}: ${view.say}`
                 return (
-                  <span key={s.key} role="cell" className="flex min-w-0 items-center justify-center border-l border-gray-alpha-200">
+                  <span key={s.key} role="cell" className="flex min-w-0 items-center justify-center max-sm:border-l max-sm:border-gray-alpha-200">
                     {v && <CellButton kind={view.kind} count={view.count} label={cellLabel} title={`${name} · ${s.name}`} status={view.say} items={cellItems} phone={phone} />}
                   </span>
                 )
               })}
-              <span role="cell" className={`flex items-center justify-end border-l border-gray-alpha-200 pr-2 max-sm:border-l-0 max-sm:pr-0 ${phone ? 'justify-center' : ''}`}>
+              <span role="cell" className={`flex items-center justify-center`}>
                 <SeasonMenu actions={actions} season={n} episodes={eps} monitored={monitored} onSelectAll={() => onSelectAll(n)} />
               </span>
             </div>

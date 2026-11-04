@@ -250,7 +250,7 @@ function EpisodeRow({
           <CellButton
             kind={view.kind}
             count={view.count}
-            wide={view.wide}
+            wideCount={view.wideCount}
             label={`${label}: ${view.say}`}
             title={`${code} · ${s.name}`}
             status={view.say}
@@ -263,7 +263,7 @@ function EpisodeRow({
       }
     }
     return (
-      <span key={s.key} role="cell" className="flex min-w-0 items-center justify-center border-l border-gray-alpha-200">
+      <span key={s.key} role="cell" className="flex min-w-0 items-center justify-center max-sm:border-l max-sm:border-gray-alpha-200">
         {body}
       </span>
     )
@@ -297,7 +297,7 @@ function EpisodeRow({
           </span>
         </span>
         {cells}
-        <span role="cell" className="flex items-center justify-end border-l border-gray-alpha-200 pr-2 max-sm:border-l-0 max-sm:pr-0.5">
+        <span role="cell" className="flex items-center justify-center max-sm:justify-end max-sm:pr-0.5">
           <EpisodeMenu actions={actions} episode={episode} onOpenChange={setMenuOpen} />
         </span>
       </div>

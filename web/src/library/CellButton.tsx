@@ -44,7 +44,7 @@ function Face({ kind, count, wide }: { kind: CellKind; count: string; wide: bool
 export function CellButton({
   kind,
   count,
-  wide,
+  wideCount,
   label,
   title,
   status,
@@ -57,7 +57,7 @@ export function CellButton({
   /** The count on a phone, a dot's only text. */
   count: string
   /** What a wide screen shows in its place, when it differs ("40%" for "40"). */
-  wide?: string
+  wideCount?: string
   label: string
   title: string
   status: string
@@ -119,7 +119,7 @@ export function CellButton({
         onFocus={onFocus}
         className={`flex h-8 max-w-full cursor-pointer items-center justify-center gap-1 rounded-md px-2 hover:bg-gray-alpha-200 aria-expanded:bg-gray-alpha-200`}
       >
-        <Face kind={kind} count={wide ?? count} wide />
+        <Face kind={kind} count={wideCount ?? count} wide />
       </MenuButton>
       <Menu width={320}>
         <MenuSection title={`${title} · ${status}`}>

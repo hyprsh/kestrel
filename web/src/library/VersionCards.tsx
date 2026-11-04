@@ -113,14 +113,16 @@ export function VersionCard({ version: v, downloads, now, marked, ...rest }: Ver
         <span className="label-12 min-w-0 flex-1 truncate text-gray-900">{rest.profileName(v.profile)}</span>
         <OriginalOfferTag version={v} />
       </span>
-      <span className="flex min-h-8 flex-col gap-0.5">
-        {line.text && <span className={`label-13 ${line.tone}`}>{line.text}</span>}
-        {why && (
-          <span title={why} className="label-12 text-gray-900">
-            {why}
-          </span>
-        )}
-      </span>
+      {(line.text || why) && (
+        <span className="flex flex-col gap-0.5">
+          {line.text && <span className={`label-13 ${line.tone}`}>{line.text}</span>}
+          {why && (
+            <span title={why} className="label-12 text-gray-900">
+              {why}
+            </span>
+          )}
+        </span>
+      )}
       <span className="flex items-center gap-2">
         <CoverageBar v={v} />
         {count && (

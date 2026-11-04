@@ -96,7 +96,7 @@ describe('the episodes loading Skeleton', () => {
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const region = await screen.findByRole('region', { name: 'Versions and seasons' })
+    const region = await screen.findByRole('region', { name: 'Seasons' })
     expect(within(region).getByText('Loading episodes')).toBeInTheDocument()
     expect(within(region).getByRole('table', { name: 'Seasons' })).toBeInTheDocument() // the Versions' head does not wait for the episodes
     expect(screen.queryByRole('rowgroup', { name: /episodes$/ })).not.toBeInTheDocument()

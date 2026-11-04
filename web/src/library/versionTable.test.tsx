@@ -55,8 +55,7 @@ describe('the Series table on a wide screen', () => {
     const table = await openSeries()
     expect(table.getAllByRole('columnheader').map((h) => h.getAttribute('aria-label'))).toEqual(expect.arrayContaining(['Standard', '4K']))
     expect(table.queryByRole('button', { name: 'Add Version' })).not.toBeInTheDocument()
-    expect(table.getByText('1 season')).toBeInTheDocument()
-    expect(table.getByText('3 episodes')).toBeInTheDocument()
+    expect(table.getByText('1 season · 3 episodes')).toBeInTheDocument()
   })
 
   it('lists the Version cards above the table, and names the Versions in its head and the dots in a legend', async () => {

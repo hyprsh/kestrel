@@ -166,7 +166,7 @@ export function SeriesSection({
       <SeasonRows seasons={listed} episodes={grouped} slots={slotList} open={open} onToggle={toggle} actions={actions} onSelectAll={selectSeason} onShowWanted={showWanted} now={now} body={body} />
     )
   return (
-    <section aria-label="Versions and seasons" className="mt-6 flex flex-col gap-6">
+    <div className="mt-6 flex flex-col gap-6">
       <VersionTable
         title={title}
         slots={slotList}
@@ -181,7 +181,7 @@ export function SeriesSection({
         {rows}
       </VersionTable>
       {ok && <TickedBar actions={actions} />}
-    </section>
+    </div>
   )
 }
 

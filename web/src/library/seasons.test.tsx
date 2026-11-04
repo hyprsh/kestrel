@@ -41,7 +41,7 @@ describe('the Seasons at a glance on the Title page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await screen.findAllByRole('rowgroup', { name: /episodes$/ })
 
-    const region = screen.getByRole('region', { name: 'Versions and seasons' })
+    const region = screen.getByRole('region', { name: 'Seasons' })
     expect(
       within(region)
         .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
@@ -189,7 +189,7 @@ describe('the Seasons at a glance on the Title page', () => {
     }
     const tabs = () => screen.getByRole('tablist', { name: 'Show episodes' })
     const listed = () =>
-      within(screen.getByRole('region', { name: 'Versions and seasons' }))
+      within(screen.getByRole('region', { name: 'Seasons' }))
         .queryAllByRole('button', { name: /^(Season \d+|Specials):/ })
         .map((b) => b.getAttribute('aria-label')!.split(':')[0])
     const ticks = (season: number) =>
@@ -360,7 +360,7 @@ describe('the Seasons at a glance on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await screen.findAllByRole('rowgroup', { name: /episodes$/ })
-    const region = screen.getByRole('region', { name: 'Versions and seasons' })
+    const region = screen.getByRole('region', { name: 'Seasons' })
 
     // Season 2 has what is Wanted, so it opened; Season 1 is closed.
     await userEvent.click(within(region).getByRole('button', { name: 'Season 2 Actions' }))
@@ -392,7 +392,7 @@ describe('the Seasons at a glance on the Title page', () => {
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await screen.findAllByRole('rowgroup', { name: /episodes$/ })
-    const region = screen.getByRole('region', { name: 'Versions and seasons' })
+    const region = screen.getByRole('region', { name: 'Seasons' })
 
     await userEvent.click(within(region).getByRole('button', { name: 'Season 1, 4K: 2 Wanted' }))
     const menu = screen.getByRole('menu', { name: 'Season 1, 4K: 2 Wanted' })
@@ -415,7 +415,7 @@ describe('the Seasons at a glance on the Title page', () => {
 
   it('monitors and unmonitors a whole season from its menu, which dims the row while off', async () => {
     const { state } = await openSeries()
-    const region = screen.getByRole('region', { name: 'Versions and seasons' })
+    const region = screen.getByRole('region', { name: 'Seasons' })
     const season = () => region.querySelector('[data-season="1"]') as HTMLElement
     expect(season()).toHaveAttribute('data-monitored', 'on')
     await userEvent.click(within(season()).getByRole('button', { name: 'Season 1 Actions' }))

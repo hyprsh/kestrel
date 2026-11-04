@@ -43,7 +43,7 @@ export function VersionTable({
   episodeCount: number
   /** The Slot the page was opened at (`?slot=`): its card is scrolled to and ringed. */
   marked: string | null
-  /** The control that filters the seasons, above the table; nothing while there is nothing to filter. */
+  /** The control that filters the seasons, above the table; it and the legend show only while there are season rows. */
   filter: ReactNode
   /** The rows under the head: seasons, or a note while there are none to show. */
   children: ReactNode
@@ -91,9 +91,8 @@ export function VersionTable({
                 Season
               </span>
             ) : (
-              <span role="columnheader" className="flex flex-col justify-end gap-0.5 p-4">
-                <span className="label-13 text-gray-900">{plural(seasonCount, 'season')}</span>
-                <span className="label-13 text-gray-900">{plural(episodeCount, 'episode')}</span>
+              <span role="columnheader" className="label-13 truncate px-5 py-3 text-gray-900">
+                {plural(seasonCount, 'season')} · {plural(episodeCount, 'episode')}
               </span>
             )}
             {slots.map((s) => (
@@ -101,16 +100,16 @@ export function VersionTable({
                 key={s.key}
                 role="columnheader"
                 aria-label={s.name}
-                className={`flex items-end justify-center truncate text-center text-gray-900 ${phone ? 'label-12' : 'label-13 border-l border-gray-alpha-200 px-1 py-4'}`}
+                className={`flex items-end justify-center truncate text-center text-gray-900 ${phone ? 'label-12' : 'label-13 items-center px-1 py-3'}`}
               >
                 {phone ? s.short : s.name}
               </span>
             ))}
-            <span aria-hidden className={phone ? '' : 'border-l border-gray-alpha-200'} />
+            <span aria-hidden />
           </div>
           {children}
         </div>
-        <Legend />
+        {filter && <Legend />}
       </section>
     </>
   )
