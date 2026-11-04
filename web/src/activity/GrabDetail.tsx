@@ -144,7 +144,7 @@ export function GrabDetail({ grab: g, onOpenTitle, onManualSearch }: { grab: Gra
           )}
         </div>
       </div>
-      {steps && <ReleaseFacts facts={{ ...steps, size: size(g.size), indexer: g.indexer, group: steps.release_group, formats: steps.formats }} />}
+      {steps && <ReleaseFacts facts={{ ...steps, size: size(g.size), indexer: g.indexer, group: steps.release_group, score: g.score }} />}
       <div className="flex flex-wrap gap-2">
         {failed ? (
           <>

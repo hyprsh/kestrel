@@ -113,8 +113,8 @@ func (s *server) GetGrabSteps(ctx context.Context, r oapi.GetGrabStepsRequestObj
 	}
 	about := titles.about(g)
 	kind := release.KindMovie
-	if about.kind != nil && *about.kind == oapi.TitleKind(library.Series) {
-		kind = release.KindSeries
+	if about.kind != nil {
+		kind = kindOf(*about.kind)
 	}
 	parsedGrabFacts(&out, g.ReleaseName, kind)
 	if out.StillWanted, err = s.grabStillWanted(ctx, g, titles, about); err != nil {
@@ -124,14 +124,19 @@ func (s *server) GetGrabSteps(ctx context.Context, r oapi.GetGrabStepsRequestObj
 }
 
 // parsedGrabFacts fills the Grab's quality, video, audio and group from its release name, read now rather than
-// stored, so a Grab from before these were shown has them too.
+// stored, so a Grab from before these were shown has them too. It parses the name as a search does for a Release,
+// and falls back to the name's own quality, media and group when the name does not parse as the Title's kind.
 func parsedGrabFacts(out *oapi.GrabSteps, name string, kind release.Kind) {
-	if q := release.ParseQualityOf(name, kind).Quality; q.ID != 0 {
+	p, err := release.Parse(name, kind)
+	if err != nil {
+		p = release.ParsedRelease{Quality: release.ParseQualityOf(name, kind), ReleaseGroup: release.ParseReleaseGroup(name)}
+		p.VideoCodec, p.HDR, p.AudioCodec, p.AudioChannels = release.ParseMedia(strings.TrimSpace(name))
+	}
+	if q := p.Quality.Quality; q.ID != 0 {
 		out.Quality = strPtr(q.Name)
 	}
-	video, hdr, audio, channels := release.ParseMedia(strings.TrimSpace(name))
-	out.VideoCodec, out.Hdr, out.AudioCodec, out.AudioChannels = strPtr(video), strPtr(hdr), strPtr(audio), strPtr(channels)
-	out.ReleaseGroup = strPtr(release.ParseReleaseGroup(name))
+	out.VideoCodec, out.Hdr, out.AudioCodec, out.AudioChannels = strPtr(p.VideoCodec), strPtr(p.HDR), strPtr(p.AudioCodec), strPtr(p.AudioChannels)
+	out.ReleaseGroup = strPtr(p.ReleaseGroup)
 }
 
 // grabStillWanted reports whether what the Grab was for is Wanted: the Movie's Version, or any episode it covered

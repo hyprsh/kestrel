@@ -17,7 +17,7 @@ export type Facts = MediaFacts & {
   grabs?: number
   group?: string | null
   info_url?: string
-  /** The Score; a Grab does not carry one, so it shows its Custom Formats alone. */
+  /** The Score; without one, the Custom Formats show alone. */
   score?: number | null
   formats?: CustomFormatMatch[]
 }
@@ -121,7 +121,7 @@ export function ReleaseFacts({
       )}
       {narrow && total === null && points.length > 0 && (
         <>
-          <dt className="text-gray-900">Formats</dt>
+          <dt className="text-gray-900">Custom Formats</dt>
           <dd className="m-0 min-w-0">
             <Formats rows={points} rest={0} />
           </dd>
