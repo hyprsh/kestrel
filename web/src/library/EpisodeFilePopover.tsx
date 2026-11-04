@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { components } from '../api/schema.gen'
-import { Badge, Button, Popover, StatusDot } from '@hyprsh/design'
+import { Button, Popover, StatusDot } from '@hyprsh/design'
 import { cx } from '../ui'
 import { dotOf, size, type Dot } from './bits'
 import { baseName } from './cellDetail'
-import { audioLine, qualityName, type MediaFacts } from './media'
+import type { MediaFacts } from './media'
+import { ReleaseFacts, type Row } from './ReleaseFacts'
 import { lastSearchLine } from './WantedLine'
 
 type EpisodeCell = components['schemas']['EpisodeCell']
@@ -21,8 +22,6 @@ type FileFacts = MediaFacts & {
   score?: number | null
   custom_formats?: CustomFormat[]
 }
-
-const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `\u2212${-n}` : '0')
 
 /** "Oct 20" for a date this year, "Oct 20, 2024" for another; "" for an unreadable one. */
 export function importedOn(iso: string | undefined): string {
@@ -107,18 +106,9 @@ export function FileDetailsPopover({
     })
   }
   const on = importedOn(file.imported_at)
-  const rows: [string, string][] = []
-  // Each fact once: the codec and HDR format are Video's, not Quality's; the state is the dot's, and the size is the Size row's.
-  if (file.quality) rows.push(['Quality', qualityName(file.quality)])
-  const videoText = [file.video_codec, file.hdr].filter(Boolean).join(' \u00b7 ')
-  if (videoText) rows.push(['Video', videoText])
-  const audioText = audioLine(file)
-  if (audioText) rows.push(['Audio', audioText])
-  rows.push(['Size', size(file.size)])
-  if (on) rows.push(['Imported', file.release_group ? `${on}, from ${file.release_group}` : on])
-  else if (file.release_group) rows.push(['Group', file.release_group])
-  if (lastSearch) rows.push(['Searched', lastSearch])
-  const formats = file.custom_formats ?? []
+  const extra: Row[] = []
+  if (on) extra.push(['Imported', on])
+  if (lastSearch) extra.push(['Searched', lastSearch])
   // The path's end is the file name; a release name that is the same name (with or without its extension) adds nothing.
   const fileName = baseName(file.path)
   const releaseName = file.release_name && file.release_name !== fileName && file.release_name !== fileName.replace(/\.[^.]+$/, '') ? file.release_name : ''
@@ -135,33 +125,7 @@ export function FileDetailsPopover({
             <p className="label-14-strong">{heading}</p>
           </div>
           {releaseName && <p className="label-12-mono break-all text-gray-900">{releaseName}</p>}
-          <dl className="label-13 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-y-1">
-            {rows.map(([k, v]) => (
-              <Fragment key={k}>
-                <dt className="text-gray-900">{k}</dt>
-                <dd>{v}</dd>
-              </Fragment>
-            ))}
-            {file.score != null && (
-              <>
-                <dt className="text-gray-900">Score</dt>
-                <dd>
-                  <span className="hy-num">{file.score.toLocaleString('en-US')}</span>
-                  {formats.length > 0 && (
-                    <ul className="mt-1 flex list-none flex-wrap gap-1 p-0" aria-label="Custom Formats">
-                      {formats.map((f) => (
-                        <li key={f.name} title={`${f.name}: ${f.points} points`}>
-                          <Badge variant="gray" contrast="low" size="sm">
-                            {f.name} {signed(f.points)}
-                          </Badge>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </dd>
-              </>
-            )}
-          </dl>
+          <ReleaseFacts layout="narrow" facts={{ ...file, size: size(file.size), group: file.release_group, formats: file.custom_formats }} extra={extra} />
           {note && <p className="label-12 text-gray-900">{note}</p>}
           <EndOfPath path={file.path} />
           <div className="flex gap-2">

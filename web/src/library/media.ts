@@ -31,3 +31,9 @@ export function qualityLine(m: MediaFacts, withHdr = true): string {
 export function audioLine(m: MediaFacts): string {
   return [audioFormat(m), m.languages?.join(', ')].filter(Boolean).join(' · ')
 }
+
+/** "H.264 · HDR10", "HEVC · SDR": the codec, then the HDR format (SDR when the codec is known and there is none); "" when neither is known. */
+export function videoLine(m: MediaFacts): string {
+  if (!m.video_codec) return m.hdr ?? ''
+  return `${m.video_codec} · ${m.hdr ?? 'SDR'}`
+}

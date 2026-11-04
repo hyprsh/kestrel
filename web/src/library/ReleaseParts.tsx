@@ -8,25 +8,9 @@ import { useQueue } from '../api/queue'
 import { percent } from '../format'
 import { span } from '../time'
 import { size } from './bits'
-import { audioFormat, audioLine, qualityLine, qualityName } from './media'
-import {
-  ageLong,
-  breakdown,
-  coverLines,
-  coverRange,
-  deltaText,
-  fillsReplaces,
-  fitsProfile,
-  grabState,
-  heldScores,
-  published,
-  rejectionAdvice,
-  rejectionBlocked,
-  score,
-  signed,
-  sizeLine,
-  whyLine,
-} from './releaseView'
+import { audioFormat, qualityName } from './media'
+import { ReleaseFacts, type Facts, type Row } from './ReleaseFacts'
+import { ageLong, coverLines, coverRange, deltaText, fillsReplaces, fitsProfile, grabState, heldScores, rejectionAdvice, rejectionBlocked, score, signed, sizeLine, whyLine } from './releaseView'
 
 /** What became of a Release grabbed in this search. */
 export type GrabEntry = { status: 'pending' } | { status: 'sent'; grabId: number; fills: string[]; at: number } | { status: 'failed'; message: string }
@@ -258,60 +242,21 @@ export function ReleaseDetail({
       </Button>
     </div>
   )
-  if (!fitsProfile(x)) {
-    const blocked = rejectionBlocked(x)
-    return (
-      <div className="flex flex-col gap-3">
+  const fits = fitsProfile(x)
+  const blocked = rejectionBlocked(x)
+  const lines = coverLines(x)
+  const lead: Row[] = lines.length > 0 ? [['Covers', lines.map((l) => <div key={l}>{l}</div>)]] : []
+  const facts: Facts = { ...x, size: sizeLine(x), formats: x.custom_formats }
+  const note = fits ? (isBest || bestScore === undefined ? `Fits ${profileName}. This is the best fit.` : `Fits ${profileName}. The best fit scores ${score(bestScore)}.`) : undefined
+  return (
+    <div className="flex flex-col gap-4">
+      {!fits && (
         <div className={`label-13 flex items-start gap-2 ${blocked ? 'text-red-900' : 'text-amber-900'}`}>
           <TriangleAlert size={16} className="shrink-0" aria-hidden />
           <span>{`Rejected: ${x.rejections.map((r) => r.message).join('; ')}. ${rejectionAdvice(x)}`}</span>
         </div>
-        {actionRow}
-      </div>
-    )
-  }
-  const { rows, rest } = breakdown(x)
-  const lines = coverLines(x)
-  const facts: [string, ReactNode][] = []
-  if (lines.length > 0) facts.push(['Covers', lines.map((l) => <div key={l}>{l}</div>)])
-  facts.push(['Quality', qualityLine(x) || x.quality], ['Audio', audioLine(x) || 'Unknown'], ['Size', sizeLine(x)])
-  facts.push(['Published', `${published(x.published_at)}, ${ageLong(x.published_at)} ago`])
-  facts.push(['Indexer', x.grabs ? `${x.indexer} · ${x.grabs.toLocaleString('en-US')} grabs` : x.indexer])
-  if (x.group) facts.push(['Group', x.group])
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        <dl className="label-13 grid grid-cols-[6rem_minmax(0,1fr)] content-start gap-x-3 gap-y-1.5">
-          {facts.map(([k, v]) => (
-            <div key={k} className="contents">
-              <dt className="text-gray-900">{k}</dt>
-              <dd className="min-w-0 break-words">{v}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className="flex flex-col gap-2">
-          <span className="label-13 font-semibold">{`Why it scores ${score(x.score)}`}</span>
-          <dl className="label-13 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5">
-            {rows.map((f) => (
-              <div key={f.name} className="contents">
-                <dt>{f.name}</dt>
-                <dd className={`hy-num text-right ${f.points < 0 ? 'text-red-900' : 'text-green-900'}`}>{signed(f.points)}</dd>
-              </div>
-            ))}
-            {rest !== 0 && (
-              <div className="contents">
-                <dt>Profile and quality</dt>
-                <dd className={`hy-num text-right ${rest < 0 ? 'text-red-900' : 'text-green-900'}`}>{signed(rest)}</dd>
-              </div>
-            )}
-            <dt className="font-semibold">Score</dt>
-            <dd className="hy-num text-right font-semibold">{score(x.score)}</dd>
-          </dl>
-          <span className="label-12 text-gray-900">
-            {isBest || bestScore === undefined ? `Fits ${profileName}. This is the best fit.` : `Fits ${profileName}. The best fit scores ${score(bestScore)}.`}
-          </span>
-        </div>
-      </div>
+      )}
+      <ReleaseFacts facts={facts} lead={lead} replaces={fillsReplaces(x).replaces} note={note} />
       {actionRow}
     </div>
   )

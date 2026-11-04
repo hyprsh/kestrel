@@ -347,7 +347,8 @@ describe('manual search', () => {
       const detail = within(table).getByText('Why it scores 2,050').closest('tr') as HTMLElement
       expect(detail).toHaveTextContent('Covers')
       expect(detail).toHaveTextContent('S05E05 · Wanted')
-      expect(detail).toHaveTextContent('QualityBluRay 1080p · H.265 · HDR10')
+      expect(detail).toHaveTextContent('QualityBluRay 1080p')
+      expect(detail).toHaveTextContent('VideoH.265 · HDR10')
       expect(detail).toHaveTextContent('AudioDDP 5.1 · English')
       expect(detail).toHaveTextContent('Size')
       expect(detail).toHaveTextContent('Published')
@@ -428,6 +429,42 @@ describe('manual search', () => {
       const blocked = screen.getByText(/^Rejected: On the Blocklist/)
       expect(blocked).toHaveTextContent('never grabs')
       expect(within(blocked.closest('tr') as HTMLElement).queryByRole('button', { name: /^Grab/ })).not.toBeInTheDocument()
+    })
+
+    it('shows the facts and the score breakdown of a rejected Release, under its rejection', async () => {
+      fakeSearch(
+        seriesReleases().map((r) =>
+          r.release_id === 'de'
+            ? {
+                ...r,
+                group: 'GRP',
+                grabs: 9,
+                quality: 'WEBDL-2160p',
+                custom_formats: [{ name: 'German DL', points: 300 }],
+                covers: [{ season: 5, episode: 1, state: 'filled' as const, file_score: 1500 }],
+              }
+            : r,
+        ),
+      )
+      const table = await openManualSearch()
+      await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+      await userEvent.click(within(table).getByText('Show.S05.GERMAN.2160p.WEB-GRP'))
+
+      const rejection = screen.getByText(/^Rejected: Not in the language/)
+      const detail = rejection.closest('tr') as HTMLElement
+      const fact = (k: string) => within(detail).getByText(k).nextElementSibling
+      expect(fact('Quality')).toHaveTextContent('WEB-DL 2160p')
+      expect(fact('Audio')).toHaveTextContent('German')
+      expect(fact('Indexer')).toHaveTextContent('Alpha · 9 grabs')
+      expect(fact('Group')).toHaveTextContent('GRP')
+      const why = within(detail).getByText('Why it scores 1,800').parentElement as HTMLElement
+      expect(within(why).getByText('German DL').nextSibling).toHaveTextContent('+300')
+      expect(within(why).getByText('Profile and quality').nextSibling).toHaveTextContent('+1,500')
+      expect(within(why).getByText('Held file').nextSibling).toHaveTextContent('1,500')
+      expect(within(why).getByText('Difference').nextSibling).toHaveTextContent('+300')
+      // The rejection comes first, the actions stay.
+      expect(rejection.compareDocumentPosition(within(detail).getByText('Quality')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(within(detail).getByRole('button', { name: 'Grab Anyway…' })).toBeInTheDocument()
     })
 
     it('blocklists a Release for the Version and moves it to the rejected ones', async () => {
@@ -760,7 +797,25 @@ describe('manual search on a phone', () => {
     fakeSearch(seriesReleases())
     const list = await openPhoneSearch()
     await userEvent.click(within(list).getByText('Show.S05E05.2160p.WEB-DL-NTb'))
-    expect(await screen.findByText('Why it scores 2,050')).toBeInTheDocument()
+    // A phone gets the same detail in one column: the Score is a row, its Custom Formats badges after the number.
+    const score = (await screen.findByText('Score')).nextElementSibling as HTMLElement
+    expect(score).toHaveTextContent('2,050')
+    expect(
+      within(within(score).getByRole('list', { name: 'Custom Formats' }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['WEB Tier 01 +1,700', 'HDR +500', 'x265 (HD) −150'])
+    expect(screen.queryByText('Why it scores 2,050')).not.toBeInTheDocument()
+  })
+
+  it('opens a rejected row with its rejection above the same facts', async () => {
+    fakeSearch(seriesReleases())
+    const list = await openPhoneSearch()
+    await userEvent.click(screen.getByRole('tab', { name: /rejected/i }))
+    await userEvent.click(within(list).getByText('Show.S05.GERMAN.2160p.WEB-GRP'))
+    expect(await screen.findByText(/^Rejected: Not in the language/)).toBeInTheDocument()
+    expect(screen.getByText('Quality').nextElementSibling).toHaveTextContent('BluRay 1080p')
+    expect(screen.getByText('Score').nextElementSibling).toHaveTextContent('1,800')
   })
 
   it('sorts from the options menu', async () => {

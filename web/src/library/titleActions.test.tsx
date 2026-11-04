@@ -251,15 +251,16 @@ describe('the Version cards', () => {
     // A fact is the label with its value after it.
     const fact = (k: string) => dialog.getByText(k).nextElementSibling
     expect(fact('Quality')).toHaveTextContent('BluRay 1080p')
-    expect(fact('Video')).toHaveTextContent('H.264')
+    expect(fact('Video')).toHaveTextContent('H.264 · SDR')
     expect(fact('Audio')).toHaveTextContent('DTS 5.1 · English, German')
     expect(fact('Size')).toHaveTextContent('8 GB')
-    expect(fact('Imported')).toHaveTextContent(/from GRP$/)
+    expect(fact('Group')).toHaveTextContent('GRP')
+    expect(fact('Imported')).toBeInTheDocument()
     expect(fact('Path')).toHaveTextContent('/data/media/movies/Paddington (2014)/Paddington.mkv')
     // The Score and each Custom Format the file matched, with its points.
-    expect(fact('Custom Format Score')).toHaveTextContent('+2,290')
-    expect(dialog.getByText('Remux Tier 01 +2300')).toBeInTheDocument()
-    expect(dialog.getByText('x265 \u221210')).toBeInTheDocument()
+    expect(fact('Score')).toHaveTextContent('2,290')
+    expect(fact('Remux Tier 01')).toHaveTextContent('+2,300')
+    expect(fact('x265')).toHaveTextContent('\u221210')
   })
 
   it('show a Wanted Movie Version for how many days, with Search Now as its one action', async () => {
