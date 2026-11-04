@@ -42,7 +42,7 @@ async function show() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   await screen.findByRole('rowgroup', { name: /episodes$/ })
-  return screen.getByRole('table', { name: 'Versions and seasons' })
+  return screen.getByRole('table', { name: 'Seasons' })
 }
 const seasonRowOf = (table: HTMLElement, n: number) =>
   within(table)
@@ -152,7 +152,7 @@ describe('a Series with four Slots', () => {
     const row = within(seasonRowOf(table, 1))
     expect(row.getByRole('button', { name: 'Season 1, Standard: 2 of 2' })).toBeInTheDocument()
     expect(row.getByRole('button', { name: 'Season 1, German: 2 of 2' })).toBeInTheDocument()
-    expect(row.getByRole('button', { name: 'Season 1, 4K: 1 Wanted' })).toHaveTextContent('1 Wanted')
+    expect(row.getByRole('button', { name: 'Season 1, 4K: 1 Wanted' })).toHaveTextContent('1')
     expect(row.getByRole('button', { name: 'Season 1, Remux: 1 Wanted' })).toBeInTheDocument()
     await userEvent.click(row.getByRole('button', { name: 'Season 1, 4K: 1 Wanted' }))
     const menu = await screen.findByRole('menu')
@@ -270,7 +270,7 @@ describe('the Series table on a phone', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     await userEvent.click(await screen.findByRole('option', { name: /breaking bad/i }))
     const grid = await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })
-    const table = screen.getByRole('table', { name: 'Versions and seasons' })
+    const table = screen.getByRole('table', { name: 'Seasons' })
 
     expect(
       within(table)

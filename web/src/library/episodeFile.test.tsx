@@ -96,9 +96,9 @@ describe('the episodes loading Skeleton', () => {
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const region = await screen.findByRole('region', { name: 'Versions' })
+    const region = await screen.findByRole('region', { name: 'Versions and seasons' })
     expect(within(region).getByText('Loading episodes')).toBeInTheDocument()
-    expect(within(region).getByRole('table', { name: 'Versions and seasons' })).toBeInTheDocument() // the Versions' head does not wait for the episodes
+    expect(within(region).getByRole('table', { name: 'Seasons' })).toBeInTheDocument() // the Versions' head does not wait for the episodes
     expect(screen.queryByRole('rowgroup', { name: /episodes$/ })).not.toBeInTheDocument()
     expect(await screen.findByRole('rowgroup', { name: 'Season 1 episodes' })).toBeInTheDocument()
   })
@@ -112,7 +112,7 @@ describe('the file of an episode Version, in the opened season', () => {
     const { grid } = await openSeries()
     const row = rowOf(grid, 'Season 1 episode 1')
     expect(within(row).getByRole('button', { name: 'S01E01 Standard: Have' })).toHaveAttribute('title', 'Standard: Have')
-    expect(within(row).getByRole('button', { name: 'S01E01 4K: Wanted' })).toHaveTextContent('Wanted')
+    expect(within(row).getByRole('button', { name: 'S01E01 4K: Wanted' })).toBeInTheDocument()
     const placeholder = rowOf(grid, 'Season 1 episode 3')
     expect(within(placeholder).getByRole('button', { name: 'S01E03 Standard: Wanted' })).toBeInTheDocument()
   })

@@ -46,10 +46,9 @@ function series() {
   return state
 }
 
-function suite(phone: boolean) {
-  /** A Series' Version card: a column head of the table on a wide screen, a card of the list above it on a phone. */
-  const seriesCard = (scope: HTMLElement, name: string) =>
-    phone ? within(within(scope).getByRole('list', { name: 'Versions' })).getByRole('listitem', { name }) : within(scope).getByRole('columnheader', { name })
+function suite() {
+  /** A Series' Version card, in the list above the table. */
+  const seriesCard = (scope: HTMLElement, name: string) => within(within(scope).getByRole('list', { name: 'Versions' })).getByRole('listitem', { name })
   const seasonRow = (scope: HTMLElement, n: number) =>
     within(scope)
       .getByRole('button', { name: new RegExp(`^Season ${n}:`) })
@@ -58,7 +57,7 @@ function suite(phone: boolean) {
   it('starts a Series with every Season closed', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    await within(pane).findByRole('table', { name: 'Seasons' })
     await within(pane).findAllByRole('button', { name: /^Season \d+:/ }, { timeout: 5000 })
     for (const r of within(pane).getAllByRole('button', { name: /^Season \d+:/ })) expect(r).toHaveAttribute('aria-expanded', 'false')
   })
@@ -81,7 +80,7 @@ function suite(phone: boolean) {
   it('puts a Season’s menu on its row, season-wide: Search All Wanted, Select All, Monitor and the files', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    const table = await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    const table = await within(pane).findByRole('table', { name: 'Seasons' })
     await within(table).findByRole('button', { name: /^Season 2:/ }, { timeout: 5000 })
     const two = seasonRow(table, 2)
 
@@ -98,7 +97,7 @@ function suite(phone: boolean) {
   it('ticks the episodes of a closed season from its menu, opening it', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    const table = await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    const table = await within(pane).findByRole('table', { name: 'Seasons' })
     await within(table).findByRole('button', { name: /^Season 2:/ }, { timeout: 5000 })
     await userEvent.click(within(seasonRow(table, 2)).getByRole('button', { name: 'Season 2 Actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Select All Episodes' }))
@@ -110,7 +109,7 @@ function suite(phone: boolean) {
   it('puts a Series Version’s main action and menu on its card', async () => {
     series()
     const pane = await openTitle(/breaking bad/i)
-    await within(pane).findByRole('table', { name: 'Versions and seasons' })
+    await within(pane).findByRole('table', { name: 'Seasons' })
     const std = seriesCard(pane, 'Standard')
 
     expect(within(std).getByRole('button', { name: 'Search Now' })).toBeEnabled() // a Wanted episode
@@ -135,10 +134,10 @@ function suite(phone: boolean) {
   })
 }
 
-describe('row actions on the Title page', suite.bind(null, false))
+describe('row actions on the Title page', suite)
 
 describe('row actions on the Title page, on a phone', () => {
   afterEach(() => vi.unstubAllGlobals())
   beforeEach(() => vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('max-width: 639'), media: query, addEventListener: () => {}, removeEventListener: () => {} })))
-  suite(true)
+  suite()
 })

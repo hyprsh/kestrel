@@ -11,7 +11,13 @@ import { episodeCode, seasonName, type EpisodeVersion, type SlotTally } from './
 import { cellOf } from './slots'
 
 /** How a cell reads: the kind sets its colour, `text` is what a wide screen says ("6 Wanted") and `count` what a phone has room for ("6"). */
-export type CellView = { kind: CellKind; text: string; count: string; /** What it says in words, for its name. */ say: string }
+export type CellView = {
+  kind: CellKind
+  text: string
+  count: string
+  /** What it says in words, for its name. */ say: string
+  /** What a wide screen shows beside the dot in place of `count`: a downloading episode's "40%". */ wide?: string
+}
 
 /** One Version's cell in a season: a check when it has the whole season, else the state that needs a look. */
 export function seasonCellView(t: SlotTally, monitored: boolean): CellView {
@@ -40,7 +46,7 @@ export function episodeCellView(e: Episode, slot: string, grab: QueueItem | unde
     case 'downloading': {
       const pct = grab && grab.bytes_total > 0 ? percent(grab.bytes_total, grab.phase === 'importing' ? 0 : grab.bytes_left) : null
       const text = pct === null ? 'Downloading' : `${pct}%`
-      return { kind: 'downloading', text, count: pct === null ? '' : String(pct), say: pct === null ? 'Downloading' : `Downloading ${pct}%` }
+      return { kind: 'downloading', text, count: pct === null ? '' : String(pct), wide: pct === null ? undefined : `${pct}%`, say: pct === null ? 'Downloading' : `Downloading ${pct}%` }
     }
     case 'unreleased':
       return { kind: 'out', text: 'Not out yet', count: '—', say: 'Not out yet' }
