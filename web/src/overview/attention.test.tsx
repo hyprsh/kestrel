@@ -104,9 +104,9 @@ describe('Needs attention', () => {
 
     expect(rows).toHaveLength(2)
     expect(rows[0]).toHaveTextContent('SABnzbd is unreachable: connection refused')
-    expect(rows[0]).toHaveTextContent(/blocking/i)
+    expect(within(rows[0]).getByRole('img', { name: 'Blocking' })).toBeInTheDocument() // a slim line: the severity is its icon
     expect(rows[1]).toHaveTextContent('Imports into /data/media/movies copy instead of moving')
-    expect(rows[1]).toHaveTextContent(/warning/i)
+    expect(within(rows[1]).getByRole('img', { name: 'Warning' })).toBeInTheDocument()
   })
 
   it('says so when nothing needs attention', async () => {
@@ -210,7 +210,7 @@ describe('Needs attention', () => {
     await userEvent.click(within(row).getByRole('button', { name: 'Test' }))
 
     expect(await within(row).findByRole('alert')).toHaveTextContent('Test failed: SABnzbd did not answer')
-    expect(within(row).getByText(/blocking/i)).toBeInTheDocument()
+    expect(within(row).getByRole('img', { name: 'Blocking' })).toBeInTheDocument()
   })
 
   it('acknowledges a passing Test with a toast, and the row it cleared goes', async () => {
@@ -329,19 +329,18 @@ describe('Needs attention', () => {
   })
 })
 
-describe('Needs attention posters', () => {
+describe('Needs attention lines', () => {
   const stalledRow = (over: Partial<Row> = {}): Row =>
     sabRow({ id: 'stalled-1', kind: 'stalled_imports', severity: 'warning', message: 'Import of Paddington.2014-GRP stalled', subject: { ...subject, title_id: 5, grab_id: 9 }, actions: [], ...over })
 
-  it('shows the poster of the Title a row is about, and the placeholder without a request when it has none', async () => {
-    fakeAttention([stalledRow({ has_poster: true }), stalledRow({ id: 'stalled-2', subject: { ...subject, title_id: 6, grab_id: 10 }, has_poster: false }), exdevRow()])
+  it('leads every row with its severity icon, a row about a Title too, and no poster', async () => {
+    fakeAttention([sabRow(), stalledRow({ has_poster: true }), exdevRow()])
     renderApp()
 
     const rows = await within(await sectionOf(/needs attention/i)).findAllByRole('listitem')
 
-    expect(rows[0].querySelector('[data-poster] img')).toHaveAttribute('src', expect.stringMatching(/\/titles\/5\/poster$/))
-    expect(rows[1].querySelector('[data-poster]')).toBeInTheDocument()
-    expect(rows[1].querySelector('[data-poster] img')).not.toBeInTheDocument()
+    expect(rows.map((r) => within(r).getByRole('img').getAttribute('aria-label'))).toEqual(['Blocking', 'Warning', 'Warning'])
+    for (const r of rows) expect(r.querySelector('[data-poster]')).not.toBeInTheDocument()
   })
 
   it('reserves a poster box in each loading row', async () => {
@@ -350,14 +349,5 @@ describe('Needs attention posters', () => {
 
     const section = await sectionOf(/downloading/i)
     expect(section.querySelectorAll('[style*="width: 28px"][style*="height: 40px"]')).toHaveLength(3)
-  })
-
-  it('leaves a row that is not about a Title as it was', async () => {
-    fakeAttention([sabRow(), exdevRow()])
-    renderApp()
-
-    const rows = await within(await sectionOf(/needs attention/i)).findAllByRole('listitem')
-
-    for (const r of rows) expect(r.querySelector('[data-poster]')).not.toBeInTheDocument()
   })
 })

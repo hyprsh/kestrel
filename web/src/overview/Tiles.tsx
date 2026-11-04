@@ -1,9 +1,9 @@
-// The Overview's headline figures: Library, Wanted, Grabs in the range, Time to fill and Free space. A phone shows the
-// last four (the Library's size is on its own screen).
+// The Overview's headline figures, as one card split into cells: Library, Wanted, Grabs in the range, Time to fill and Free
+// space. A phone shows the last four (the Library's size is on its own screen).
 import { Progress } from '@hyprsh/design'
 import type { Stats } from '../api/stats'
 import { bytesText, plural } from '../format'
-import { StatTile } from '../layout/StatCard'
+import { StatStrip, StatTile } from '../layout/StatCard'
 import { placePath } from '../place'
 import { span } from '../time'
 import { Drill } from './Drill'
@@ -23,7 +23,7 @@ export function Tiles({ stats, phone }: { stats: Stats; phone: boolean }) {
   const used = usedPercent(storage.free_bytes, storage.total_bytes)
   const full = fullInText(storage.months_until_full)
   return (
-    <section aria-label="At a glance" className="grid grid-cols-2 gap-3 @3xl:grid-cols-5 max-sm:gap-2.5">
+    <StatStrip label="At a glance">
       {!phone && (
         <StatTile label="Library">
           <Drill to={placePath('library')} label="Open the Library" className={value}>
@@ -33,11 +33,11 @@ export function Tiles({ stats, phone }: { stats: Stats; phone: boolean }) {
         </StatTile>
       )}
       <StatTile label="Wanted">
-        <Drill to={placePath('library', 'is:wanted')} label="Open Wanted in the Library" className={`${value} ${wanted.count > 0 ? 'text-amber-900' : ''}`}>
+        <Drill to={placePath('library', 'is:wanted')} label="Open Wanted in the Library" className={value}>
           {wanted.count}
         </Drill>
-        <Drill to={placePath('library', 'is:long_missing sort:wanted_since')} label="Open Long Missing in the Library" className={wanted.long_missing > 0 ? 'label-12 text-red-900' : note}>
-          {wanted.long_missing} Long Missing
+        <Drill to={placePath('library', 'is:long_missing sort:wanted_since')} label="Open Long Missing in the Library" className={note}>
+          {wanted.long_missing} long missing
         </Drill>
       </StatTile>
       <StatTile label={`Grabs · ${rangeOf(stats.range).short}`}>
@@ -72,9 +72,9 @@ export function Tiles({ stats, phone }: { stats: Stats; phone: boolean }) {
       </StatTile>
       <StatTile label="Free space">
         <span className={value}>{storage.total_bytes > 0 ? bytesText(storage.free_bytes) : '—'}</span>
-        {storage.total_bytes > 0 && <Progress value={used} height={6} colors={{ 0: 'var(--gray-1000)', 80: 'var(--amber-700)', 95: 'var(--red-700)' }} aria-label={`${used}% of the disks used`} />}
+        {storage.total_bytes > 0 && <Progress value={used} height={4} colors={{ 0: 'var(--gray-1000)', 80: 'var(--amber-700)', 95: 'var(--red-700)' }} aria-label={`${used}% of the disks used`} />}
         <span className={note}>{storage.total_bytes > 0 ? [`${used}% of ${bytesText(storage.total_bytes)} used`, full].filter(Boolean).join(' · ') : 'No Root folder to read'}</span>
       </StatTile>
-    </section>
+    </StatStrip>
   )
 }

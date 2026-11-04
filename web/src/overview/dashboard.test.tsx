@@ -37,7 +37,7 @@ describe('the headline figures', () => {
 
     const wanted = screen.getByRole('group', { name: 'Wanted' })
     expect(wanted).toHaveTextContent('9')
-    expect(wanted).toHaveTextContent('1 Long Missing')
+    expect(wanted).toHaveTextContent('1 long missing')
 
     const grabs = screen.getByRole('group', { name: 'Grabs · 30 d' })
     expect(grabs).toHaveTextContent(/\d+% imported · 1 failed/)
@@ -66,7 +66,7 @@ describe('the headline figures', () => {
     renderOverview()
 
     expect(await screen.findByRole('group', { name: 'Library' })).toHaveTextContent('0 TitlesB · 0 Movies · 0 Series'.replace('B · ', '0 B · '))
-    expect(screen.getByRole('group', { name: 'Wanted' })).toHaveTextContent('0 Long Missing')
+    expect(screen.getByRole('group', { name: 'Wanted' })).toHaveTextContent('0 long missing')
     expect(screen.getByRole('group', { name: 'Grabs · 30 d' })).toHaveTextContent('None finished')
     expect(screen.getByRole('group', { name: 'Time to fill' })).toHaveTextContent('Nothing filled yet')
     expect(screen.getByRole('group', { name: 'Free space' })).toHaveTextContent('No Root folder to read')

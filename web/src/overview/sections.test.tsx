@@ -44,7 +44,7 @@ describe('Overview sections', () => {
     expect(rows).toHaveLength(5)
     expect(within(section).getByRole('heading', { name: 'Downloading' }).nextElementSibling).toHaveTextContent('7')
 
-    await userEvent.click(within(section).getByRole('button', { name: 'All activity' }))
+    await userEvent.click(within(section).getByRole('button', { name: 'Open Activity' }))
     expect(await screen.findByRole('combobox', { name: 'Filter Activity' })).toHaveValue('')
   })
 

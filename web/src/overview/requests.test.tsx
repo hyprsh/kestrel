@@ -117,6 +117,8 @@ describe('Recent requests on the Overview', () => {
     renderApp()
     await rows()
 
+    // Past the Searching card: its Wanted line and Paddington's Wanted row.
+    await userEvent.keyboard('j')
     await userEvent.keyboard('j')
     expect(document.querySelector('[aria-current="true"]')).toHaveTextContent('Anna')
     await userEvent.keyboard('{Enter}')

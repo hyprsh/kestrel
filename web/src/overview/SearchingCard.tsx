@@ -1,23 +1,26 @@
 // The Searching card on the Overview: the running search pass (or the one that has just finished) and, under it, what is
-// still Wanted: the Long Missing Versions first, then the ones Wanted longest, each with a Search now button.
+// still Wanted: one quiet line with how many are Wanted and how many of those are Long Missing, which opens the Library on
+// them, then the Long Missing Versions first and the ones Wanted longest, each with a Search now button.
 import { Button, Icon, Progress } from '@hyprsh/design'
 import { X } from 'lucide-react'
 import { passResult, phaseOf, whereOf } from '../activity/SearchProgress'
 import { useSearchNow } from '../api/grabs'
 import type { SearchStatus } from '../api/search'
-import { NowCard, NowEmpty, NowList, NowRow, NowSub, NowTitle } from '../layout/NowCard'
+import { NowCard, NowEmpty, NowLine, NowList, NowRow, NowSub, NowTitle } from '../layout/NowCard'
 import { SlotTag } from '../library/SlotPills'
 import { useSlotNames } from '../library/slots'
 import { TitlePoster } from '../poster'
 import { placePath, useOpenPlace } from '../place'
 import { useReport } from '../toasts'
-import { cx } from '../ui'
 import { until, useNow } from '../time'
 import type { OverviewNav } from './nav'
 import { wantedWhat, wantedWhy, type WantedItem } from './wanted'
 
 type Pass = NonNullable<SearchStatus['pass']>
 type LastPass = NonNullable<SearchStatus['last_pass']>
+
+/** Where the Wanted line goes: the Library on its Long Missing filter, longest Wanted first, or on every Wanted one when none is. */
+export const wantedLinePath = (longMissing: number) => (longMissing > 0 ? placePath('library', 'is:long_missing sort:wanted_since') : placePath('library', 'is:wanted'))
 
 export function SearchingCard({
   pass,
@@ -39,7 +42,7 @@ export function SearchingCard({
   wanted: WantedItem[]
   shown: WantedItem[]
   wantedLoaded: boolean
-  /** The pass row's place in the j/k list (the Wanted rows follow it, or take its place without a pass). */
+  /** The pass row's place in the j/k list (the Wanted line and its rows follow it, or take its place without a pass). */
   searchIndex: number
   nav: OverviewNav
   onOpenTitle: (id: number) => void
@@ -47,12 +50,14 @@ export function SearchingCard({
   const now = useNow()
   const openPlace = useOpenPlace()
   const hasPass = pass !== null || finished !== null
-  const wantedBase = searchIndex + (hasPass ? 1 : 0)
+  const lineIndex = searchIndex + (hasPass ? 1 : 0)
+  const wantedBase = lineIndex + 1
+  const longMissing = wanted.filter((w) => w.longMissing).length
   return (
     <NowCard
-      label="Searching"
-      aside={nextPassAt && !pass ? `next pass ${until(nextPassAt, now)}` : undefined}
-      footer={{ label: 'All Wanted', onOpen: () => openPlace(placePath('library', 'is:wanted')) }}
+      title="Searching"
+      meta={nextPassAt && !pass ? `next pass ${until(nextPassAt, now)}` : undefined}
+      link={{ label: 'All Wanted', onOpen: () => openPlace(placePath('library', 'is:wanted')) }}
     >
       {hasPass && (
         <NowList>
@@ -64,7 +69,9 @@ export function SearchingCard({
         !hasPass && <NowEmpty>Nothing Wanted</NowEmpty>
       ) : (
         <>
-          <NowSub title="Wanted" count={wanted.length} />
+          <NowSub navIndex={lineIndex} current={lineIndex === nav.sel} onSelect={() => nav.select(lineIndex)} onOpen={() => openPlace(wantedLinePath(longMissing))}>
+            {`Wanted ${wanted.length}${longMissing > 0 ? ` · ${longMissing} long missing` : ''}`}
+          </NowSub>
           <NowList>
             {shown.map((w, n) => (
               <WantedRow key={w.versionId} item={w} now={now} nav={nav} index={wantedBase + n} onOpenTitle={onOpenTitle} />
@@ -131,7 +138,8 @@ function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; n
       lead={<TitlePoster id={item.titleId} hasPoster={item.hasPoster} size="xs" />}
       right={
         <span className="flex items-center gap-2">
-          <SlotTag slot={item.slot} state="wanted" longMissing={item.longMissing} />
+          {/* A neutral chip: every row here is Wanted, and the line under the Title says for how long. */}
+          <SlotTag slot={item.slot} state={null} tip={`${slots.name(item.slot)}: ${item.longMissing ? 'Long Missing' : 'Wanted'}`} />
           <Button
             svgOnly
             variant="tertiary"
@@ -146,7 +154,7 @@ function WantedRow({ item, now, nav, index, onOpenTitle }: { item: WantedItem; n
       }
     >
       <NowTitle name={item.title} what={wantedWhat(item)} />
-      <span className={cx('label-12', item.longMissing ? 'text-red-900' : 'text-amber-900')}>{wantedWhy(item, now)}</span>
+      <NowLine>{wantedWhy(item, now)}</NowLine>
     </NowRow>
   )
 }

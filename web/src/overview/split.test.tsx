@@ -61,7 +61,7 @@ describe('Happening now, split in two cards', () => {
     expect(await within(await screen.findByRole('region', { name: 'Searching' })).findByText('next pass in 54 min')).toBeInTheDocument()
   })
 
-  it('lists the Wanted Versions, Long Missing first, then the longest Wanted, at most five, with why each is still missing', async () => {
+  it('lists the Wanted Versions, Long Missing first, then the longest Wanted, at most five, with why each is still missing, all in grey', async () => {
     fakeLibrary([
       wanted(1, 'Newest', 1),
       wanted(2, 'Older', 20),
@@ -75,11 +75,13 @@ describe('Happening now, split in two cards', () => {
 
     const card = await screen.findByRole('region', { name: 'Searching' })
     const rows = await within(card).findAllByRole('listitem')
-    expect(within(card).getByRole('heading', { name: 'Wanted' }).nextElementSibling).toHaveTextContent('6')
+    expect(within(card).getByRole('button', { name: 'Wanted 6 · 2 long missing' })).toBeInTheDocument()
     expect(rows.map((r) => r.querySelector('b')?.textContent)).toEqual(['Oldest Long', 'Ancient', 'Older', 'Middle', 'Newest'])
-    expect(rows[0]).toHaveTextContent('Long Missing · 200 days')
-    expect(within(rows[0] as HTMLElement).getByRole('img', { name: 'Standard: Long Missing' })).toHaveAttribute('data-state', 'long_missing')
-    expect(rows[1]).toHaveTextContent('Long Missing · 100 days')
+    // A Long Missing row reads like any other: no red line, and a neutral chip that names the state only in its tooltip.
+    expect(rows[0]).toHaveTextContent('Wanted 200 days')
+    expect(rows[0]).not.toHaveTextContent('Long Missing')
+    expect(within(rows[0] as HTMLElement).getByRole('img', { name: 'Standard: Long Missing' })).toHaveAttribute('data-state', 'none')
+    expect(rows[1]).toHaveTextContent('Wanted 100 days')
     expect(rows[2]).toHaveTextContent('Wanted 20 days')
     expect(rows[4]).toHaveTextContent('Wanted 1 day')
   })
@@ -138,10 +140,33 @@ describe('Happening now, split in two cards', () => {
     expect(await screen.findByRole('region', { name: /paddington 2/i })).toBeInTheDocument()
   })
 
-  it('"All Wanted" goes to the Library on is:wanted', async () => {
+  it('"All Wanted" in the header goes to the Library on is:wanted', async () => {
     renderApp()
 
-    await userEvent.click(await within(await screen.findByRole('region', { name: 'Searching' })).findByRole('button', { name: 'All Wanted' }))
+    await userEvent.click(await within(await screen.findByRole('region', { name: 'Searching' })).findByRole('button', { name: 'Open All Wanted' }))
+    expect(location.pathname + location.search).toBe('/library?q=is%3Awanted')
+  })
+
+  it('opens the Library on its Long Missing filter, longest Wanted first, from the Wanted line, with nothing to expand', async () => {
+    fakeLibrary([wanted(1, 'Newest', 1), wanted(3, 'Ancient', 100, {}, true)])
+    renderApp()
+
+    const card = await screen.findByRole('region', { name: 'Searching' })
+    const line = await within(card).findByRole('button', { name: 'Wanted 2 · 1 long missing' })
+    expect(line).not.toHaveAttribute('aria-expanded')
+    await userEvent.click(line)
+
+    expect(location.pathname).toBe('/library')
+    expect(new URLSearchParams(location.search).get('q')).toBe('is:long_missing sort:wanted_since')
+    expect(await screen.findByRole('combobox', { name: 'Filter the Library' })).toHaveValue('is:long_missing sort:wanted_since')
+  })
+
+  it('leaves the Long Missing part out of the Wanted line when there is none, and opens every Wanted one', async () => {
+    fakeLibrary([wanted(1, 'Newest', 1)])
+    renderApp()
+
+    const card = await screen.findByRole('region', { name: 'Searching' })
+    await userEvent.click(await within(card).findByRole('button', { name: 'Wanted 1' }))
     expect(location.pathname + location.search).toBe('/library?q=is%3Awanted')
   })
 

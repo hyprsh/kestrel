@@ -5,8 +5,7 @@ import { DotsMenu, MenuItem, Progress } from '@hyprsh/design'
 import type { QueueItem } from '../api/queue'
 import { percent } from '../format'
 import { phases } from '../grabs/phase'
-import { NowCard, NowEmpty, NowList, NowRow, NowTitle } from '../layout/NowCard'
-import { SkeletonRows } from '../loading'
+import { NowCard, NowEmpty, NowList, NowRow, NowSkeletonRows, NowTitle } from '../layout/NowCard'
 import { SlotTag } from '../library/SlotPills'
 import { TitlePoster } from '../poster'
 import { cx } from '../ui'
@@ -53,9 +52,13 @@ export function DownloadingCard({
   const openPlace = useOpenPlace()
   const speed = totalSpeed(all)
   return (
-    <NowCard label="Downloading" count={all.length} aside={speed !== null && speedText(speed)} footer={{ label: 'All activity', onOpen: () => openPlace('/activity') }}>
+    <NowCard
+      title="Downloading"
+      meta={[all.length > 0 && all.length, speed !== null && speedText(speed)].filter(Boolean).join(' · ')}
+      link={{ label: 'Activity', onOpen: () => openPlace('/activity') }}
+    >
       {!loaded ? (
-        <SkeletonRows count={3} poster="xs" />
+        <NowSkeletonRows />
       ) : items.length === 0 ? (
         <NowEmpty>Nothing downloading</NowEmpty>
       ) : (

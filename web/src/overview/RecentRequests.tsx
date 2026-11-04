@@ -1,75 +1,74 @@
-// "Recent requests": the newest five Requests from outside Kestrel, with no time cutoff, as compact
-// rows (poster, Title, who asked and where it stands) and a way to the Requests screen for the rest.
+// "Recent requests": the newest three Requests from outside Kestrel, with no time cutoff, as compact
+// rows (poster, Title, who asked and where it stands) and a link in the header to the Requests screen for the rest.
 // Its rows are part of the Overview's j/k selection.
-import { Badge, Entity } from '@hyprsh/design'
-import { RowList } from '../layout/RowList'
+import { Badge } from '@hyprsh/design'
 import { useRecentRequests, type Request } from '../api/requests'
-import { Loaded, SkeletonRows } from '../loading'
+import { NowCard, NowEmpty, NowLine, NowList, NowRow, NowSkeletonRows, NowTitle } from '../layout/NowCard'
+import { Loaded } from '../loading'
+import { useOpenPlace } from '../place'
 import { Poster, TitlePoster } from '../poster'
 import { RequestSlots, requestStatus } from '../requests/RequestSlots'
 import { useQueue } from '../api/queue'
 import { useSlotNames } from '../library/slots'
 import { reasons } from '../requests/status'
 import type { OverviewNav } from './nav'
-import { EmptyLine, firstThree, HeadingLink, Section } from './Section'
+import { firstThree } from './Section'
 
-function StateBadges({ request: r }: { request: Request }) {
+/** "Mia · Downloading 40%": who asked, then where the Request stands (a rejected one says why on its badge). */
+function useRequestLine(r: Request): string {
   const queue = useQueue().data ?? []
   const slots = useSlotNames()
-  if (r.outcome === 'rejected' && r.reject_reason) {
-    return (
-      <Badge variant="red" contrast="low" size="sm">
-        {`Rejected · ${reasons[r.reject_reason].text}`}
-      </Badge>
-    )
-  }
+  if (r.outcome === 'rejected' && r.reject_reason) return r.requester.name
+  return [r.requester.name, requestStatus(r, queue, slots)].filter(Boolean).join(' · ')
+}
+
+function RequestRow({ request: r, index, nav, onOpenTitle }: { request: Request; index: number; nav: OverviewNav; onOpenTitle: (id: number) => void }) {
+  const line = useRequestLine(r)
+  const rejected = r.outcome === 'rejected' && r.reject_reason
   return (
-    <>
-      <RequestSlots request={r} />
-      <span className="text-gray-900">{requestStatus(r, queue, slots)}</span>
-    </>
+    <NowRow
+      navIndex={index}
+      current={index === nav.sel}
+      onSelect={() => nav.select(index)}
+      onOpen={() => r.title_id != null && onOpenTitle(r.title_id)}
+      lead={r.title_id != null ? <TitlePoster id={r.title_id} hasPoster={r.has_poster} size="xs" /> : <Poster src={null} size="xs" />}
+      right={
+        rejected ? (
+          <Badge variant="red" contrast="low" size="sm">
+            {`Rejected · ${reasons[r.reject_reason!].text}`}
+          </Badge>
+        ) : (
+          <RequestSlots request={r} />
+        )
+      }
+    >
+      <NowTitle name={r.title ?? 'Unknown title'} />
+      <NowLine>{line}</NowLine>
+    </NowRow>
   )
 }
 
 export function RecentRequests({ onOpenTitle, nav }: { onOpenTitle: (id: number) => void; nav: OverviewNav }) {
   const recent = useRecentRequests()
+  const openPlace = useOpenPlace()
   const shown = firstThree(recent.data?.items ?? [])
   const total = recent.data?.total ?? 0
   return (
-    <Section id="recent-requests" title="Recent requests" count={recent.data ? total : undefined} action={total > 0 ? <HeadingLink path="/requests" label="Requests" /> : undefined}>
-      <Loaded query={recent} skeleton={<SkeletonRows poster="sm" />} empty={<EmptyLine title="Nobody has asked for anything yet." />} isEmpty={() => shown.length === 0}>
+    <NowCard
+      title="Recent requests"
+      label={total ? `Recent requests · ${total}` : undefined}
+      meta={total || undefined}
+      link={total > 0 ? { label: 'Requests', onOpen: () => openPlace('/requests') } : undefined}
+    >
+      <Loaded query={recent} skeleton={<NowSkeletonRows />} empty={<NowEmpty>Nobody has asked for anything yet.</NowEmpty>} isEmpty={() => shown.length === 0}>
         {() => (
-          <RowList>
-            {shown.map((r, j) => {
-              const i = nav.base + j
-              return (
-                <Entity
-                  key={r.id}
-                  as="button"
-                  current={i === nav.sel}
-                  data-nav={`ov-${i}`}
-                  onClick={() => {
-                    nav.select(i)
-                    if (r.title_id != null) onOpenTitle(r.title_id)
-                  }}
-                  left={r.title_id != null ? <TitlePoster id={r.title_id} hasPoster={r.has_poster} size="sm" /> : <Poster src={null} size="sm" />}
-                >
-                  <Entity.Content
-                    fill
-                    title={<span className="font-medium">{r.title ?? 'Unknown title'}</span>}
-                    description={
-                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span>{r.requester.name}</span>
-                        <StateBadges request={r} />
-                      </span>
-                    }
-                  />
-                </Entity>
-              )
-            })}
-          </RowList>
+          <NowList>
+            {shown.map((r, j) => (
+              <RequestRow key={r.id} request={r} index={nav.base + j} nav={nav} onOpenTitle={onOpenTitle} />
+            ))}
+          </NowList>
         )}
       </Loaded>
-    </Section>
+    </NowCard>
   )
 }

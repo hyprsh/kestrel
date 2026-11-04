@@ -1098,6 +1098,9 @@ describe('Overview: Coming this week and Recently added', () => {
     const added = await screen.findByRole('region', { name: /recently added/i })
     await within(added).findByText('Paddington')
 
+    // The Searching card's Wanted line comes first, then its rows (the fixture's Wanted Titles).
+    expect(document.querySelector('[aria-current="true"]')).toHaveTextContent('Wanted 2')
+    await userEvent.keyboard('j')
     // Recently added is in the main column, read before Coming this week in the side column.
     expect(current()).toHaveTextContent('Paddington')
     await userEvent.keyboard('j')

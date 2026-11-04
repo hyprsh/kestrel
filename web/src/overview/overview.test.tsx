@@ -52,12 +52,12 @@ describe('Overview', () => {
     expect(range.parentElement).toBe(name.parentElement)
   })
 
-  it('links "All activity" to Activity', async () => {
+  it('links its header to Activity', async () => {
     fakeQueue([item()])
     renderApp()
 
     const section = await screen.findByRole('region', { name: /downloading/i })
-    await userEvent.click(await within(section).findByRole('button', { name: 'All activity' }))
+    await userEvent.click(await within(section).findByRole('button', { name: 'Open Activity' }))
 
     expect(location.pathname).toBe('/activity')
   })

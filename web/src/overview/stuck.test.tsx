@@ -62,7 +62,7 @@ describe('A Stuck download in Needs attention', () => {
     const row = (await within(await screen.findByRole('region', { name: /needs attention/i })).findAllByRole('listitem'))[0]
 
     expect(row).toHaveTextContent('Download of Paddington is stuck · Paused in SABnzbd')
-    expect(row).toHaveTextContent(/warning/i)
+    expect(within(row).getByRole('img', { name: 'Warning' })).toBeInTheDocument()
     expect(row).not.toHaveTextContent(/stalled/i)
   })
 
