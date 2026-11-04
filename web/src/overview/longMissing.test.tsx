@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { App } from '../App'
@@ -23,69 +23,50 @@ const warning: Attention['rows'][number] = {
   actions: [],
 }
 
+/** Seven Versions Long Missing on the server, and two of them in the Library rows the Searching card reads. */
 function fakeLongMissing(rows: Attention['rows'] = []) {
   const long_missing: Attention['long_missing'] = {
     count: 7,
     items: [
       { title_id: 3, title: 'Ancient Film', version_id: 31, slot: 'standard', profile: 'hd-primary', wanted_since: '2026-01-01T00:00:00Z', last_failure: 'download_failed' },
-      { title_id: 4, title: 'Older Film', version_id: 41, slot: '4k', profile: '4k-primary', wanted_since: '2025-12-01T00:00:00Z', last_failure: null },
+      { title_id: 4, title: 'Older Film', version_id: 41, slot: 'standard', profile: 'hd-primary', wanted_since: '2025-12-01T00:00:00Z', last_failure: null },
     ],
   }
-  fakeLibrary([]) // serves /profiles with their names
+  fakeLibrary([
+    row(3, 'Ancient Film', 'Ancient Film', { slots: { standard: { version_id: 31, profile: 'hd-primary', state: 'wanted', long_missing: true }, '4k': null } }),
+    row(4, 'Older Film', 'Older Film', { slots: { standard: { version_id: 41, profile: 'hd-primary', state: 'wanted', long_missing: true }, '4k': null } }),
+    row(5, 'Recent Film', 'Recent Film', { slots: { standard: { version_id: 51, profile: 'hd-primary', state: 'wanted', long_missing: false }, '4k': null } }),
+  ])
   server.use(http.get('/attention', ({ response }) => response(200).json({ count: rows.length, severity: rows.length ? 'warning' : null, rows, long_missing, originals: { count: 0, items: [] } })))
 }
 
-describe('the Long Missing row in Needs attention', () => {
-  it('is one grouped row after the other rows that expands to the most recent Versions, outside the badge', async () => {
+describe('Long Missing on the Overview', () => {
+  it('is not in Needs attention, which keeps only the rows the server raised', async () => {
     fakeLongMissing([warning])
     renderApp()
 
     const section = await screen.findByRole('region', { name: /needs attention/i })
-    const group = await within(section).findByText('7 Versions long missing')
-    const rows = within(section).getAllByRole('listitem')
-    expect(rows).toHaveLength(2) // the Warning, then the group's own row
-    expect(rows[0].compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // after the attention rows
-    expect(section).toHaveTextContent(/needs attention · 1/i) // the group does not add to the count
-    expect(within(section).queryByText(/ancient film/i)).not.toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /overview.*1 needs? attention/i })).toBeInTheDocument()
-
-    const toggle = within(section).getByRole('button', { name: '7 Versions long missing' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await userEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-
-    const items = within(section).getAllByRole('listitem')
-    await waitFor(() => expect(items[2]).toHaveTextContent('Ancient Film · Standard · HD'))
-    expect(items[2]).not.toHaveTextContent('hd-primary')
-    expect(items[2]).toHaveTextContent('Wanted since 2026-01-01, last failure: download failed')
-    expect(items[3]).toHaveTextContent('Older Film · 4K')
-    expect(items[3]).not.toHaveTextContent('4K · 4K') // the Profile named "4K" in the 4K Slot is left out
-    expect(items[3]).not.toHaveTextContent(/last failure/i)
-
-    await userEvent.click(toggle)
-    expect(within(section).queryByText(/ancient film/i)).not.toBeInTheDocument()
+    expect(await within(section).findByText('Imports copy instead of moving')).toBeInTheDocument()
+    expect(within(section).getAllByRole('listitem')).toHaveLength(1)
+    expect(section).not.toHaveTextContent(/long missing/i)
+    expect(within(section).queryByRole('button', { name: /show|hide|open in library/i })).not.toBeInTheDocument()
   })
 
-  it('shows alone, with nothing else needing attention and no badge', async () => {
+  it('leaves Needs attention out when Long Missing is all there is', async () => {
     fakeLongMissing()
     renderApp()
 
-    const section = await screen.findByRole('region', { name: /needs attention/i })
-
-    expect(await within(section).findByText('7 Versions long missing')).toBeInTheDocument()
+    await within(await screen.findByRole('region', { name: 'Searching' })).findByRole('button', { name: /long missing/ })
+    expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument() // no "N need attention" in its name
   })
 
-  it('links to the Library filtered to is:long_missing, the longest Wanted first', async () => {
+  it('is one quiet line in the Searching card that links to the Library filtered to is:long_missing, the longest Wanted first', async () => {
     fakeLongMissing()
-    fakeLibrary([
-      row(3, 'Ancient Film', 'Ancient Film', { slots: { standard: { version_id: 31, profile: 'hd-primary', state: 'wanted', long_missing: true }, '4k': null } }),
-      row(5, 'Recent Film', 'Recent Film', { slots: { standard: { version_id: 51, profile: 'hd-primary', state: 'wanted', long_missing: false }, '4k': null } }),
-    ])
     renderApp()
 
-    await userEvent.click(await screen.findByRole('button', { name: '7 Versions long missing' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Open in Library' }))
+    const card = await screen.findByRole('region', { name: 'Searching' })
+    await userEvent.click(await within(card).findByRole('button', { name: 'Wanted 3 · 2 long missing' }))
 
     const list = await screen.findByRole('listbox', { name: /library/i })
     expect(await within(list).findByRole('option', { name: /ancient film/i })).toBeInTheDocument()

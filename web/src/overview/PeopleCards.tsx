@@ -16,7 +16,7 @@ export function GroupsCard({ stats }: { stats: Stats }) {
   const [all, setAll] = useState(false)
   const shown = all ? groups : firstFive(groups)
   return (
-    <StatCard title="Top release groups" aside={<span className="label-13 text-gray-900">imported</span>}>
+    <StatCard title="Top release groups" meta="imported">
       {groups.length === 0 ? (
         <p className="label-13 m-0 text-gray-900">No files were imported in this range.</p>
       ) : (

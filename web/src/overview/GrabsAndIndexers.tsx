@@ -59,6 +59,7 @@ export function IndexersCard({ stats }: { stats: Stats }) {
   return (
     <StatCard
       title="Indexers"
+      meta={ixs.length || undefined}
       aside={
         best && (
           <span title="The most imported Grabs among indexers with a Hit of at least 50%">

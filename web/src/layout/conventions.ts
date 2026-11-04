@@ -18,8 +18,9 @@
 //   FilterStrip.tsx       filter/tab strip above a list          <FilterStrip>{tabs, filter field}</FilterStrip>
 //   MiddlePath.tsx       MiddlePath and splitPath: a folder path   <MiddlePath path="/data/media/movies-family" />
 //                         cut in the middle, keeping its last folder
-//   NowCard.tsx           NowCard, NowSub, NowList, NowRow,       <NowCard label count aside footer>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
-//                         NowTitle, NowEmpty: the Overview's Downloading and Searching cards
+//   NowCard.tsx           NowCard, NowBody, NowSub, NowList,      <NowCard title meta aside link>{<NowList><NowRow navIndex current lead right>{lines}</NowRow></NowList>}</NowCard>
+//                         NowRow, NowLine, NowTitle, NowEmpty,
+//                         NowSkeletonRows: the Overview's one card (every section of it) and its hairline rows
 //   PageSurface.tsx       centred card page (Login)              <PageSurface>{form}</PageSurface>
 //   RowList.tsx           RowList, stackedRow, stackedRight: a    <RowList>{<Entity className={stackedRow} rightClassName={stackedRight} />}</RowList>
 //                         list whose rows stack their right content when the list is narrow (container query)
@@ -29,6 +30,9 @@
 //                         the rail that holds a screen's name,    views={<SidePanelViews><NavItem trailing onClick>Errors</NavItem></SidePanelViews>}
 //                         filter, Filter and Sort, chips, views,
 //                         body and footer. A phone's top header
+//   StatCard.tsx          StatCard, StatStrip, StatTile: a       <StatCard title meta aside>{chart}</StatCard>  <StatStrip label><StatTile label>{figure}</StatTile></StatStrip>
+//                         dashboard card in the NowCard, and the
+//                         headline figures as one card of cells
 //   WidePage.tsx          wide, long page of cards (setup)       <WidePage>{cards}</WidePage>
 //
 // THE SIDE PANEL (ADR 0017; the full-width top bar is gone)

@@ -143,7 +143,9 @@ describe('Overview rows', () => {
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Heat')
     await userEvent.keyboard('j')
-    expect(current()).toHaveTextContent('Alien') // the right card follows the left one
+    expect(current()).toHaveTextContent('Wanted 1') // the right card follows the left one: its Wanted line, then its rows
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Alien')
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Paddington')
     await userEvent.keyboard('j')
@@ -152,7 +154,7 @@ describe('Overview rows', () => {
     expect(current()).toHaveTextContent('Dune')
   })
 
-  it('runs through the groups of Happening now, and Enter on Long Missing expands it', async () => {
+  it("has no Long Missing group to stop at: the Searching card's Wanted line takes it, and Enter opens the Library on it", async () => {
     server.use(
       http.get('/attention', ({ response }) =>
         response(200).json({
@@ -166,17 +168,27 @@ describe('Overview rows', () => {
           originals: { count: 0, items: [] },
         }),
       ),
+      http.get('/titles', ({ response }) =>
+        response(200).json({
+          items: [titleRow(3, 'Ancient Film', 'Ancient Film', { slots: { standard: { version_id: 31, profile: 'hd-primary', state: 'wanted', long_missing: true }, '4k': null } })],
+          next_cursor: null,
+        }),
+      ),
       http.get('/recent', ({ response }) => response(200).json({ items: [recent({})], total: 1 })),
     )
     renderApp()
     await screen.findByText('Paddington')
+    await screen.findByText('Ancient Film')
 
     const current = () => document.querySelector('[aria-current="true"]')
-    expect(current()).toHaveTextContent('1 Version long missing')
-    await userEvent.keyboard('{Enter}')
-    expect(await screen.findByText(/Ancient Film/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /needs attention/i })).not.toBeInTheDocument()
+    expect(current()).toHaveTextContent('Wanted 1 · 1 long missing')
     await userEvent.keyboard('j')
-    expect(current()).toHaveTextContent('Paddington')
+    expect(current()).toHaveTextContent('Ancient Film')
+    await userEvent.keyboard('k')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(location.pathname).toBe('/library'))
+    expect(new URLSearchParams(location.search).get('q')).toBe('is:long_missing sort:wanted_since')
   })
 
   it('shows the running search pass in the Searching card, and j runs through it', async () => {
@@ -209,11 +221,13 @@ describe('Overview rows', () => {
     expect(within(row).getByRole('progressbar', { name: 'Search progress' })).toBeInTheDocument()
     expect(screen.queryByText('Nothing downloading')).not.toBeInTheDocument()
 
-    // j runs down the left card (Heat), then the pass, then the Wanted rows.
+    // j runs down the left card (Heat), then the pass, the Wanted line and the Wanted rows.
     const current = () => document.querySelector('[aria-current="true"]')
     expect(current()).toHaveTextContent('Heat')
     await userEvent.keyboard('j')
     expect(current()).toBe(row)
+    await userEvent.keyboard('j')
+    expect(current()).toHaveTextContent('Wanted 1')
     await userEvent.keyboard('j')
     expect(current()).toHaveTextContent('Alien')
     await userEvent.keyboard('j')

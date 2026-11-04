@@ -54,13 +54,14 @@ export function wantedVersions(rows: TitleRow[]): WantedItem[] {
 export const wantedWhat = (i: WantedItem) => (i.episodes ? plural(i.episodes, 'episode') : '')
 
 /**
- * "Long Missing · 100 days · 23 releases, all German only", "Wanted 3 days · nothing found yet", "Wanted 2 days · next search in
- * 54 min": the age, then what the last search found, or when the next one is when it found nothing to report.
+ * "Wanted 100 days · 23 releases, all German only", "Wanted 3 days · nothing found yet", "Wanted 2 days · next search in 54 min":
+ * the age, then what the last search found, or when the next one is when it found nothing to report. A Long Missing one reads
+ * the same: the card's Wanted line counts them, and the rows stay quiet.
  */
 export function wantedWhy(i: WantedItem, now: number): string {
   const days = i.since ? Math.max(0, Math.floor((now - Date.parse(i.since)) / 86_400_000)) : null
   const age = days === null ? null : days === 0 ? 'today' : plural(days, 'day')
-  const head = i.longMissing ? ['Long Missing', age].filter(Boolean).join(' · ') : age ? `Wanted ${age}` : 'Wanted'
+  const head = age ? `Wanted ${age}` : 'Wanted'
   const fact = i.lastSearch ? foundText(i.lastSearch) : i.nextSearchAt ? `next search ${until(i.nextSearchAt, now)}` : null
   return fact ? `${head} · ${fact}` : head
 }

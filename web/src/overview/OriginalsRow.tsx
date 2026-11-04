@@ -1,14 +1,14 @@
-// The Originals available group of Happening now: one row per Version whose Profile offers a
+// The Originals available group of Needs attention: one row per Version whose Profile offers a
 // Release with the Title's Original Language only, with Accept and Dismiss and a link to the Title.
-import { Button, Entity, Link } from '@hyprsh/design'
-import { stackedRow, stackedRight } from '../layout/RowList'
+import { Button, Link } from '@hyprsh/design'
 import { offerUnits, useAcceptOffer, useDismissOffer, type OriginalOffer, type OriginalsAvailable } from '../api/offers'
+import { NowLine, NowRow } from '../layout/NowCard'
 import { TitlePoster } from '../poster'
 import { useReport } from '../toasts'
 import { profileName, slotProfile, useProfileNames } from '../library/slotProfile'
 import { useSlotNames } from '../library/slots'
 
-/** One row per Version whose Profile offers the Original Language, for the card that holds them. */
+/** One row per Version whose Profile offers the Original Language, in the card's list under the group's line. */
 export function Offers({ group, onOpenTitle }: { group: OriginalsAvailable; onOpenTitle: (id: number) => void }) {
   const names = useProfileNames()
   const slots = useSlotNames()
@@ -28,14 +28,12 @@ function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; s
   const units = offerUnits(o)
   const busy = accept.isPending || dismiss.isPending
   return (
-    <Entity
-      className={stackedRow}
-      rightClassName={stackedRight}
-      left={<TitlePoster id={o.title_id} hasPoster={o.has_poster ?? false} size="sm" />}
+    <NowRow
+      lead={<TitlePoster id={o.title_id} hasPoster={o.has_poster ?? false} size="xs" />}
       right={
-        <>
+        <span className="flex shrink-0 items-center gap-1">
           <Button
-            variant="secondary"
+            variant="tertiary"
             size="small"
             disabled={busy}
             onClick={() => void report(accept.mutateAsync(o.version_id), { done: `Accepted the original for ${o.title}`, failed: `Could not accept the original for ${o.title}` })}
@@ -43,28 +41,26 @@ function Offer({ offer: o, slotProfile, onOpenTitle }: { offer: OriginalOffer; s
             Accept
           </Button>
           <Button
-            variant="secondary"
+            variant="tertiary"
             size="small"
             disabled={busy}
             onClick={() => void report(dismiss.mutateAsync(o.version_id), { done: `Dismissed the original for ${o.title}`, failed: `Could not dismiss the original for ${o.title}` })}
           >
             Dismiss
           </Button>
-        </>
+        </span>
       }
     >
-      <div className="flex min-w-0 flex-col gap-1">
-        <span>
-          <Link as="button" title="Open the Title" onClick={() => onOpenTitle(o.title_id)}>
-            {o.title}
-          </Link>{' '}
-          · {slotProfile}
-        </span>
-        <span className="label-12-mono truncate text-gray-900" title={o.release}>
-          {o.release} · Score {o.score}
-        </span>
-        {units && <span className="label-12 text-gray-900">{units}</span>}
-      </div>
-    </Entity>
+      <span className="label-14 min-w-0 truncate">
+        <Link as="button" title="Open the Title" onClick={() => onOpenTitle(o.title_id)}>
+          {o.title}
+        </Link>{' '}
+        · {slotProfile}
+      </span>
+      <span className="label-12-mono min-w-0 truncate text-gray-900" title={o.release}>
+        {o.release} · Score {o.score}
+      </span>
+      {units && <NowLine>{units}</NowLine>}
+    </NowRow>
   )
 }

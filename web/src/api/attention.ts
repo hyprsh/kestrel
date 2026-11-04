@@ -5,7 +5,6 @@ import { api, apiBaseUrl } from './client'
 import { ApiError } from './queries'
 import type { components } from './schema.gen'
 
-export type Attention = components['schemas']['Attention']
 export type AttentionRow = components['schemas']['AttentionRow']
 export type AttentionAction = components['schemas']['AttentionAction']
 export type SystemStatus = components['schemas']['SystemStatus']
