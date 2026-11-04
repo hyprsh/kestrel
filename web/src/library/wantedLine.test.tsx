@@ -109,7 +109,7 @@ describe('a Wanted Version’s search line', () => {
     )
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />)
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
-    const head = within(await screen.findByRole('columnheader', { name: 'Standard' }))
+    const head = within(await screen.findByRole('listitem', { name: 'Standard' }))
 
     expect(await head.findByText(/^2 Wanted/)).toHaveTextContent('2 Wanted · next search in 4 h')
     expect(head.getByText(/^Last search 2 h ago/)).toHaveTextContent('Last search 2 h ago · 20 releases, none fit the Profile')

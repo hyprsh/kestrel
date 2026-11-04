@@ -24,8 +24,8 @@ const paramOfFilter: Record<EpisodeFilter, string> = { all: '', missing: 'wanted
 const filterOfParam = (v: string | null): EpisodeFilter => (['missing', 'downloading', 'unaired'] as const).find((f) => paramOfFilter[f] === v) ?? 'all'
 
 /**
- * What a Series adds to its Title page, below its header: the Versions and the Seasons as one table (VersionTable.tsx). The head row has a
- * card per Version; a row per season has the name, a cell per Version (with that Version's menu for the season) and its ⋯ menu, and opens
+ * What a Series adds to its Title page, below its header: the Versions as cards and the Seasons as a table (VersionTable.tsx). A row per
+ * season has the name, a cell per Version (with that Version's menu for the season) and its ⋯ menu, and opens
  * in place to its episodes, a cell per Version each (EpisodeRows.tsx). While episodes are ticked, their floating bar shows.
  * One filter above the table (All, Wanted, Downloading, Not aired, with whole-Series counts) lists only the seasons with a matching
  * episode and shows only matching episodes in the open ones. What opens by itself is up to Settings' seasons_open (nothing, by default).
@@ -166,9 +166,7 @@ export function SeriesSection({
       <SeasonRows seasons={listed} episodes={grouped} slots={slotList} open={open} onToggle={toggle} actions={actions} onSelectAll={selectSeason} onShowWanted={showWanted} now={now} body={body} />
     )
   return (
-    <section aria-label="Versions" className="mt-6 flex flex-col gap-3">
-      <h3 className="heading-16">Versions</h3>
-      {ok && <Tabs variant="secondary" aria-label="Show episodes" tabs={filterTabs} selected={filter} onChange={(v) => setFilter(v as EpisodeFilter)} />}
+    <div className="mt-6 flex flex-col gap-6">
       <VersionTable
         title={title}
         slots={slotList}
@@ -178,11 +176,12 @@ export function SeriesSection({
         seasonCount={seasons.filter((n) => n > 0).length}
         episodeCount={episodes.length}
         marked={view.slot}
+        filter={ok && <Tabs variant="secondary" aria-label="Show episodes" tabs={filterTabs} selected={filter} onChange={(v) => setFilter(v as EpisodeFilter)} />}
       >
         {rows}
       </VersionTable>
       {ok && <TickedBar actions={actions} />}
-    </section>
+    </div>
   )
 }
 

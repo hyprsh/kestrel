@@ -11,7 +11,7 @@ import { monthDay } from './cellDetail'
 import { seasonCellView, useCellItems } from './cellItems'
 import { seasonName, seasonRow, slotTally, tallyCount, type SlotTally } from './episodes'
 import { combinedState, type Combined, type SlotInfo } from './slots'
-import { gridOf, TRACKS } from './tableGrid'
+import { gridOf } from './tableGrid'
 
 /** A Version's row of a season in words, for the row's name: "Standard 8 of 10, 2 downloading, 6 not aired". */
 function say(t: SlotTally, name: string): string {
@@ -91,7 +91,6 @@ export function SeasonRows({
   const items = useCellItems(actions)
   const keys = slots.map((s) => s.key)
   const grid = gridOf(slots.length, phone)
-  const fillers = phone ? [] : Array.from({ length: Math.max(0, TRACKS - slots.length) }, (_, i) => <span key={`f${i}`} aria-hidden className="border-l border-gray-alpha-200" />)
   return (
     <>
       {seasons.map((n) => {
@@ -127,13 +126,12 @@ export function SeasonRows({
                 const cellItems = v ? items.season(v, n, eps, tallies[i], monitored, onShowWanted) : []
                 const cellLabel = `${name}, ${s.name}: ${view.say}`
                 return (
-                  <span key={s.key} role="cell" className={`flex min-w-0 items-center border-l border-gray-alpha-200 ${phone ? 'justify-center' : 'pr-2 pl-1.5'}`}>
-                    {v && <CellButton kind={view.kind} text={view.text} count={view.count} label={cellLabel} title={`${name} · ${s.name}`} status={view.say} items={cellItems} phone={phone} />}
+                  <span key={s.key} role="cell" className="flex min-w-0 items-center justify-center max-sm:border-l max-sm:border-gray-alpha-200">
+                    {v && <CellButton kind={view.kind} count={view.count} label={cellLabel} title={`${name} · ${s.name}`} status={view.say} items={cellItems} phone={phone} />}
                   </span>
                 )
               })}
-              {fillers}
-              <span role="cell" className={`flex items-center justify-end border-l border-gray-alpha-200 pr-2 max-sm:border-l-0 max-sm:pr-0 ${phone ? 'justify-center' : ''}`}>
+              <span role="cell" className={`flex items-center justify-center`}>
                 <SeasonMenu actions={actions} season={n} episodes={eps} monitored={monitored} onSelectAll={() => onSelectAll(n)} />
               </span>
             </div>

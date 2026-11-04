@@ -14,7 +14,7 @@ import { airedText, grabOf, weekdayDay } from './cellDetail'
 import { episodeCellView, useCellItems } from './cellItems'
 import { episodeCode, episodeRow } from './episodes'
 import { cellOf, type SlotInfo } from './slots'
-import { gridOf, TRACKS } from './tableGrid'
+import { gridOf } from './tableGrid'
 
 /** The episodes not aired yet, folded into one row of the list under `episodes`: `expanded` has them among the rows, with this row to fold them again. */
 export type UnairedFold = { episodes: Episode[]; expanded: boolean; onToggle: () => void; atStart: boolean }
@@ -249,14 +249,13 @@ function EpisodeRow({
         body = (
           <CellButton
             kind={view.kind}
-            text={view.text}
             count={view.count}
+            wideCount={view.wideCount}
             label={`${label}: ${view.say}`}
             title={`${code} · ${s.name}`}
             status={view.say}
             items={items.episode(version, episode, view)}
             phone={phone}
-            small
             tabIndex={-1}
             onFocus={onFocus}
           />
@@ -264,12 +263,11 @@ function EpisodeRow({
       }
     }
     return (
-      <span key={s.key} role="cell" className={`flex min-w-0 items-center border-l border-gray-alpha-200 ${phone ? 'justify-center px-0' : 'pr-2 pl-1.5'}`}>
+      <span key={s.key} role="cell" className="flex min-w-0 items-center justify-center max-sm:border-l max-sm:border-gray-alpha-200">
         {body}
       </span>
     )
   })
-  const fillers = phone ? [] : Array.from({ length: Math.max(0, TRACKS - slots.length) }, (_, i) => <span key={`f${i}`} aria-hidden className="border-l border-gray-alpha-200" />)
   return (
     <>
       <div
@@ -299,8 +297,7 @@ function EpisodeRow({
           </span>
         </span>
         {cells}
-        {fillers}
-        <span role="cell" className="flex items-center justify-end border-l border-gray-alpha-200 pr-2 max-sm:border-l-0 max-sm:pr-0.5">
+        <span role="cell" className="flex items-center justify-center max-sm:justify-end max-sm:pr-0.5">
           <EpisodeMenu actions={actions} episode={episode} onOpenChange={setMenuOpen} />
         </span>
       </div>

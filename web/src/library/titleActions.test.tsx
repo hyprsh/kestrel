@@ -138,13 +138,13 @@ describe('the Version cards', () => {
       }),
     )
 
-  it('show a Series Version as a column head: its state, a bar with its count and its actions', async () => {
+  it('show a Series Version as a card: its state, a bar with its count and its actions', async () => {
     const r = seriesRow(5, 'Breaking Bad')
     fakeSeries()
     standardOnly(r, { episodes: 236, filled: 228, wanted: 8, long_missing: 2, unmonitored: 4, downloading: 0, downloading_long_missing: 0, size: 412 * 1024 ** 3 })
     const pane = await openTitle(/breaking bad/i)
 
-    const hd = await within(pane).findByRole('columnheader', { name: 'Standard' })
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
     expect(within(hd).getByRole('img', { name: /^Standard: 228 of 240 episodes/ })).toHaveTextContent(/228\/240/)
     // Long Missing is its own red segment after Wanted, and counts once: 8 Wanted less 2 Long Missing leaves 6 Wanted.
     expect(Array.from(hd.querySelectorAll('[data-bar]')).map((q) => q.getAttribute('data-bar'))).toEqual(['filled', 'wanted', 'long_missing', 'unmonitored'])
@@ -160,7 +160,7 @@ describe('the Version cards', () => {
     standardOnly(r, { episodes: 62, filled: 62, wanted: 0, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 })
     const pane = await openTitle(/breaking bad/i)
 
-    const hd = await within(pane).findByRole('columnheader', { name: 'Standard' })
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
     expect(within(hd).getByRole('img', { name: /^Standard: 62 of 62 episodes/ })).toHaveTextContent(/62\/62/)
     expect(hd.querySelector('[data-complete]')).not.toBeNull()
     expect(within(hd).queryByText('Complete')).not.toBeInTheDocument()
@@ -174,7 +174,7 @@ describe('the Version cards', () => {
     standardOnly(r, { episodes: 2, filled: 2, wanted: 1, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 })
     const pane = await openTitle(/breaking bad/i)
 
-    const hd = await within(pane).findByRole('columnheader', { name: 'Standard' })
+    const hd = await within(pane).findByRole('listitem', { name: 'Standard' })
     expect(within(hd).getByText('1 Wanted')).toBeInTheDocument()
     expect(within(hd).getByRole('img', { name: /^Standard: 2 of 2 episodes/ })).toHaveTextContent(/2\/2/)
   })
@@ -184,9 +184,9 @@ describe('the Version cards', () => {
     history.replaceState(null, '', '/library?slot=4k')
     const pane = await openTitle(/breaking bad/i)
 
-    await within(pane).findByRole('columnheader', { name: 'Standard' })
-    expect(within(pane).getByRole('columnheader', { name: '4K' })).toHaveAttribute('data-current')
-    expect(within(pane).getByRole('columnheader', { name: 'Standard' })).not.toHaveAttribute('data-current')
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect(within(pane).getByRole('listitem', { name: '4K' })).toHaveAttribute('data-current')
+    expect(within(pane).getByRole('listitem', { name: 'Standard' })).not.toHaveAttribute('data-current')
     expect(within(pane).queryByRole('button', { name: 'Add Version' })).not.toBeInTheDocument() // both Slots have a Version
   })
 
@@ -196,8 +196,8 @@ describe('the Version cards', () => {
     standardOnly(r, { episodes: 21, filled: 21, wanted: 0, long_missing: 0, unmonitored: 0, downloading: 0, downloading_long_missing: 0, size: 1024 ** 3 })
     const pane = await openTitle(/breaking bad/i)
 
-    await within(pane).findByRole('columnheader', { name: 'Standard' })
-    expect(within(pane).queryByRole('columnheader', { name: '4K' })).not.toBeInTheDocument()
+    await within(pane).findByRole('listitem', { name: 'Standard' })
+    expect(within(pane).queryByRole('listitem', { name: '4K' })).not.toBeInTheDocument()
     expect(within(pane).getByRole('button', { name: 'Add Version' })).toBeInTheDocument() // the column after the last Version
   })
 

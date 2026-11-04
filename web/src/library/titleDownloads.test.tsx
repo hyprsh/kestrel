@@ -32,16 +32,16 @@ describe("a Title's downloads on its page", () => {
     expect(within(pane).queryByRole('region', { name: 'Downloading' })).not.toBeInTheDocument()
   })
 
-  it("shows a Series Slot's downloads on its column head, with the episodes, percent and time left", async () => {
+  it("shows a Series Slot's downloads on its card, with the episodes, percent and time left", async () => {
     fakeSeries()
     fakeQueue([queueItem({ grab_id: 1, title_id: 5, slot: '4k', episodes: ['S05E09', 'S05E10'] })])
     renderApp()
     await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
     const pane = await screen.findByRole('region', { name: /breaking bad/i })
 
-    const uhd = await within(pane).findByRole('columnheader', { name: '4K' })
+    const uhd = await within(pane).findByRole('listitem', { name: '4K' })
     expect(await within(uhd).findByText(/^Downloading S05E09–E10 · 75%/)).toHaveTextContent('2 min left')
-    expect(within(pane).getByRole('columnheader', { name: 'Standard' })).not.toHaveTextContent('Downloading')
+    expect(within(pane).getByRole('listitem', { name: 'Standard' })).not.toHaveTextContent('Downloading')
   })
 
   it('has no download state when nothing of this Title is downloading', async () => {

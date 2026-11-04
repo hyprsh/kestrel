@@ -135,13 +135,13 @@ describe('the episode list', () => {
     const cat = within(grid).getByRole('row', { name: /Cat's in the Bag/ })
     expect(within(cat).getByRole('button', { name: 'S01E02 Standard: Not out yet' })).toBeInTheDocument()
     // The Versions are the columns of the table's head, not of the list.
-    const table = screen.getByRole('table', { name: 'Versions and seasons' })
+    const table = screen.getByRole('table', { name: 'Seasons' })
     expect(
       within(table)
         .getAllByRole('columnheader')
         .map((h) => h.getAttribute('aria-label')),
     ).toContain('Standard')
-    expect(within(grid).getByText('—')).toBeInTheDocument() // the second episode has no air date yet
+    expect(within(within(cat).getByRole('rowheader')).getByText('—')).toBeInTheDocument() // the second episode has no air date yet
     // Specials are another season, not rows of this list.
     expect(within(grid).queryByRole('row', { name: /Good Cop Bad Cop/ })).not.toBeInTheDocument()
     await pickSeason('Specials')

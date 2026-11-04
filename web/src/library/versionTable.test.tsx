@@ -46,7 +46,7 @@ async function openSeries() {
   renderApp()
   await userEvent.click(await screen.findByRole('button', { name: 'Library' }))
   await screen.findByRole('button', { name: /^Season 1:/ })
-  return within(screen.getByRole('table', { name: 'Versions and seasons' }))
+  return within(screen.getByRole('table', { name: 'Seasons' }))
 }
 
 describe('the Series table on a wide screen', () => {
@@ -55,8 +55,18 @@ describe('the Series table on a wide screen', () => {
     const table = await openSeries()
     expect(table.getAllByRole('columnheader').map((h) => h.getAttribute('aria-label'))).toEqual(expect.arrayContaining(['Standard', '4K']))
     expect(table.queryByRole('button', { name: 'Add Version' })).not.toBeInTheDocument()
-    expect(table.getByText('1 season')).toBeInTheDocument()
-    expect(table.getByText('3 episodes')).toBeInTheDocument()
+    expect(table.getByText('1 season · 3 episodes')).toBeInTheDocument()
+  })
+
+  it('lists the Version cards above the table, and names the Versions in its head and the dots in a legend', async () => {
+    series()
+    const table = await openSeries()
+    const cards = within(screen.getByRole('list', { name: 'Versions' }))
+    expect(cards.getAllByRole('listitem').map((c) => c.getAttribute('aria-label'))).toEqual(['Standard', '4K'])
+    expect(cards.queryByText('STD')).not.toBeInTheDocument()
+    expect(table.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(expect.arrayContaining(['Standard', '4K']))
+    const legend = within(screen.getByRole('list', { name: 'Legend' }))
+    expect(legend.getAllByRole('listitem').map((i) => i.textContent)).toEqual(['Wanted', 'Downloading', 'Not out yet', 'Not monitored'])
   })
 
   it('shows a check for a Version that has the season and what is Wanted for one that does not, each with its own menu', async () => {
@@ -164,7 +174,7 @@ describe('the Series table on a phone', () => {
     const cards = within(await screen.findByRole('list', { name: 'Versions' }))
     expect(cards.getAllByRole('listitem').map((c) => c.getAttribute('aria-label'))).toEqual(['Standard', '4K'])
     expect(await cards.findByText('STD')).toBeInTheDocument()
-    const table = within(screen.getByRole('table', { name: 'Versions and seasons' }))
+    const table = within(screen.getByRole('table', { name: 'Seasons' }))
     await waitFor(() => expect(table.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Season', 'STD', '4K']))
   })
 

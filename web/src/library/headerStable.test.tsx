@@ -40,7 +40,7 @@ function stableTests() {
     const r = seriesRow(5, 'Breaking Bad')
     server.use(http.get('/titles/{id}', ({ response }) => response(200).json(detail(r, { kind: 'series', series_monitor: 'all' }))))
     await openTitle(/breaking bad/i)
-    const table = await screen.findByRole('table', { name: 'Versions and seasons' })
+    const table = await screen.findByRole('table', { name: 'Seasons' })
     await within(table).findByRole('button', { name: /^Season 1:/ }, { timeout: 5000 })
     const s = await closedAndOpen(within(table), /^Season 1:/)
     expect(s.open).toBe(s.closed)
