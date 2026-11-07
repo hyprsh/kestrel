@@ -68,3 +68,29 @@ func TestGitHubSourceKeepsOnlyWhatKestrelReads(t *testing.T) {
 		t.Errorf("files = %v, want %s", got, want)
 	}
 }
+
+func TestGitHubCommitsAreTheOnesBetweenTheTwoThatTouchTheJSON(t *testing.T) {
+	var asked string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.String()
+		_, _ = w.Write([]byte(`[
+			{"sha":"ccc3333","commit":{"message":"feat(radarr): add FLUX to WEB Tier 01\n\nlonger body"}},
+			{"sha":"bbb2222","commit":{"message":"fix: typo"}},
+			{"sha":"aaa1111","commit":{"message":"the old one"}},
+			{"sha":"zzz0000","commit":{"message":"before"}}
+		]`))
+	}))
+	defer srv.Close()
+	from := trashsync.Ref{Commit: "aaa1111", CommittedAt: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+	got, err := trashsync.GitHub{BaseURL: srv.URL}.Commits(context.Background(), from, "ccc3333")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(asked, "sha=ccc3333") || !strings.Contains(asked, "path=docs%2Fjson") || !strings.Contains(asked, "since=2026-10-01") {
+		t.Errorf("asked %s", asked)
+	}
+	want := []trashsync.Commit{{SHA: "ccc3333", Message: "feat(radarr): add FLUX to WEB Tier 01"}, {SHA: "bbb2222", Message: "fix: typo"}}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("commits = %+v", got)
+	}
+}

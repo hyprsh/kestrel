@@ -137,7 +137,7 @@ func TestARescoreMakesAnOriginalOnlyFileAMisfitUnlessItIsAlreadyAnOriginal(t *te
 			t.Fatal(err)
 		}
 
-		if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, "a test", nil); err != nil {
+		if _, err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, "a test", nil); err != nil {
 			t.Fatal(err)
 		}
 
@@ -173,8 +173,12 @@ func TestARescoreLogsTheFilesWhoseScoreChangedAndTheMisfitsWithWhy(t *testing.T)
 	}
 	const why = "the TRaSH Guides update abc1234 changed the Custom Formats"
 
-	if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, why, nil); err != nil {
+	sum, err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, why, nil)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if sum.Up != 1 || sum.Down != 0 || len(sum.Wanted) != 1 || !strings.HasPrefix(sum.Wanted[0], "Paddington") {
+		t.Errorf("summary = %+v, want one file up and Paddington Wanted", sum)
 	}
 
 	misfits, rescored := r.log.of(history.FileMisfit), r.log.of(history.FileRescored)
@@ -191,7 +195,7 @@ func TestARescoreLogsTheFilesWhoseScoreChangedAndTheMisfitsWithWhy(t *testing.T)
 	}
 
 	// Nothing changed the second time: the pass looks at the file and writes nothing.
-	if err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, "again", nil); err != nil {
+	if _, err := r.svc.RescoreTitles(ctx, snap, []int64{r.titleID}, "again", nil); err != nil {
 		t.Fatal(err)
 	}
 	if n, k := len(r.log.of(history.FileMisfit)), len(r.log.of(history.FileRescored)); n != 1 || k != 1 {

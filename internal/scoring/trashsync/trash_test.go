@@ -40,6 +40,9 @@ type fakeSource struct {
 }
 
 func (f *fakeSource) Latest(context.Context) (trashsync.Ref, error) { return f.ref, f.err }
+func (f *fakeSource) Commits(context.Context, trashsync.Ref, string) ([]trashsync.Commit, error) {
+	return nil, nil
+}
 func (f *fakeSource) Download(context.Context, trashsync.Ref) (fs.FS, error) {
 	f.calls++
 	return f.files, nil

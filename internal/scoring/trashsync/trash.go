@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"strings"
 	"testing/fstest"
 	"time"
 
@@ -54,6 +55,14 @@ type Source interface {
 	// Download returns the tree of that commit as scoring.LoadSnapshot reads it,
 	// with COMMIT and COMMITTED_AT files.
 	Download(ctx context.Context, ref Ref) (fs.FS, error)
+	// Commits are the commits after from up to to that touch the JSON, newest first.
+	Commits(ctx context.Context, from Ref, to string) ([]Commit, error)
+}
+
+// Commit is one TRaSH commit and the first line of its message.
+type Commit struct {
+	SHA     string `json:"sha"`
+	Message string `json:"message"`
 }
 
 // Health is what the service needs of the health module.
@@ -68,8 +77,11 @@ type Deps struct {
 	Settings *settings.Settings
 	Source   Source
 	Health   Health
-	Clock    func() time.Time
-	Logger   *slog.Logger
+	// Bundled is the set compiled into the binary, as LoadSnapshot reads it. Kept once the files are scored under
+	// it, it is what the next Kestrel version's set is compared with.
+	Bundled fs.FS
+	Clock   func() time.Time
+	Logger  *slog.Logger
 }
 
 // Service keeps the TRaSH snapshots.
@@ -203,6 +215,64 @@ func (s *Service) NoteScored(ctx context.Context, commit string) {
 	}
 }
 
+// Previous is the commit the stored files were last scored under, and that set when it is kept; "" and nil when
+// the files were never scored, and a nil set when it was not kept.
+func (s *Service) Previous(ctx context.Context) (Ref, *scoring.Snapshot) {
+	raw, ok, err := s.d.Settings.Get(ctx, scoredKey)
+	var scored string
+	if err != nil || !ok || json.Unmarshal(raw, &scored) != nil || scored == "" {
+		return Ref{}, nil
+	}
+	st, err := s.stored(ctx)
+	if err != nil || st.Commit != scored {
+		return Ref{Commit: scored}, nil
+	}
+	snap, err := scoring.LoadSnapshot(toFS(st.Files))
+	if err != nil {
+		return Ref{Commit: scored}, nil
+	}
+	return Ref{Commit: scored, CommittedAt: st.CommittedAt}, snap
+}
+
+// KeepBundled keeps the bundled set when it is the active one and not kept yet, so the next Kestrel version can say
+// what its own set changed. Call it after the files were scored under it.
+func (s *Service) KeepBundled(ctx context.Context) {
+	cur := s.d.Holder.Current()
+	if s.d.Bundled == nil {
+		return
+	}
+	if st, err := s.stored(ctx); err == nil && st.Commit == cur.Commit() {
+		return
+	}
+	b, err := fs.ReadFile(s.d.Bundled, "COMMIT")
+	if err != nil || strings.TrimSpace(string(b)) != cur.Commit() {
+		return
+	}
+	if err := s.keep(ctx, s.d.Bundled, Ref{Commit: cur.Commit(), CommittedAt: cur.CommittedAt()}); err != nil {
+		s.d.Logger.Warn("keeping the bundled TRaSH set failed", "err", err)
+	}
+}
+
+func (s *Service) stored(ctx context.Context) (stored, error) {
+	var st stored
+	raw, ok, err := s.d.Settings.Get(ctx, snapshotKey)
+	if err != nil || !ok {
+		return st, err
+	}
+	return st, json.Unmarshal(raw, &st)
+}
+
+// Commits are TRaSH's commits after from up to to that touch the JSON Kestrel reads, newest first. They are asked
+// for briefly: a TRaSH update is recorded without them rather than wait.
+func (s *Service) Commits(ctx context.Context, from Ref, to string) ([]Commit, error) {
+	if s.d.Source == nil {
+		return nil, fmt.Errorf("%w: no source is configured", ErrUnreachable)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	return s.d.Source.Commits(ctx, from, to)
+}
+
 // Result says what an Update did.
 type Result struct {
 	// Changed is false when TRaSH had nothing newer.
@@ -275,11 +345,23 @@ func (s *Service) noteCheck(ctx context.Context) {
 	}
 }
 
-// Reject refuses the candidate whole: it returns ErrRejected, raises the
+// RejectedError is a TRaSH update that was refused whole: its commit and why. It is ErrRejected.
+type RejectedError struct {
+	Commit string
+	Cause  error
+}
+
+func (e *RejectedError) Error() string {
+	return fmt.Sprintf("%v: update to %s: %v", ErrRejected, short(e.Commit), e.Cause)
+}
+
+func (e *RejectedError) Is(target error) bool { return target == ErrRejected }
+
+// Reject refuses the candidate whole: it returns a *RejectedError, raises the
 // "TRaSH update rejected" Warning and leaves everything as it was.
 func (s *Service) Reject(ctx context.Context, c *Candidate, cause error) error {
 	ref := c.ref
-	err := fmt.Errorf("%w: update to %s: %v", ErrRejected, short(ref.Commit), cause)
+	err := &RejectedError{Commit: ref.Commit, Cause: cause}
 	if s.d.Health != nil {
 		if herr := s.d.Health.Raise(ctx, health.Issue{
 			Key: rejectedKey, Kind: health.KindTrashRejected, Severity: health.Warning,

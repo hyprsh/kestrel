@@ -69,6 +69,18 @@ export function useSameKind(kind: string | undefined) {
   })
 }
 
+/** The newest TRaSH update entry, for Settings' "What changed"; undefined while none is recorded. */
+export function useLatestTrashUpdate() {
+  return useQuery({
+    queryKey: ['log', 'latest', 'trash_updated'],
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/events', { params: { query: { kind: ['trash_updated'], limit: 1 } } })
+      if (!data) throw failure(error, response)
+      return data.items[0] ?? null
+    },
+  })
+}
+
 export type EventsHistogram = components['schemas']['EventsHistogram']
 
 /** Events per 4 hours over the last `days` days, by severity (GET /events/histogram), for the Log's strip. */

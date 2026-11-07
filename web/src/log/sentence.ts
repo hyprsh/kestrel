@@ -13,7 +13,7 @@ export type Severity = 'plain' | 'warning' | 'error'
 
 /** The kinds the Log's strip and Errors and Warnings views count; internal/history SeverityOf has the same lists. */
 const errors = new Set(['grab_failed', 'import_rejected', 'blocklist'])
-const warnings = new Set(['import_stalled', 'health_raised', 'original_offered'])
+const warnings = new Set(['import_stalled', 'health_raised', 'original_offered', 'trash_rejected'])
 
 export const severityOf = (kind: string): Severity => (errors.has(kind) ? 'error' : warnings.has(kind) ? 'warning' : 'plain')
 
@@ -302,6 +302,14 @@ export function sentence(e: LogEvent, title?: string, recovery?: Recovery | null
       return make('Marked a misfit', 'warning', details(/^Marked (.+) as a misfit$/.exec(m)?.[1] ?? m), 'plain')
     case 'file_rescored':
       return make('Re-scored', 'refresh', details(/^Re-scored (.+)$/.exec(m)?.[1] ?? m))
+    case 'trash_updated': {
+      const m2 = /^TRaSH update (\S+ → \S+): (.+)$/.exec(m)
+      return make('TRaSH update', 'refresh', m2 ? details(m2[1], m2[2]) : details(m), 'plain', false)
+    }
+    case 'trash_rejected': {
+      const m2 = /^TRaSH update (\S+) rejected: (.+)$/.exec(m)
+      return make('TRaSH update rejected', 'warning', m2 ? details(m2[1], m2[2]) : details(m), 'warning', false)
+    }
     default:
       return make(m, 'event', '', severityOf(e.kind), false)
   }
@@ -359,6 +367,8 @@ export const kindNames: Record<string, string> = {
   grabs_resumed: 'Grabs resumed',
   blocklist_removed: 'Blocklist entry removed',
   bulk: 'Bulk action',
+  trash_updated: 'TRaSH update',
+  trash_rejected: 'TRaSH update rejected',
 }
 
 /** What a row's one action does: open the event's Title, or go to a place of the SPA. */

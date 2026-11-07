@@ -62,40 +62,67 @@ func (s *Service) Rescore(ctx context.Context, titleID, versionID int64, why str
 // renamed or searched. A TRaSH update and a Primary Language change both use it;
 // the caller holds the snapshot gate (scoring.Holder.Exclusive). progress, if
 // not nil, is told how many Titles are re-scored so far as it goes. why says
-// what changed, for the Log (see Rescore).
-func (s *Service) RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64, why string, progress func(done int)) error {
+// what changed, for the Log (see Rescore). It returns what the re-score did to the Library.
+func (s *Service) RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64, why string, progress func(done int)) (RescoreSummary, error) {
+	var sum RescoreSummary
 	region, _, err := s.prof.Region(ctx)
 	if err != nil {
-		return err
+		return sum, err
 	}
 	all, err := s.prof.List(ctx)
 	if err != nil {
-		return err
+		return sum, err
 	}
 	var out []library.Rescored
 	var changes []fileChange
 	for i, id := range titleIDs {
 		d, err := s.lib.Get(ctx, id, library.View{Country: region.Country, Now: s.clock()})
 		if err != nil {
-			return err
+			return sum, err
 		}
+		wanted := false
 		for _, v := range d.Versions {
 			rs, cs, err := s.rescoreVersion(ctx, snap, region, all, id, v.ID)
 			if err != nil {
-				return err
+				return sum, err
 			}
 			out = append(out, rs...)
 			changes = append(changes, cs...)
+			for _, c := range cs {
+				switch {
+				case c.oldScore != nil && c.newScore > *c.oldScore:
+					sum.Up++
+				case c.oldScore != nil && c.newScore < *c.oldScore:
+					sum.Down++
+				}
+				if c.reachedCutoff {
+					sum.Cutoff++
+				}
+				wanted = wanted || c.misfit != ""
+			}
+		}
+		if wanted {
+			sum.Wanted = append(sum.Wanted, d.Title)
 		}
 		if progress != nil {
 			progress(i + 1)
 		}
 	}
 	if err := s.lib.ApplyRescore(ctx, out); err != nil {
-		return err
+		return RescoreSummary{}, err
 	}
 	s.recordRescored(ctx, why, changes)
-	return nil
+	return sum, nil
+}
+
+// RescoreSummary is what a re-score did to the Library.
+type RescoreSummary struct {
+	// Up and Down count the files whose Score went up or down.
+	Up, Down int
+	// Wanted names the Titles a file of which became a misfit, which makes them Wanted.
+	Wanted []string
+	// Cutoff counts the files that reached their Cutoff.
+	Cutoff int
 }
 
 // fileChange is what a re-score changed about one file, for the Log.
@@ -106,6 +133,8 @@ type fileChange struct {
 	newScore                   int
 	// misfit is why the file is newly marked misfit, "" when it is not.
 	misfit string
+	// reachedCutoff is a file below its Cutoff before that is at it now.
+	reachedCutoff bool
 }
 
 // recordRescored writes the Log entries of a re-score that was stored: one for each file whose Score changed and
@@ -183,6 +212,9 @@ func (s *Service) rescoreVersion(ctx context.Context, snap *scoring.Snapshot, re
 		if misfit && !f.Misfit {
 			c.misfit = misfitWhy(profile, info, verdict, f.Original)
 		}
+		quality := parsed.Quality.Quality.Name
+		c.reachedCutoff = !misfit && profile.AtCutoff(parsed.Kind, quality, verdict.Score) &&
+			(f.Score == nil || !profile.AtCutoff(parsed.Kind, quality, *f.Score))
 		if c.misfit != "" || f.Score == nil || *f.Score != verdict.Score {
 			changes = append(changes, c)
 		}

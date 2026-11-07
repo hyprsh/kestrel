@@ -262,7 +262,8 @@ func New(opts Options) *App {
 		Store: st, Library: lib, Profiles: profs, Meta: meta, TVDB: tvdb, Prober: prober, Roots: roots, Scoring: live,
 		History: hist, Clock: opts.Clock, Logger: opts.Logger, FolderChanged: mediaRefresh.FolderChanged,
 		Rescore: func(ctx context.Context, titleID int64) error {
-			return imp.RescoreTitles(ctx, live.Current(), []int64{titleID}, "Adoption re-scored the Title under the settings of now", nil)
+			_, err := imp.RescoreTitles(ctx, live.Current(), []int64{titleID}, "Adoption re-scored the Title under the settings of now", nil)
+			return err
 		},
 	})
 	if err != nil {
@@ -275,10 +276,24 @@ func New(opts Options) *App {
 
 	var upd *updates.Service
 	trash := trashsync.New(trashsync.Deps{
-		Holder: live, Settings: appSettings, Source: opts.TrashSource, Health: healthSvc, Clock: opts.Clock, Logger: opts.Logger,
+		Holder: live, Settings: appSettings, Source: opts.TrashSource, Health: healthSvc, Bundled: scoring.EmbeddedFiles(), Clock: opts.Clock, Logger: opts.Logger,
 	})
 	trashUpdates := jobs.NewTrashUpdates(jobs.TrashUpdatesDeps{
-		Snapshots: trash, Holder: live, Library: lib, Rescorer: imp, Logger: opts.Logger,
+		Snapshots: trash, Holder: live, Library: lib, Rescorer: imp, History: hist, Logger: opts.Logger,
+		Profiles: func(ctx context.Context) ([]scoring.UsedProfile, error) {
+			region, _, err := profs.Region(ctx)
+			if err != nil {
+				return nil, err
+			}
+			all, err := profs.List(ctx)
+			var out []scoring.UsedProfile
+			for _, p := range all {
+				if p.Enabled {
+					out = append(out, scoring.UsedProfile{Name: p.Name, Spec: p.Spec(region.Primary.Release())})
+				}
+			}
+			return out, err
+		},
 		// Without a source there is nothing to check daily; the loop still runs
 		// for a Primary Language change's re-score.
 		Enabled: func(ctx context.Context) bool { return opts.TrashSource != nil && upd.Enabled(ctx) },

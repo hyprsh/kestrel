@@ -160,6 +160,11 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
   const [settingsSection, setSettingsSection] = useState(start.screen === 'settings' ? start.section : '')
   // A Request the Requests screen shows in its detail ("/requests/12"); on a phone it is a screen of its own.
   const [requestId, setRequestId] = useState<number | null>(start.screen === 'requests' && isTitleId(start.section) ? Number(start.section) : null)
+  // The Log entry a link opened ("/log/42?q=kind:trash"); the address keeps only the filter.
+  const [logEvent, setLogEvent] = useState<number | null>(start.screen === 'log' && isTitleId(start.section) ? Number(start.section) : null)
+  useEffect(() => {
+    if (screen !== 'log') setLogEvent(null)
+  }, [screen])
   const [more, setMore] = useState(false)
   const [cleanupTitles, setCleanupTitles] = useState<number[] | undefined>(undefined)
   const [menu, setMenu] = useState<{ mode: MenuMode } | null>(null)
@@ -343,6 +348,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
           if (phone && section) pushPlace(placePath('settings', '', section))
         }
         if (key === 'health') setHealthSection(section)
+        if (key === 'log') setLogEvent(isTitleId(section) ? Number(section) : null)
         if (key === 'requests') {
           // "/requests/12" opens that Request; a phone shows it as a screen Back leaves.
           setRequestId(isTitleId(section) ? Number(section) : null)
@@ -465,7 +471,7 @@ export function Shell({ onRunSetup }: { onRunSetup: () => void }) {
                         onSearch={(at) => (at ? openSearch(at) : closeSearch())}
                       />
                     ) : screen === 'log' ? (
-                      <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} onOpenTitle={openTitle} />
+                      <Log query={query} onQuery={(q) => setFilter({ screen: 'log', q })} onOpenTitle={openTitle} openEvent={logEvent} />
                     ) : screen === 'activity' ? (
                       <Activity query={query} onQuery={(q) => setFilter({ screen: 'activity', q })} onOpenTitle={openTitle} />
                     ) : screen === 'health' ? (

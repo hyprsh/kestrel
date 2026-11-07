@@ -41,7 +41,8 @@ const viewIcons: Record<string, ReactNode> = {
 }
 
 /** `query` is the filter field's text, kept by the Shell so it can live in the address bar. */
-export function Log({ query, onQuery, onOpenTitle }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void }) {
+/** `openEvent` is the entry a link opened, such as Settings' "What changed". */
+export function Log({ query, onQuery, onOpenTitle, openEvent = null }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void; openEvent?: number | null }) {
   const [blocklist, setBlocklist] = useState(false)
   const [, setPage] = usePageParam()
   // The Blocklist is a page of its own, reached from the "…" menu; any view of the panel goes back to the Log.
@@ -60,7 +61,7 @@ export function Log({ query, onQuery, onOpenTitle }: { query: string; onQuery: (
       }}
     />
   ) : (
-    <Events query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} onBlocklist={() => showBlocklist(true)} />
+    <Events query={query} onQuery={onQuery} onOpenTitle={onOpenTitle} onBlocklist={() => showBlocklist(true)} openEvent={openEvent} />
   )
 }
 
@@ -264,10 +265,25 @@ function useTitleNames() {
   return useMemo(() => ({ list: titles, names: new Map((titles ?? []).map((t) => [t.id, t.title])) }), [titles])
 }
 
-function Events({ query, onQuery, onOpenTitle, onBlocklist }: { query: string; onQuery: (query: string) => void; onOpenTitle: (id: number) => void; onBlocklist: () => void }) {
+function Events({
+  query,
+  onQuery,
+  onOpenTitle,
+  onBlocklist,
+  openEvent,
+}: {
+  query: string
+  onQuery: (query: string) => void
+  onOpenTitle: (id: number) => void
+  onBlocklist: () => void
+  openEvent: number | null
+}) {
   const phone = usePhone()
   const [sel, setSel] = useState(0)
-  const [open, setOpen] = useState<number | null>(null)
+  const [open, setOpen] = useState<number | null>(openEvent)
+  useEffect(() => {
+    if (openEvent !== null) setOpen(openEvent)
+  }, [openEvent])
   const [folds, setFolds] = useState<ReadonlySet<number>>(new Set())
   const [follow, setFollow] = useFollowLive()
   const { list: titles, names } = useTitleNames()

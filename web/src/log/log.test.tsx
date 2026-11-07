@@ -95,7 +95,7 @@ describe('Log', () => {
 
     await expect.poll(() => sent.at(-1)?.getAll('title_id')).toEqual(['1', '2'])
     // The old group `failures` is Errors plus Warnings.
-    expect(sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import_rejected', 'blocklist', 'import_stalled', 'health_raised', 'original_offered'])
+    expect(sent.at(-1)?.getAll('kind')).toEqual(['grab_failed', 'import_rejected', 'blocklist', 'import_stalled', 'health_raised', 'original_offered', 'trash_rejected'])
     expect(sent.at(-1)?.getAll('exclude_kind')).toEqual(['health_raised'])
   })
 

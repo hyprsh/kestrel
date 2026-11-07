@@ -2,11 +2,15 @@ package jobs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 
+	"github.com/hyprsh/kestrel/internal/history"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/library"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
@@ -21,6 +25,9 @@ type Snapshots interface {
 	Fetch(ctx context.Context) (*trashsync.Candidate, error)
 	Activate(ctx context.Context, c *trashsync.Candidate)
 	Reject(ctx context.Context, c *trashsync.Candidate, cause error) error
+	Previous(ctx context.Context) (trashsync.Ref, *scoring.Snapshot)
+	KeepBundled(ctx context.Context)
+	Commits(ctx context.Context, from trashsync.Ref, to string) ([]trashsync.Commit, error)
 }
 
 // TitleNames lists the Titles whose files are re-scored.
@@ -32,7 +39,12 @@ type TitleNames interface {
 // changes nothing and fails.
 type Rescorer interface {
 	// progress, if not nil, is told how many Titles are re-scored as it goes.
-	RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64, why string, progress func(done int)) error
+	RescoreTitles(ctx context.Context, snap *scoring.Snapshot, titleIDs []int64, why string, progress func(done int)) (imports.RescoreSummary, error)
+}
+
+// Recorder writes Log entries.
+type Recorder interface {
+	Record(ctx context.Context, ev history.Event)
 }
 
 // TrashUpdatesDeps are what TrashUpdates needs.
@@ -44,7 +56,11 @@ type TrashUpdatesDeps struct {
 	// Enabled, when set, gates the daily check: with "Check GitHub for updates"
 	// off nothing is asked of GitHub, except by a manual Update.
 	Enabled func(ctx context.Context) bool
-	Logger  *slog.Logger
+	// History gets one entry for each TRaSH update and each rejected one; nil records nothing.
+	History Recorder
+	// Profiles are the enabled Profiles under the current Primary Language: what a TRaSH update's entry describes.
+	Profiles func(ctx context.Context) ([]scoring.UsedProfile, error)
+	Logger   *slog.Logger
 }
 
 // TrashUpdates strings trashsync (which fetches and activates snapshots) to
@@ -68,6 +84,7 @@ type TrashUpdates struct {
 // request is the work a pass is asked to do beyond the daily check.
 type request struct {
 	update   bool            // "Update from TRaSH"
+	by       history.Trigger // who asked for the update
 	language *LanguageChange // a Primary Language change to save and re-score under
 }
 
@@ -107,6 +124,9 @@ func (t *TrashUpdates) request(r request) bool {
 		t.reqMu.Unlock()
 		return false
 	}
+	if r.update && !t.pending.update {
+		t.pending.by = r.by
+	}
 	t.pending.update = t.pending.update || r.update
 	if r.language != nil {
 		t.pending.language = r.language // a second change replaces the one waiting
@@ -121,8 +141,10 @@ func (t *TrashUpdates) request(r request) bool {
 
 // RequestUpdate asks the trash loop for an "Update from TRaSH" pass, whatever
 // the daily check's switches say, and returns at once. It reports false, and
-// asks for nothing, when one is already waiting or running.
-func (t *TrashUpdates) RequestUpdate() bool { return t.request(request{update: true}) }
+// asks for nothing, when one is already waiting or running. The Log names who ctx carries as the one who asked.
+func (t *TrashUpdates) RequestUpdate(ctx context.Context) bool {
+	return t.request(request{update: true, by: history.TriggerOf(ctx)})
+}
 
 // RunRequested does what was requested by hand since the last pass, if
 // anything, and reports whether there was any. It is the trash loop's pass for
@@ -145,7 +167,11 @@ func (t *TrashUpdates) RunRequested(ctx context.Context) (bool, error) {
 		err = t.rescoreLanguage(ctx, want.language)
 	}
 	if want.update {
-		if _, uerr := t.Update(ctx); err == nil {
+		uctx := ctx
+		if !want.by.IsZero() {
+			uctx = history.WithTrigger(ctx, want.by)
+		}
+		if _, uerr := t.Update(uctx); err == nil {
 			err = uerr
 		}
 	}
@@ -166,7 +192,7 @@ func (t *TrashUpdates) saveAndRescore(ctx context.Context, c *LanguageChange) er
 	if err := c.Apply(ctx); err != nil {
 		return err
 	}
-	err := t.rescoreAll(ctx, t.d.Holder.Current(), "the Primary Language changed")
+	_, err := t.rescoreAll(ctx, t.d.Holder.Current(), "the Primary Language changed")
 	if err != nil {
 		if uerr := c.Undo(ctx); uerr != nil {
 			err = errors.Join(err, fmt.Errorf("undoing the Primary Language change: %w", uerr))
@@ -186,10 +212,10 @@ func (t *TrashUpdates) rescoreLanguage(ctx context.Context, c *LanguageChange) e
 	return nil
 }
 
-func (t *TrashUpdates) rescoreAll(ctx context.Context, snap *scoring.Snapshot, why string) error {
+func (t *TrashUpdates) rescoreAll(ctx context.Context, snap *scoring.Snapshot, why string) (imports.RescoreSummary, error) {
 	named, err := t.d.Library.Names(ctx)
 	if err != nil {
-		return err
+		return imports.RescoreSummary{}, err
 	}
 	ids := make([]int64, len(named))
 	for i, n := range named {
@@ -202,7 +228,8 @@ func (t *TrashUpdates) rescoreAll(ctx context.Context, snap *scoring.Snapshot, w
 // Start makes the newer of the downloaded and the embedded snapshot active. If
 // the stored files were scored under another snapshot (a new binary embeds a
 // newer one), they are re-scored under the active one before anything decides
-// on them. A re-score that fails is logged and retried at the next start.
+// on them. A re-score that fails is logged and retried at the next start. When the files were scored under an
+// earlier set, the Log gets a TRaSH update entry.
 func (t *TrashUpdates) Start(ctx context.Context) error {
 	if err := t.d.Snapshots.Select(ctx); err != nil {
 		return err
@@ -211,15 +238,23 @@ func (t *TrashUpdates) Start(ctx context.Context) error {
 	if err != nil || !stale {
 		return err
 	}
+	prev, prevSnap := t.d.Snapshots.Previous(ctx)
 	active := t.d.Holder.Current()
+	var sum imports.RescoreSummary
 	err = t.d.Holder.Exclusive(func() error {
-		return t.rescoreAll(ctx, active, "the active TRaSH snapshot "+short(active.Commit())+" had not scored the files yet")
+		var err error
+		sum, err = t.rescoreAll(ctx, active, "the active TRaSH snapshot "+short(active.Commit())+" had not scored the files yet")
+		return err
 	})
 	if err != nil {
 		t.d.Logger.Warn("re-scoring under the active TRaSH snapshot failed", "commit", active.Commit(), "err", err)
 		return nil
 	}
 	t.d.Snapshots.NoteScored(ctx, active.Commit())
+	t.d.Snapshots.KeepBundled(ctx)
+	if prev.Commit != "" {
+		t.recordUpdated(history.WithTrigger(ctx, history.TriggerOr(ctx, history.Job(history.TriggerStartup, ""))), prev, prevSnap, active, sum)
+	}
 	return nil
 }
 
@@ -268,24 +303,187 @@ func short(commit string) string {
 }
 
 func (t *TrashUpdates) update(ctx context.Context) (trashsync.Result, error) {
+	old := t.d.Holder.Current()
 	c, err := t.d.Snapshots.Fetch(ctx)
 	if err != nil {
+		t.recordRejected(ctx, old, nil, err)
 		return trashsync.Result{}, err
 	}
 	if c == nil {
-		return trashsync.Result{Commit: t.d.Holder.Current().Commit()}, nil
+		return trashsync.Result{Commit: old.Commit()}, nil
 	}
+	var sum imports.RescoreSummary
 	err = t.d.Holder.Exclusive(func() error {
-		if err := t.rescoreAll(ctx, c.Snapshot, "the TRaSH Guides update "+short(c.Snapshot.Commit())+" changed the Custom Formats"); err != nil {
+		var err error
+		if sum, err = t.rescoreAll(ctx, c.Snapshot, "the TRaSH Guides update "+short(c.Snapshot.Commit())+" changed the Custom Formats"); err != nil {
 			return err
 		}
 		t.d.Snapshots.Activate(ctx, c)
 		return nil
 	})
 	if err != nil {
-		return trashsync.Result{}, t.d.Snapshots.Reject(ctx, c, err)
+		err = t.d.Snapshots.Reject(ctx, c, err)
+		t.recordRejected(ctx, old, c.Snapshot, err)
+		return trashsync.Result{}, err
 	}
+	t.recordUpdated(ctx, trashsync.Ref{Commit: old.Commit(), CommittedAt: old.CommittedAt()}, old, c.Snapshot, sum)
 	return trashsync.Result{Changed: true, Commit: c.Commit()}, nil
+}
+
+// trashEntry is the Data of a TRaSH update's or a rejection's Log entry.
+type trashEntry struct {
+	From       string                `json:"from,omitempty"`
+	To         string                `json:"to,omitempty"`
+	Commit     string                `json:"commit,omitempty"`
+	Cause      string                `json:"cause,omitempty"`
+	CompareURL string                `json:"compare_url,omitempty"`
+	Changes    []scoring.TrashChange `json:"changes"`
+	// Unused counts the changes to TRaSH profiles no enabled Profile uses.
+	Unused int `json:"unused"`
+	// PreviousUnknown says the set the files were scored under was not kept, so what changed is not known.
+	PreviousUnknown    bool               `json:"previous_unknown,omitempty"`
+	Commits            []trashsync.Commit `json:"commits,omitempty"`
+	ReasonsUnavailable bool               `json:"reasons_unavailable,omitempty"`
+	Library            *trashLibrary      `json:"library,omitempty"`
+}
+
+type trashLibrary struct {
+	Up     int      `json:"up"`
+	Down   int      `json:"down"`
+	Wanted []string `json:"wanted"`
+	Cutoff int      `json:"cutoff"`
+}
+
+// diff fills in what changed from old to new in what backs the enabled Profiles.
+func (t *TrashUpdates) diff(ctx context.Context, e *trashEntry, old, new *scoring.Snapshot) {
+	used, err := t.profiles(ctx)
+	if err != nil {
+		t.d.Logger.Warn("listing the Profiles for the TRaSH update's Log entry failed", "err", err)
+	}
+	d := scoring.DiffSnapshots(old, new, used)
+	e.Changes, e.Unused = d.Changes, d.Unused
+}
+
+func (t *TrashUpdates) profiles(ctx context.Context) ([]scoring.UsedProfile, error) {
+	if t.d.Profiles == nil {
+		return nil, nil
+	}
+	return t.d.Profiles(ctx)
+}
+
+// recordUpdated writes the Log entry of a TRaSH update from the set the files were scored under (old, nil when it
+// was not kept) to new: what changed, TRaSH's reasons and what the re-score did to the Library.
+func (t *TrashUpdates) recordUpdated(ctx context.Context, from trashsync.Ref, old, new *scoring.Snapshot, sum imports.RescoreSummary) {
+	if t.d.History == nil {
+		return
+	}
+	e := trashEntry{
+		From: from.Commit, To: new.Commit(), CompareURL: trashsync.CompareURL(from.Commit, new.Commit()), Changes: []scoring.TrashChange{},
+		Library: &trashLibrary{Up: sum.Up, Down: sum.Down, Wanted: sum.Wanted, Cutoff: sum.Cutoff},
+	}
+	if e.Library.Wanted == nil {
+		e.Library.Wanted = []string{}
+	}
+	if old != nil {
+		t.diff(ctx, &e, old, new)
+	} else {
+		e.PreviousUnknown = true
+	}
+	commits, err := t.d.Snapshots.Commits(ctx, from, new.Commit())
+	if err != nil {
+		e.ReasonsUnavailable = true
+	} else {
+		e.Commits = commits
+		attribute(e.Changes, commits)
+	}
+	trigger := history.TriggerOr(ctx, history.Job(history.TriggerJob, Trash))
+	reason := "the daily TRaSH check found a newer set"
+	switch trigger.Kind {
+	case history.TriggerStartup:
+		reason = "this Kestrel version bundles a newer TRaSH set"
+	case history.TriggerPerson, history.TriggerAPIKey:
+		reason = "Update from TRaSH found a newer set"
+	}
+	data, _ := json.Marshal(e)
+	t.d.History.Record(ctx, history.Event{
+		Kind: history.TrashUpdated, Message: updatedMessage(e, sum), Trigger: trigger, Reason: reason, Data: data,
+	})
+}
+
+// recordRejected writes the Log entry of a refused TRaSH update, with what it would have changed when the set
+// loaded (new is not nil). An error that is not a rejection writes nothing.
+func (t *TrashUpdates) recordRejected(ctx context.Context, old, new *scoring.Snapshot, err error) {
+	var rej *trashsync.RejectedError
+	if t.d.History == nil || !errors.As(err, &rej) {
+		return
+	}
+	e := trashEntry{Commit: rej.Commit, Cause: rej.Cause.Error(), CompareURL: trashsync.CompareURL(old.Commit(), rej.Commit), Changes: []scoring.TrashChange{}}
+	if new != nil {
+		t.diff(ctx, &e, old, new)
+	}
+	data, _ := json.Marshal(e)
+	t.d.History.Record(ctx, history.Event{
+		Kind: history.TrashRejected, Message: "TRaSH update " + short(rej.Commit) + " rejected: " + e.Cause,
+		Trigger: history.TriggerOr(ctx, history.Job(history.TriggerJob, Trash)), Reason: "the set could not be used, so the previous one stays", Data: data,
+	})
+}
+
+// attribute names the commits behind each change: the only one, or else those whose message names what changed.
+func attribute(changes []scoring.TrashChange, commits []trashsync.Commit) {
+	for i := range changes {
+		c := &changes[i]
+		for _, k := range commits {
+			if len(commits) == 1 || c.Subject != "" && strings.Contains(strings.ToLower(k.Message), strings.ToLower(c.Subject)) {
+				c.Commits = append(c.Commits, k.SHA)
+			}
+		}
+	}
+}
+
+// updatedMessage is the entry's sentence: "TRaSH update 1a2b3c4 → 5d6e7f8: 2 Custom Formats added, 3 changed,
+// 12 files re-scored, 1 Title Wanted".
+func updatedMessage(e trashEntry, sum imports.RescoreSummary) string {
+	var added, removed, changed int
+	for _, c := range e.Changes {
+		switch {
+		case c.What == "custom_format" && c.Op == "added":
+			added++
+		case c.What == "custom_format" && c.Op == "removed":
+			removed++
+		default:
+			changed++
+		}
+	}
+	var parts []string
+	if added > 0 {
+		parts = append(parts, plural(added, "Custom Format")+" added")
+	}
+	if removed > 0 {
+		parts = append(parts, plural(removed, "Custom Format")+" removed")
+	}
+	if changed > 0 {
+		parts = append(parts, fmt.Sprintf("%d changed", changed))
+	}
+	if n := sum.Up + sum.Down; n > 0 {
+		parts = append(parts, plural(n, "file")+" re-scored")
+	}
+	if n := len(sum.Wanted); n > 0 {
+		parts = append(parts, plural(n, "Title")+" Wanted")
+	}
+	switch {
+	case e.PreviousUnknown:
+		parts = append([]string{"what changed isn't known"}, parts...)
+	case len(parts) == 0:
+		parts = append(parts, "nothing you use changed")
+	}
+	return "TRaSH update " + short(e.From) + " → " + short(e.To) + ": " + strings.Join(parts, ", ")
+}
+
+func plural(n int, one string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return fmt.Sprintf("%d %ss", n, one)
 }
 
 // ChangeLanguage queues a new Primary Language and wakes the trash loop, and
