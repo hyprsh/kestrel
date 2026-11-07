@@ -1,4 +1,5 @@
 // chrome: domain-visual
+import { Badge } from '@hyprsh/design'
 import { ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Episode } from '../api/queries'
@@ -11,6 +12,7 @@ import { monthDay } from './cellDetail'
 import { seasonCellView, useCellItems } from './cellItems'
 import { seasonName, seasonRow, slotTally, tallyCount, type SlotTally } from './episodes'
 import { combinedState, type Combined, type SlotInfo } from './slots'
+import { seasonAir } from './seasonAir'
 import { gridOf } from './tableGrid'
 
 /** A Version's row of a season in words, for the row's name: "Standard 8 of 10, 2 downloading, 6 not aired". */
@@ -91,6 +93,7 @@ export function SeasonRows({
   const items = useCellItems(actions)
   const keys = slots.map((s) => s.key)
   const grid = gridOf(slots.length, phone)
+  const latest = Math.max(0, ...seasons)
   return (
     <>
       {seasons.map((n) => {
@@ -100,6 +103,7 @@ export function SeasonRows({
         const states = eps.map((e) => (e.monitored ? combinedState(e, keys) : 'unmonitored'))
         const tallies = slots.map((s) => slotTally(eps, s.key))
         const isOpen = open.has(n)
+        const air = n > 0 ? seasonAir(eps, now, n === latest) : null
         const meta = [eps.length > 0 ? plural(eps.length, 'episode') : null, years(eps, now)].filter(Boolean).join(' · ')
         const label = `${name}: ${standing(states, monitored)}${monitored ? `, ${tallies.map((t, i) => say(t, slots[i].name)).join('; ')}` : ''}`
         return (
@@ -118,13 +122,20 @@ export function SeasonRows({
                 <button
                   type="button"
                   aria-expanded={isOpen}
-                  aria-label={label}
+                  aria-label={air ? `${label} · ${air.text}` : label}
                   onClick={() => onToggle(n)}
                   className={`flex min-w-0 cursor-pointer items-center rounded-lg p-1 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--focus-color) ${phone ? 'gap-2' : 'gap-3'}`}
                 >
                   <ChevronRight aria-hidden className={`size-4 shrink-0 text-gray-900 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                   <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className={`${phone ? 'label-14' : 'text-[15px]'} label-14-strong ${monitored ? '' : 'text-gray-900 opacity-75'}`}>{name}</span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={`${phone ? 'label-14' : 'text-[15px]'} label-14-strong ${monitored ? '' : 'text-gray-900 opacity-75'}`}>{name}</span>
+                      {air && (
+                        <Badge variant={air.tone} contrast="low" size="sm">
+                          {air.text}
+                        </Badge>
+                      )}
+                    </span>
                     <span className={`${phone ? 'label-12' : 'label-13'} truncate text-gray-900 ${monitored ? '' : 'opacity-75'}`}>{meta}</span>
                   </span>
                 </button>
