@@ -276,7 +276,7 @@ Kestrel has a few screens, each with its own address. On a desktop they are the 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/08-overview-dark.png">
-  <img alt="The Overview: figures for the library, Needs attention, what is downloading and what is Wanted" src="images/08-overview-light.png">
+  <img alt="The Overview: figures for the library, what is downloading and searching, and three short lists" src="images/08-overview-light.png">
 </picture>
 
 ## The Overview and Activity
