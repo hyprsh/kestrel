@@ -9,6 +9,8 @@ const repoRoot = resolve(import.meta.dirname, '../../..')
 const repoUrl = 'https://github.com/hyprsh/kestrel'
 // GitHub Pages serves a project site under /<repo>/.
 const base = '/kestrel/'
+// The newest release in the changelog, so a release updates the header by itself.
+const version = /^## \[(.+?)\]/m.exec(readFileSync(resolve(repoRoot, 'CHANGELOG.md'), 'utf8'))![1]
 
 // Every Markdown file in the repo that is not a site source (README.md, CLAUDE.md, docs/agents/, docs/research/,
 // the SPA's and the Go packages' own files). srcExclude takes no negated globs, so the list is built here.
@@ -134,7 +136,7 @@ export default defineConfig({
       { text: 'Concepts', link: '/guide/concepts' },
       { text: 'API', link: '/guide/api' },
       { text: 'Development', link: '/development/contributing' },
-      { text: 'Changelog', link: '/changelog' },
+      { text: `v${version}`, link: '/changelog' },
     ],
     sidebar: {
       '/adr/': [{ text: 'Decisions', items: [{ text: 'All decisions', link: '/adr/' }, ...adrs] }],
