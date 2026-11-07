@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.15.0](https://github.com/hyprsh/kestrel/compare/v0.14.0...v0.15.0) (2026-11-07)
+
+> The first run now works as documented: a new install connects to SABnzbd by name, and if SABnzbd refuses that name Kestrel says so instead of blaming your API key. The Log records what every TRaSH update changed and why, every Release, file and Grab shows its facts the same way, and a new [Customizing](https://hyprsh.github.io/kestrel/guide/customizing) guide lists what you can change and where.
+
+### New Features
+
+* **log:** each TRaSH update has a Log entry saying what it added, removed and changed in what backs your enabled Profiles, with TRaSH's reasons and what it did to your Library: files re-scored, Titles now Wanted, files that reached their Cutoff. A rejected update shows as a Warning. Type `kind:trash` to list them, or use What changed in Settings' TRaSH section ([#506](https://github.com/hyprsh/kestrel/pull/506)), closes [#505](https://github.com/hyprsh/kestrel/issues/505)
+* **library:** a Release, a file and a Grab show their facts in one view everywhere: Manual search, a Movie's file, an episode's file and Activity. A rejected Release keeps its facts under the reason, and older Grabs show their quality, video and audio too ([#504](https://github.com/hyprsh/kestrel/pull/504)), closes [#499](https://github.com/hyprsh/kestrel/issues/499)
+* **library:** a season row says when it airs next or starts, and the latest season says Airing or Finished ([#508](https://github.com/hyprsh/kestrel/pull/508))
+
+### Bug Fixes
+
+* **sabnzbd:** when SABnzbd refuses the name in the URL, Test Connection says so and names `host_whitelist`, instead of "SABnzbd rejected the API key" ([#511](https://github.com/hyprsh/kestrel/pull/511))
+* **library:** a click anywhere in a season's row opens or closes it, not only on its name ([#507](https://github.com/hyprsh/kestrel/pull/507))
+* **log:** an opened Log entry's details can be selected and copied, instead of closing on a click ([#507](https://github.com/hyprsh/kestrel/pull/507))
+
+### Other Changes
+
+* **docs:** the quick start now creates the `/data` folders and sets `hostname: sabnzbd` in `compose.yaml`, so a clean install connects at once. Getting started has a safe answer for each setup step, and the new Customizing guide covers Slots, Profiles, folders, indexers and Requests ([#510](https://github.com/hyprsh/kestrel/pull/510))
+
 ## [0.14.0](https://github.com/hyprsh/kestrel/compare/v0.13.0...v0.14.0) (2026-11-04)
 
 > Kestrel is now gentler on your indexers: it paces searches per indexer, reuses a recent answer instead of asking again, and searches old Titles far less often than new ones. The Log says who or what started every search, change and skipped search, and why. A Series page now reads like a Movie's, with Version cards above the Seasons table, and ⌘K adds a Title without leaving the menu.
