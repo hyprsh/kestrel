@@ -788,6 +788,9 @@ type Grab struct {
 	State string
 	// Failure says why a failed Grab failed: failed, encrypted or other.
 	Failure string
+	// FailureMessage is what the download client said about a failed download, in its own words; empty when it said
+	// nothing, or when the Failure already says it all.
+	FailureMessage string
 	// Overridden is true when it was grabbed despite rejections.
 	Overridden bool
 	// IsUpgrade is true when the Version already held a file.
@@ -811,7 +814,7 @@ type Grab struct {
 func grabOf(r db.Grab) Grab {
 	g := Grab{
 		ID: r.ID, TitleID: r.TitleID.Int64, VersionID: r.VersionID.Int64, ReleaseName: r.ReleaseName, IndexerName: r.IndexerName, IndexerID: r.IndexerID,
-		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String,
+		Size: r.Size, PublishedAt: parseTime(r.PublishedAt), Score: int(r.Score), ClientID: r.ClientID, ClientInstanceID: r.ClientInstanceID, State: r.State, Failure: r.Failure.String, FailureMessage: r.FailureMessage.String,
 		Overridden: r.Overridden == 1, IsUpgrade: r.IsUpgrade == 1, CreatedAt: parseTime(r.CreatedAt), UpdatedAt: parseTime(r.UpdatedAt),
 	}
 	if g.VersionID != 0 {

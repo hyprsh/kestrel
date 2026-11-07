@@ -4267,6 +4267,8 @@ export interface components {
             state: "sent" | "downloading" | "completed" | "importing" | "imported" | "failed";
             /** @description Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected. */
             failure: string | null;
+            /** @description What the download client said about a failed download, in its own words; null when it said nothing or the Grab failed some other way. */
+            failure_message: string | null;
             /** @description The reason of the Blocklist entry the Grab's Release got, null when it is not blocklisted. */
             blocklist_reason: string | null;
             /** @description Set while the Import waits for the environment to be fixed. */
@@ -4333,6 +4335,11 @@ export interface components {
              * @description The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
              */
             blocklist_id: number | null;
+            /**
+             * Format: date-time
+             * @description When the Release went on the Blocklist; null when it is not blocklisted.
+             */
+            blocklisted_at: string | null;
             /** @description Whether the Grab's episodes (a Movie's Version) are still Wanted. */
             still_wanted: boolean;
             /** @description How the Release was chosen, as the Grab was made; null for a Grab from before this was recorded. */

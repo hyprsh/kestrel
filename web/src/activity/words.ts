@@ -19,14 +19,15 @@ export function whatOf(g: { episodes: readonly string[] }): string {
   return g.episodes.join(', ').replace('-', ' – ')
 }
 
-/** The full reason a Grab failed: the words of a known failure, or what the Import rejected. */
-export function whyFailed(g: Pick<GrabEntry, 'failure' | 'blocklist_reason'>): string {
-  const base = g.failure ? (failureText[g.failure] ?? rejectionText(g.failure)) : 'it failed'
-  return g.blocklist_reason ? `${base} (Blocklisted: ${reasonWords(g.blocklist_reason)})` : base
-}
+/** The short reason for the Result column: the download client's own words, the words of a known failure, or what the Import rejected. */
+export const shortWhy = (g: Pick<GrabEntry, 'failure' | 'failure_message'>) => g.failure_message ?? (g.failure ? (failureText[g.failure] ?? rejectionText(g.failure)) : 'it failed')
 
-/** The short reason for the Result column; the same words, cut where the Blocklist note starts. */
-export const shortWhy = (g: Pick<GrabEntry, 'failure'>) => (g.failure ? (failureText[g.failure] ?? rejectionText(g.failure)) : 'it failed')
+/** The full reason a Grab failed: the short one and its Blocklist note, which would only repeat the client's own words. */
+export function whyFailed(g: Pick<GrabEntry, 'failure' | 'failure_message' | 'blocklist_reason'>): string {
+  const base = shortWhy(g)
+  if (!g.blocklist_reason) return base
+  return g.failure_message ? `${base} (Blocklisted)` : `${base} (Blocklisted: ${reasonWords(g.blocklist_reason)})`
+}
 
 /** The download speed: what the client reports, else the one its ETA implies, or null when it has said neither. */
 export function speed(i: QueueItem): string | null {

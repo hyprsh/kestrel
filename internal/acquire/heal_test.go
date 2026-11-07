@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/acquire"
+	"github.com/hyprsh/kestrel/internal/history"
 	"github.com/hyprsh/kestrel/internal/library"
 	downloadclient "github.com/hyprsh/kestrel/internal/plugin/downloadclient/v1"
 )
@@ -141,6 +142,65 @@ func TestAClientFaultFailsTheGrabWithoutBlocklistingAndRetries(t *testing.T) {
 	}
 	if a := r.active(t); len(a) != 1 {
 		t.Errorf("active = %+v, want a retry", a)
+	}
+}
+
+func TestAFailedDownloadKeepsWhatTheClientSaid(t *testing.T) {
+	ctx := history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "poll"))
+	r := newRig(t)
+	hist := r.logged(t)
+	first := r.twoCandidates(t)
+	const said = "Aborted, cannot be completed - https://sabnzbd.org/not-complete"
+	_ = r.sab.Fail(first.ClientID, downloadclient.FailureFailed, said)
+
+	if _, err := r.svc.Poll(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := r.svc.GetGrab(ctx, first.ID)
+	if got.Failure != acquire.FailureDownload || got.FailureMessage != said {
+		t.Errorf("grab = %q, %q, want download_failed with the client's words", got.Failure, got.FailureMessage)
+	}
+	if b := r.blockedReasons(t); len(b) != 1 || b[0] != "download failed: "+said {
+		t.Errorf("blocklist = %q, want the client's words as the reason", b)
+	}
+	events, err := hist.List(ctx, history.Filter{GrabID: first.ID, Kinds: []history.Kind{history.GrabFailed}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Reason != "download failed: "+said {
+		t.Errorf("Log = %+v, want the client's words as the reason", events)
+	}
+}
+
+func TestAClientFaultKeepsWhatTheClientSaidWithoutBlocklisting(t *testing.T) {
+	r := newRig(t)
+	first := r.twoCandidates(t)
+	const said = "Unpacking failed, write error or disk is full?"
+	_ = r.sab.Fail(first.ClientID, downloadclient.FailureOther, said)
+
+	if _, err := r.svc.Poll(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := r.svc.GetGrab(context.Background(), first.ID)
+	if got.FailureMessage != said || len(r.blockedReasons(t)) != 0 {
+		t.Errorf("grab = %q, blocklist = %v, want the client's words and no entry", got.FailureMessage, r.blockedReasons(t))
+	}
+}
+
+func TestAnEncryptedDownloadNeedsNoWordsFromTheClient(t *testing.T) {
+	r := newRig(t)
+	first := r.twoCandidates(t)
+	_ = r.sab.Fail(first.ClientID, downloadclient.FailureEncrypted, "encrypted")
+
+	if _, err := r.svc.Poll(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := r.svc.GetGrab(context.Background(), first.ID)
+	if b := r.blockedReasons(t); got.Failure != acquire.FailureEncrypted || got.FailureMessage != "" || len(b) != 1 || b[0] != "download encrypted" {
+		t.Errorf("grab = %q, %q, blocklist = %q", got.Failure, got.FailureMessage, b)
 	}
 }
 

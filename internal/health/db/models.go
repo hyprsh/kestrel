@@ -155,6 +155,7 @@ type Grab struct {
 	ScoreDelta        sql.NullInt64
 	ImportChecking    sql.NullInt64
 	ImportReplaced    sql.NullInt64
+	FailureMessage    sql.NullString
 }
 
 type GrabEpisode struct {

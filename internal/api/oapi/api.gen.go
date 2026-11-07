@@ -3056,9 +3056,12 @@ type GrabEntry struct {
 	Episodes []string `json:"episodes"`
 
 	// Failure Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected.
-	Failure   *string   `json:"failure"`
-	GrabId    int64     `json:"grab_id"`
-	GrabbedAt time.Time `json:"grabbed_at"`
+	Failure *string `json:"failure"`
+
+	// FailureMessage What the download client said about a failed download, in its own words; null when it said nothing or the Grab failed some other way.
+	FailureMessage *string   `json:"failure_message"`
+	GrabId         int64     `json:"grab_id"`
+	GrabbedAt      time.Time `json:"grabbed_at"`
 
 	// HasPoster Whether `GET /titles/{id}/poster` serves a poster for the Title; false when the Title was deleted.
 	HasPoster   bool       `json:"has_poster"`
@@ -3122,7 +3125,10 @@ type GrabSteps struct {
 	AudioCodec *string `json:"audio_codec"`
 
 	// BlocklistId The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
-	BlocklistId        *int64     `json:"blocklist_id"`
+	BlocklistId *int64 `json:"blocklist_id"`
+
+	// BlocklistedAt When the Release went on the Blocklist; null when it is not blocklisted.
+	BlocklistedAt      *time.Time `json:"blocklisted_at"`
 	DownloadFinishedAt *time.Time `json:"download_finished_at"`
 	DownloadStartedAt  *time.Time `json:"download_started_at"`
 

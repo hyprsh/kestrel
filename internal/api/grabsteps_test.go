@@ -17,9 +17,10 @@ type grabStepsJSON struct {
 		Episode *string `json:"episode"`
 		Path    string  `json:"path"`
 	} `json:"files"`
-	Formats     []struct{ Name string } `json:"formats"`
-	BlocklistID *int64                  `json:"blocklist_id"`
-	StillWanted bool                    `json:"still_wanted"`
+	Formats       []struct{ Name string } `json:"formats"`
+	BlocklistID   *int64                  `json:"blocklist_id"`
+	BlocklistedAt *time.Time              `json:"blocklisted_at"`
+	StillWanted   bool                    `json:"still_wanted"`
 }
 
 func (s search) steps(t *testing.T, grab int64) grabStepsJSON {
@@ -78,14 +79,14 @@ func TestARejectedGrabNamesItsBlocklistEntryAndThatTheMovieIsStillWanted(t *test
 
 	st := s.steps(t, grab)
 
-	if st.BlocklistID == nil || len(st.Files) != 0 || st.EndedAt == nil {
-		t.Fatalf("steps = %+v, want a Blocklist entry, no files and an end", st)
+	if st.BlocklistID == nil || st.BlocklistedAt == nil || len(st.Files) != 0 || st.EndedAt == nil {
+		t.Fatalf("steps = %+v, want a Blocklist entry with its time, no files and an end", st)
 	}
 	if r := s.valid("DELETE", "/blocklist/"+strconv.FormatInt(*st.BlocklistID, 10), ""); r.Status != 204 {
 		t.Fatalf("DELETE /blocklist = %d %s", r.Status, r.Body)
 	}
-	if st := s.steps(t, grab); st.BlocklistID != nil {
-		t.Errorf("blocklist_id = %v after the entry was removed, want none", st.BlocklistID)
+	if st := s.steps(t, grab); st.BlocklistID != nil || st.BlocklistedAt != nil {
+		t.Errorf("blocklist_id = %v at %v after the entry was removed, want none", st.BlocklistID, st.BlocklistedAt)
 	}
 }
 

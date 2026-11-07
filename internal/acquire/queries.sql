@@ -38,6 +38,9 @@ UPDATE grabs SET next_import_at = ?, updated_at = ? WHERE id = ? AND state = 'im
 -- name: SetGrabState :exec
 UPDATE grabs SET state = ?, failure = ?, updated_at = ? WHERE id = ?;
 
+-- name: FailDownload :exec
+UPDATE grabs SET state = 'failed', failure = ?, failure_message = ?, updated_at = ? WHERE id = ?;
+
 -- name: DeleteGrab :exec
 DELETE FROM grabs WHERE id = ?;
 
