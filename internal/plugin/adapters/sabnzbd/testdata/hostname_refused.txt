@@ -1,0 +1,1 @@
+Access denied - Hostname verification failed: https://sabnzbd.org/hostname-check
