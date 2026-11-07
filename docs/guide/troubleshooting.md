@@ -2,6 +2,17 @@
 
 Start with the Overview. Its **Happening now** list (which holds Needs attention) and the **Health** button, which opens the Health screen, name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
 
+## SABnzbd refused the hostname
+
+**Test Connection** says `SABnzbd refused the hostname "sabnzbd"`. SABnzbd refuses a request that asks for it by a name it doesn't know, before it looks at the API key. SABnzbd's log says `Refused connection with hostname "sabnzbd"`.
+
+Kestrel 0.14.0 and older report this as "SABnzbd rejected the API key", so if you see that and the key is right, this is the cause too.
+
+- **A new install:** add `hostname: sabnzbd` to the `sabnzbd` service in your `compose.yaml`, as in [Getting started](getting-started.md#start-kestrel-and-sabnzbd), before SABnzbd's first start. SABnzbd trusts its own hostname from then on.
+- **A SABnzbd that already ran:** in SABnzbd, open Config > Special, add `sabnzbd` to `host_whitelist`, and choose **Save**. Keep what is already there, separated by a comma. Restart SABnzbd if it doesn't take effect at once.
+
+Using SABnzbd's IP address as the URL also works, but a container's address can change. Once SABnzbd accepts the name, "SABnzbd rejected the API key" means the key is wrong: copy it again from SABnzbd's Config > General.
+
 ## A download is stuck
 
 Needs attention says "Download of … is stuck". Kestrel flags a Grab when the download client has it paused, or when its downloaded amount hasn't grown for an hour. It clears by itself as soon as the download moves again. The row offers two buttons:
@@ -23,7 +34,7 @@ Needs attention says "Silo stopped asking about the Request for …. It may have
 
 You see this warning in Needs attention: "Imports into /data/media/movies are copied, not moved: the download folder is on another filesystem."
 
-A hardlink is a second name for the same file, so an Import takes no extra space and the download can keep seeding or cleaning up on its own. It only works inside one filesystem. When downloads and library sit on different mounts, Kestrel falls back to a verified copy. Nothing fails, but each Import uses double the space until the download is cleaned up.
+A hardlink is a second name for the same file, so an Import takes no extra space and happens at once. It only works inside one filesystem. When downloads and library sit on different mounts, Kestrel falls back to a verified copy. Nothing fails, but each Import uses double the space until the download is cleaned up.
 
 To fix it, put both under one mount, the way [Getting started](getting-started.md#the-data-layout) shows:
 

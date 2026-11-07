@@ -5,9 +5,9 @@ Kestrel has two kinds of settings:
 - **Bootstrap settings** are environment variables. They say where Kestrel listens and keeps its files. [Environment variables](#environment-variables) lists them.
 - **Everything else** lives in the database and is set in the UI, under Settings.
 
-If you want Kestrel set up the same way every time, a [Config File](#the-config-file) declares the account, Profiles, download client, indexers and more. Whatever it declares, the UI shows read-only.
+Most people only need the `compose.yaml` from [Getting started](getting-started.md) and the UI. [Customizing](customizing.md) says what you can change there.
 
-New here? [Getting started](getting-started.md) walks through the setup in the UI.
+If you want Kestrel set up the same way every time, a [Config File](#the-config-file) declares the account, Profiles, download client, indexers and more. Whatever it declares, the UI shows read-only.
 
 ## Environment variables
 
@@ -254,7 +254,7 @@ List every Profile you have, under a key of your choosing: lower-case letters an
 | `default_movies`    | Ignored: the defaults for new Titles belong to the Slots (see `slots`). Kestrel logs a warning at startup naming each Profile that still sets it.                                                                                                                               |
 | `default_series`    | Ignored, like `default_movies`.                                                                                                                                                                                                                                                 |
 
-**Upgrading.** Four changes of the Slots release are deliberate breaks, not additions, because Kestrel has no API consumers outside its own web app, the Silo plugin and the demo. Here, in the Config File: the `default_movies` and `default_series` keys of a Profile are ignored, so move each into the `slots` section. In the API: a Profile's `slot` is optional and deprecated; `PATCH /profiles/{key}` with `default_movies` or `default_series` answers `422`; and the Slot fields are strings, with the schema once called `Slot` now `SlotId` and `Slot` naming the Slot record. [Slots, Upgrading](slots.md#upgrading) has the detail. The Profile recipes release changes three more things: existing Profiles become Bluray + WEB with no change in scoring; fresh installs start without Profiles; and a Config File's `profiles` now names the set and disables what it leaves out, where it used to hold the six builtin Profiles only ([Slots, Upgrading](slots.md#profile-recipes)).
+A file written for a Kestrel older than 0.12 may need changes: see [Slots, Upgrading](slots.md#upgrading).
 
 The rules of Settings > Slots & Profiles hold across the set:
 
@@ -302,7 +302,7 @@ The fields of `config` (give a secret as `<field>_env`):
 | `plugin_id` | Fields                                                                                                                                        |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sabnzbd`   | `url`, `api_key` (secret), `movie_category` (default `movies`), `tv_category` (default `tv`)                                                  |
-| `newznab`   | `url`, `api_key` (secret), `movie_categories` (default `2000`), `tv_categories` (default `5000`), `api_requests_per_day` (empty for no limit) |
+| `newznab`   | `url`, `api_key` (secret), `movie_categories` (default `2000`), `tv_categories` (default `5000`), `search_gap_seconds` (default `2`, `0` for none), `api_requests_per_day` and `grabs_per_day` (empty for no limit) |
 | `jellyfin`  | `url`, `api_key` (secret)                                                                                                                     |
 | `plex`      | `url`, `token` (secret)                                                                                                                       |
 | `silo`      | `url`, `api_key` (secret, the admin API key)                                                                                                  |

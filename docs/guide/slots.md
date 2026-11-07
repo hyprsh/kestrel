@@ -47,14 +47,14 @@ If the Config File declares `slots`, every control here is read-only.
 
 ## Start from a preset
 
-The setup wizard's Slots step offers four presets while the library holds no Version (and the Config File declares neither `slots` nor `profiles`). Each one replaces your Slots with its own, brings in the Profiles those Slots default to (reusing one you already have, else adding it enabled), and sets the defaults, all or nothing. A preset fails, and changes nothing, if a Profile it needs doesn't exist in your Primary Language or its name is taken by a different Profile.
+The setup wizard's Slots step offers four presets while the library holds no Version (and the Config File declares neither `slots` nor `profiles`). If you're not sure, **One copy** is the simple choice: you can add a Slot at any time. Settings > General > Setup opens the wizard again. Each one replaces your Slots with its own, brings in the Profiles those Slots default to (reusing one you already have, else adding it enabled), and sets the defaults, all or nothing. A preset fails, and changes nothing, if a Profile it needs doesn't exist in your Primary Language or its name is taken by a different Profile.
 
-| Preset                    | Slots                                                                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| One copy                  | Standard, defaulting to HD. On for new Titles.                                                                             |
-| Standard + 4K             | Standard as above, and 4K defaulting to 4K. 4K is off for new Titles.                                                      |
-| Streaming + Remux archive | Standard as above, and Remux defaulting to 4K Remux for Movies and none for Series. Off for new Titles.                    |
-| Your language + Original  | A Slot named for your Primary Language, defaulting to HD, and Original, defaulting to HD Original. Both on for new Titles. |
+| Preset                                                            | Slots                                                                                                                      |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| One copy                                                          | Standard, defaulting to HD. On for new Titles.                                                                             |
+| Standard + 4K                                                     | Standard as above, and 4K defaulting to 4K. 4K is off for new Titles.                                                      |
+| Streaming + Remux archive                                         | Standard as above, and Remux defaulting to 4K Remux for Movies and none for Series. Off for new Titles.                    |
+| Your language + Original, named for it, such as German + Original | A Slot named for your Primary Language, defaulting to HD, and Original, defaulting to HD Original. Both on for new Titles. |
 
 ## How Slots work elsewhere
 
@@ -66,7 +66,7 @@ The setup wizard's Slots step offers four presets while the library holds no Ver
 
 ## Upgrading
 
-Existing libraries keep what they had, and nothing on disk changes: no file is renamed or moved.
+This section is for a library older than 0.12, the release that made Slots your own. A new install can skip it. Existing libraries keep what they had, and nothing on disk changes: no file is renamed or moved.
 
 - The two Slots keep their ids (`standard`, `4k`), their labels and their defaults. Standard stays on for new Titles, and 4K stays opt-in. The 4K Slot now names `4k-primary` as its default for Movies and Series, where it used to have none unless you set one.
 - Defaults moved from Profiles to Slots. The `default_movies` and `default_series` fields of a Profile are read-only and derived from the Slots in the API, and are ignored in the Config File's `profiles` section. To change a default, change the Slot.

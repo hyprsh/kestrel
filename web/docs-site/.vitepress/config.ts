@@ -129,6 +129,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Getting started', link: '/guide/getting-started' },
+      { text: 'Customizing', link: '/guide/customizing' },
       { text: 'Configuration', link: '/guide/configuration' },
       { text: 'Concepts', link: '/guide/concepts' },
       { text: 'API', link: '/guide/api' },
@@ -138,7 +139,13 @@ export default defineConfig({
     sidebar: {
       '/adr/': [{ text: 'Decisions', items: [{ text: 'All decisions', link: '/adr/' }, ...adrs] }],
       '/': [
-        { text: 'Getting started', items: [{ text: 'Getting started', link: '/guide/getting-started' }] },
+        {
+          text: 'Getting started',
+          items: [
+            { text: 'Getting started', link: '/guide/getting-started' },
+            { text: 'Customizing', link: '/guide/customizing' },
+          ],
+        },
         { text: 'Configuration', items: [{ text: 'Configuration', link: '/guide/configuration' }] },
         {
           text: 'Concepts',

@@ -29,7 +29,22 @@ import (
 // in order.
 func guideBlocks(t *testing.T, info string) []string {
 	t.Helper()
-	raw, err := os.ReadFile("../../docs/guide/configuration.md")
+	return fencedBlocks(t, "../../docs/guide/configuration.md", info)
+}
+
+// The compose.yaml in Getting started is the README's, which make compose-check validates.
+func TestGettingStartedHasTheReadmesComposeFile(t *testing.T) {
+	readme := fencedBlocks(t, "../../README.md", "yaml compose.yaml")
+	guide := fencedBlocks(t, "../../docs/guide/getting-started.md", "yaml compose.yaml")
+	if len(readme) != 1 || len(guide) != 1 || readme[0] != guide[0] {
+		t.Errorf("README.md and getting-started.md each need the same compose.yaml block:\n%v\n%v", readme, guide)
+	}
+}
+
+// fencedBlocks returns a Markdown file's fenced blocks whose info string is info, in order.
+func fencedBlocks(t *testing.T, path, info string) []string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
