@@ -75,7 +75,7 @@ func (s *server) ListGrabs(ctx context.Context, r oapi.ListGrabsRequestObject) (
 		e := oapi.GrabEntry{
 			GrabId: g.ID, TitleId: idPtr(g.TitleID), VersionId: idPtr(g.VersionID), ReleaseName: g.ReleaseName, Indexer: g.IndexerName,
 			Size: g.Size, Score: g.Score, IsUpgrade: g.IsUpgrade, State: oapi.GrabEntryState(g.State),
-			Failure: strPtr(g.Failure), BlocklistReason: strPtr(g.BlocklistReason), GrabbedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt,
+			Failure: strPtr(g.Failure), FailureMessage: strPtr(g.FailureMessage), BlocklistReason: strPtr(g.BlocklistReason), GrabbedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt,
 			Title: about.title, HasPoster: about.hasPoster, Year: about.year, Kind: about.kind, Slot: about.slot, Slots: slotsPtr(about.slots), Episodes: about.episodes, EpisodeIds: about.episodeIDs,
 		}
 		if st := g.Stall; st != nil {

@@ -592,6 +592,25 @@ describe('Activity', () => {
     expect(within(item).getByRole('button', { name: 'Manual Search…' })).toBeInTheDocument()
   })
 
+  it('tells a failed download in the client’s words, that it never finished, and that its Release was blocklisted', async () => {
+    fakeSteps([stepsOf({ grab_id: 31, files: [], formats: [], blocklist_id: 9, blocklisted_at: ago(5), download_started_at: ago(6), download_finished_at: null })])
+    const said = 'Aborted, cannot be completed - https://sabnzbd.org/not-complete'
+    fakeGrabs([grabEntry({ grab_id: 31, state: 'failed', failure: 'download_failed', failure_message: said, blocklist_reason: `download failed: ${said}` })])
+    await openActivity()
+
+    const item = within(await screen.findByRole('region', { name: 'History' })).getByRole('listitem')
+    expect(within(item).getByTitle(`${said} (Blocklisted)`)).toHaveTextContent(`Failed · ${said}`)
+    await userEvent.click(within(item).getByRole('button', { expanded: false }))
+
+    const steps = within(await within(item).findByRole('list', { name: 'What happened' })).getAllByRole('listitem')
+    expect(steps.map((s) => s.textContent?.replace(/^\d{1,2}:\d{2}/, ''))).toEqual([
+      expect.stringContaining('Grabbed'),
+      'Download started in the download client',
+      `Download failed: ${said}`,
+      'Release blocklisted',
+    ])
+  })
+
   it('says a failed Grab’s Release is not blocklisted and its Movie no longer Wanted, and offers no Remove from Blocklist', async () => {
     fakeSteps([stepsOf({ grab_id: 31, files: [], formats: [], blocklist_id: null, still_wanted: false })])
     fakeGrabs([grabEntry({ grab_id: 31, state: 'failed', failure: 'download_failed', title: 'Heat' })])

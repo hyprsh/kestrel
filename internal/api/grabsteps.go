@@ -101,8 +101,8 @@ func (s *server) GetGrabSteps(ctx context.Context, r oapi.GetGrabStepsRequestObj
 		}
 		for _, b := range blocked {
 			if b.GrabID == g.ID {
-				id := b.ID
-				out.BlocklistId = &id
+				id, at := b.ID, b.CreatedAt
+				out.BlocklistId, out.BlocklistedAt = &id, &at
 				break
 			}
 		}

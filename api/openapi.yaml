@@ -5986,7 +5986,7 @@ components:
       type: object
       description: A Grab as the Activity screen shows it, joined with its Title and Slot.
       required: [grab_id, title_id, has_poster, version_id, title, year, kind, slot, episodes, episode_ids, release_name, indexer, size, score,
-        is_upgrade, state, failure, blocklist_reason, stalled, grabbed_at, updated_at]
+        is_upgrade, state, failure, failure_message, blocklist_reason, stalled, grabbed_at, updated_at]
       properties:
         grab_id:
           type: integer
@@ -6050,6 +6050,10 @@ components:
           type: string
           nullable: true
           description: Why a failed Grab failed, such as `download_failed`, `encrypted`, `discarded` or what the Import rejected.
+        failure_message:
+          type: string
+          nullable: true
+          description: What the download client said about a failed download, in its own words; null when it said nothing or the Grab failed some other way.
         blocklist_reason:
           type: string
           nullable: true
@@ -6083,7 +6087,7 @@ components:
     GrabSteps:
       type: object
       description: The steps of one Grab, from the Log and the Grab itself.
-      required: [grab_id, grabbed_at, grabbed_by, download_started_at, download_finished_at, ended_at, files, formats, quality, video_codec, hdr, audio_codec, audio_channels, release_group, blocklist_id, still_wanted]
+      required: [grab_id, grabbed_at, grabbed_by, download_started_at, download_finished_at, ended_at, files, formats, quality, video_codec, hdr, audio_codec, audio_channels, release_group, blocklist_id, blocklisted_at, still_wanted]
       properties:
         grab_id:
           type: integer
@@ -6148,6 +6152,11 @@ components:
           format: int64
           nullable: true
           description: The Blocklist entry the Release got, to remove with `DELETE /blocklist/{id}`; null when it is not blocklisted.
+        blocklisted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the Release went on the Blocklist; null when it is not blocklisted.
         still_wanted:
           type: boolean
           description: Whether the Grab's episodes (a Movie's Version) are still Wanted.

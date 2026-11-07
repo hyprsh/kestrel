@@ -25,6 +25,7 @@ export const grabEntry = (over: Partial<GrabEntry> = {}): GrabEntry => ({
   is_upgrade: false,
   state: 'imported',
   failure: null,
+  failure_message: null,
   blocklist_reason: null,
   stalled: null,
   grabbed_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
@@ -112,6 +113,7 @@ export const stepsOf = (over: Partial<GrabSteps> = {}): GrabSteps => ({
   audio_channels: '5.1',
   release_group: 'GRP',
   blocklist_id: null,
+  blocklisted_at: null,
   still_wanted: false,
   ...over,
 })

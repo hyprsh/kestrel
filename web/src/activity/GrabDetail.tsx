@@ -33,26 +33,28 @@ function average(bytes: number, from: string, to: string): string | null {
 function failureStep(g: GrabEntry): string {
   const f = g.failure
   if (!f) return 'It failed'
-  if (f === 'download_failed' || f === 'encrypted' || f === 'lost') return `Download failed: ${failureText[f]}`
+  if (f === 'download_failed' || f === 'encrypted' || f === 'lost') return `Download failed: ${g.failure_message ?? failureText[f]}`
   if (f === 'discarded') return `Discarded: ${failureText[f]}`
   return `Import rejected: ${rejectionText(f)}`
 }
 
-/** The steps of a Grab, oldest first, from the Grab itself and what the Log recorded of it. */
+/** The steps of a Grab, oldest first, from the Grab itself, what the Log recorded of it and its Blocklist entry. */
 function stepsOf(g: GrabEntry, s: GrabSteps, client: string): Step[] {
   const why = whyText(null, s.why)
   const out: Step[] = [{ dot: 'neutral', when: hhmm(s.grabbed_at), text: `Grabbed${s.grabbed_by ? grabbedBy[s.grabbed_by] : ''} · ${g.indexer}${why ? ` · ${why}` : ''}` }]
   const { download_started_at: from, download_finished_at: to } = s
-  if (from || to) {
-    const rate = from && to ? average(g.size, from, to) : null
-    const fromTo = from && to ? `${hhmm(from)} – ${hhmm(to)}` : hhmm((from ?? to)!)
-    out.push({ dot: 'info', when: fromTo, text: `Downloaded in ${client} · ${size(g.size)}${rate ? ` at ${rate}` : ''}` })
+  if (to) {
+    const rate = from ? average(g.size, from, to) : null
+    out.push({ dot: 'info', when: from ? `${hhmm(from)} – ${hhmm(to)}` : hhmm(to), text: `Downloaded in ${client} · ${size(g.size)}${rate ? ` at ${rate}` : ''}` })
+  } else if (from) {
+    out.push({ dot: 'info', when: hhmm(from), text: `Download started in ${client}` })
   }
   if (s.ended_at) {
     const when = hhmm(s.ended_at)
     if (g.state === 'imported') out.push({ dot: 'success', when, text: importedText(s) })
     else out.push({ dot: 'error', when, text: failureStep(g), tone: 'red' })
   }
+  if (s.blocklisted_at) out.push({ dot: 'neutral', when: hhmm(s.blocklisted_at), text: 'Release blocklisted' })
   return out
 }
 

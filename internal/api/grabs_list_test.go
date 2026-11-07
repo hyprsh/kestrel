@@ -23,6 +23,7 @@ type grabEntryJSON struct {
 	Score           int      `json:"score"`
 	State           string   `json:"state"`
 	Failure         *string  `json:"failure"`
+	FailureMessage  *string  `json:"failure_message"`
 	BlocklistReason *string  `json:"blocklist_reason"`
 	Stalled         *struct {
 		Reason string    `json:"reason"`
@@ -139,6 +140,32 @@ func TestARejectedImportIsListedAsFailedWithWhyAndItsBlocklistEntry(t *testing.T
 	}
 	if all := s.grabs(t, ""); len(all.Items) != 2 || all.Items[0].State != "sent" || all.Items[1].GrabID != grab {
 		t.Errorf("all Grabs = %+v, want the next best one first", all.Items)
+	}
+}
+
+func TestAFailedDownloadIsListedWithWhatTheClientSaid(t *testing.T) {
+	t.Parallel()
+	s := newSearch(t)
+	s.publish(t, goodRelease)
+	s.pass(t, jobs.Search)
+	jobsHeld := s.jobs(t)
+	if len(jobsHeld) == 0 {
+		t.Fatal("no job in the download client")
+	}
+	const said = "Aborted, cannot be completed - https://sabnzbd.org/not-complete"
+	if err := s.sab.Fail(jobsHeld[0].ClientID, downloadclient.FailureFailed, said); err != nil {
+		t.Fatal(err)
+	}
+	s.pass(t, jobs.Poll)
+
+	failed := s.grabs(t, "?state=failed")
+
+	if len(failed.Items) != 1 {
+		t.Fatalf("failed Grabs = %+v, want one", failed.Items)
+	}
+	g := failed.Items[0]
+	if g.FailureMessage == nil || *g.FailureMessage != said || g.BlocklistReason == nil || *g.BlocklistReason != "download failed: "+said {
+		t.Errorf("failed Grab = %+v, want the client's words", g)
 	}
 }
 

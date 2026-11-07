@@ -79,6 +79,27 @@ func (q *Queries) DismissOriginalOffer(ctx context.Context, id int64) error {
 	return err
 }
 
+const failDownload = `-- name: FailDownload :exec
+UPDATE grabs SET state = 'failed', failure = ?, failure_message = ?, updated_at = ? WHERE id = ?
+`
+
+type FailDownloadParams struct {
+	Failure        sql.NullString
+	FailureMessage sql.NullString
+	UpdatedAt      string
+	ID             int64
+}
+
+func (q *Queries) FailDownload(ctx context.Context, arg FailDownloadParams) error {
+	_, err := q.db.ExecContext(ctx, failDownload,
+		arg.Failure,
+		arg.FailureMessage,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
 const findBlocklisted = `-- name: FindBlocklisted :many
 SELECT id, release_name, indexer_id, guid, published_at, size, reason, title_id, grab_id, created_at FROM blocklist WHERE (indexer_id = ? AND guid = ?) OR release_name = ?
 `
@@ -145,7 +166,7 @@ func (q *Queries) FinishGrab(ctx context.Context, arg FinishGrabParams) error {
 }
 
 const getGrab = `-- name: GetGrab :one
-SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced FROM grabs WHERE id = ?
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced, failure_message FROM grabs WHERE id = ?
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id int64) (Grab, error) {
@@ -183,6 +204,7 @@ func (q *Queries) GetGrab(ctx context.Context, id int64) (Grab, error) {
 		&i.ScoreDelta,
 		&i.ImportChecking,
 		&i.ImportReplaced,
+		&i.FailureMessage,
 	)
 	return i, err
 }
@@ -270,7 +292,7 @@ const insertGrab = `-- name: InsertGrab :one
 INSERT INTO grabs (title_id, version_id, release_guid, release_name, indexer_id, indexer_name, size, published_at, score,
                    parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'sent', ?, ?)
-RETURNING id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced
+RETURNING id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced, failure_message
 `
 
 type InsertGrabParams struct {
@@ -346,6 +368,7 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) (Grab, e
 		&i.ScoreDelta,
 		&i.ImportChecking,
 		&i.ImportReplaced,
+		&i.FailureMessage,
 	)
 	return i, err
 }
@@ -492,7 +515,7 @@ func (q *Queries) ListActiveGrabEpisodesOfTitle(ctx context.Context, titleID sql
 }
 
 const listActiveGrabs = `-- name: ListActiveGrabs :many
-SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced FROM grabs WHERE state IN ('sent', 'downloading', 'completed', 'importing') AND stalled_since IS NULL ORDER BY id
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced, failure_message FROM grabs WHERE state IN ('sent', 'downloading', 'completed', 'importing') AND stalled_since IS NULL ORDER BY id
 `
 
 // A Grab is active from `sent` until its Import is done; one that stalled waits for a person.
@@ -537,6 +560,7 @@ func (q *Queries) ListActiveGrabs(ctx context.Context) ([]Grab, error) {
 			&i.ScoreDelta,
 			&i.ImportChecking,
 			&i.ImportReplaced,
+			&i.FailureMessage,
 		); err != nil {
 			return nil, err
 		}
@@ -590,7 +614,7 @@ func (q *Queries) ListBlocklist(ctx context.Context, titleID interface{}) ([]Blo
 }
 
 const listDownloadingGrabs = `-- name: ListDownloadingGrabs :many
-SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced FROM grabs WHERE state IN ('sent', 'downloading') ORDER BY id
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced, failure_message FROM grabs WHERE state IN ('sent', 'downloading') ORDER BY id
 `
 
 // Grabs whose download is still going: the poll follows these.
@@ -635,6 +659,7 @@ func (q *Queries) ListDownloadingGrabs(ctx context.Context) ([]Grab, error) {
 			&i.ScoreDelta,
 			&i.ImportChecking,
 			&i.ImportReplaced,
+			&i.FailureMessage,
 		); err != nil {
 			return nil, err
 		}
@@ -766,7 +791,7 @@ func (q *Queries) ListGrabVersionsOf(ctx context.Context, grabID int64) ([]int64
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT g.id, g.title_id, g.version_id, g.release_guid, g.release_name, g.indexer_id, g.indexer_name, g.protocol, g.size, g.published_at, g.score, g.parsed, g.verdict, g.overridden, g.is_upgrade, g.client_instance_id, g.client_id, g.state, g.failure, g.stalled_reason, g.stalled_since, g.next_import_at, g.created_at, g.updated_at, g.download_started_at, g.download_done_at, g.covers_wanted, g.replaces_files, g.score_delta, g.import_checking, g.import_replaced,
+SELECT g.id, g.title_id, g.version_id, g.release_guid, g.release_name, g.indexer_id, g.indexer_name, g.protocol, g.size, g.published_at, g.score, g.parsed, g.verdict, g.overridden, g.is_upgrade, g.client_instance_id, g.client_id, g.state, g.failure, g.stalled_reason, g.stalled_since, g.next_import_at, g.created_at, g.updated_at, g.download_started_at, g.download_done_at, g.covers_wanted, g.replaces_files, g.score_delta, g.import_checking, g.import_replaced, g.failure_message,
        CAST(coalesce((SELECT b.reason FROM blocklist b WHERE b.grab_id = g.id ORDER BY b.id DESC LIMIT 1), '') AS TEXT) AS blocklist_reason
 FROM grabs g
 WHERE (?1 IS NULL OR g.state IN (SELECT value FROM json_each(?1)))
@@ -839,6 +864,7 @@ func (q *Queries) ListGrabs(ctx context.Context, arg ListGrabsParams) ([]ListGra
 			&i.Grab.ScoreDelta,
 			&i.Grab.ImportChecking,
 			&i.Grab.ImportReplaced,
+			&i.Grab.FailureMessage,
 			&i.BlocklistReason,
 		); err != nil {
 			return nil, err
@@ -855,7 +881,7 @@ func (q *Queries) ListGrabs(ctx context.Context, arg ListGrabsParams) ([]ListGra
 }
 
 const listImportableGrabs = `-- name: ListImportableGrabs :many
-SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced FROM grabs
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced, failure_message FROM grabs
 WHERE state = 'completed'
    OR (state = 'importing' AND (stalled_since IS NULL OR next_import_at <= ?))
 ORDER BY id
@@ -904,6 +930,7 @@ func (q *Queries) ListImportableGrabs(ctx context.Context, nextImportAt sql.Null
 			&i.ScoreDelta,
 			&i.ImportChecking,
 			&i.ImportReplaced,
+			&i.FailureMessage,
 		); err != nil {
 			return nil, err
 		}
@@ -1040,7 +1067,7 @@ func (q *Queries) ListOriginalOffersOfVersion(ctx context.Context, versionID int
 }
 
 const listStalledGrabs = `-- name: ListStalledGrabs :many
-SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced FROM grabs WHERE state = 'importing' AND stalled_since IS NOT NULL ORDER BY stalled_since, id
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced, failure_message FROM grabs WHERE state = 'importing' AND stalled_since IS NOT NULL ORDER BY stalled_since, id
 `
 
 // Imports that wait for the environment to be fixed.
@@ -1085,6 +1112,7 @@ func (q *Queries) ListStalledGrabs(ctx context.Context) ([]Grab, error) {
 			&i.ScoreDelta,
 			&i.ImportChecking,
 			&i.ImportReplaced,
+			&i.FailureMessage,
 		); err != nil {
 			return nil, err
 		}
@@ -1100,7 +1128,7 @@ func (q *Queries) ListStalledGrabs(ctx context.Context) ([]Grab, error) {
 }
 
 const listTrackedGrabs = `-- name: ListTrackedGrabs :many
-SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced FROM grabs WHERE state IN ('sent', 'downloading', 'completed') ORDER BY id
+SELECT id, title_id, version_id, release_guid, release_name, indexer_id, indexer_name, protocol, size, published_at, score, parsed, verdict, overridden, is_upgrade, client_instance_id, client_id, state, failure, stalled_reason, stalled_since, next_import_at, created_at, updated_at, download_started_at, download_done_at, covers_wanted, replaces_files, score_delta, import_checking, import_replaced, failure_message FROM grabs WHERE state IN ('sent', 'downloading', 'completed') ORDER BY id
 `
 
 // Grabs whose download the poll watches for failure and for going missing.
@@ -1145,6 +1173,7 @@ func (q *Queries) ListTrackedGrabs(ctx context.Context) ([]Grab, error) {
 			&i.ScoreDelta,
 			&i.ImportChecking,
 			&i.ImportReplaced,
+			&i.FailureMessage,
 		); err != nil {
 			return nil, err
 		}

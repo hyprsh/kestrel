@@ -359,6 +359,7 @@ describe('an opened event', () => {
           audio_channels: null,
           release_group: null,
           blocklist_id: null,
+          blocklisted_at: null,
           still_wanted: true,
           why: { covers_wanted: 6, replaces_files: 4, score_delta: 250 },
           replaced: null,

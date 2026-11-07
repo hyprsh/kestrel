@@ -31,8 +31,15 @@ describe('the words for an Import rejection', () => {
   })
 
   it('shows a failed Grab whose Import rejected it in words in Activity', () => {
-    expect(shortWhy({ failure: 'language' })).toBe('wrong language')
-    expect(whyFailed({ failure: 'not_upgrade', blocklist_reason: 'import rejected: not_upgrade' })).toBe('not an upgrade (Blocklisted: import rejected: not an upgrade)')
-    expect(shortWhy({ failure: 'encrypted' })).toBe(failureText.encrypted)
+    expect(shortWhy({ failure: 'language', failure_message: null })).toBe('wrong language')
+    expect(whyFailed({ failure: 'not_upgrade', failure_message: null, blocklist_reason: 'import rejected: not_upgrade' })).toBe('not an upgrade (Blocklisted: import rejected: not an upgrade)')
+    expect(shortWhy({ failure: 'encrypted', failure_message: null })).toBe(failureText.encrypted)
+  })
+
+  it('says why a download failed in the download client’s words, without repeating them for the Blocklist', () => {
+    const g = { failure: 'download_failed', failure_message: 'Aborted, cannot be completed', blocklist_reason: 'download failed: Aborted, cannot be completed' }
+    expect(shortWhy(g)).toBe('Aborted, cannot be completed')
+    expect(whyFailed(g)).toBe('Aborted, cannot be completed (Blocklisted)')
+    expect(whyFailed({ ...g, blocklist_reason: null })).toBe('Aborted, cannot be completed')
   })
 })

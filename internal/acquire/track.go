@@ -1,6 +1,7 @@
 package acquire
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -175,8 +176,9 @@ func phaseOfState(state string) Phase {
 	return PhaseQueued
 }
 
-// recordMove records a Grab's move to a new state, for the Log and the live UI.
-func (s *Service) recordMove(ctx context.Context, g db.Grab, state, failure string) {
+// recordMove records a Grab's move to a new state, for the Log and the live UI. A failed one says why in the client's
+// words (message) when it has them, else by its failure code.
+func (s *Service) recordMove(ctx context.Context, g db.Grab, state, failure, message string) {
 	ev := history.Event{TitleID: g.TitleID.Int64, VersionID: g.VersionID.Int64, GrabID: g.ID}
 	switch state {
 	case "downloading":
@@ -184,7 +186,7 @@ func (s *Service) recordMove(ctx context.Context, g db.Grab, state, failure stri
 	case "completed":
 		ev.Reason = "the download client reported the job finished"
 	case "failed":
-		ev.Reason = "download failed: " + failure
+		ev.Reason = "download failed: " + cmp.Or(message, failure)
 	}
 	switch state {
 	case "downloading":

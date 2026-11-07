@@ -101,8 +101,8 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 	var errs []error
 	now := ts(s.clock())
 	// fail records the Grab as failed and heals it; a retry that made a Grab keeps the poll busy.
-	fail := func(g db.Grab, failure string, block bool, reason string) error {
-		if err := s.markFailed(ctx, g, failure, now); err != nil {
+	fail := func(g db.Grab, failure, message string, block bool, reason string) error {
+		if err := s.markFailed(ctx, g, failure, message, now); err != nil {
 			return err
 		}
 		res.Changed++
@@ -121,7 +121,7 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 				continue
 			}
 			s.misses.reset(g.ID)
-			if err := fail(g, FailureLost, true, "lost: the download client no longer has the job"); err != nil {
+			if err := fail(g, FailureLost, "", true, "lost: the download client no longer has the job"); err != nil {
 				return res, err
 			}
 			continue
@@ -137,12 +137,16 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 		case downloadclient.PhaseCompleted:
 			state = "completed"
 		case downloadclient.PhaseFailed:
-			failure := FailureDownload
+			failure, message := FailureDownload, it.Message
 			if it.Failure == downloadclient.FailureEncrypted {
-				failure = FailureEncrypted
+				failure, message = FailureEncrypted, "" // the Failure already says it all
+			}
+			reason := "download " + string(it.Failure)
+			if message != "" {
+				reason += ": " + message
 			}
 			// `other` is the client's environment's fault, not the Release's: no Blocklist entry.
-			if err := fail(g, failure, it.Failure != downloadclient.FailureOther, "download "+string(it.Failure)); err != nil {
+			if err := fail(g, failure, message, it.Failure != downloadclient.FailureOther, reason); err != nil {
 				return res, err
 			}
 			continue
@@ -153,7 +157,7 @@ func (s *Service) poll(ctx context.Context, lostThreshold int) (PollResult, erro
 				return res, err
 			}
 			res.Changed++
-			s.recordMove(ctx, g, state, "")
+			s.recordMove(ctx, g, state, "", "")
 			if err := s.stampDownload(ctx, g.ID, state, now); err != nil {
 				return res, err
 			}
@@ -186,16 +190,17 @@ func (s *Service) stampDownload(ctx context.Context, id int64, state, now string
 	return nil
 }
 
-// markFailed moves a Grab to `failed` and records it.
-func (s *Service) markFailed(ctx context.Context, g db.Grab, failure, now string) error {
-	err := db.New(s.st.Write()).SetGrabState(ctx, db.SetGrabStateParams{
-		State: "failed", Failure: sql.NullString{String: failure, Valid: true}, UpdatedAt: now, ID: g.ID,
+// markFailed moves a Grab to `failed` and records it, with what the client said about it ("" for nothing): the client's
+// own copy goes when healFailed removes the job.
+func (s *Service) markFailed(ctx context.Context, g db.Grab, failure, message, now string) error {
+	err := db.New(s.st.Write()).FailDownload(ctx, db.FailDownloadParams{
+		Failure: sql.NullString{String: failure, Valid: true}, FailureMessage: sql.NullString{String: message, Valid: message != ""}, UpdatedAt: now, ID: g.ID,
 	})
 	if err != nil {
 		return err
 	}
 	s.live.drop(g.ID)
-	s.recordMove(ctx, g, "failed", failure)
+	s.recordMove(ctx, g, "failed", failure, message)
 	return nil
 }
 

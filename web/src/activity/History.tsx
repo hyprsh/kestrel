@@ -78,7 +78,7 @@ export function HistoryRow({
   const s = subjectOf(e, titles)
   const r = result(e)
   const time = hhmm(endedAt(e))
-  const dot = <StatusDot state={r.failed ? 'error' : 'success'} label={false} aria-hidden />
+  const dot = <StatusDot state={r.failed ? 'error' : 'success'} label={false} aria-hidden className="shrink-0" />
   const poster = s.titleId != null ? <TitlePoster id={s.titleId} hasPoster={s.hasPoster} size="xs" /> : <span className="w-7" />
   const slot = s.slot && (
     <>
