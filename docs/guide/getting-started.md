@@ -141,7 +141,7 @@ Connect SABnzbd:
 | **Movie category**  | `movies`, as you named it in SABnzbd.                                                                                                    |
 | **Series category** | `tv`, as you named it in SABnzbd.                                                                                                        |
 
-Choose **Test Connection**, then **Save**. If it says "SABnzbd rejected the API key" and the key is right, [SABnzbd is refusing the name `sabnzbd`](troubleshooting.md#sabnzbd-rejected-the-api-key).
+Choose **Test Connection**, then **Save**. If it says SABnzbd refused the hostname, or on Kestrel 0.14.0 and older "SABnzbd rejected the API key" when the key is right, see [SABnzbd refused the hostname](troubleshooting.md#sabnzbd-refused-the-hostname).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/02-setup-download-client-dark.png">

@@ -2,14 +2,16 @@
 
 Start with the Overview. Its **Happening now** list (which holds Needs attention) and the **Health** button, which opens the Health screen, name most problems in plain words, and the [Log](#where-are-the-logs-and-backups) says what Kestrel did and why. This page covers the ones that come up most.
 
-## SABnzbd rejected the API key
+## SABnzbd refused the hostname
 
-**Test Connection** says "SABnzbd rejected the API key", and you are sure the key is right. SABnzbd refuses a request that asks for it by a name it doesn't know, and Kestrel can only report that as a rejected key. SABnzbd's log says `Refused connection with hostname "sabnzbd"`.
+**Test Connection** says `SABnzbd refused the hostname "sabnzbd"`. SABnzbd refuses a request that asks for it by a name it doesn't know, before it looks at the API key. SABnzbd's log says `Refused connection with hostname "sabnzbd"`.
+
+Kestrel 0.14.0 and older report this as "SABnzbd rejected the API key", so if you see that and the key is right, this is the cause too.
 
 - **A new install:** add `hostname: sabnzbd` to the `sabnzbd` service in your `compose.yaml`, as in [Getting started](getting-started.md#start-kestrel-and-sabnzbd), before SABnzbd's first start. SABnzbd trusts its own hostname from then on.
 - **A SABnzbd that already ran:** in SABnzbd, open Config > Special, add `sabnzbd` to `host_whitelist`, and choose **Save**. Keep what is already there, separated by a comma. Restart SABnzbd if it doesn't take effect at once.
 
-Using SABnzbd's IP address as the URL also works, but a container's address can change. If the key really is wrong, copy it again from SABnzbd's Config > General.
+Using SABnzbd's IP address as the URL also works, but a container's address can change. Once SABnzbd accepts the name, "SABnzbd rejected the API key" means the key is wrong: copy it again from SABnzbd's Config > General.
 
 ## A download is stuck
 
