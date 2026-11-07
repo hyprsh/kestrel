@@ -148,7 +148,7 @@ async function app() {
       await save(h.page, '13-profile-sheet', theme)
 
       await h.page.goto(h.base + '/', { waitUntil: 'domcontentloaded' })
-      await h.page.getByRole('heading', { name: 'Needs attention' }).waitFor()
+      await h.page.getByRole('heading', { name: 'Downloading' }).waitFor() // Needs attention has no row of its own in the demo, unless this machine's disk is low
       await dismissSearchDone(h.page)
       await wait(1500)
       await save(h.page, '08-overview', theme)
