@@ -521,6 +521,9 @@ func (c *Client) do(ctx context.Context, conn plugin.Connection, mode string, q 
 	}
 
 	switch {
+	// SABnzbd checks the hostname before the key, and answers 403 for both.
+	case res.StatusCode == http.StatusForbidden && strings.Contains(string(raw), "Hostname verification failed"):
+		return plugin.Errorf(plugin.CodeUnavailable, "SABnzbd refused the hostname %q: add it to host_whitelist in SABnzbd's Config > Special, or use its IP address in the URL", req.URL.Hostname())
 	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
 		return plugin.Errorf(plugin.CodeAuth, "SABnzbd rejected the API key")
 	case res.StatusCode != http.StatusOK:

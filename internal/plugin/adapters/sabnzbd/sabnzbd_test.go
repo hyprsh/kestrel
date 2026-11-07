@@ -292,6 +292,48 @@ func TestAuthFailureShapes(t *testing.T) {
 	}
 }
 
+// Both fixtures are the bodies of a real SABnzbd 5.1.3's HTTP 403: the same status
+// for a name it does not trust, whatever the key, and for a bad key.
+func TestForbiddenTellsAHostnameRefusalFromABadKey(t *testing.T) {
+	forbidden := func(t *testing.T, name string) (plugin.Connection, string) {
+		t.Helper()
+		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write(fixture(t, name))
+		}))
+		t.Cleanup(s.Close)
+		u, err := url.Parse(s.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return plugin.Connection{Config: map[string]any{"url": s.URL, "api_key": key}}, u.Hostname()
+	}
+
+	t.Run("hostname refused", func(t *testing.T) {
+		conn, host := forbidden(t, "hostname_refused.txt")
+		_, err := sabnzbd.New(nil).List(ctx(), conn, "")
+		wantCode(t, err, plugin.CodeUnavailable)
+		msg := plugin.AsError(err).Message
+		for _, want := range []string{"host_whitelist", host} {
+			if !strings.Contains(msg, want) {
+				t.Errorf("message %q does not name %q", msg, want)
+			}
+		}
+		if strings.Contains(msg, "API key") {
+			t.Errorf("message %q blames the API key", msg)
+		}
+	})
+
+	t.Run("bad key", func(t *testing.T) {
+		conn, _ := forbidden(t, "key_incorrect.txt")
+		_, err := sabnzbd.New(nil).List(ctx(), conn, "")
+		wantCode(t, err, plugin.CodeAuth)
+		if msg := plugin.AsError(err).Message; msg != "SABnzbd rejected the API key" {
+			t.Errorf("message = %q", msg)
+		}
+	})
+}
+
 func TestUnavailableShapes(t *testing.T) {
 	notSAB := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("<html>hello</html>")) }))
 	defer notSAB.Close()
