@@ -127,39 +127,44 @@ function EventRow({
       aria-current={selected || undefined}
       className={`group relative border-b border-gray-alpha-200 text-[13px] ${tone} ${open && s.severity !== 'error' ? 'bg-gray-100 shadow-[inset_2px_0_0_var(--gray-1000)]' : ''} ${selected && !tone && !open ? 'bg-gray-alpha-100' : ''}`}
     >
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-label={`${open ? 'Close' : 'Open'} event: ${sentenceText(s)}`}
-        className="absolute inset-0 w-full cursor-pointer bg-transparent focus-visible:outline-2 focus-visible:-outline-offset-2"
-        onClick={() => {
-          onSelect()
-          onToggle()
-        }}
-      />
-      <div className={`pointer-events-none relative grid items-center gap-x-3 px-4 py-[9px] ${phone ? 'grid-cols-[18px_minmax(0,1fr)_auto] items-start' : 'grid-cols-[56px_20px_minmax(0,1fr)_auto]'}`}>
-        {!phone && <span className="label-12-mono tabular text-gray-900">{clock(e.at)}</span>}
-        <Icon aria-hidden className={`size-4 ${iconTone[s.severity]}`} />
-        <span className={`min-w-0 ${phone || open ? 'break-words' : 'truncate'}`}>
-          <SentenceText s={s} titleId={title ? e.title_id : null} onOpenTitle={ctx.onOpenTitle} />
-        </span>
-        {phone ? (
-          <span className="label-12-mono tabular text-gray-900">{clock(e.at)}</span>
-        ) : (
-          <span className="flex items-center gap-1">
-            {action && !open && (
-              <Button
-                variant="tertiary"
-                size="tiny"
-                className="pointer-events-auto relative z-[1] opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
-                onClick={() => ('title' in action ? ctx.onOpenTitle(action.title) : goTo(action.path))}
-              >
-                {action.label}
-              </Button>
-            )}
-            <ChevronIcon aria-hidden className={`size-4 text-gray-900 ${open ? '' : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}`} />
+      {/* The toggle covers the sentence's line only, so the opened details can be selected and clicked. */}
+      <div className="relative">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={`${open ? 'Close' : 'Open'} event: ${sentenceText(s)}`}
+          className="absolute inset-0 w-full cursor-pointer bg-transparent focus-visible:outline-2 focus-visible:-outline-offset-2"
+          onClick={() => {
+            onSelect()
+            onToggle()
+          }}
+        />
+        <div
+          className={`pointer-events-none relative grid items-center gap-x-3 px-4 py-[9px] ${phone ? 'grid-cols-[18px_minmax(0,1fr)_auto] items-start' : 'grid-cols-[56px_20px_minmax(0,1fr)_auto]'}`}
+        >
+          {!phone && <span className="label-12-mono tabular text-gray-900">{clock(e.at)}</span>}
+          <Icon aria-hidden className={`size-4 ${iconTone[s.severity]}`} />
+          <span className={`min-w-0 ${phone || open ? 'break-words' : 'truncate'}`}>
+            <SentenceText s={s} titleId={title ? e.title_id : null} onOpenTitle={ctx.onOpenTitle} />
           </span>
-        )}
+          {phone ? (
+            <span className="label-12-mono tabular text-gray-900">{clock(e.at)}</span>
+          ) : (
+            <span className="flex items-center gap-1">
+              {action && !open && (
+                <Button
+                  variant="tertiary"
+                  size="tiny"
+                  className="pointer-events-auto relative z-[1] opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
+                  onClick={() => ('title' in action ? ctx.onOpenTitle(action.title) : goTo(action.path))}
+                >
+                  {action.label}
+                </Button>
+              )}
+              <ChevronIcon aria-hidden className={`size-4 text-gray-900 ${open ? '' : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}`} />
+            </span>
+          )}
+        </div>
       </div>
       {open && <EventDetail e={e} title={title} onShowOnly={(by) => ctx.onShowOnly(e, by)} onOpenTitle={ctx.onOpenTitle} />}
     </li>
