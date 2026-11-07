@@ -46,7 +46,7 @@ describe('the Seasons at a glance on the Title page', () => {
       within(region)
         .getAllByRole('button', { name: /^(Season \d+|Specials):/ })
         .map((b) => b.getAttribute('aria-label')),
-    ).toEqual(['Specials: Not monitored', 'Season 1: Complete, Standard 2 of 2; 4K 2 of 2', 'Season 2: 2 Wanted, Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted'])
+    ).toEqual(['Specials: Not monitored', 'Season 1: Complete, Standard 2 of 2; 4K 2 of 2', 'Season 2: 2 Wanted, Standard 1 of 2, 1 Wanted; 4K 0 of 2, 2 Wanted · Finished'])
     // The first season with something Wanted is open; the others are closed.
     expect(
       within(region)
@@ -526,7 +526,7 @@ describe('what a season says when some of its episodes are not monitored', () =>
 
     expect(await toggle(/^Specials:/)).toMatch(/^Specials: 5 not monitored/)
     expect(await toggle(/^Season 1:/)).toMatch(/^Season 1: Complete/)
-    expect(await toggle(/^Season 2:/)).toBe('Season 2: Not monitored')
+    expect(await toggle(/^Season 2:/)).toBe('Season 2: Not monitored · Finished')
     // Some of Specials is monitored, so its menu stops monitoring; none of Season 2 is, so its menu starts it.
     await userEvent.click(screen.getByRole('button', { name: 'Specials Actions' }))
     expect(screen.getByRole('menuitem', { name: 'Stop Monitoring Specials' })).toBeInTheDocument()
