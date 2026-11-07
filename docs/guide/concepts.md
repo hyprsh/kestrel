@@ -14,7 +14,7 @@ Example: _Paddington_ (2014) is a Movie, and _Breaking Bad_ is a Series. Kestrel
 
 A named place in a Title for one copy of it, and the name of that copy's file. You define them: a fresh install starts with **Standard**, a library that already existed keeps **Standard** and **4K**, and you can add, rename, reorder and remove Slots, up to four. A Title has at most one copy per Slot, and at least one copy overall. A Slot says which copy a Version is; a Profile says which Release to grab for it. [Slots](slots.md) has the rest, with a Remux and a dub as examples.
 
-Example: a gaming group keeps _Cyberpunk: Edgerunners_ in Standard only, because the TV in the living room is 1080p. The Household's film nights want _Dune_ in both, so the 4K projector gets the 4K file and the tablet in the kitchen gets the Standard one. Which copy plays is the media server's choice. Kestrel never decides who may watch 4K.
+Example: you keep _Cyberpunk: Edgerunners_ in Standard only, because the TV in the living room is 1080p. Film nights want _Dune_ in both, so the 4K projector gets the 4K file and the tablet in the kitchen gets the Standard one. Which copy plays is the media server's choice. Kestrel never decides who may watch 4K.
 
 ## Version
 
@@ -49,7 +49,7 @@ Not every recipe exists, because Kestrel never falls back to another language or
 
 You can switch a Version to another Profile at any time. A Title can't use the same Profile in two Versions.
 
-In Settings > Slots & Profiles you can also change what each Profile accepts, on top of what TRaSH gives it: reorder or switch off qualities, choose where Upgrades stop (see [Upgrade](#upgrade)), set a minimum Score, set a smallest and largest size per Movie and per episode, and choose what happens to a Release that has only the Original Language. **New Profile…** copies a Profile to start from.
+In Settings > Slots & Profiles you can also change what each Profile accepts, on top of what TRaSH gives it: reorder or switch off qualities, choose where Upgrades stop (see [Upgrade](#upgrade)), set a minimum Score, set a smallest and largest size per Movie and per episode, and choose what happens to a Release that has only the Original Language. **New Profile…** copies a Profile to start from. [Customizing](customizing.md#quality-profiles) walks through it.
 
 ## Custom Format and Score
 
@@ -90,9 +90,9 @@ The Title page shows **Last search** and **Next search** for a Wanted Version.
 
 ## Long Missing
 
-A Version that has been Wanted for more than 90 days. A Series Version is Long Missing once any of its episodes is. Kestrel counts from the release, so an old Movie that you add today is Long Missing at once. It shows how many on the Overview. A Long Missing Version is searched every 30 days.
+A Version that has been Wanted for more than 90 days. A Series Version is Long Missing once any of its episodes is. Kestrel counts from the release, so an old Movie that you add today is Long Missing at once. The Overview's Searching card counts them. A Long Missing Version is searched every 30 days.
 
-Example: a rare 4K Release of an old film that no indexer has. After three months Needs attention on the Overview says "1 Version long missing", so you can decide to drop the 4K Version or look elsewhere.
+Example: a rare 4K Release of an old film that no indexer has. Three months after the release, the Overview's Searching card counts it as Long Missing and opens the Library on it, so you can decide to drop the 4K Version or look elsewhere.
 
 ## Grab
 
