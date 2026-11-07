@@ -119,6 +119,8 @@ Choose the **Errors** or **Warnings** View in the side panel, or type `kind:erro
   <img alt="The Log with a failed download opened: its details, and Same error before listing the earlier times" src="images/11-log-light.png">
 </picture>
 
+Each TRaSH update has an entry of its own, whether it came from the daily check, **Update from TRaSH** or a new Kestrel version that bundles a newer set; **Started by** says which. Type `kind:trash` to list them. An entry says what TRaSH added, removed and changed in what backs your enabled Profiles (Custom Formats, Scores under your Profile names, and qualities, marked "no effect" where a Profile sets its own), with TRaSH's reason from its commit messages. Changes to profiles you don't use fold into one line. Under them is what the update did to your Library: how many files were re-scored and which way, the Titles that became Wanted, and how many files reached their Cutoff, then a link to the comparison on GitHub. If GitHub couldn't be reached, the entry says so and still lists the changes. A rejected update shows as a warning with the commit and why, and the previous set stays in use. Settings' TRaSH section links to the latest entry with **What changed**.
+
 To follow a single Grab, open **Activity** and choose its row in the History. Its steps run oldest first:
 
 1. **Grabbed:** when, from which indexer and why (by hand, by the search pass, or by the RSS sweep).

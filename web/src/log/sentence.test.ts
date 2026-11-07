@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LogEvent } from '../api/log'
 import { causeText, triggerText } from './trigger'
+import { fields } from './details'
 import { actionOf, foldSummary, kindNames, recoveriesByKey, recoveryAfter, recoveryOf, searchResult, sentence, sentenceText, severityOf, whyText } from './sentence'
 
 const ev = (kind: string, message: string, data: LogEvent['data'] = null, over: Partial<LogEvent> = {}): LogEvent => ({
@@ -90,7 +91,7 @@ describe('the sentence of each kind the server records', () => {
 
   it('has a name and a sentence for every kind of the server', () => {
     const kinds = Object.keys(kindNames)
-    expect(kinds).toHaveLength(50)
+    expect(kinds).toHaveLength(52)
     for (const kind of kinds) expect(sentence(ev(kind, 'x'), 'T').verb).not.toBe('')
   })
 
@@ -244,5 +245,56 @@ describe('the trigger and reason of an entry, in words', () => {
     expect(text(ev('version_removed', 'Removed the 4k Version under Remux from Movie "Paddington", with 1 file'), 'Paddington')).toBe('Removed a Version from Paddington · 4k · Remux · 1 file')
     expect(text(ev('placeholder', 'Added a Placeholder Episode for S01E02'), 'Breaking Bad')).toBe('Placeholder Episode added Breaking Bad · S01E02')
     expect(text(ev('file_misfit', 'Marked Paddington.mkv as a misfit'), 'Paddington')).toBe('Marked a misfit Paddington · Paddington.mkv')
+  })
+})
+
+describe('a TRaSH update', () => {
+  const data = {
+    from: '1a2b3c4d',
+    to: '5d6e7f8a',
+    compare_url: 'https://github.com/TRaSH-Guides/Guides/compare/1a2b3c4d...5d6e7f8a',
+    changes: [
+      { op: 'added', what: 'custom_format', text: 'Custom Format DV Boost in HD', subject: 'DV Boost', profiles: ['HD'] },
+      { op: 'changed', what: 'score', text: 'WEB Tier 01: 1700 → 1750 in HD', subject: 'WEB Tier 01', profiles: ['HD'], commits: ['c1c1c1c1c1'] },
+    ],
+    unused: 14,
+    commits: [{ sha: 'c1c1c1c1c1', message: 'Raise WEB Tier 01' }],
+    library: { up: 10, down: 2, wanted: ['Dune (2021)'], cutoff: 3 },
+  }
+  const updated = ev('trash_updated', 'TRaSH update 1a2b3c4 → 5d6e7f8: 1 Custom Format added, 1 changed, 12 files re-scored, 1 Title Wanted', data, { title_id: null })
+
+  it('reads as one sentence with the counts', () => {
+    expect(text(updated)).toBe('TRaSH update · 1a2b3c4 → 5d6e7f8 · 1 Custom Format added, 1 changed, 12 files re-scored, 1 Title Wanted')
+  })
+
+  it('shows Added, Removed and Changed with their reasons, then the Library, then the comparison', () => {
+    const f = fields(updated)
+    const keys = f.map((x) => x.key)
+    expect(keys.indexOf('Added')).toBeLessThan(keys.indexOf('Changed'))
+    expect(keys.indexOf('Changed')).toBeLessThan(keys.indexOf('Library'))
+    expect(keys.indexOf('Library')).toBeLessThan(keys.indexOf('Compare'))
+    expect(f.find((x) => x.key === 'Changed')?.value).toBe('WEB Tier 01: 1700 → 1750 in HD · Raise WEB Tier 01 (c1c1c1c)')
+    expect(f.find((x) => x.key === 'Not used')?.value).toBe("and 14 changes to profiles you don't use")
+    expect(f.find((x) => x.key === 'Library')?.value).toBe('12 files re-scored (10 up, 2 down) · 3 reached their Cutoff')
+    expect(f.find((x) => x.key === 'Now Wanted')?.value).toBe('Dune (2021)')
+    expect(f.find((x) => x.key === 'Compare')?.href).toBe(data.compare_url)
+    expect(keys).not.toContain('Changes')
+  })
+
+  it("says when TRaSH's reasons couldn't be fetched", () => {
+    const f = fields({ ...updated, data: { ...data, commits: undefined, reasons_unavailable: true } })
+    expect(f.find((x) => x.key === 'Why')?.value).toBe("TRaSH's reasons couldn't be fetched")
+  })
+
+  it('reads a rejection as a Warning with its commit and cause', () => {
+    const e = ev(
+      'trash_rejected',
+      'TRaSH update 5d6e7f8 rejected: profile german-hd no longer resolves',
+      { commit: '5d6e7f8a', cause: 'profile german-hd no longer resolves', changes: [], unused: 0 },
+      { title_id: null },
+    )
+    expect(severityOf('trash_rejected')).toBe('warning')
+    expect(text(e)).toBe('TRaSH update rejected · 5d6e7f8 · profile german-hd no longer resolves')
+    expect(fields(e).find((x) => x.key === 'Cause')?.value).toBe('profile german-hd no longer resolves')
   })
 })

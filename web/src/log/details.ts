@@ -8,8 +8,8 @@ import { clock } from './rows'
 import { kindNames, searchEnd, searchResult, type Recovery } from './sentence'
 import { reasonText, triggerText } from './trigger'
 
-/** One line of the opened event. `mono` is for values that are names, paths and errors. */
-export type Field = { key: string; value: string; mono?: boolean }
+/** One line of the opened event. `mono` is for values that are names, paths and errors; `href` makes the value a link. */
+export type Field = { key: string; value: string; mono?: boolean; href?: string }
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined)
 
@@ -145,6 +145,11 @@ export function fields(e: LogEvent, title?: string, recovery?: Recovery | null):
         add('Affected', affectedText(recovery))
       }
       break
+    case 'trash_updated':
+    case 'trash_rejected':
+      out.push(...trashFields(data))
+      use('from', 'to', 'commit', 'cause', 'compare_url', 'changes', 'unused', 'previous_unknown', 'commits', 'reasons_unavailable', 'library')
+      break
     default:
       add('Message', m)
   }
@@ -155,6 +160,54 @@ export function fields(e: LogEvent, title?: string, recovery?: Recovery | null):
   const reason = reasonText(e)
   if (reason && !out.some((f) => f.key === 'Reason' && f.value === reason)) add('Reason', reason)
   out.push({ key: 'When', value: fullTime(e.at) })
+  return out
+}
+
+type TrashChange = { op: string; text: string; commits?: string[] }
+type TrashCommit = { sha: string; message: string }
+
+/**
+ * What a TRaSH update or a rejected one changed: Added, Removed and Changed, each change with the TRaSH commits behind it,
+ * then what it did to the Library and the comparison on GitHub.
+ */
+function trashFields(data: Record<string, unknown>): Field[] {
+  const out: Field[] = []
+  const add = (key: string, value: string | undefined, more: Partial<Field> = {}) => {
+    if (value) out.push({ key, value, ...more })
+  }
+  const sha = (s: string) => s.slice(0, 7)
+  const commits = Array.isArray(data.commits) ? (data.commits as TrashCommit[]) : []
+  const why = (c: TrashChange) =>
+    (c.commits ?? [])
+      .map((s) => {
+        const k = commits.find((x) => x.sha === s)
+        return k ? `${k.message} (${sha(s)})` : sha(s)
+      })
+      .join('; ')
+  add('Commit', str(data.commit) && sha(data.commit as string), { mono: true })
+  add('Cause', str(data.cause), { mono: true })
+  if (str(data.from) && str(data.to)) add('Update', `${sha(data.from as string)} → ${sha(data.to as string)}`, { mono: true })
+  const changes = Array.isArray(data.changes) ? (data.changes as TrashChange[]) : []
+  for (const [op, key] of [
+    ['added', 'Added'],
+    ['removed', 'Removed'],
+    ['changed', 'Changed'],
+  ]) {
+    const lines = changes.filter((c) => c.op === op).map((c) => [c.text, why(c)].filter(Boolean).join(' · '))
+    add(key, lines.join('\n'))
+  }
+  if (typeof data.unused === 'number' && data.unused > 0) add('Not used', `and ${plural(data.unused, 'change')} to profiles you don't use`)
+  if (data.previous_unknown) add('What changed', "The set the files were scored under wasn't kept, so what changed isn't known")
+  if (data.reasons_unavailable) add('Why', "TRaSH's reasons couldn't be fetched")
+  else if (commits.length > 0) add('TRaSH commits', commits.map((k) => `${sha(k.sha)} ${k.message}`).join('\n'))
+  const lib = data.library as { up: number; down: number; wanted: string[]; cutoff: number } | undefined
+  if (lib) {
+    const parts = [`${plural(lib.up + lib.down, 'file')} re-scored${lib.up + lib.down > 0 ? ` (${lib.up} up, ${lib.down} down)` : ''}`]
+    if (lib.cutoff > 0) parts.push(`${lib.cutoff} reached their Cutoff`)
+    add('Library', parts.join(' · '))
+    add('Now Wanted', lib.wanted.join('\n'))
+  }
+  add('Compare', str(data.compare_url) && 'See the changes on GitHub', { href: str(data.compare_url) })
   return out
 }
 

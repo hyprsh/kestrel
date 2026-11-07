@@ -99,7 +99,15 @@ export function EventDetail({ e, title, onShowOnly, onOpenTitle }: { e: LogEvent
           {rows.map((f) => (
             <div key={f.key} className="contents">
               <dt className="text-gray-900">{f.key}</dt>
-              <dd className={`m-0 min-w-0 whitespace-pre-line ${f.mono ? 'label-12-mono break-all' : 'break-words'}`}>{f.value}</dd>
+              <dd className={`m-0 min-w-0 whitespace-pre-line ${f.mono ? 'label-12-mono break-all' : 'break-words'}`}>
+                {f.href ? (
+                  <Link href={f.href} target="_blank" rel="noreferrer">
+                    {f.value}
+                  </Link>
+                ) : (
+                  f.value
+                )}
+              </dd>
             </div>
           ))}
           {affected && (

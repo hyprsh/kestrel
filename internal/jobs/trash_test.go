@@ -2,7 +2,9 @@ package jobs_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"strings"
 	"testing"
@@ -10,8 +12,11 @@ import (
 	"time"
 
 	"github.com/hyprsh/kestrel/internal/health"
+	"github.com/hyprsh/kestrel/internal/history"
+	"github.com/hyprsh/kestrel/internal/imports"
 	"github.com/hyprsh/kestrel/internal/jobs"
 	"github.com/hyprsh/kestrel/internal/library"
+	"github.com/hyprsh/kestrel/internal/release"
 	"github.com/hyprsh/kestrel/internal/scoring"
 	"github.com/hyprsh/kestrel/internal/scoring/trashsync"
 	"github.com/hyprsh/kestrel/internal/settings"
@@ -36,10 +41,16 @@ func trashBundle(commit string, at time.Time) fstest.MapFS {
 }
 
 type trashSource struct {
-	ref   trashsync.Ref
-	files fs.FS
-	calls int
-	err   error
+	ref        trashsync.Ref
+	files      fs.FS
+	calls      int
+	err        error
+	commits    []trashsync.Commit
+	commitsErr error
+}
+
+func (f *trashSource) Commits(context.Context, trashsync.Ref, string) ([]trashsync.Commit, error) {
+	return f.commits, f.commitsErr
 }
 
 func (f *trashSource) Latest(context.Context) (trashsync.Ref, error) { return f.ref, f.err }
@@ -59,6 +70,10 @@ type trashEnv struct {
 	st       *store.Store
 	rescored []rescoreCall
 	failWith error
+	hist     *history.Service
+	summary  imports.RescoreSummary
+	// bundled is the set the binary carries, for the startup's re-score.
+	bundled fs.FS
 	// during runs inside a re-score, to look at what the runner shows then.
 	during func(ids []int64, progress func(int))
 }
@@ -71,12 +86,12 @@ func (oneTitle) Names(context.Context) ([]library.Named, error) {
 
 type rescorer struct{ e *trashEnv }
 
-func (r rescorer) RescoreTitles(_ context.Context, snap *scoring.Snapshot, ids []int64, _ string, progress func(int)) error {
+func (r rescorer) RescoreTitles(_ context.Context, snap *scoring.Snapshot, ids []int64, _ string, progress func(int)) (imports.RescoreSummary, error) {
 	r.e.rescored = append(r.e.rescored, rescoreCall{under: snap, active: r.e.holder.Current()})
 	if r.e.during != nil {
 		r.e.during(ids, progress)
 	}
-	return r.e.failWith
+	return r.e.summary, r.e.failWith
 }
 
 func newTrashEnv(t *testing.T) *trashEnv {
@@ -86,7 +101,7 @@ func newTrashEnv(t *testing.T) *trashEnv {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	e := &trashEnv{src: &trashSource{}, st: st}
+	e := &trashEnv{src: &trashSource{}, st: st, hist: history.New(st, func() time.Time { return trashNow }, nil)}
 	e.holder = scoring.NewHolder(loadSnapshot(t, trashBundle("old", trashNow.AddDate(0, 0, -10))))
 	e.health = health.New(health.Deps{Store: st, Clock: func() time.Time { return trashNow }})
 	e.rebuild()
@@ -96,9 +111,14 @@ func newTrashEnv(t *testing.T) *trashEnv {
 // rebuild is a restart: new services over the same store and the current holder.
 func (e *trashEnv) rebuild() {
 	e.snaps = trashsync.New(trashsync.Deps{
-		Holder: e.holder, Settings: settings.New(e.st), Source: e.src, Health: e.health, Clock: func() time.Time { return trashNow },
+		Holder: e.holder, Settings: settings.New(e.st), Source: e.src, Health: e.health, Bundled: e.bundled, Clock: func() time.Time { return trashNow },
 	})
-	e.updates = jobs.NewTrashUpdates(jobs.TrashUpdatesDeps{Snapshots: e.snaps, Holder: e.holder, Library: oneTitle{}, Rescorer: rescorer{e}})
+	e.updates = jobs.NewTrashUpdates(jobs.TrashUpdatesDeps{
+		Snapshots: e.snaps, Holder: e.holder, Library: oneTitle{}, Rescorer: rescorer{e}, History: e.hist,
+		Profiles: func(context.Context) ([]scoring.UsedProfile, error) {
+			return []scoring.UsedProfile{{Name: "HD", Spec: scoring.ProfileSpec{Primary: release.LangEnglish}}}, nil
+		},
+	})
 }
 
 func (e *trashEnv) offer(commit string, at time.Time) {
@@ -299,7 +319,7 @@ func TestARequestedUpdateReturnsAtOnceAndOnePassRunsForTwoRequests(t *testing.T)
 	kicks := 0
 	e.updates.OnRequest(func() { kicks++ })
 
-	if !e.updates.RequestUpdate() || e.updates.RequestUpdate() {
+	if !e.updates.RequestUpdate(context.Background()) || e.updates.RequestUpdate(context.Background()) {
 		t.Fatal("two requests in a row must start exactly one pass")
 	}
 	if kicks != 1 || len(e.rescored) != 0 || e.holder.Current().Commit() != "old" {
@@ -312,7 +332,7 @@ func TestARequestedUpdateReturnsAtOnceAndOnePassRunsForTwoRequests(t *testing.T)
 	if e.holder.Current().Commit() != "new" || len(e.rescored) != 1 {
 		t.Errorf("active = %q, re-scores = %d after the pass", e.holder.Current().Commit(), len(e.rescored))
 	}
-	if !e.updates.RequestUpdate() {
+	if !e.updates.RequestUpdate(context.Background()) {
 		t.Error("a request after the pass was ignored")
 	}
 }
@@ -321,9 +341,9 @@ func TestARequestWhileItsPassRunsStartsNoSecondPass(t *testing.T) {
 	e := newTrashEnv(t)
 	e.offer("new", trashNow)
 	r := e.trashRunner()
-	e.updates.RequestUpdate()
+	e.updates.RequestUpdate(context.Background())
 	var again bool
-	e.during = func([]int64, func(int)) { again = e.updates.RequestUpdate() }
+	e.during = func([]int64, func(int)) { again = e.updates.RequestUpdate(context.Background()) }
 	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +368,7 @@ func TestTheTrashJobReportsProgressWhileReScoring(t *testing.T) {
 			seen = append(seen, *j.Progress)
 		}
 	}
-	e.updates.RequestUpdate()
+	e.updates.RequestUpdate(context.Background())
 	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +397,7 @@ func TestEveryTrashOutcomeIsReportedOnTheJob(t *testing.T) {
 			e := newTrashEnv(t)
 			c.setup(e)
 			r := e.trashRunner()
-			e.updates.RequestUpdate()
+			e.updates.RequestUpdate(context.Background())
 			_ = r.Pass(context.Background(), jobs.Trash)
 			o := trashJob(r).Outcome
 			if o == nil || o.Kind != c.want || !strings.Contains(o.Text, c.text) {
@@ -391,7 +411,7 @@ func TestTheDailyCheckThatIsNotDueKeepsTheLastOutcome(t *testing.T) {
 	e := newTrashEnv(t)
 	e.offer("new", trashNow)
 	r := e.trashRunner()
-	e.updates.RequestUpdate()
+	e.updates.RequestUpdate(context.Background())
 	_ = r.Pass(context.Background(), jobs.Trash)
 	first := *trashJob(r).Outcome
 	_ = e.snaps.SetAutoUpdate(context.Background(), false)
@@ -526,5 +546,214 @@ func TestApplyLanguageSavesAndReScoresBeforeReturning(t *testing.T) {
 	e.failWith = errors.New("disk full")
 	if err := e.updates.ApplyLanguage(context.Background(), lc.change("fr")); err == nil || lc.current != "de" {
 		t.Errorf("err = %v, language = %s, want a failure that keeps de", err, lc.current)
+	}
+}
+
+// tierBundle is a set with one Custom Format, WEB Tier 01 at score, in the profile that backs an English HD Profile
+// for Movies.
+func tierBundle(commit string, at time.Time, score int) fstest.MapFS {
+	m := trashBundle(commit, at)
+	m["radarr/cf/tier1.json"] = &fstest.MapFile{Data: []byte(fmt.Sprintf(
+		`{"trash_id":"tier1","name":"WEB Tier 01","trash_scores":{"default":%d},"specifications":[{"name":"FLUX","implementation":"ReleaseGroupSpecification","fields":{"value":"^(FLUX)$"}}]}`, score))}
+	m["radarr/quality-profiles/hd-bluray-web.json"] = &fstest.MapFile{Data: []byte(
+		`{"trash_id":"hd","items":[{"name":"WEBDL-1080p","allowed":true}],"formatItems":{"WEB Tier 01":"tier1"}}`)}
+	return m
+}
+
+func (e *trashEnv) entries(t *testing.T, kinds ...history.Kind) []history.Event {
+	t.Helper()
+	evs, err := e.hist.List(context.Background(), history.Filter{Kinds: kinds})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return evs
+}
+
+type trashData struct {
+	From, To, Commit, Cause string
+	CompareURL              string `json:"compare_url"`
+	Changes                 []scoring.TrashChange
+	Unused                  int
+	Commits                 []trashsync.Commit
+	ReasonsUnavailable      bool `json:"reasons_unavailable"`
+	Library                 struct {
+		Up, Down, Cutoff int
+		Wanted           []string
+	}
+}
+
+func dataOf(t *testing.T, ev history.Event) trashData {
+	t.Helper()
+	var d trashData
+	if err := json.Unmarshal(ev.Data, &d); err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func newTierEnv(t *testing.T) *trashEnv {
+	t.Helper()
+	e := newTrashEnv(t)
+	e.holder = scoring.NewHolder(loadSnapshot(t, tierBundle("old", trashNow.AddDate(0, 0, -10), 1700)))
+	e.rebuild()
+	e.src.ref = trashsync.Ref{Commit: "new", CommittedAt: trashNow}
+	e.src.files = tierBundle("new", trashNow, 1750)
+	return e
+}
+
+func TestATrashUpdateWritesOneEntryWithWhatChangedWhyAndWhatItDid(t *testing.T) {
+	e := newTierEnv(t)
+	e.src.commits = []trashsync.Commit{{SHA: "c1", Message: "Raise WEB Tier 01"}}
+	e.summary = imports.RescoreSummary{Up: 10, Down: 2, Wanted: []string{"Dune (2021)"}, Cutoff: 3}
+	ctx := history.WithTrigger(context.Background(), history.Job(history.TriggerJob, "trash"))
+	if _, err := e.updates.Update(ctx); err != nil {
+		t.Fatal(err)
+	}
+	evs := e.entries(t, history.TrashUpdated)
+	if len(evs) != 1 {
+		t.Fatalf("%d entries, want one", len(evs))
+	}
+	ev := evs[0]
+	if want := "TRaSH update old → new: 1 changed, 12 files re-scored, 1 Title Wanted"; ev.Message != want {
+		t.Errorf("message = %q, want %q", ev.Message, want)
+	}
+	if ev.Routine || ev.Trigger.Kind != history.TriggerJob || ev.Reason == "" {
+		t.Errorf("entry = %+v", ev)
+	}
+	d := dataOf(t, ev)
+	if len(d.Changes) != 1 || d.Changes[0].Text != "WEB Tier 01: 1700 → 1750 in HD" || len(d.Changes[0].Commits) != 1 || d.Changes[0].Commits[0] != "c1" {
+		t.Errorf("changes = %+v", d.Changes)
+	}
+	if d.From != "old" || d.To != "new" || len(d.Commits) != 1 || d.ReasonsUnavailable || !strings.HasSuffix(d.CompareURL, "/compare/old...new") {
+		t.Errorf("data = %+v", d)
+	}
+	if d.Library.Up != 10 || d.Library.Down != 2 || d.Library.Cutoff != 3 || len(d.Library.Wanted) != 1 {
+		t.Errorf("library = %+v", d.Library)
+	}
+}
+
+func TestATrashUpdateIsRecordedWithoutReasonsWhenGitHubCannotSayThem(t *testing.T) {
+	e := newTierEnv(t)
+	e.src.commitsErr = errors.New("offline")
+	if _, err := e.updates.Update(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	evs := e.entries(t, history.TrashUpdated)
+	if len(evs) != 1 {
+		t.Fatalf("%d entries, want one", len(evs))
+	}
+	if d := dataOf(t, evs[0]); !d.ReasonsUnavailable || len(d.Changes) != 1 || d.CompareURL == "" {
+		t.Errorf("data = %+v", d)
+	}
+}
+
+func TestUpdateFromTrashIsRecordedAsThePersonWhoAskedForIt(t *testing.T) {
+	e := newTierEnv(t)
+	r := e.trashRunner()
+	e.updates.RequestUpdate(history.WithTrigger(context.Background(), history.Person("navi", "UpdateTrash")))
+	if err := r.Pass(context.Background(), jobs.Trash); err != nil {
+		t.Fatal(err)
+	}
+	evs := e.entries(t, history.TrashUpdated)
+	if len(evs) != 1 || evs[0].Trigger.Kind != history.TriggerPerson || evs[0].Trigger.Actor != "navi" {
+		t.Errorf("entries = %+v", evs)
+	}
+}
+
+func TestAlreadyUpToDateWritesNothing(t *testing.T) {
+	e := newTierEnv(t)
+	e.src.ref = trashsync.Ref{Commit: "old", CommittedAt: trashNow.AddDate(0, 0, -10)}
+	if _, err := e.updates.Update(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if evs := e.entries(t, history.TrashUpdated, history.TrashRejected); len(evs) != 0 {
+		t.Errorf("entries = %+v", evs)
+	}
+}
+
+func TestARejectedTrashUpdateIsAWarningWithItsCommitCauseAndDiff(t *testing.T) {
+	e := newTierEnv(t)
+	e.failWith = errors.New("profile german-hd no longer resolves")
+	if _, err := e.updates.Update(context.Background()); !errors.Is(err, trashsync.ErrRejected) {
+		t.Fatalf("err = %v", err)
+	}
+	evs := e.entries(t, history.TrashRejected)
+	if len(evs) != 1 || history.SeverityOf(evs[0].Kind) != history.Warning || evs[0].Routine {
+		t.Fatalf("entries = %+v", evs)
+	}
+	d := dataOf(t, evs[0])
+	if d.Commit != "new" || !strings.Contains(d.Cause, "german-hd") || len(d.Changes) != 1 {
+		t.Errorf("data = %+v", d)
+	}
+	if len(e.entries(t, history.TrashUpdated)) != 0 {
+		t.Error("a rejected update was recorded as an update")
+	}
+
+	// A set that does not load is rejected with its cause and no diff.
+	e.failWith = nil
+	e.src.ref = trashsync.Ref{Commit: "broken", CommittedAt: trashNow.Add(time.Hour)}
+	e.src.files = fstest.MapFS{"COMMIT": {Data: []byte("broken")}}
+	_, _ = e.updates.Update(context.Background())
+	evs = e.entries(t, history.TrashRejected)
+	if len(evs) != 2 {
+		t.Fatalf("%d rejections, want 2", len(evs))
+	}
+	if d := dataOf(t, evs[0]); d.Commit != "broken" || d.Cause == "" || len(d.Changes) != 0 {
+		t.Errorf("data = %+v", d)
+	}
+}
+
+func TestTheStartupReScoreUnderANewerBundledSetIsATrashUpdate(t *testing.T) {
+	e := newTierEnv(t)
+	ctx := context.Background()
+	if _, err := e.updates.Update(ctx); err != nil { // the files are scored under "new", which is kept
+		t.Fatal(err)
+	}
+	e.bundled = tierBundle("bundled", trashNow.Add(time.Hour), 1800)
+	e.holder = scoring.NewHolder(loadSnapshot(t, e.bundled))
+	e.rebuild()
+	if err := e.updates.Start(history.WithTrigger(ctx, history.Job(history.TriggerStartup, ""))); err != nil {
+		t.Fatal(err)
+	}
+	evs := e.entries(t, history.TrashUpdated)
+	if len(evs) != 2 || evs[0].Trigger.Kind != history.TriggerStartup {
+		t.Fatalf("entries = %+v", evs)
+	}
+	if d := dataOf(t, evs[0]); d.From != "new" || d.To != "bundled" || len(d.Changes) != 1 || d.Changes[0].Text != "WEB Tier 01: 1750 → 1800 in HD" {
+		t.Errorf("data = %+v", d)
+	}
+
+	// The bundled set is kept, so the next version's can be compared with it.
+	e.bundled = tierBundle("next", trashNow.Add(2*time.Hour), 1900)
+	e.holder = scoring.NewHolder(loadSnapshot(t, e.bundled))
+	e.rebuild()
+	if err := e.updates.Start(history.WithTrigger(ctx, history.Job(history.TriggerStartup, ""))); err != nil {
+		t.Fatal(err)
+	}
+	if d := dataOf(t, e.entries(t, history.TrashUpdated)[0]); d.From != "bundled" || len(d.Changes) != 1 {
+		t.Errorf("data = %+v", d)
+	}
+}
+
+func TestTheFirstStartWritesNoTrashUpdate(t *testing.T) {
+	e := newTierEnv(t)
+	if err := e.updates.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if evs := e.entries(t, history.TrashUpdated); len(evs) != 0 {
+		t.Errorf("entries = %+v", evs)
+	}
+}
+
+func TestAStartupUpdateFromASetThatWasNotKeptSaysWhatChangedIsNotKnown(t *testing.T) {
+	e := newTierEnv(t)
+	ctx := context.Background()
+	e.snaps.NoteScored(ctx, "gone") // scored under a set nobody kept
+	if err := e.updates.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	evs := e.entries(t, history.TrashUpdated)
+	if len(evs) != 1 || evs[0].Message != "TRaSH update gone → old: what changed isn't known" {
+		t.Fatalf("entries = %+v", evs)
 	}
 }

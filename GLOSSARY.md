@@ -114,6 +114,10 @@ _Avoid_: NZB, result, torrent
 A named trait a Release can have, such as a release group tier, a Dual-Language Release or an unwanted encode, defined by TRaSH and worth a number of points under each Profile.
 _Avoid_: CF (unexpanded), tag, rule
 
+**TRaSH update**:
+Kestrel moving to a newer set of TRaSH's Custom Formats, Scores and qualities, from the daily check, "Update from TRaSH" or a new Kestrel version that bundles a newer set. Every file is re-scored under the new set before it is used; a set that cannot be used is rejected whole and the previous one stays. The Log records each TRaSH update and each rejection, with what changed.
+_Avoid_: Sync, snapshot (in what a person reads), refresh
+
 **Score**:
 The sum of the points of every Custom Format a Release matches under one Profile. The higher Score wins a Grab or an Upgrade.
 _Avoid_: Rating (that is a Title's), rank

@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"testing/fstest"
@@ -71,6 +72,43 @@ func (g GitHub) Latest(ctx context.Context) (Ref, error) {
 		return Ref{}, fmt.Errorf("unreadable commit answer: %v", err)
 	}
 	return Ref{Commit: c.SHA, CommittedAt: c.Commit.Committer.Date}, nil
+}
+
+// Commits are TRaSH's commits after from up to to that touch docs/json, newest first: one call, for why a TRaSH
+// update changed what it did.
+func (g GitHub) Commits(ctx context.Context, from Ref, to string) ([]Commit, error) {
+	q := url.Values{"sha": {to}, "path": {"docs/json"}, "per_page": {"100"}}
+	if !from.CommittedAt.IsZero() {
+		q.Set("since", from.CommittedAt.UTC().Format(time.RFC3339))
+	}
+	resp, err := g.get(ctx, g.base()+"/repos/TRaSH-Guides/Guides/commits?"+q.Encode())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var list []struct {
+		SHA    string `json:"sha"`
+		Commit struct {
+			Message string `json:"message"`
+		} `json:"commit"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, fmt.Errorf("unreadable commits answer: %v", err)
+	}
+	var out []Commit
+	for _, c := range list {
+		if c.SHA == from.Commit {
+			break
+		}
+		subject, _, _ := strings.Cut(c.Commit.Message, "\n")
+		out = append(out, Commit{SHA: c.SHA, Message: strings.TrimSpace(subject)})
+	}
+	return out, nil
+}
+
+// CompareURL is the page that shows what changed in TRaSH between two commits.
+func CompareURL(from, to string) string {
+	return "https://github.com/TRaSH-Guides/Guides/compare/" + from + "..." + to
 }
 
 // maxFile bounds one extracted file, against a hostile archive.

@@ -112,3 +112,29 @@ describe('Update from TRaSH', () => {
     expect(bodies).toEqual([{ trash: { auto_update: false } }])
   })
 })
+
+describe('What changed', () => {
+  it('opens the latest TRaSH update in the Log', async () => {
+    const entry = {
+      id: 42,
+      at: '2026-11-01T09:00:00Z',
+      kind: 'trash_updated',
+      routine: false,
+      title_id: null,
+      version_id: null,
+      episode_id: null,
+      grab_id: null,
+      request_id: null,
+      message: 'TRaSH update 1a2b3c4 → 5d6e7f8: 1 changed',
+      trigger: { kind: 'job', actor: null, via: 'trash' },
+      reason: 'the daily TRaSH check found a newer set',
+      data: { from: '1a2b3c4', to: '5d6e7f8', compare_url: 'https://github.com/TRaSH-Guides/Guides/compare/1a2b3c4...5d6e7f8', changes: [], unused: 0 },
+    }
+    server.use(http.get('/events', ({ response }) => response(200).json({ items: [entry] })))
+    await openSettings()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'What changed' }))
+
+    expect(await screen.findByRole('link', { name: 'See the changes on GitHub' })).toHaveAttribute('href', entry.data.compare_url)
+  })
+})

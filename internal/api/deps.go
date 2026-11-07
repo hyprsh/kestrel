@@ -354,7 +354,7 @@ type Scoring interface {
 // Trash is the TRaSH update service.
 type Trash interface {
 	// RequestUpdate asks the trash loop for an update pass; false when one is already waiting or running.
-	RequestUpdate() bool
+	RequestUpdate(ctx context.Context) bool
 	Status(ctx context.Context) trashsync.Status
 	// ChangeLanguage queues a Primary Language change for the trash loop's pass, which saves it and re-scores in one step.
 	ChangeLanguage(ctx context.Context, c jobs.LanguageChange)

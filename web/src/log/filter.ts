@@ -14,7 +14,8 @@ const groups: Record<string, readonly string[]> = {
   imports: ['import', 'import_episode', 'import_rejected', 'import_stalled'],
   adoption: ['adoption', 'adoption_scanned'],
   errors: ['grab_failed', 'import_rejected', 'blocklist'],
-  warnings: ['import_stalled', 'health_raised', 'original_offered'],
+  warnings: ['import_stalled', 'health_raised', 'original_offered', 'trash_rejected'],
+  trash: ['trash_updated', 'trash_rejected'],
 }
 
 /** Old links: `kind:failures` was a group of its own and now means Errors plus Warnings. */
@@ -30,6 +31,7 @@ const groupText: Record<string, { label: string }> = {
   adoption: { label: 'Adoption' },
   errors: { label: 'Errors' },
   warnings: { label: 'Warnings' },
+  trash: { label: 'TRaSH updates' },
 }
 
 /**
@@ -78,6 +80,8 @@ const menuOrder = [
   'grabs_paused',
   'grabs_resumed',
   'blocklist_removed',
+  'trash_updated',
+  'trash_rejected',
   'indexer_paused',
   'indexer_backed_off',
   'indexer_slow',
@@ -123,7 +127,7 @@ export function logQualifiers(kinds: Readonly<Record<string, string>>, titles: r
     {
       name: 'kind',
       label: 'Kind',
-      help: 'What happened, or a group: grabs, imports, adoption, errors, warnings',
+      help: 'What happened, or a group: grabs, imports, adoption, errors, warnings, trash',
       values: [...Object.keys(kinds), ...groupNames],
       unlisted: groupNames,
       excludable: true,

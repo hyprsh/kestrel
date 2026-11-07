@@ -19,6 +19,9 @@ type trashSource struct {
 	files fs.FS
 }
 
+func (s *trashSource) Commits(context.Context, trashsync.Ref, string) ([]trashsync.Commit, error) {
+	return nil, nil
+}
 func (s *trashSource) Latest(context.Context) (trashsync.Ref, error) { return s.ref, nil }
 func (s *trashSource) Download(context.Context, trashsync.Ref) (fs.FS, error) {
 	return s.files, nil

@@ -504,8 +504,8 @@ func (s *server) SearchAllWanted(ctx context.Context, _ oapi.SearchAllWantedRequ
 
 // UpdateTrash is "Update from TRaSH": it asks the trash loop for a pass and
 // answers at once. How the pass goes is its job's outcome (GET /jobs).
-func (s *server) UpdateTrash(_ context.Context, _ oapi.UpdateTrashRequestObject) (oapi.UpdateTrashResponseObject, error) {
-	s.trash.RequestUpdate()
+func (s *server) UpdateTrash(ctx context.Context, _ oapi.UpdateTrashRequestObject) (oapi.UpdateTrashResponseObject, error) {
+	s.trash.RequestUpdate(ctx)
 	return oapi.UpdateTrash202Response{}, nil
 }
 

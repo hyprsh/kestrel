@@ -124,6 +124,17 @@ const (
 	BlocklistRemoved Kind = "blocklist_removed"
 )
 
+// Kinds for TRaSH updates (#505). Neither is routine.
+const (
+	// TrashUpdated: Kestrel moved to a newer set of TRaSH's Custom Formats, Scores and qualities (a TRaSH update).
+	// Data carries the commits from and to, what changed in what backs the enabled Profiles with the TRaSH commits
+	// behind it, the count of changes to unused profiles, and what the re-score did to the Library.
+	TrashUpdated Kind = "trash_updated"
+	// TrashRejected: a TRaSH update was refused whole and the previous set stays. Data carries the commit, the cause
+	// and, when the set loaded, what it would have changed.
+	TrashRejected Kind = "trash_rejected"
+)
+
 // The Library's changes (a Title added by hand or by a Request, removed, a Version added or removed, monitoring
 // changed). The Trigger says who or what; Data carries the ids, since a removed row cannot be the entry's TitleID.
 const (
@@ -171,7 +182,7 @@ type Severity int
 const (
 	// Plain: nothing went wrong.
 	Plain Severity = iota
-	// Warning: something wants a look (an Import stalled, a Needs attention row, an Original Offer).
+	// Warning: something wants a look (an Import stalled, a Needs attention row, an Original Offer, a rejected TRaSH update).
 	Warning
 	// Failure: something went wrong (a Grab failed, an Import was rejected, a Release was blocklisted).
 	Failure
@@ -182,7 +193,7 @@ func SeverityOf(k Kind) Severity {
 	switch k {
 	case GrabFailed, ImportRejected, Blocklisted:
 		return Failure
-	case ImportStalled, HealthRaised, OriginalOffered:
+	case ImportStalled, HealthRaised, OriginalOffered, TrashRejected:
 		return Warning
 	}
 	return Plain

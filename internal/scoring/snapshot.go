@@ -23,6 +23,12 @@ var (
 	embeddedErr  error
 )
 
+// EmbeddedFiles is the TRaSH set compiled into the binary, as LoadSnapshot reads it.
+func EmbeddedFiles() fs.FS {
+	sub, _ := fs.Sub(embeddedFS, "trash")
+	return sub
+}
+
 // Embedded returns the TRaSH snapshot compiled into the binary. It is loaded
 // once and shared.
 func Embedded() (*Snapshot, error) {
@@ -65,6 +71,8 @@ type customFormat struct {
 	name   string
 	scores map[string]int
 	specs  []*spec
+	// raw are the conditions as TRaSH wrote them, for saying what a TRaSH update changed.
+	raw []rawSpec
 }
 
 // scoreIn is the CF's score in a score set, falling back to the default set
@@ -223,7 +231,7 @@ func loadCF(fsys fs.FS, file string, kind release.Kind) (*customFormat, error) {
 	if len(raw.Specs) == 0 {
 		return nil, fmt.Errorf("%s: custom format %q has no specifications", file, raw.Name)
 	}
-	cf := &customFormat{id: raw.TrashID, name: raw.Name, scores: raw.Scores}
+	cf := &customFormat{id: raw.TrashID, name: raw.Name, scores: raw.Scores, raw: raw.Specs}
 	for i, rs := range raw.Specs {
 		sp, err := compileSpec(rs, kind)
 		if err != nil {

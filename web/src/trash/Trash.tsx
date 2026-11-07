@@ -2,7 +2,9 @@ import { usePatchSettings, useSettings, useUpdateTrash } from '../api/queries'
 import { SkeletonForm } from '../loading'
 import { useStatus } from '../api/attention'
 import { snapshotAge } from '../health/tiles'
-import { Button, Checkbox, Code } from '@hyprsh/design'
+import { Button, Checkbox, Code, Link } from '@hyprsh/design'
+import { useLatestTrashUpdate } from '../api/log'
+import { useOpenPlace } from '../place'
 import { useReport } from '../toasts'
 import { trashStarted } from './toasts'
 
@@ -13,6 +15,8 @@ export function TrashForm() {
   const patch = usePatchSettings()
   const update = useUpdateTrash()
   const report = useReport()
+  const latest = useLatestTrashUpdate().data
+  const open = useOpenPlace()
   if (!settings.data) return <SkeletonForm rows={2} />
   const snapshot = status.data?.trash
 
@@ -24,6 +28,14 @@ export function TrashForm() {
       {snapshot && (
         <p className="label-12 text-gray-900">
           Using TRaSH commit <Code>{snapshot.commit.slice(0, 7)}</Code>, {snapshotAge(snapshot.committed_at)}.
+          {latest && (
+            <>
+              {' '}
+              <Link as="button" onClick={() => open(`/log/${latest.id}?q=kind:trash`)}>
+                What changed
+              </Link>
+            </>
+          )}
         </p>
       )}
       <Button
