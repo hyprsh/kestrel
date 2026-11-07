@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/hyprsh/kestrel/compare/v0.15.0...v0.15.1) (2026-11-07)
+
+> A failed download now says why: Kestrel keeps SABnzbd's own message and shows it in History, the Log and the Blocklist, instead of only "the download failed".
+
+### Bug Fixes
+
+* **acquire:** a failed Grab keeps what SABnzbd said about it, and shows that in History, the Log and the Blocklist. Its opened row says Download started until the download finishes, and gains a Release blocklisted step. A Grab that failed before this upgrade keeps the old wording, because its message is gone ([#513](https://github.com/hyprsh/kestrel/pull/513))
+
 ## [0.15.0](https://github.com/hyprsh/kestrel/compare/v0.14.0...v0.15.0) (2026-11-07)
 
 > The first run now works as documented: a new install connects to SABnzbd by name, and if SABnzbd refuses that name Kestrel says so instead of blaming your API key. The Log records what every TRaSH update changed and why, every Release, file and Grab shows its facts the same way, and a new [Customizing](https://hyprsh.github.io/kestrel/guide/customizing) guide lists what you can change and where.
