@@ -65,6 +65,26 @@ describe('the Seasons at a glance on the Title page', () => {
     expect(within(episodeGrid()).queryByRole('checkbox', { name: 'Select Season 1 episode 1' })).not.toBeInTheDocument()
   })
 
+  it('opens and closes a season from anywhere in its row, but not from its buttons', async () => {
+    await openSeries()
+    const region = screen.getByRole('region', { name: 'Seasons' })
+    const toggle = within(region).getByRole('button', { name: /^Season 1:/ })
+    const was = toggle.getAttribute('aria-expanded')
+    const row = toggle.closest('[role="row"]') as HTMLElement
+    const cells = within(row).getAllByRole('cell')
+
+    await userEvent.click(cells[0])
+    expect(toggle).not.toHaveAttribute('aria-expanded', was)
+    await userEvent.click(cells[1])
+    expect(toggle).toHaveAttribute('aria-expanded', was)
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Season 1 Actions' }))
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(within(cells[0]).getByRole('button'))
+    await userEvent.keyboard('{Escape}')
+    expect(toggle).toHaveAttribute('aria-expanded', was)
+  })
+
   it('shows the episodes of the season picked, and keeps the season in the address bar', async () => {
     await openSeries()
     expect(params().get('season')).toBeNull()

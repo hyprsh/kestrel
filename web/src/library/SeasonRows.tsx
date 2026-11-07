@@ -104,7 +104,16 @@ export function SeasonRows({
         const label = `${name}: ${standing(states, monitored)}${monitored ? `, ${tallies.map((t, i) => say(t, slots[i].name)).join('; ')}` : ''}`
         return (
           <div key={n} role="presentation" data-monitored={monitored ? 'on' : 'off'} data-season={n} data-open={isOpen ? '' : undefined} className="border-t border-gray-alpha-200">
-            <div role="row" style={grid.style} className={`${grid.className} ${phone ? 'min-h-14 px-1.5 py-2' : 'min-h-16'} hover:bg-gray-alpha-100 ${isOpen ? 'bg-gray-alpha-100' : ''}`}>
+            {/* A click anywhere in the row opens or closes the season, except on its buttons and in the menus they open (portals, outside the row). */}
+            <div
+              role="row"
+              style={grid.style}
+              className={`${grid.className} ${phone ? 'min-h-14 px-1.5 py-2' : 'min-h-16'} cursor-pointer hover:bg-gray-alpha-100 ${isOpen ? 'bg-gray-alpha-100' : ''}`}
+              onClick={(e) => {
+                const target = e.target as HTMLElement
+                if (e.currentTarget.contains(target) && !target.closest('button, a, input')) onToggle(n)
+              }}
+            >
               <span role="rowheader" className={`flex min-w-0 items-center ${phone ? '' : 'pr-2 pl-3'}`}>
                 <button
                   type="button"
